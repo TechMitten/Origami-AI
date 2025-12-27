@@ -111,27 +111,44 @@ ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
       const { text, options, id } = e.data;
       const model = await getModel();
       
-      // Signal start of generation (indeterminate progress)
-      ctx.postMessage({ 
-          type: 'progress', 
-          progress: -1, 
-          file: 'Neural Inference...', 
-          status: 'Generating Audio' 
-      });
+      const chunks = chunkText(text);
+      const audioChunks: Float32Array[] = [];
+      let totalLength = 0;
+      let sampleRate = 24000;
 
-      const audio = await model.generate(text, {
-        voice: options.voice as unknown as "af_heart", 
-        speed: options.speed,
-      });
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        if (!chunk.trim()) continue;
 
-      let blob: Blob;
-      const audioObj = audio as unknown as { toBlob?: () => Promise<Blob>, audio: Float32Array, sampling_rate: number };
-      if (typeof audioObj.toBlob === 'function') {
-           blob = await audioObj.toBlob();
-      } else {
-           blob = encodeWAV(audioObj.audio, audioObj.sampling_rate);
+        // Signal progress
+        ctx.postMessage({ 
+            type: 'progress', 
+            progress: Math.round(((i + 0.5) / chunks.length) * 100), 
+            file: `Generating chunk ${i + 1}/${chunks.length} ...`, 
+            status: 'Processing' 
+        });
+
+        const audio = await model.generate(chunk, {
+          voice: options.voice as unknown as "af_heart", 
+          speed: options.speed,
+        });
+
+        const audioObj = audio as unknown as { audio: Float32Array, sampling_rate: number };
+        
+        if (audioObj.audio) {
+            audioChunks.push(audioObj.audio);
+            totalLength += audioObj.audio.length;
+            sampleRate = audioObj.sampling_rate;
+        }
       }
       
+      const finalAudio = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of audioChunks) {
+          finalAudio.set(chunk, offset);
+          offset += chunk.length;
+      }
+
       ctx.postMessage({ 
           type: 'progress', 
           progress: 100, 
@@ -139,8 +156,10 @@ ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
           status: 'done' 
       });
 
+      const blob = encodeWAV(finalAudio, sampleRate);
       ctx.postMessage({ type: 'generate-complete', blob, id });
     }
+
   } catch (error) {
     console.error("Worker Error:", error);
     ctx.postMessage({ 
@@ -150,3 +169,55 @@ ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
     });
   }
 };
+
+function chunkText(text: string): string[] {
+    // Split by simple punctuation, keeping the punctuation
+    const parts = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+    const chunks: string[] = [];
+    let currentChunk = "";
+    
+    // Combine short sentences to reduce calls, but keep under 300 chars
+    for (const part of parts) {
+        if (currentChunk.length + part.length < 300) {
+            currentChunk += part;
+        } else {
+            if (currentChunk) chunks.push(currentChunk.trim());
+            currentChunk = part;
+        }
+    }
+    if (currentChunk) chunks.push(currentChunk.trim());
+    
+    // Final safety check for any remaining massive chunks (e.g. no punctuation)
+    return chunks.flatMap(c => {
+        if (c.length < 400) return [c];
+        
+        // Split by comma if too long
+        if (c.includes(',')) {
+             const sub = c.split(',');
+             const subChunks = [];
+             let subCurr = "";
+             for (const s of sub) {
+                 if (subCurr.length + s.length < 300) {
+                     subCurr += (subCurr ? ',' : '') + s;
+                 } else {
+                     if (subCurr) subChunks.push(subCurr.trim() + ',');
+                     subCurr = s;
+                 }
+             }
+             if (subCurr) subChunks.push(subCurr.trim());
+             return subChunks;
+        }
+        
+        // Last resort: hard split
+        const smaller = [];
+        let rem = c;
+        while (rem.length > 400) {
+            const split = rem.substring(0, 400).lastIndexOf(' ');
+            const idx = split > 0 ? split : 400;
+            smaller.push(rem.substring(0, idx));
+            rem = rem.substring(idx).trim();
+        }
+        if (rem) smaller.push(rem);
+        return smaller;
+    });
+}
