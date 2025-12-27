@@ -1,6 +1,5 @@
-import axios from 'axios';
-
-const KOKOROS_API_URL = 'http://localhost:8880';
+// @ts-ignore - Vite worker import syntax
+import TTSWorker from './tts.worker?worker';
 
 export interface TTSOptions {
   voice: string;
@@ -18,24 +17,71 @@ export const AVAILABLE_VOICES = [
   { id: 'bm_george', name: 'George (British)' },
 ];
 
-export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
-  try {
-    const response = await axios.post(`${KOKOROS_API_URL}/v1/audio/speech`, {
-      input: text,
-      voice: options.voice,
-      speed: options.speed,
-      model: "kokoro",
-      response_format: "mp3"
-    }, {
-      responseType: 'blob'
-    });
+// Singleton worker instance
+let worker: Worker | null = null;
+const pendingRequests = new Map<string, { resolve: (value: string) => void, reject: (reason?: unknown) => void }>();
 
-    const base64Audio = await blobToBase64(response.data);
-    return base64Audio;
-  } catch (error) {
-    console.error('TTS Generation failed:', error);
-    throw new Error('Failed to generate audio. Is the Kokoros TTS server running?');
+export const ttsEvents = new EventTarget();
+
+export interface ProgressEventDetail {
+    progress: number;
+    file: string;
+    status: string;
+}
+
+function getWorker(): Worker {
+  if (!worker) {
+    worker = new TTSWorker();
+    worker!.onmessage = (e: MessageEvent) => {
+      const { type, id, blob, error, progress, file, status } = e.data;
+      
+      if (type === 'generate-complete' && id) {
+        const req = pendingRequests.get(id);
+        if (req) {
+          blobToBase64(blob).then(req.resolve).catch(req.reject);
+          pendingRequests.delete(id);
+        }
+      } else if (type === 'error' && id) {
+        const req = pendingRequests.get(id);
+        if (req) {
+          req.reject(new Error(error));
+          pendingRequests.delete(id);
+        }
+      } else if (type === 'status') {
+         console.log("[TTS Service]", e.data.message);
+      } else if (type === 'progress') {
+         // Dispatch progress event
+         const event = new CustomEvent<ProgressEventDetail>('tts-progress', { 
+            detail: { progress, file, status } 
+         });
+         ttsEvents.dispatchEvent(event);
+      }
+    };
+    
+    // Initialize model eagerly
+    worker.postMessage({ type: 'init' });
   }
+  return worker!;
+}
+
+
+export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
+  const worker = getWorker();
+  const id = crypto.randomUUID();
+  
+  return new Promise((resolve, reject) => {
+    pendingRequests.set(id, { resolve, reject });
+    
+    worker.postMessage({
+      type: 'generate',
+      text,
+      options: {
+        voice: options.voice,
+        speed: options.speed
+      },
+      id
+    });
+  });
 }
 
 function blobToBase64(blob: Blob): Promise<string> {

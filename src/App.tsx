@@ -5,7 +5,7 @@ import type { PlayerRef } from '@remotion/player';
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
 import { SlideComposition } from './video/Composition';
-import { generateTTS, getAudioDuration } from './services/ttsService';
+import { generateTTS, getAudioDuration, ttsEvents, type ProgressEventDetail } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 
@@ -403,6 +403,75 @@ function App() {
       {/* Background Decor */}
       <div className="fixed top-0 right-0 -z-50 w-1/3 h-1/3 bg-branding-primary/10 blur-[120px] rounded-full" />
       <div className="fixed bottom-0 left-0 -z-50 w-1/3 h-1/3 bg-branding-secondary/10 blur-[120px] rounded-full" />
+
+      {/* TTS Progress Overlay */}
+      <TTSProgressOverlay />
+    </div>
+  );
+}
+
+function TTSProgressOverlay() {
+  const [progress, setProgress] = useState<{ p: number, status: string, file: string } | null>(null);
+  const timeoutRef = React.useRef<number | undefined>(undefined);
+
+  React.useEffect(() => {
+    const handleProgress = (e: Event) => {
+      const detail = (e as CustomEvent<ProgressEventDetail>).detail;
+      
+      // Clear any pending close timer
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
+      }
+
+      setProgress({ p: detail.progress, status: detail.status, file: detail.file });
+      
+      // Auto-hide when complete (check status or progress)
+      if (detail.status === 'done' || detail.progress >= 100) {
+         timeoutRef.current = window.setTimeout(() => {
+             setProgress(null);
+             timeoutRef.current = undefined;
+         }, 1000);
+      }
+    };
+
+    ttsEvents.addEventListener('tts-progress', handleProgress);
+
+    return () => {
+         ttsEvents.removeEventListener('tts-progress', handleProgress);
+         if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  if (!progress) return null;
+
+  const isIndeterminate = progress.p < 0;
+  const percent = isIndeterminate ? null : Math.round(progress.p);
+
+  return (
+    <div className="fixed bottom-8 right-8 z-50 bg-[#0a0a0a] border border-white/20 rounded-xl p-5 shadow-2xl shadow-black/80 animate-fade-in w-80 flex flex-col gap-3 ring-1 ring-white/10">
+      <div className="flex items-center justify-between gap-3">
+         <div className="flex items-center gap-3">
+             {isIndeterminate && <Loader2 className="w-4 h-4 text-branding-primary animate-spin shrink-0" />}
+             <h4 className="text-white font-bold text-xs uppercase tracking-wider text-shadow-sm">
+               {progress.status === 'progress' ? 'Downloading Model...' : progress.status}
+             </h4>
+         </div>
+         <span className="text-branding-primary text-xs font-mono font-bold shrink-0">
+            {percent !== null ? `${percent}%` : ''}
+         </span>
+      </div>
+      
+      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden relative">
+        <div 
+          className={`h-full bg-branding-primary transition-all duration-300 ease-out ${isIndeterminate ? 'absolute inset-0 animate-pulse w-full opacity-60' : ''}`}
+          style={{ width: isIndeterminate ? '100%' : `${percent}%` }}
+        />
+      </div>
+      
+      <p className="text-[10px] text-white/60 truncate font-mono">
+        {progress.file}
+      </p>
     </div>
   );
 }
