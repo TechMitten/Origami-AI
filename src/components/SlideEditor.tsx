@@ -133,9 +133,12 @@ const SortableSlideItem = ({
 
 
   const handleTransform = async () => {
-    const apiKey = localStorage.getItem('gemini_api_key');
+    const apiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
+    const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
+
     if (!apiKey) {
-      alert('Please enter your Gemini API Key in Settings (API Keys tab) to use this feature.');
+      alert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.');
       return;
     }
 
@@ -147,7 +150,7 @@ const SortableSlideItem = ({
 
     setIsTransforming(true);
     try {
-      const transformed = await transformText(apiKey, slide.script);
+      const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
       onUpdate(index, { script: transformed, selectionRanges: undefined });
     } catch (error) {
       alert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)));

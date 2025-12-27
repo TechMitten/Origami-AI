@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, ExternalLink } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles } from 'lucide-react';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -29,10 +29,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts'>('general');
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [model, setModel] = useState('');
 
   React.useEffect(() => {
     if (isOpen) {
-      setApiKey(localStorage.getItem('gemini_api_key') || '');
+      setApiKey(localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '');
+      setBaseUrl(localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/');
+      setModel(localStorage.getItem('llm_model') || 'gemini-2.5-flash');
     }
   }, [isOpen]);
 
@@ -72,7 +76,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
          if (ttsQuantization) reloadTTS(ttsQuantization);
     }
 
-    localStorage.setItem('gemini_api_key', apiKey);
+    localStorage.setItem('llm_api_key', apiKey);
+    localStorage.setItem('llm_base_url', baseUrl);
+    localStorage.setItem('llm_model', model);
     await onSave(settings);
     onClose();
   };
@@ -310,39 +316,62 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <Sparkles className="w-5 h-5" />
                  </div>
                  <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-white">Gemini AI Integration</h3>
+                    <h3 className="text-sm font-bold text-white">LLM Configuration</h3>
                     <p className="text-xs text-white/60 leading-relaxed">
-                       Enter your Google Gemini API key to enable AI features, such as 
-                       smart text transformation to automatically improve script quality for TTS.
+                       Configure an OpenAI-compatible endpoint (e.g., Gemini, OpenAI, LocalAI) for script enhancement.
                     </p>
                  </div>
                </div>
 
+               {/* Base URL */}
                <div className="space-y-4">
                  <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                   <Key className="w-4 h-4" /> Gemini API Key
+                   Base URL
+                 </label>
+                 <div className="relative">
+                    <input
+                     type="text"
+                     value={baseUrl}
+                     onChange={(e) => setBaseUrl(e.target.value)}
+                     placeholder="https://api.openai.com/v1"
+                     className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
+                   />
+                 </div>
+               </div>
+
+               {/* Model Name */}
+               <div className="space-y-4">
+                 <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                   Model Name
+                 </label>
+                 <div className="relative">
+                    <input
+                     type="text"
+                     value={model}
+                     onChange={(e) => setModel(e.target.value)}
+                     placeholder="gpt-4o, gemini-1.5-pro, etc."
+                     className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
+                   />
+                 </div>
+               </div>
+
+               {/* API Key */}
+               <div className="space-y-4">
+                 <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                   <Key className="w-4 h-4" /> API Key
                  </label>
                  <div className="relative">
                     <input
                      type="password"
                      value={apiKey}
                      onChange={(e) => setApiKey(e.target.value)}
-                     placeholder="AIzaSy..."
+                     placeholder="sk-..."
                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
                    />
                  </div>
                  <p className="text-[10px] text-white/30">
                     Your key is stored locally in your browser and is never sent to our servers.
                  </p>
-                  
-                 <a 
-                   href="https://aistudio.google.com/api-keys" 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 hover:bg-white/10 text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-white transition-all group w-fit"
-                 >
-                    Get Gemini API Key <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                 </a>
                </div>
             </div>
           )}

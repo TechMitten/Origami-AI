@@ -15,6 +15,22 @@ import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp } 
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
 
+/**
+ * Convert a blob URL to a base64 data URL.
+ * This is necessary because Remotion's headless browser cannot access blob URLs.
+ */
+async function blobUrlToDataUrl(blobUrl: string): Promise<string> {
+  const response = await fetch(blobUrl);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -173,7 +189,30 @@ function App() {
   const handleDownloadMP4 = async () => {
     setIsRendering(true);
     try {
-      const response = await axios.post('/api/render', { slides, musicSettings }, {
+      // Convert all blob URLs to data URLs for server-side rendering
+      // Remotion's headless browser cannot access blob URLs
+      const convertedSlides = await Promise.all(
+        slides.map(async (s) => ({
+          ...s,
+          dataUrl: s.dataUrl, // Already a data URL
+          audioUrl: s.audioUrl && s.audioUrl.startsWith('blob:') 
+            ? await blobUrlToDataUrl(s.audioUrl) 
+            : s.audioUrl,
+        }))
+      );
+
+      // Convert music URL if it's a blob
+      const convertedMusicSettings = {
+        ...musicSettings,
+        url: musicSettings.url && musicSettings.url.startsWith('blob:')
+          ? await blobUrlToDataUrl(musicSettings.url)
+          : musicSettings.url,
+      };
+
+      const response = await axios.post('/api/render', { 
+        slides: convertedSlides, 
+        musicSettings: convertedMusicSettings 
+      }, {
         responseType: 'blob'
       });
       
@@ -193,6 +232,7 @@ function App() {
     }
   };
 
+
   const handleDownloadSilent = async () => {
     if (!window.confirm("Download video without TTS audio? This will generate a video with 5s duration per slide (plus specified delays) unless otherwise configured.")) {
       return;
@@ -211,9 +251,17 @@ function App() {
         duration: undefined 
       }));
 
+      // Convert music URL if it's a blob
+      const convertedMusicSettings = {
+        ...musicSettings,
+        url: musicSettings.url && musicSettings.url.startsWith('blob:')
+          ? await blobUrlToDataUrl(musicSettings.url)
+          : musicSettings.url,
+      };
+
       const response = await axios.post('/api/render', { 
         slides: silentSlides,
-        musicSettings 
+        musicSettings: convertedMusicSettings 
       }, {
         responseType: 'blob'
       });
