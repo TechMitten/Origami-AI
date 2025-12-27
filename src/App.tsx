@@ -143,7 +143,8 @@ function App() {
       script: page.text,
       transition,
       voice,
-      postAudioDelay
+      postAudioDelay,
+      type: 'image'
     }));
     setSlides(initialSlides);
   };
@@ -199,6 +200,11 @@ function App() {
           audioUrl: s.audioUrl && s.audioUrl.startsWith('blob:') 
             ? await blobUrlToDataUrl(s.audioUrl) 
             : s.audioUrl,
+          type: s.type,
+          mediaUrl: s.mediaUrl && s.mediaUrl.startsWith('blob:')
+            ? await blobUrlToDataUrl(s.mediaUrl)
+            : s.mediaUrl,
+          isVideoMusicPaused: s.isVideoMusicPaused,
         }))
       );
 
@@ -241,16 +247,18 @@ function App() {
 
     setIsRenderingSilent(true);
     try {
-      // Create a copy of slides with audio removed
-      const silentSlides = slides.map(s => ({
+      // Create a copy of slides with audio removed, converting blobs
+      const silentSlides = await Promise.all(slides.map(async s => ({
         ...s,
         audioUrl: undefined, 
         // We leave duration to be handled by the Composition (defaults to 5s if undefined)
-        // or we can force it to undefined if it was previously set.
-        // If s.duration was set from previous audio generation, we should probably clear it 
-        // so it defaults to 5s, otherwise we get weird specific durations from the old audio.
-        duration: undefined 
-      }));
+        duration: undefined,
+        type: s.type,
+        mediaUrl: s.mediaUrl && s.mediaUrl.startsWith('blob:')
+          ? await blobUrlToDataUrl(s.mediaUrl)
+          : s.mediaUrl,
+        isVideoMusicPaused: s.isVideoMusicPaused
+      })));
 
       // Convert music URL if it's a blob
       const convertedMusicSettings = {
@@ -383,8 +391,10 @@ function App() {
                         audioUrl: s.audioUrl,
                         duration: s.duration || 5,
                         postAudioDelay: s.postAudioDelay,
-                        transition: s.transition
-
+                        transition: s.transition,
+                        type: s.type,
+                        mediaUrl: s.mediaUrl,
+                        isVideoMusicPaused: s.isVideoMusicPaused
                       })),
                       musicSettings: musicSettings
                     }}

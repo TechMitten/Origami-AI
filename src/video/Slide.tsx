@@ -1,12 +1,14 @@
 import React from 'react';
-import { AbsoluteFill, useVideoConfig, useCurrentFrame, interpolate } from 'remotion';
+import { AbsoluteFill, useVideoConfig, useCurrentFrame, interpolate, Video, Img } from 'remotion';
 
 export interface SlideProps {
-  image: string;
+  image?: string;
+  type?: 'image' | 'video';
+  mediaUrl?: string; // For video
   transition: 'fade' | 'slide' | 'zoom' | 'none';
 }
 
-export const Slide: React.FC<SlideProps> = ({ image, transition }) => {
+export const Slide: React.FC<SlideProps> = ({ image, type = 'image', mediaUrl, transition }) => {
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
 
@@ -40,7 +42,11 @@ export const Slide: React.FC<SlideProps> = ({ image, transition }) => {
 
   return (
     <AbsoluteFill className="bg-black">
-      <img src={image} style={style} alt="Slide Content" />
+      {type === 'video' && mediaUrl ? (
+          <Video src={mediaUrl} style={style} />
+      ) : (
+          <Img src={image || mediaUrl || ''} style={style} alt="Slide Content" />
+      )}
     </AbsoluteFill>
   );
 };

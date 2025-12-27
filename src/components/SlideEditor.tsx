@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2, Search } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -23,8 +23,11 @@ import { AVAILABLE_VOICES } from '../services/ttsService';
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
 
-export interface SlideData extends RenderedPage {
+export interface SlideData extends Partial<RenderedPage> {
   id: string;
+  type: 'image' | 'video';
+  mediaUrl?: string;
+  isVideoMusicPaused?: boolean;
   script: string;
   audioUrl?: string;
   duration?: number;
@@ -272,19 +275,46 @@ const SortableSlideItem = ({
       <div className="w-1/3 ml-6 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
-            Slide {index + 1}
+            Slide {index + 1} {slide.type === 'video' && '(Media)'}
           </span>
+          <button 
+             onClick={() => {
+                 if (confirm("Are you sure you want to delete this slide?")) {
+                     // We need a delete handler. 
+                     // Since we only have reorder/update, we passed reorder. 
+                     // We should add onDelete prop ideally.
+                     // The parent reorderSlides can handle filtering? 
+                     // The SortableSlideItem expects onUpdate/Reorder...
+                     // Actually SortableSlideItem is mostly for display/update.
+                     // Let's add a Delete button in the parent mapping or inject a delete handler.
+                     // For now, I'll assumem I can pass a `onDelete` prop if I update the signature.
+                     // I will update SortableSlideItem signature in next Edit.
+                 }
+             }}
+             className="hidden" // Placeholder until logic is added
+          >
+             <Trash2 className="w-3 h-3" />
+          </button>
         </div>
         
         <div 
           className="w-full aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image"
           onClick={() => onExpand(index)}
         >
-          <img 
-            src={slide.dataUrl} 
-            alt={`Slide ${index + 1}`} 
-            className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105"
-          />
+          {slide.type === 'video' ? (
+              <video 
+                src={slide.mediaUrl} 
+                className="w-full h-full object-contain"
+                muted
+              />
+          ) : (
+            <img 
+              src={slide.dataUrl} 
+              alt={`Slide ${index + 1}`} 
+              className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105"
+            />
+          )}
+          
           <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100">
              <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
           </div>
@@ -383,11 +413,12 @@ const SortableSlideItem = ({
             />
           </div>
 
-          <div className="pt-6 flex items-center gap-2">
+          
+          <div className="pt-6 flex flex-col gap-2">
              <button
               onClick={() => onGenerate(index)}
               disabled={isGenerating || !slide.script.trim()}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm cursor-pointer"
+              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm cursor-pointer justify-center"
             >
               {slide.audioUrl ? <Volume2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
               {slide.audioUrl ? 'Regenerate' : 'Generate Speech'}
@@ -397,12 +428,38 @@ const SortableSlideItem = ({
               <button
                 onClick={togglePlayback}
                 disabled={isGenerating}
-                className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 transition-all font-medium text-sm"
+                className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 transition-all font-medium text-sm justify-center"
               >
                 {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                 {isPlaying ? 'Stop' : 'Preview'}
               </button>
             )}
+
+            {slide.type === 'video' && (
+                <button
+                    onClick={() => onUpdate(index, { isVideoMusicPaused: !slide.isVideoMusicPaused })}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all font-medium text-sm justify-center border ${slide.isVideoMusicPaused ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
+                    title="Pause background music while this video plays"
+                >
+                    {slide.isVideoMusicPaused ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 opacity-50" />}
+                    {slide.isVideoMusicPaused ? 'Music Paused' : 'Music Playing'}
+                </button>
+            )}
+
+             <button
+                onClick={() => {
+                    if (confirm("Delete this slide?")) {
+                         // Hacky delete via parent reorder
+                         // We need a cleaner way to delete, but for now user didn't explicitly ask for delete UI, just insert.
+                         // But if they insert, they might want to delete.
+                         // I will dispatch a custom event or use a callback if I had one. 
+                         // SortableSlideItem props don't include onDelete.
+                         // I will skip adding Delete button for now to minimize complexity, 
+                         // as user only asked for "Insert". Reordering is supported.
+                    }
+                }}
+                className="hidden" 
+            />
           </div>
         </div>
 
@@ -436,6 +493,56 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const [findText, setFindText] = React.useState('');
   const [replaceText, setReplaceText] = React.useState('');
+
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+
+  const getVideoDuration = (url: string): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.src = url;
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+         resolve(video.duration);
+      };
+      video.onerror = () => resolve(5); 
+    });
+  };
+
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      const isVideo = file.type.startsWith('video/') || file.name.endsWith('.mp4');
+      const isGif = file.type === 'image/gif' || file.name.endsWith('.gif');
+      
+      if (!isVideo && !isGif) {
+          alert("Please upload an MP4 video or a GIF.");
+          return;
+      }
+
+      let duration = 5;
+      if (isVideo) {
+         duration = await getVideoDuration(url);
+      }
+
+      const newSlide: SlideData = {
+          id: crypto.randomUUID(),
+          type: 'video',
+          mediaUrl: isVideo ? url : undefined,
+          script: '', // Default empty script
+          transition: 'fade',
+          voice: AVAILABLE_VOICES[0].id,
+          dataUrl: isGif ? url : undefined, // Quick hack for GIF preview if it works as image
+          isVideoMusicPaused: false,
+          duration: duration,
+          postAudioDelay: 0
+      };
+      
+      onReorderSlides([...slides, newSlide]);
+    }
+    // Reset
+    if (mediaInputRef.current) mediaInputRef.current.value = '';
+  };
 
   const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -579,11 +686,20 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           </button>
 
           <div className="relative flex flex-col items-center justify-center max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
-             <img 
-               src={slides[previewIndex].dataUrl} 
-               alt={`Slide ${previewIndex + 1}`} 
-               className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
-             />
+             {slides[previewIndex].type === 'video' ? (
+                <video 
+                   src={slides[previewIndex].mediaUrl} 
+                   className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                   controls
+                   autoPlay
+                />
+             ) : (
+                <img 
+                  src={slides[previewIndex].dataUrl} 
+                  alt={`Slide ${previewIndex + 1}`} 
+                  className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                />
+             )}
              
              <div className="mt-4 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/5 text-white/80 font-medium text-sm">
                 Slide {previewIndex + 1} of {slides.length}
@@ -608,6 +724,28 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </div>
 
         <div className="mt-6 pt-6 border-t border-white/5 flex flex-wrap items-center gap-x-8 gap-y-6 pl-4.5 md:pl-0">
+           {/* Add Media Slide */}
+           <div className="space-y-2 group">
+              <input
+                type="file"
+                ref={mediaInputRef}
+                className="hidden"
+                accept="video/mp4,image/gif"
+                onChange={handleMediaUpload}
+              />
+             <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-hover:text-branding-primary transition-colors">
+               <VideoIcon className="w-3 h-3" /> Add Media
+             </label>
+            <button
+              onClick={() => mediaInputRef.current?.click()}
+              className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
+            >
+              <Plus className="w-3 h-3" />
+              Insert GIF/Video
+            </button>
+           </div>
+
+           <div className="w-px h-10 bg-white/10 hidden md:block" />
            {/* Global Voice Control */}
            <div className="flex items-end gap-3 group relative">
               <div className="space-y-2">
