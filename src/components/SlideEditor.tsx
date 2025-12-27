@@ -258,7 +258,7 @@ const SortableSlideItem = ({
               <button
                 onClick={handleTransform}
                 disabled={isTransforming || !slide.script.trim()}
-                className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 title="Use AI to transform raw PDF text into natural sentences"
               >
                 {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
@@ -345,7 +345,7 @@ const SortableSlideItem = ({
              <button
               onClick={() => onGenerate(index)}
               disabled={isGenerating || !slide.script.trim()}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm"
+              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm cursor-pointer"
             >
               {slide.audioUrl ? <Volume2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
               {slide.audioUrl ? 'Regenerate' : 'Generate Speech'}
