@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser, GripVertical } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser, GripVertical, Mic } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -341,6 +341,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
+  const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -364,6 +365,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (window.confirm(`Apply ${globalDelay}s delay to all ${slides.length} slides?`)) {
       slides.forEach((_, index) => {
         onUpdateSlide(index, { postAudioDelay: globalDelay });
+      });
+    }
+  };
+
+  const handleApplyGlobalVoice = () => {
+    const voiceName = AVAILABLE_VOICES.find(v => v.id === globalVoice)?.name;
+    if (window.confirm(`Apply "${voiceName}" voice to all ${slides.length} slides?`)) {
+      slides.forEach((_, index) => {
+        onUpdateSlide(index, { voice: globalVoice });
       });
     }
   };
@@ -429,6 +439,28 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Configure Slides</h2>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 p-1 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center gap-2 px-2 border-r border-white/10 pr-3">
+              <Mic className="w-3.5 h-3.5 text-white/40" />
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Voice All</span>
+            </div>
+            <div className="w-40">
+              <Dropdown
+                options={AVAILABLE_VOICES}
+                value={globalVoice}
+                onChange={setGlobalVoice}
+                className="scale-90 origin-left border-none"
+              />
+            </div>
+            <button
+               onClick={handleApplyGlobalVoice}
+               className="px-3 py-1 rounded hover:bg-white/10 text-branding-primary text-[10px] font-bold uppercase tracking-wider transition-colors"
+               title="Apply to all slides"
+            >
+               Set
+            </button>
+          </div>
+
           <div className="flex items-center gap-2 p-1 rounded-lg bg-white/5 border border-white/10">
             <div className="flex items-center gap-2 px-2 border-r border-white/10 pr-3">
               <Clock className="w-3.5 h-3.5 text-white/40" />
