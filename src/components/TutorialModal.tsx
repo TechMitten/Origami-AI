@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, FileText, Mic, Wand2, Music, Video, Lightbulb, Volume2, Layers, Clock } from 'lucide-react';
+import { X, FileText, Mic, Wand2, Music, Video, Lightbulb, Volume2, Layers, Clock, Settings, Key } from 'lucide-react';
 
 interface TutorialModalProps {
   isOpen: boolean;
@@ -70,7 +70,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
                      <span className="w-4 h-4 rounded bg-teal-500/50 flex items-center justify-center text-[10px] font-bold">H</span> Highlights
                    </h4>
                    <p className="text-sm text-white/50">
-                     Only want to read specific parts? <strong>Highlight text</strong> in the script box. The TTS engine will <em>only</em> speak the highlighted sections.
+                     Only want to read specific parts? <strong>Highlight text</strong> in the script box. You can select multiple distinct sections, and the TTS engine will combine them, skipping unselected text.
                    </p>
                 </div>
               </div>
@@ -116,13 +116,52 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
             </div>
           </section>
 
-           {/* Step 4: Preview & Export */}
+           {/* Step 4: Configure Settings */}
+          <section className="flex gap-6">
+             <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0 border border-orange-500/20">
+              <Settings className="w-6 h-6 text-orange-400" />
+            </div>
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-white">4. Configure Global Settings</h3>
+              <p className="text-white/60 leading-relaxed">
+                Click the <strong>Settings</strong> button in the top right to access global configurations:
+              </p>
+               <div className="grid md:grid-cols-3 gap-6">
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                      <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-branding-primary" /> General
+                      </h4>
+                      <p className="text-sm text-white/50">
+                        Set defaults for <strong>Transitions</strong>, <strong>Delay</strong>, and <strong>Music</strong> that apply to all new slides.
+                      </p>
+                  </div>
+                   <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                      <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                        <Key className="w-4 h-4 text-branding-primary" /> API Keys
+                      </h4>
+                      <p className="text-sm text-white/50">
+                        Enter your <strong>Gemini API Key</strong> to unlock the "AI Fix Script" feature.
+                      </p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                      <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-branding-primary" /> TTS Model
+                      </h4>
+                      <p className="text-sm text-white/50">
+                        Choose between <strong>High Quality (q8)</strong> or <strong>Fastest (q4)</strong> speech generation models.
+                      </p>
+                  </div>
+               </div>
+            </div>
+          </section>
+
+           {/* Step 5: Preview & Export */}
            <section className="flex gap-6">
              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
               <Video className="w-6 h-6 text-emerald-400" />
             </div>
             <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-white">4. Preview & Export</h3>
+              <h3 className="text-xl font-bold text-white">5. Preview & Export</h3>
               <p className="text-white/60 leading-relaxed">
                 Switch to the <strong>Preview Tab</strong> to watch your full video composition. When you're happy with the result, choose between:
               </p>
