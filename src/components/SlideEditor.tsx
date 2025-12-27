@@ -268,20 +268,26 @@ const SortableSlideItem = ({
       </div>
 
       {/* Slide Preview */}
-      <div 
-        className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image ml-6"
-        onClick={() => onExpand(index)}
-      >
-        <img 
-          src={slide.dataUrl} 
-          alt={`Slide ${index + 1}`} 
-          className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105"
-        />
-        <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100">
-           <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
+      {/* Slide Preview Column */}
+      <div className="w-1/3 ml-6 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
+            Slide {index + 1}
+          </span>
         </div>
-        <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/60 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">
-          Slide {index + 1}
+        
+        <div 
+          className="w-full aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image"
+          onClick={() => onExpand(index)}
+        >
+          <img 
+            src={slide.dataUrl} 
+            alt={`Slide ${index + 1}`} 
+            className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100">
+             <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
+          </div>
         </div>
       </div>
 
