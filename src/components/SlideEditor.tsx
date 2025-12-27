@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -122,6 +122,7 @@ const SortableSlideItem = ({
   const backdropRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isTransforming, setIsTransforming] = React.useState(false);
+  const [isCopied, setIsCopied] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Cleanup audio on unmount or if slide changes
@@ -176,6 +177,17 @@ const SortableSlideItem = ({
       alert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsTransforming(false);
+    }
+  };
+
+  const handleCopyScript = async () => {
+    if (!slide.script) return;
+    try {
+      await navigator.clipboard.writeText(slide.script);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
     }
   };
 
@@ -329,6 +341,15 @@ const SortableSlideItem = ({
               >
                 {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 {isTransforming ? 'Fixing...' : 'AI Fix Script'}
+              </button>
+              <button
+                onClick={handleCopyScript}
+                disabled={!slide.script.trim()}
+                className="flex items-center gap-1 text-[10px] uppercase font-bold text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Copy script to clipboard"
+              >
+                {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
+                {isCopied ? 'Copied!' : 'Copy'}
               </button>
               {slide.selectionRanges && slide.selectionRanges.length > 0 && (
                 <button
