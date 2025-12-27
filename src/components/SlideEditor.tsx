@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock } from 'lucide-react';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -296,6 +296,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
+  const [globalDelay, setGlobalDelay] = React.useState(0.5);
+
+  const handleApplyGlobalDelay = () => {
+    if (window.confirm(`Apply ${globalDelay}s delay to all ${slides.length} slides?`)) {
+      slides.forEach((_, index) => {
+        onUpdateSlide(index, { postAudioDelay: globalDelay });
+      });
+    }
+  };
 
   const handleGenerateAll = async () => {
     if (!window.confirm("This will generate audio for all slides, overwriting any existing audio. Continue?")) {
@@ -350,6 +359,28 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Configure Slides</h2>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 p-1 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center gap-2 px-2 border-r border-white/10 pr-3">
+              <Clock className="w-3.5 h-3.5 text-white/40" />
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Delay All</span>
+            </div>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={globalDelay}
+              onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
+              className="w-14 px-2 py-1 rounded bg-black/20 text-white text-xs text-center focus:ring-1 focus:ring-branding-primary outline-none border border-white/5"
+            />
+            <button
+               onClick={handleApplyGlobalDelay}
+               className="px-3 py-1 rounded hover:bg-white/10 text-branding-primary text-[10px] font-bold uppercase tracking-wider transition-colors"
+               title="Apply to all slides"
+            >
+               Set
+            </button>
+          </div>
+
           <button
             onClick={handleGenerateAll}
             disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
