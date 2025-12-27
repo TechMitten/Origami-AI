@@ -348,7 +348,7 @@ const SortableSlideItem = ({
               className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm"
             >
               {slide.audioUrl ? <Volume2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
-              {slide.audioUrl ? 'Regenerate' : 'Generate'}
+              {slide.audioUrl ? 'Regenerate' : 'Generate Speech'}
             </button>
 
             {slide.audioUrl && (
