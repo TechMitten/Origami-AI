@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square } from 'lucide-react';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -53,6 +53,35 @@ const SlideItem = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup audio on unmount or if slide changes
+  React.useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [slide.audioUrl]);
+
+  const togglePlayback = () => {
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    } else if (slide.audioUrl) {
+      const audio = new Audio(slide.audioUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.play().catch(e => {
+        console.error("Audio playback failed", e);
+        setIsPlaying(false);
+      });
+      audioRef.current = audio;
+      setIsPlaying(true);
+    }
+  };
 
 
   const syncScroll = () => {
@@ -205,7 +234,7 @@ const SlideItem = ({
             />
           </div>
 
-          <div className="pt-6">
+          <div className="pt-6 flex items-center gap-2">
              <button
               onClick={() => onGenerate(index)}
               disabled={isGenerating || !slide.script.trim()}
@@ -214,6 +243,17 @@ const SlideItem = ({
               {slide.audioUrl ? <Volume2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
               {slide.audioUrl ? 'Regenerate Audio' : 'Generate Audio'}
             </button>
+
+            {slide.audioUrl && (
+              <button
+                onClick={togglePlayback}
+                disabled={isGenerating}
+                className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 transition-all font-medium text-sm"
+              >
+                {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                {isPlaying ? 'Stop Preview' : 'Preview Audio'}
+              </button>
+            )}
           </div>
         </div>
 
