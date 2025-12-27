@@ -7,10 +7,10 @@ import { SlideEditor } from './components/SlideEditor';
 import type { SlideData } from './components/SlideEditor';
 import { SlideComposition } from './video/Composition';
 import { generateTTS, getAudioDuration } from './services/ttsService';
-import { Download, Loader2, Video } from 'lucide-react';
 import type { RenderedPage } from './services/pdfService';
-
 import { useWebMExport } from './hooks/useWebMExport';
+import { saveState, loadState, clearState } from './services/storage';
+import { Download, Loader2, Video, Trash2 } from 'lucide-react';
 
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
@@ -19,6 +19,46 @@ function App() {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const playerRef = React.useRef<PlayerRef>(null);
   const { exportWebM, isExporting, progress } = useWebMExport();
+  const [isRestoring, setIsRestoring] = useState(true);
+
+  // Load state on mount
+  React.useEffect(() => {
+    const load = async () => {
+      const state = await loadState();
+      if (state && state.slides.length > 0) {
+        setSlides(state.slides);
+      }
+      setIsRestoring(false);
+    };
+    load();
+  }, []);
+
+  // Save state on changes
+  React.useEffect(() => {
+    if (slides.length === 0 && !isRestoring) {
+        // If we just cleared slides, we might want to ensure storage is cleared too, 
+        // though handleStartOver does it explicitly. 
+        // We do nothing here to avoid re-saving empty array if not necessary,
+        // but saving empty array is also fine (effectively clear).
+        return;
+    }
+    
+    if (isRestoring || slides.length === 0) return;
+
+    const timeoutId = setTimeout(() => {
+      saveState(slides);
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [slides, isRestoring]);
+
+  const handleStartOver = async () => {
+    if (window.confirm("Are you sure you want to start over? This will delete all current slides and progress.")) {
+      await clearState();
+      setSlides([]);
+      setActiveTab('edit');
+    }
+  };
 
   const onUploadComplete = (pages: RenderedPage[]) => {
     const initialSlides: SlideData[] = pages.map(page => ({
@@ -134,6 +174,15 @@ function App() {
         {slides.length > 0 && (
           <div className="flex items-center gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
             <button
+              onClick={handleStartOver}
+              className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all"
+              title="Start Over"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+            <div className="w-px h-6 bg-white/10 mx-1" />
+            <button
               onClick={() => setActiveTab('edit')}
               className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
                 activeTab === 'edit' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
@@ -157,6 +206,11 @@ function App() {
         {slides.length === 0 ? (
           <div className="mt-20">
             <PDFUploader onUploadComplete={onUploadComplete} />
+            {isRestoring && (
+              <div className="mt-8 text-center text-white/40 animate-pulse">
+                Checking for saved session...
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-8 animate-slide-up">
