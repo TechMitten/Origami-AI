@@ -35,12 +35,20 @@ function App() {
   };
 
   const generateAudioForSlide = async (index: number) => {
-    const slide = slides[index];
-    if (!slide.script) return;
 
     setIsGenerating(true);
     try {
-      const audioUrl = await generateTTS(slide.script, {
+      const slide = slides[index];
+      const textToSpeak = slide.selectionRanges && slide.selectionRanges.length > 0
+        ? slide.selectionRanges
+            .sort((a, b) => a.start - b.start)
+            .map(r => slide.script.slice(r.start, r.end))
+            .join(' ')
+        : slide.script;
+
+      if (!textToSpeak.trim()) return;
+
+      const audioUrl = await generateTTS(textToSpeak, {
         voice: slide.voice,
         speed: 1.0,
         pitch: 1.0
