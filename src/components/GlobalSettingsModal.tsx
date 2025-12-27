@@ -1,0 +1,236 @@
+import React, { useState, useRef } from 'react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight } from 'lucide-react';
+import { AVAILABLE_VOICES } from '../services/ttsService';
+import { Dropdown } from './Dropdown';
+import type { GlobalSettings } from '../services/storage';
+
+interface GlobalSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentSettings: GlobalSettings | null;
+  onSave: (settings: GlobalSettings) => Promise<void>;
+}
+
+export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
+  isOpen,
+  onClose,
+  currentSettings,
+  onSave
+}) => {
+  const [isEnabled, setIsEnabled] = useState(currentSettings?.isEnabled ?? false);
+  const [voice, setVoice] = useState(currentSettings?.voice ?? AVAILABLE_VOICES[0].id);
+  const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
+  const [transition, setTransition] = useState<GlobalSettings['transition']>(currentSettings?.transition ?? 'fade');
+  const [musicFile, setMusicFile] = useState<File | null>(null);
+  const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.5);
+  const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
+  const [existingMusicBlob, setExistingMusicBlob] = useState<Blob | null>(currentSettings?.music?.blob ?? null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMusicFile(file);
+      setSavedMusicName(file.name);
+      setExistingMusicBlob(null); // Clear existing blob as we have a new file
+    }
+  };
+
+  const handleSave = async () => {
+    const musicBlob = musicFile ? musicFile : existingMusicBlob;
+    
+    // If enabled, validations could be added here if needed
+
+    const settings: GlobalSettings = {
+      isEnabled,
+      voice,
+      delay,
+      transition,
+      music: musicBlob && savedMusicName ? {
+        blob: musicBlob,
+        volume: musicVolume,
+        fileName: savedMusicName
+      } : undefined
+    };
+
+    await onSave(settings);
+    onClose();
+  };
+
+  const removeMusic = () => {
+    setMusicFile(null);
+    setExistingMusicBlob(null);
+    setSavedMusicName(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-branding-primary/20 text-branding-primary">
+              <Settings className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-tight">Global Defaults</h2>
+              <p className="text-xs text-white/40 font-medium">Apply configured settings to all future videos</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-8 overflow-y-auto space-y-8">
+          
+          {/* Master Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-branding-primary/5 border border-branding-primary/20">
+            <div className="space-y-1">
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                Enable Global Defaults
+                {isEnabled && <span className="text-[10px] bg-branding-primary text-black px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>}
+              </div>
+              <p className="text-xs text-white/50">Overrides individual slide settings upon creation</p>
+            </div>
+            <button
+               onClick={() => setIsEnabled(!isEnabled)}
+               className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${isEnabled ? 'bg-branding-primary' : 'bg-white/10'}`}
+            >
+               <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isEnabled ? 'translate-x-7' : 'translate-x-0'}`} />
+            </button>
+          </div>
+
+          <div className={`space-y-8 transition-opacity duration-300 ${isEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none grayscale'}`}>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Voice */}
+              <div className="space-y-4">
+                <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                  <Mic className="w-4 h-4" /> Default Voice
+                </label>
+                <Dropdown
+                  options={AVAILABLE_VOICES}
+                  value={voice}
+                  onChange={setVoice}
+                  className="bg-black/20"
+                />
+              </div>
+
+               {/* Delay */}
+               <div className="space-y-4">
+                <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                  <Clock className="w-4 h-4" /> Post-Audio Delay
+                </label>
+                <div className="relative">
+                   <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={delay}
+                    onChange={(e) => setDelay(parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-12"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/30 font-bold">SEC</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Transition */}
+              <div className="space-y-4">
+                <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                  <ChevronRight className="w-4 h-4" /> Default Transition
+                </label>
+                 <Dropdown
+                  options={[
+                    { id: 'fade', name: 'Fade' },
+                    { id: 'slide', name: 'Slide' },
+                    { id: 'zoom', name: 'Zoom' },
+                    { id: 'none', name: 'None' },
+                  ]}
+                  value={transition}
+                  onChange={(val) => setTransition(val as GlobalSettings['transition'])}
+                  className="bg-black/20"
+                />
+              </div>
+
+               {/* Music */}
+               <div className="space-y-4">
+                <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                  <Music className="w-4 h-4" /> Default Music
+                </label>
+                <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
+                  {savedMusicName ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between bg-white/5 p-2 rounded-lg">
+                        <span className="text-sm text-white truncate max-w-[150px]">{savedMusicName}</span>
+                        <button onClick={removeMusic} className="text-white/40 hover:text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] text-white/40 uppercase font-bold">
+                            <span>Volume</span>
+                            <span>{Math.round(musicVolume * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={musicVolume}
+                            onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+                            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary"
+                          />
+                      </div>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full py-3 border border-dashed border-white/20 rounded-lg text-white/40 hover:text-white hover:border-white/40 hover:bg-white/5 transition-all text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" /> Upload Track
+                    </button>
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="audio/*"
+                    onChange={handleMusicUpload}
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-white/5 bg-white/5 flex justify-end gap-3 transition-colors">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 rounded-xl font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-8 py-2.5 rounded-xl bg-branding-primary text-black font-extrabold hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all text-sm shadow-lg shadow-branding-primary/20"
+          >
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

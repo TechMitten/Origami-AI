@@ -9,6 +9,18 @@ export interface AppState {
   lastSaved: number;
 }
 
+export interface GlobalSettings {
+  isEnabled: boolean;
+  voice: string;
+  delay: number;
+  transition: 'fade' | 'slide' | 'zoom' | 'none';
+  music?: {
+    blob: Blob;
+    volume: number;
+    fileName: string;
+  }; 
+}
+
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -77,5 +89,38 @@ export const clearState = async (): Promise<void> => {
     });
   } catch (err) {
     console.error("Failed to clear state from IndexedDB", err);
+  }
+};
+
+export const saveGlobalSettings = async (settings: GlobalSettings): Promise<void> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(settings, 'globalDefaults');
+  
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  } catch (err) {
+    console.error("Failed to save global settings to IndexedDB", err);
+  }
+};
+
+export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get('globalDefaults');
+  
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result ? (request.result as GlobalSettings) : null);
+    });
+  } catch (err) {
+    console.error("Failed to load global settings from IndexedDB", err);
+    return null;
   }
 };

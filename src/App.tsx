@@ -7,9 +7,10 @@ import { SlideEditor, type SlideData, type MusicSettings } from './components/Sl
 import { SlideComposition } from './video/Composition';
 import { generateTTS, getAudioDuration } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
+import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 
-import { saveState, loadState, clearState } from './services/storage';
-import { Download, Loader2, Video, RotateCcw, VolumeX } from 'lucide-react';
+import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
+import { Download, Loader2, Video, RotateCcw, VolumeX, Settings2, Eraser } from 'lucide-react';
 
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
@@ -17,13 +18,19 @@ function App() {
   const [isRendering, setIsRendering] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.5 });
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
   const playerRef = React.useRef<PlayerRef>(null);
-const [isRestoring, setIsRestoring] = useState(true);
+  const [isRestoring, setIsRestoring] = useState(true);
 
   // Load state on mount
   React.useEffect(() => {
     const load = async () => {
       const state = await loadState();
+      const settings = await loadGlobalSettings();
+      setGlobalSettings(settings);
+
       if (state && state.slides.length > 0) {
         // Sanitize slides: Remove stale blob URLs which are invalid after reload
         const sanitizedSlides = state.slides.map(s => ({
@@ -61,16 +68,58 @@ const [isRestoring, setIsRestoring] = useState(true);
       await clearState();
       setSlides([]);
       setActiveTab('edit');
+      setMusicSettings({ volume: 0.5 }); // Reset music settings on start over
     }
   };
 
-  const onUploadComplete = (pages: RenderedPage[]) => {
+  const handleResetHighlights = () => {
+    if (window.confirm("Are you sure you want to remove ALL text highlighting from every slide?")) {
+      setSlides(prev => prev.map(s => ({ ...s, selectionRanges: undefined })));
+    }
+  };
+
+  const handleSaveGlobalSettings = async (settings: GlobalSettings) => {
+    await saveGlobalSettings(settings);
+    setGlobalSettings(settings);
+  };
+
+  const onUploadComplete = async (pages: RenderedPage[]) => {
+    // If global defaults are enabled, use them
+    let voice = 'af_heart';
+    let transition: SlideData['transition'] = 'fade';
+    let postAudioDelay: number | undefined = undefined;
+    
+    if (globalSettings?.isEnabled) {
+      voice = globalSettings.voice;
+      transition = globalSettings.transition;
+      postAudioDelay = globalSettings.delay;
+
+      // Handle Music
+      if (globalSettings.music) {
+         try {
+           const url = URL.createObjectURL(globalSettings.music.blob);
+           setMusicSettings({
+             url,
+             volume: globalSettings.music.volume
+           });
+         } catch (e) {
+           console.error("Failed to create object URL for default music", e);
+         }
+      } else {
+        setMusicSettings({ volume: 0.5 });
+      }
+    } else {
+       // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
+       setMusicSettings({ volume: 0.5 });
+    }
+
     const initialSlides: SlideData[] = pages.map(page => ({
       ...page,
       id: crypto.randomUUID(),
       script: page.text,
-      transition: 'fade',
-      voice: 'af_heart'
+      transition,
+      voice,
+      postAudioDelay
     }));
     setSlides(initialSlides);
   };
@@ -194,35 +243,54 @@ const [isRestoring, setIsRestoring] = useState(true);
           </div>
         </div>
 
-        {slides.length > 0 && (
-          <div className="flex items-center gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
-            <button
-              onClick={handleStartOver}
-              className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all"
-              title="Start Over"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">Start Over</span>
-            </button>
-            <div className="w-px h-6 bg-white/10 mx-1" />
-            <button
-              onClick={() => setActiveTab('edit')}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-                activeTab === 'edit' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
-              }`}
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => setActiveTab('preview')}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-                activeTab === 'preview' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
-              }`}
-            >
-              Preview
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            title="Global Settings"
+          >
+             <Settings2 className="w-5 h-5" />
+             <span className="hidden sm:inline">Settings</span>
+          </button>
+
+          {slides.length > 0 && (
+            <div className="flex items-center gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
+              <button
+                onClick={handleStartOver}
+                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all"
+                title="Start Over"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="hidden sm:inline">Start Over</span>
+              </button>
+              <button
+                onClick={handleResetHighlights}
+                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-red-400 hover:bg-white/5 transition-all"
+                title="Reset All Highlights"
+              >
+                <Eraser className="w-4 h-4" />
+                <span className="hidden sm:inline">Reset Highlights</span>
+              </button>
+              <div className="w-px h-6 bg-white/10 mx-1" />
+              <button
+                onClick={() => setActiveTab('edit')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  activeTab === 'edit' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
+                }`}
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setActiveTab('preview')}
+                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                  activeTab === 'preview' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
+                }`}
+              >
+                Preview
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto">
@@ -321,6 +389,16 @@ const [isRestoring, setIsRestoring] = useState(true);
           </div>
         )}
       </main>
+
+       {/* Global Settings Modal */}
+       {isSettingsOpen && (
+         <GlobalSettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          currentSettings={globalSettings}
+          onSave={handleSaveGlobalSettings}
+        />
+       )}
 
       {/* Background Decor */}
       <div className="fixed top-0 right-0 -z-50 w-1/3 h-1/3 bg-branding-primary/10 blur-[120px] rounded-full" />

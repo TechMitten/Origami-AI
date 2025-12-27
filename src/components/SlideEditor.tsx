@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser, GripVertical, Mic, Music, Trash2, Upload } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -447,13 +447,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
-  const handleResetAllHighlights = () => {
-    if (window.confirm("Are you sure you want to remove ALL text highlighting from every slide?")) {
-      slides.forEach((_, index) => {
-        onUpdateSlide(index, { selectionRanges: undefined });
-      });
-    }
-  };
+
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -502,25 +496,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3 pl-4.5 md:pl-0">
-             <button
-              onClick={handleResetAllHighlights}
-              className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10 transition-all font-medium text-sm"
-              title="Remove highlighting from all slides"
-            >
-              <Eraser className="w-4 h-4 transition-transform group-hover:-rotate-12" />
-              <span>Reset Highlights</span>
-            </button>
 
-            <button
-              onClick={handleGenerateAll}
-              disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-branding-primary text-white hover:bg-branding-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-lg shadow-branding-primary/20 hover:shadow-branding-primary/40 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <Wand2 className={`w-4 h-4 ${isBatchGenerating ? 'animate-spin' : 'group-hover:rotate-12 transition-transform'}`} />
-              {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
-            </button>
-          </div>
         </div>
 
         <div className="mt-6 pt-6 border-t border-white/5 flex flex-wrap items-center gap-x-8 gap-y-6 pl-4.5 md:pl-0">
@@ -636,6 +612,23 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     </div>
                  )}
               </div>
+           </div>
+
+           
+           <div className="w-px h-10 bg-white/5 hidden md:block" />
+
+           <div className="space-y-2 group">
+             <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-hover:text-branding-primary transition-colors">
+                <Wand2 className="w-3 h-3" /> Audio Generation
+             </label>
+            <button
+              onClick={handleGenerateAll}
+              disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+              className="h-10 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+            >
+              <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
+              {isBatchGenerating ? 'Processing...' : 'Generate All'}
+            </button>
            </div>
         </div>
 
