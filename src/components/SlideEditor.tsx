@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2 } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2, Search } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -67,20 +67,35 @@ interface SlideEditorProps {
   onUpdateMusicSettings: (settings: MusicSettings) => void;
 }
 
+function getMatchRanges(text: string, term: string) {
+  if (!term) return [];
+  const ranges = [];
+  let pos = 0;
+  while (true) {
+    const idx = text.indexOf(term, pos);
+    if (idx === -1) break;
+    ranges.push({ start: idx, end: idx + term.length });
+    pos = idx + term.length;
+  }
+  return ranges;
+}
+
 const SortableSlideItem = ({ 
   slide, 
   index, 
   onUpdate, 
   onGenerate, 
   isGenerating,
-  onExpand
+  onExpand,
+  highlightText
 }: { 
   slide: SlideData, 
   index: number, 
   onUpdate: (i: number, d: Partial<SlideData>) => void, 
   onGenerate: (i: number) => Promise<void>, 
   isGenerating: boolean,
-  onExpand: (i: number) => void
+  onExpand: (i: number) => void,
+  highlightText?: string
 }) => {
   const {
     attributes,
@@ -189,33 +204,51 @@ const SortableSlideItem = ({
 
   // Render the backdrop content
   const renderBackdrop = () => {
-    if (!slide.selectionRanges || slide.selectionRanges.length === 0) return slide.script;
-
-    const ranges = slide.selectionRanges;
-    const parts = [];
-    let lastIndex = 0;
-
-    ranges.forEach((range, i) => {
-      // Text before this range
-      if (range.start > lastIndex) {
-        parts.push(slide.script.slice(lastIndex, range.start));
-      }
-      
-      // The highlighted range
-      parts.push(
-        <mark key={i} className="bg-teal-500/30 text-transparent rounded px-0 py-0">
-          {slide.script.slice(range.start, range.end)}
-        </mark>
-      );
-      
-      lastIndex = range.end;
-    });
-
-    // Remaining text
-    if (lastIndex < slide.script.length) {
-      parts.push(slide.script.slice(lastIndex));
+    // If no highlights at all, return generic.
+    if ((!slide.selectionRanges || slide.selectionRanges.length === 0) && !highlightText) {
+         return slide.script; 
     }
 
+    const selections = slide.selectionRanges || [];
+    const matches = getMatchRanges(slide.script, highlightText || '');
+    
+    // Collect all boundaries
+    const boundaries = new Set<number>([0, slide.script.length]);
+    selections.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
+    matches.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
+    
+    // Sort
+    const points = Array.from(boundaries).sort((a, b) => a - b);
+    
+    const parts = [];
+    
+    for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i];
+        const end = points[i+1];
+        const text = slide.script.slice(start, end);
+        
+        if (!text) continue;
+        
+        // Check membership
+        const isSelected = selections.some(r => r.start <= start && r.end >= end);
+        const isMatch = matches.some(r => r.start <= start && r.end >= end);
+        
+        let className = "";
+        if (isSelected && isMatch) {
+            className = "bg-emerald-500/60"; // Mixed overlap
+        } else if (isSelected) {
+            className = "bg-teal-500/30"; 
+        } else if (isMatch) {
+            className = "bg-yellow-500/60"; 
+        }
+        
+        if (className) {
+            parts.push(<mark key={start} className={`${className} text-transparent rounded-sm px-0 py-0`}>{text}</mark>);
+        } else {
+            parts.push(text);
+        }
+    }
+    
     return <>{parts}</>;
   };
 
@@ -395,6 +428,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
 
+  const [findText, setFindText] = React.useState('');
+  const [replaceText, setReplaceText] = React.useState('');
+
   const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -486,6 +522,33 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
+  const handleFindAndReplace = () => {
+    if (!findText) return;
+
+    let matchCount = 0;
+    const newSlides = slides.map(s => {
+        const occurrences = s.script.split(findText).length - 1;
+        if (occurrences > 0) {
+            matchCount += occurrences;
+            return {
+                ...s,
+                script: s.script.split(findText).join(replaceText),
+                selectionRanges: undefined // Clear highlights as they are likely invalid after text change
+            };
+        }
+        return s;
+    });
+
+    if (matchCount > 0) {
+        if (window.confirm(`Found ${matchCount} matches. Replace all occurrences of "${findText}" with "${replaceText}"?`)) {
+             onReorderSlides(newSlides);
+             alert(`Replaced ${matchCount} occurrences.`);
+        }
+    } else {
+        alert("No matches found.");
+    }
+  };
+
 
 
   return (
@@ -530,7 +593,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
               Configure Slides
             </h2>
-            <p className="text-sm text-white/40 font-medium pl-4.5">
+            <p className="text-sm text-white/70 font-medium pl-4.5">
               Manage {slides.length} slides, voice settings, and audio generation
             </p>
           </div>
@@ -542,32 +605,32 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            {/* Global Voice Control */}
            <div className="flex items-end gap-3 group relative">
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
-                  <Mic className="w-3 h-3" /> Global Voice
-                </label>
+                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                   <Mic className="w-3 h-3" /> Global Voice
+                 </label>
                 <div className="w-64">
                   <Dropdown
                     options={AVAILABLE_VOICES}
                     value={globalVoice}
                     onChange={setGlobalVoice}
-                    className="bg-black/20 hover:bg-black/30 transition-colors"
+                    className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white"
                   />
                 </div>
               </div>
               <button
                  onClick={handleApplyGlobalVoice}
-                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all"
+                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all"
               >
                  Apply All
               </button>
            </div>
 
-           <div className="w-px h-10 bg-white/5 hidden md:block" />
+           <div className="w-px h-10 bg-white/10 hidden md:block" />
 
            {/* Global Delay Control */}
            <div className="flex items-end gap-3 group">
               <div className="space-y-2">
-                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
                     <Clock className="w-3 h-3" /> Global Delay
                  </label>
                  <div className="relative">
@@ -577,20 +640,20 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     step="0.5"
                     value={globalDelay}
                     onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
-                    className="w-28 px-4 py-2.5 rounded-lg bg-black/20 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-8 hover:bg-black/30"
+                    className="w-28 px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-8 hover:bg-white/20"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/30 pointer-events-none font-bold">SEC</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/50 pointer-events-none font-bold">SEC</span>
                  </div>
               </div>
               <button
                  onClick={handleApplyGlobalDelay}
-                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all"
+                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all"
               >
                  Apply All
               </button>
            </div>
 
-           <div className="w-px h-10 bg-white/5 hidden md:block" />
+           <div className="w-px h-10 bg-white/10 hidden md:block" />
 
            {/* Background Music Control */}
            <div className="flex items-end gap-3 group relative">
@@ -602,19 +665,19 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 onChange={handleMusicUpload}
               />
               <div className="space-y-2">
-                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
                     <Music className="w-3 h-3" /> Background Music
                  </label>
                  
                  {!musicSettings.url ? (
                     <button 
                         onClick={() => fileInputRef.current?.click()}
-                        className="h-10 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2"
+                        className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2"
                     >
                         <Upload className="w-3 h-3" /> Upload Track
                     </button>
                  ) : (
-                    <div className="flex items-center gap-2 h-10 bg-black/20 rounded-lg p-1 border border-white/10">
+                    <div className="flex items-center gap-2 h-10 bg-white/10 rounded-lg p-1 border border-white/20">
                         <button
                             onClick={toggleMusicPlayback}
                             className="w-8 h-8 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -654,20 +717,55 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            </div>
 
            
-           <div className="w-px h-10 bg-white/5 hidden md:block" />
+           <div className="w-px h-10 bg-white/10 hidden md:block" />
 
            <div className="space-y-2 group">
-             <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-hover:text-branding-primary transition-colors">
+             <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-hover:text-branding-primary transition-colors">
                 <Wand2 className="w-3 h-3" /> Audio Generation
              </label>
             <button
               onClick={handleGenerateAll}
               disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-              className="h-10 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+              className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
             >
               <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
               {isBatchGenerating ? 'Processing...' : 'Generate All'}
             </button>
+           </div>
+
+           <div className="w-px h-10 bg-white/10 hidden md:block" />
+
+           {/* Find & Replace */}
+           <div className="flex items-end gap-3 group">
+              <div className="space-y-2">
+                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                    <Search className="w-3 h-3" /> Find & Replace
+                 </label>
+                 <div className="flex items-center gap-2">
+                   <input
+                    type="text"
+                    placeholder="Find..."
+                    value={findText}
+                    onChange={(e) => setFindText(e.target.value)}
+                    className="w-32 px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
+                  />
+                   <span className="text-white/50 text-xs">→</span>
+                   <input
+                    type="text"
+                    placeholder="Replace..."
+                    value={replaceText}
+                    onChange={(e) => setReplaceText(e.target.value)}
+                    className="w-32 px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
+                  />
+                 </div>
+              </div>
+              <button
+                 onClick={handleFindAndReplace}
+                 disabled={!findText}
+                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                 Replace All
+              </button>
            </div>
         </div>
 
@@ -692,6 +790,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  onGenerate={onGenerateAudio}
                  isGenerating={isGeneratingAudio || isBatchGenerating}
                  onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
+                 highlightText={findText}
               />
             ))}
           </div>
