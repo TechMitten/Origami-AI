@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
+import uploadIllustration from '../assets/images/upload-illustration.png';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { clsx, type ClassValue } from 'clsx';
@@ -60,10 +61,14 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
           {isProcessing ? (
             <Loader2 className="w-16 h-16 text-branding-primary animate-spin mb-4" />
           ) : (
-            <Upload className={cn(
-              "w-16 h-16 mb-4 transition-transform duration-300",
-              isDragActive ? "scale-110 text-branding-primary" : "text-white/40 group-hover:text-branding-primary group-hover:scale-105"
-            )} />
+            <img 
+              src={uploadIllustration} 
+              alt="Upload"
+              className={cn(
+                "w-48 h-48 mb-6 object-contain drop-shadow-[0_0_30px_rgba(0,209,255,0.3)] transition-transform duration-500",
+                isDragActive ? "scale-110" : "group-hover:scale-105"
+              )} 
+            />
           )}
           
           <h3 className="text-2xl font-bold mb-2 tracking-tight">

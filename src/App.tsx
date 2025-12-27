@@ -11,7 +11,9 @@ import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, Video, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp } from 'lucide-react';
+import backgroundImage from './assets/images/background.png';
+import appLogo from './assets/images/app-logo.png';
 
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
@@ -239,8 +241,8 @@ function App() {
       {/* Header */}
       <header className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-branding-primary flex items-center justify-center shadow-lg shadow-branding-primary/20">
-            <Video className="text-black w-7 h-7" />
+          <div className="w-12 h-12 rounded-xl bg-black/50 flex items-center justify-center shadow-lg shadow-branding-primary/20 border border-white/10 overflow-hidden">
+            <img src={appLogo} alt="Logo" className="w-full h-full object-cover" />
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tighter uppercase italic">PDF to Tutorial</h1>
@@ -419,9 +421,12 @@ function App() {
           onClose={() => setIsTutorialOpen(false)} 
        />
 
-      {/* Background Decor */}
-      <div className="fixed top-0 right-0 -z-50 w-1/3 h-1/3 bg-branding-primary/10 blur-[120px] rounded-full" />
-      <div className="fixed bottom-0 left-0 -z-50 w-1/3 h-1/3 bg-branding-secondary/10 blur-[120px] rounded-full" />
+      {/* Background Image */}
+      <img 
+        src={backgroundImage} 
+        alt="" 
+        className="fixed inset-0 -z-50 w-full h-full object-cover opacity-40 blur-[2px] brightness-75 scale-105" 
+      />
 
       {/* TTS Progress Overlay */}
       <TTSProgressOverlay />
