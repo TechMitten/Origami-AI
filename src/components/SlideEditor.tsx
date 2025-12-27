@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser } from 'lucide-react';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -153,7 +153,7 @@ const SlideItem = ({
   };
 
   return (
-    <div className="group relative flex gap-6 p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-all duration-300">
+    <div className="group relative flex gap-6 p-6 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-all duration-300">
       {/* Slide Preview */}
       <div 
         className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image"
@@ -321,6 +321,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
+  const handleResetAllHighlights = () => {
+    if (window.confirm("Are you sure you want to remove ALL text highlighting from every slide?")) {
+      slides.forEach((_, index) => {
+        onUpdateSlide(index, { selectionRanges: undefined });
+      });
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fade-in relative">
       {/* Expanded Slide Modal */}
@@ -380,6 +388,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                Set
             </button>
           </div>
+
+          <button
+            onClick={handleResetAllHighlights}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all font-bold text-sm"
+            title="Remove highlighting from all slides"
+          >
+            <Eraser className="w-4 h-4" />
+            <span className="hidden lg:inline">Reset Highlights</span>
+          </button>
 
           <button
             onClick={handleGenerateAll}
