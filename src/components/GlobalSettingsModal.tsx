@@ -4,6 +4,8 @@ import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 
+import { reloadTTS } from '../services/ttsService';
+
 interface GlobalSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +26,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.5);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'api'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts'>('general');
+  const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
   const [apiKey, setApiKey] = useState('');
 
   React.useEffect(() => {
@@ -60,8 +63,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         blob: musicBlob,
         volume: musicVolume,
         fileName: savedMusicName
-      } : undefined
+      } : undefined,
+      ttsQuantization
     };
+    
+    // Check if quantization changed to reload model
+    if (currentSettings?.ttsQuantization !== ttsQuantization) {
+         if (ttsQuantization) reloadTTS(ttsQuantization);
+    }
 
     localStorage.setItem('gemini_api_key', apiKey);
     await onSave(settings);
@@ -115,6 +124,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
            >
              <Key className="w-4 h-4" /> API Keys
            </button>
+           <button
+             onClick={() => setActiveTab('tts')}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tts' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           >
+             <Mic className="w-4 h-4" /> TTS Model
+           </button>
         </div>
 
         {/* Content */}
@@ -142,18 +157,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           <div className={`space-y-8 transition-opacity duration-300 ${isEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none grayscale'}`}>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Voice */}
-              <div className="space-y-4">
-                <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                  <Mic className="w-4 h-4" /> Default Voice
-                </label>
-                <Dropdown
-                  options={AVAILABLE_VOICES}
-                  value={voice}
-                  onChange={setVoice}
-                  className="bg-black/20"
-                />
-              </div>
+
 
                {/* Delay */}
                <div className="space-y-4">
@@ -244,6 +248,61 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
           </div>
           </>
+          ) : activeTab === 'tts' ? (
+              <div className="space-y-8">
+                <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex gap-4">
+                        <div className="p-2 rounded-lg bg-blue-500/20 text-blue-500 h-fit">
+                            <Mic className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-sm font-bold text-white">Kokoro TTS Configuration</h3>
+                            <p className="text-xs text-white/60 leading-relaxed">
+                                Configure the local Text-to-Speech model. "q8" offers higher quality but is larger (~80MB), 
+                                while "q4" is faster and smaller (~45MB) with slightly reduced quality.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                            <Mic className="w-4 h-4" /> Default Voice
+                        </label>
+                        <Dropdown
+                            options={AVAILABLE_VOICES}
+                            value={voice}
+                            onChange={setVoice}
+                            className="bg-black/20"
+                        />
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                            Model Quantization
+                        </label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <button
+                                onClick={() => setTtsQuantization('q8')}
+                                className={`p-4 rounded-xl border flex flex-col gap-2 transition-all ${ttsQuantization === 'q8' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                            >
+                                <span className="text-lg font-bold">q8 (High Quality)</span>
+                                <span className={`text-xs ${ttsQuantization === 'q8' ? 'text-black/60' : 'text-white/40'}`}>
+                                    Recommended for best audio output.
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setTtsQuantization('q4')}
+                                className={`p-4 rounded-xl border flex flex-col gap-2 transition-all ${ttsQuantization === 'q4' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                            >
+                                <span className="text-lg font-bold">q4 (Fastest)</span>
+                                <span className={`text-xs ${ttsQuantization === 'q4' ? 'text-black/60' : 'text-white/40'}`}>
+                                    Faster inference, smaller download.
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+              </div>
           ) : (
             <div className="space-y-6">
                <div className="p-4 rounded-xl bg-branding-accent/10 border border-branding-accent/20 flex gap-4">

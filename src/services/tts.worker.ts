@@ -2,7 +2,7 @@ import { KokoroTTS } from 'kokoro-js';
 
 // Types for worker messages
 export type TTSWorkerRequest = 
-  | { type: 'init' }
+  | { type: 'init', quantization?: 'q8' | 'q4' }
   | { type: 'generate', text: string, options: { voice: string, speed: number }, id: string };
 
 export type TTSWorkerResponse =
@@ -21,15 +21,18 @@ env.useBrowserCache = true;
 
 const ctx = self as unknown as Worker;
 
-async function getModel(): Promise<KokoroTTS> {
+async function getModel(quantization: 'q8' | 'q4' = 'q4'): Promise<KokoroTTS> {
+  // If model exists but quantization is different, we'd ideally reload. 
+  // For simplicity in this worker pattern, we assume 'init' is called only once or we assume the worker is terminated and recreated on change.
+  // However, let's support minimal re-init if ttsModel is null.
   if (ttsModel) return ttsModel;
   
   if (!initPromise) {
       initPromise = (async () => {
-          console.log("Worker: Initializing KokoroTTS...");
-          ctx.postMessage({ type: 'status', message: 'Loading model...' });
+          console.log(`Worker: Initializing KokoroTTS with ${quantization}...`);
+          ctx.postMessage({ type: 'status', message: `Loading model (${quantization})...` });
           ttsModel = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-ONNX', {
-            dtype: 'q4', // Quantized for speed/size
+            dtype: quantization, // Quantized for speed/size
             progress_callback: (p: unknown) => {
                 const pObj = p as { progress?: number; file?: string; status?: string };
                 // If progress is missing or NaN, treat as indeterminate (-1)
@@ -99,12 +102,12 @@ function floatTo16BitPCM(output: DataView, offset: number, input: Float32Array) 
 }
 
 ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
-  const { type } = e.data;
+
 
   try {
-    if (type === 'init') {
-      await getModel();
-    } else if (type === 'generate') {
+    if (e.data.type === 'init') {
+      await getModel(e.data.quantization || 'q4');
+    } else if (e.data.type === 'generate') {
       const { text, options, id } = e.data;
       const model = await getModel();
       

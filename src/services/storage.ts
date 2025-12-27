@@ -18,7 +18,8 @@ export interface GlobalSettings {
     blob: Blob;
     volume: number;
     fileName: string;
-  }; 
+  };
+  ttsQuantization?: 'q8' | 'q4';
 }
 
 const openDB = (): Promise<IDBDatabase> => {

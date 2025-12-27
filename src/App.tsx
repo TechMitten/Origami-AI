@@ -5,7 +5,7 @@ import type { PlayerRef } from '@remotion/player';
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
 import { SlideComposition } from './video/Composition';
-import { generateTTS, getAudioDuration, ttsEvents, type ProgressEventDetail } from './services/ttsService';
+import { generateTTS, getAudioDuration, ttsEvents, initTTS, type ProgressEventDetail } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 
@@ -30,6 +30,9 @@ function App() {
       const state = await loadState();
       const settings = await loadGlobalSettings();
       setGlobalSettings(settings);
+      
+      // Initialize TTS with saved quantization preference
+      initTTS(settings?.ttsQuantization || 'q4');
 
       if (state && state.slides.length > 0) {
         // Sanitize slides: Remove stale blob URLs which are invalid after reload

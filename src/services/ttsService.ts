@@ -1,4 +1,3 @@
-// @ts-ignore - Vite worker import syntax
 import TTSWorker from './tts.worker?worker';
 
 export interface TTSOptions {
@@ -29,7 +28,8 @@ export interface ProgressEventDetail {
     status: string;
 }
 
-function getWorker(): Worker {
+
+function getWorker(quantization: 'q8' | 'q4' = 'q4'): Worker {
   if (!worker) {
     worker = new TTSWorker();
     worker!.onmessage = (e: MessageEvent) => {
@@ -58,10 +58,23 @@ function getWorker(): Worker {
       }
     };
     
-    // Initialize model eagerly
-    worker.postMessage({ type: 'init' });
+    // Initialize model eagerly with quantization
+    worker.postMessage({ type: 'init', quantization });
   }
   return worker!;
+}
+
+
+export function initTTS(quantization: 'q8' | 'q4' = 'q4') {
+    getWorker(quantization);
+}
+
+export function reloadTTS(quantization: 'q8' | 'q4') {
+    if (worker) {
+        worker.terminate();
+        worker = null;
+    }
+    initTTS(quantization);
 }
 
 
