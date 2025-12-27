@@ -21,10 +21,7 @@ async function createServer() {
     appType: 'spa',
   });
 
-  // Use vite's connect instance as middleware
-  // If you use your own express router (express.Router()), you should use router.use
-  app.use(vite.middlewares);
-
+  // API Routes
   app.post('/api/render', async (req, res) => {
     try {
       const { slides } = req.body;
@@ -61,6 +58,8 @@ async function createServer() {
         codec: 'h264',
         outputLocation,
         inputProps: { slides },
+        verbose: true,     // Enable verbose logging to see puppeteer errors
+        dumpBrowserLogs: true, // Dump browser console logs to terminal
       });
 
       console.log('Render complete:', outputLocation);
@@ -79,6 +78,12 @@ async function createServer() {
       res.status(500).json({ error: (error as Error).message });
     }
   });
+
+  // Use vite's connect instance as middleware
+  // If you use your own express router (express.Router()), you should use router.use
+  app.use(vite.middlewares);
+
+
 
   const port = process.env.PORT || 5173;
   app.listen(port, () => {

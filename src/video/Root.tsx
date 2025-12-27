@@ -1,11 +1,11 @@
-import { Composition } from 'remotion';
+import { Composition, registerRoot } from 'remotion';
 import { SlideComposition } from './Composition';
-import type { SlideCompositionProps } from './Composition';
+
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      <Composition<SlideCompositionProps, SlideCompositionProps>
+      <Composition
         id="TechTutorial"
         component={SlideComposition}
         durationInFrames={300} // This will be dynamic in the actual player
@@ -20,3 +20,5 @@ export const RemotionRoot: React.FC = () => {
     </>
   );
 };
+
+registerRoot(RemotionRoot);

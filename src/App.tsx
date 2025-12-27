@@ -26,7 +26,12 @@ function App() {
     const load = async () => {
       const state = await loadState();
       if (state && state.slides.length > 0) {
-        setSlides(state.slides);
+        // Sanitize slides: Remove stale blob URLs which are invalid after reload
+        const sanitizedSlides = state.slides.map(s => ({
+          ...s,
+          audioUrl: s.audioUrl && s.audioUrl.startsWith('blob:') ? undefined : s.audioUrl
+        }));
+        setSlides(sanitizedSlides);
       }
       setIsRestoring(false);
     };
@@ -221,6 +226,7 @@ function App() {
                   <Player
                     ref={playerRef}
                     component={SlideComposition}
+                    acknowledgeRemotionLicense={true}
                     inputProps={{
                       slides: slides.map(s => ({
                         dataUrl: s.dataUrl,

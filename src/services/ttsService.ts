@@ -30,11 +30,21 @@ export async function generateTTS(text: string, options: TTSOptions): Promise<st
       responseType: 'blob'
     });
 
-    return URL.createObjectURL(response.data);
+    const base64Audio = await blobToBase64(response.data);
+    return base64Audio;
   } catch (error) {
     console.error('TTS Generation failed:', error);
     throw new Error('Failed to generate audio. Is the Kokoros TTS server running?');
   }
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 export async function getAudioDuration(url: string): Promise<number> {
