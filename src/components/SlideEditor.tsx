@@ -90,7 +90,8 @@ const SortableSlideItem = ({
   onGenerate, 
   isGenerating,
   onExpand,
-  highlightText
+  highlightText,
+  onDelete
 }: { 
   slide: SlideData, 
   index: number, 
@@ -98,7 +99,8 @@ const SortableSlideItem = ({
   onGenerate: (i: number) => Promise<void>, 
   isGenerating: boolean,
   onExpand: (i: number) => void,
-  highlightText?: string
+  highlightText?: string,
+  onDelete: (index: number) => void;
 }) => {
   const {
     attributes,
@@ -278,22 +280,14 @@ const SortableSlideItem = ({
             Slide {index + 1} {slide.type === 'video' && '(Media)'}
           </span>
           <button 
-             onClick={() => {
-                 if (confirm("Are you sure you want to delete this slide?")) {
-                     // We need a delete handler. 
-                     // Since we only have reorder/update, we passed reorder. 
-                     // We should add onDelete prop ideally.
-                     // The parent reorderSlides can handle filtering? 
-                     // The SortableSlideItem expects onUpdate/Reorder...
-                     // Actually SortableSlideItem is mostly for display/update.
-                     // Let's add a Delete button in the parent mapping or inject a delete handler.
-                     // For now, I'll assumem I can pass a `onDelete` prop if I update the signature.
-                     // I will update SortableSlideItem signature in next Edit.
-                 }
+             onClick={(e) => {
+                 e.stopPropagation();
+                 onDelete(index);
              }}
-             className="hidden" // Placeholder until logic is added
+             className="p-1.5 text-white/20 hover:text-red-400 hover:bg-white/5 rounded-lg transition-all"
+             title="Delete Slide"
           >
-             <Trash2 className="w-3 h-3" />
+             <Trash2 className="w-4 h-4 opacity-70 hover:opacity-100" />
           </button>
         </div>
         
@@ -446,20 +440,7 @@ const SortableSlideItem = ({
                 </button>
             )}
 
-             <button
-                onClick={() => {
-                    if (confirm("Delete this slide?")) {
-                         // Hacky delete via parent reorder
-                         // We need a cleaner way to delete, but for now user didn't explicitly ask for delete UI, just insert.
-                         // But if they insert, they might want to delete.
-                         // I will dispatch a custom event or use a callback if I had one. 
-                         // SortableSlideItem props don't include onDelete.
-                         // I will skip adding Delete button for now to minimize complexity, 
-                         // as user only asked for "Insert". Reordering is supported.
-                    }
-                }}
-                className="hidden" 
-            />
+
           </div>
         </div>
 
@@ -659,6 +640,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         }
     } else {
         alert("No matches found.");
+    }
+  };
+
+  const handleDeleteSlide = (index: number) => {
+    if (confirm("Are you sure you want to delete this slide?")) {
+        const newSlides = [...slides];
+        newSlides.splice(index, 1);
+        onReorderSlides(newSlides);
     }
   };
 
@@ -935,6 +924,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  isGenerating={isGeneratingAudio || isBatchGenerating}
                  onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
                  highlightText={findText}
+                 onDelete={handleDeleteSlide}
               />
             ))}
           </div>
