@@ -1,0 +1,150 @@
+
+import React from 'react';
+import { X, FileText, Mic, Wand2, Music, Video, Lightbulb, Volume2, Layers, Clock } from 'lucide-react';
+
+interface TutorialModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div 
+        className="relative w-full max-w-4xl max-h-[85vh] bg-[#0F0F0F] rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-8 border-b border-white/5 flex items-center justify-between bg-linear-to-r from-white/5 to-transparent">
+          <div className="space-y-1">
+             <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+               <Lightbulb className="w-8 h-8 text-branding-primary" />
+               How to Use
+             </h2>
+             <p className="text-white/40 font-medium">Master the art of creating tutorials in minutes</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 -mr-2 text-white/40 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-8 space-y-12 scroller">
+          
+          {/* Step 1: Upload */}
+          <section className="flex gap-6">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20">
+              <FileText className="w-6 h-6 text-blue-400" />
+            </div>
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-white">1. Import Your Content</h3>
+              <p className="text-white/60 leading-relaxed">
+                Start by uploading a PDF document. Each page of your PDF will automatically become a slide in your video. The text from each page is extracted to serve as the initial script for the Text-to-Speech (TTS) engine.
+              </p>
+            </div>
+          </section>
+
+          {/* Step 2: Edit & Refine */}
+          <section className="flex gap-6">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-500/20">
+              <Mic className="w-6 h-6 text-purple-400" />
+            </div>
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-white">2. Create Your Script & Audio</h3>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                   <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                     <Wand2 className="w-4 h-4 text-branding-primary" /> AI Enhancement
+                   </h4>
+                   <p className="text-sm text-white/50">
+                     Raw PDF text can be messy. Use the <strong>"AI Fix Script"</strong> button to instantly transform fragmented text into natural, spoken sentences.
+                   </p>
+                </div>
+                <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                   <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                     <span className="w-4 h-4 rounded bg-teal-500/50 flex items-center justify-center text-[10px] font-bold">H</span> Highlights
+                   </h4>
+                   <p className="text-sm text-white/50">
+                     Only want to read specific parts? <strong>Highlight text</strong> in the script box. The TTS engine will <em>only</em> speak the highlighted sections.
+                   </p>
+                </div>
+              </div>
+      <div className="grid md:grid-cols-3 gap-6">
+          <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+               <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                 <Volume2 className="w-4 h-4 text-branding-primary" /> Voice
+               </h4>
+               <p className="text-sm text-white/50">
+                 Assign unique voices to different slides for a dynamic narration experience.
+               </p>
+          </div>
+          <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+               <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                 <Layers className="w-4 h-4 text-branding-primary" /> Transition
+               </h4>
+               <p className="text-sm text-white/50">
+                 Choose visual transitions (Fade, Slide, Zoom, None) for how the slide appears.
+               </p>
+          </div>
+           <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+               <h4 className="font-bold text-white mb-2 flex items-center gap-2">
+                 <Clock className="w-4 h-4 text-branding-primary" /> Delay
+               </h4>
+               <p className="text-sm text-white/50">
+                 Set wait time (seconds) <em>after</em> audio ends before moving to the next slide.
+               </p>
+          </div>
+      </div>
+            </div>
+          </section>
+
+          {/* Step 3: Music & Atmosphere */}
+          <section className="flex gap-6">
+             <div className="w-12 h-12 rounded-2xl bg-pink-500/10 flex items-center justify-center shrink-0 border border-pink-500/20">
+              <Music className="w-6 h-6 text-pink-400" />
+            </div>
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-white">3. Add Atmosphere</h3>
+              <p className="text-white/60 leading-relaxed">
+                Upload a background music track to set the mood. Adjust the volume slider to ensure it doesn't overpower the voiceover. Use the global settings to persist your favorite track across sessions.
+              </p>
+            </div>
+          </section>
+
+           {/* Step 4: Preview & Export */}
+           <section className="flex gap-6">
+             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
+              <Video className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-white">4. Preview & Export</h3>
+              <p className="text-white/60 leading-relaxed">
+                Switch to the <strong>Preview Tab</strong> to watch your full video composition. When you're happy with the result, choose between:
+              </p>
+              <ul className="space-y-2 text-sm text-white/60 list-disc pl-5">
+                <li><strong>Download Video (With TTS)</strong>: The complete package with all voiceovers and music.</li>
+                <li><strong>Download Silent Video</strong>: Perfect if you want to record your own voiceover later or just need the visuals.</li>
+              </ul>
+            </div>
+          </section>
+
+        </div>
+        
+        {/* Footer */}
+        <div className="p-6 border-t border-white/10 bg-black/20 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="px-8 py-3 rounded-xl bg-white text-black font-bold hover:scale-105 transition-transform"
+          >
+            Got it, let's create!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

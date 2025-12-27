@@ -78,7 +78,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
           {!isProcessing && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium">
               <FileText className="w-4 h-4" />
-              <span>PDF Files Only</span>
+              <span>PDF</span>
             </div>
           )}
         </div>

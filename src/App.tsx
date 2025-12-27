@@ -8,9 +8,10 @@ import { SlideComposition } from './video/Composition';
 import { generateTTS, getAudioDuration, ttsEvents, initTTS, type ProgressEventDetail } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
+import { TutorialModal } from './components/TutorialModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, Video, RotateCcw, VolumeX, Settings2, Eraser } from 'lucide-react';
+import { Download, Loader2, Video, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp } from 'lucide-react';
 
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
@@ -20,6 +21,7 @@ function App() {
   const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.5 });
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   
   const playerRef = React.useRef<PlayerRef>(null);
   const [isRestoring, setIsRestoring] = useState(true);
@@ -248,6 +250,15 @@ function App() {
 
         <div className="flex items-center gap-4">
           <button
+            onClick={() => setIsTutorialOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            title="How to Use"
+          >
+             <CircleHelp className="w-5 h-5" />
+             <span className="hidden sm:inline">Tutorial</span>
+          </button>
+
+          <button
             onClick={() => setIsSettingsOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
             title="Global Settings"
@@ -402,6 +413,11 @@ function App() {
           onSave={handleSaveGlobalSettings}
         />
        )}
+
+       <TutorialModal 
+          isOpen={isTutorialOpen} 
+          onClose={() => setIsTutorialOpen(false)} 
+       />
 
       {/* Background Decor */}
       <div className="fixed top-0 right-0 -z-50 w-1/3 h-1/3 bg-branding-primary/10 blur-[120px] rounded-full" />
