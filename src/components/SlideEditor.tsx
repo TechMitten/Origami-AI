@@ -153,7 +153,7 @@ const SlideItem = ({
   };
 
   return (
-    <div className="group relative flex gap-6 p-6 rounded-2xl bg-branding-surface border border-white/10 hover:border-branding-primary/30 transition-all duration-300">
+    <div className="group relative flex gap-6 p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-all duration-300">
       {/* Slide Preview */}
       <div 
         className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image"
