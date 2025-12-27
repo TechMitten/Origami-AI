@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn } from 'lucide-react';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -44,13 +44,15 @@ const SlideItem = ({
   index, 
   onUpdate, 
   onGenerate, 
-  isGenerating 
+  isGenerating,
+  onExpand
 }: { 
   slide: SlideData, 
   index: number, 
   onUpdate: (i: number, d: Partial<SlideData>) => void, 
   onGenerate: (i: number) => Promise<void>, 
-  isGenerating: boolean 
+  isGenerating: boolean,
+  onExpand: (i: number) => void
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -153,13 +155,19 @@ const SlideItem = ({
   return (
     <div className="group relative flex gap-6 p-6 rounded-2xl bg-branding-surface border border-white/10 hover:border-branding-primary/30 transition-all duration-300">
       {/* Slide Preview */}
-      <div className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black">
+      <div 
+        className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image"
+        onClick={() => onExpand(index)}
+      >
         <img 
           src={slide.dataUrl} 
           alt={`Slide ${index + 1}`} 
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105"
         />
-        <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/60 text-[10px] font-bold uppercase tracking-wider">
+        <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100">
+           <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
+        </div>
+        <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/60 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">
           Slide {index + 1}
         </div>
       </div>
@@ -286,8 +294,43 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onGenerateAudio,
   isGeneratingAudio 
 }) => {
+  const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in relative">
+      {/* Expanded Slide Modal */}
+      {previewIndex !== null && (
+        <div 
+          className="relative w-full mb-8 bg-black/40 p-8 rounded-3xl border border-white/10 flex flex-col items-center animate-fade-in"
+          onClick={() => setPreviewIndex(null)}
+        >
+          <button 
+            onClick={(e) => {
+               e.stopPropagation();
+               setPreviewIndex(null);
+            }}
+            className="absolute top-4 right-4 z-10 p-2 text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
+          >
+            <span className="uppercase text-xs font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Close</span>
+            <div className="bg-white/10 p-2 rounded-full group-hover:bg-white/20 transition-colors">
+              <X className="w-6 h-6" />
+            </div>
+          </button>
+
+          <div className="relative flex flex-col items-center justify-center max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+             <img 
+               src={slides[previewIndex].dataUrl} 
+               alt={`Slide ${previewIndex + 1}`} 
+               className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+             />
+             
+             <div className="mt-4 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/5 text-white/80 font-medium text-sm">
+                Slide {previewIndex + 1} of {slides.length}
+             </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Configure Slides</h2>
         <div className="flex items-center gap-4">
@@ -304,6 +347,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
              onUpdate={onUpdateSlide}
              onGenerate={onGenerateAudio}
              isGenerating={isGeneratingAudio}
+             onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
           />
         ))}
       </div>
