@@ -34,7 +34,8 @@ async function blobUrlToDataUrl(blobUrl: string): Promise<string> {
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isRendering, setIsRendering] = useState(false);
+  const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
+  const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.5 });
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
@@ -187,7 +188,7 @@ function App() {
 
 
   const handleDownloadMP4 = async () => {
-    setIsRendering(true);
+    setIsRenderingWithAudio(true);
     try {
       // Convert all blob URLs to data URLs for server-side rendering
       // Remotion's headless browser cannot access blob URLs
@@ -228,7 +229,7 @@ function App() {
       console.error('Download error:', error);
       alert('Failed to render video on server. Check server console for details.');
     } finally {
-      setIsRendering(false);
+      setIsRenderingWithAudio(false);
     }
   };
 
@@ -238,7 +239,7 @@ function App() {
       return;
     }
 
-    setIsRendering(true);
+    setIsRenderingSilent(true);
     try {
       // Create a copy of slides with audio removed
       const silentSlides = slides.map(s => ({
@@ -278,7 +279,7 @@ function App() {
       console.error('Download error:', error);
       alert('Failed to render video on server. Check server console for details.');
     } finally {
-      setIsRendering(false);
+      setIsRenderingSilent(false);
     }
   };
 
@@ -402,12 +403,12 @@ function App() {
                       <button 
                         onClick={handleDownloadMP4}
                         className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
-                        disabled={!allAudioReady || isRendering}
+                        disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}
                       >
-                        {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        {isRendering ? 'Rendering Server...' : 'Download Video (With TTS)'}
+                        {isRenderingWithAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                        {isRenderingWithAudio ? 'Rendering Server...' : 'Download Video (With TTS)'}
                       </button>
-                      {!allAudioReady && !isRendering && (
+                      {!allAudioReady && !isRenderingWithAudio && !isRenderingSilent && (
                         <div className="text-[10px] text-center text-red-400 font-bold uppercase tracking-wider animate-pulse">
                           Audio Required
                         </div>
@@ -418,12 +419,12 @@ function App() {
                        <button 
                         onClick={handleDownloadSilent}
                         className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 border border-white/10"
-                        disabled={isRendering}
+                        disabled={isRenderingWithAudio || isRenderingSilent}
                       >
-                        {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <VolumeX className="w-5 h-5" />}
+                        {isRenderingSilent ? <Loader2 className="w-5 h-5 animate-spin" /> : <VolumeX className="w-5 h-5" />}
                         Download Silent Video
                       </button>
-                      {!isRendering && (
+                      {!isRenderingWithAudio && !isRenderingSilent && (
                          <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">
                            No TTS • 5s / slide
                         </div>
