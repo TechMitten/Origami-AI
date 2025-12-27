@@ -436,72 +436,90 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Configure Slides</h2>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 p-1 rounded-lg bg-white/5 border border-white/10">
-            <div className="flex items-center gap-2 px-2 border-r border-white/10 pr-3">
-              <Mic className="w-3.5 h-3.5 text-white/40" />
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Voice All</span>
-            </div>
-            <div className="w-40">
-              <Dropdown
-                options={AVAILABLE_VOICES}
-                value={globalVoice}
-                onChange={setGlobalVoice}
-                className="scale-90 origin-left border-none"
-              />
-            </div>
-            <button
-               onClick={handleApplyGlobalVoice}
-               className="px-3 py-1 rounded hover:bg-white/10 text-branding-primary text-[10px] font-bold uppercase tracking-wider transition-colors"
-               title="Apply to all slides"
-            >
-               Set
-            </button>
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+              <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
+              Configure Slides
+            </h2>
+            <p className="text-sm text-white/40 font-medium pl-4.5">
+              Manage {slides.length} slides, voice settings, and audio generation
+            </p>
           </div>
 
-          <div className="flex items-center gap-2 p-1 rounded-lg bg-white/5 border border-white/10">
-            <div className="flex items-center gap-2 px-2 border-r border-white/10 pr-3">
-              <Clock className="w-3.5 h-3.5 text-white/40" />
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Delay All</span>
-            </div>
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              value={globalDelay}
-              onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
-              className="w-14 px-2 py-1 rounded bg-black/20 text-white text-xs text-center focus:ring-1 focus:ring-branding-primary outline-none border border-white/5"
-            />
-            <button
-               onClick={handleApplyGlobalDelay}
-               className="px-3 py-1 rounded hover:bg-white/10 text-branding-primary text-[10px] font-bold uppercase tracking-wider transition-colors"
-               title="Apply to all slides"
+          <div className="flex items-center gap-3 pl-4.5 md:pl-0">
+             <button
+              onClick={handleResetAllHighlights}
+              className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10 transition-all font-medium text-sm"
+              title="Remove highlighting from all slides"
             >
-               Set
+              <Eraser className="w-4 h-4 transition-transform group-hover:-rotate-12" />
+              <span>Reset Highlights</span>
+            </button>
+
+            <button
+              onClick={handleGenerateAll}
+              disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-branding-primary text-white hover:bg-branding-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-sm shadow-lg shadow-branding-primary/20 hover:shadow-branding-primary/40 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <Wand2 className={`w-4 h-4 ${isBatchGenerating ? 'animate-spin' : 'group-hover:rotate-12 transition-transform'}`} />
+              {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
             </button>
           </div>
+        </div>
 
-          <button
-            onClick={handleResetAllHighlights}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all font-bold text-sm"
-            title="Remove highlighting from all slides"
-          >
-            <Eraser className="w-4 h-4" />
-            <span className="hidden lg:inline">Reset Highlights</span>
-          </button>
+        <div className="mt-6 pt-6 border-t border-white/5 flex flex-wrap items-center gap-x-8 gap-y-6 pl-4.5 md:pl-0">
+           {/* Global Voice Control */}
+           <div className="flex items-end gap-3 group relative">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                  <Mic className="w-3 h-3" /> Global Voice
+                </label>
+                <div className="w-64">
+                  <Dropdown
+                    options={AVAILABLE_VOICES}
+                    value={globalVoice}
+                    onChange={setGlobalVoice}
+                    className="bg-black/20 hover:bg-black/30 transition-colors"
+                  />
+                </div>
+              </div>
+              <button
+                 onClick={handleApplyGlobalVoice}
+                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                 Apply All
+              </button>
+           </div>
 
-          <button
-            onClick={handleGenerateAll}
-            disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-sm"
-          >
-            <Wand2 className="w-4 h-4" />
-            {isBatchGenerating ? 'Generating All...' : 'Generate All Audio'}
-          </button>
-          <div className="w-px h-6 bg-white/10" />
-          <span className="text-sm text-white/40">{slides.length} slides ready</span>
+           <div className="w-px h-10 bg-white/5 hidden md:block" />
+
+           {/* Global Delay Control */}
+           <div className="flex items-end gap-3 group">
+              <div className="space-y-2">
+                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                    <Clock className="w-3 h-3" /> Global Delay
+                 </label>
+                 <div className="relative">
+                   <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={globalDelay}
+                    onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
+                    className="w-28 px-4 py-2.5 rounded-lg bg-black/20 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-8 hover:bg-black/30"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/30 pointer-events-none font-bold">SEC</span>
+                 </div>
+              </div>
+              <button
+                 onClick={handleApplyGlobalDelay}
+                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                 Apply All
+              </button>
+           </div>
         </div>
       </div>
 
