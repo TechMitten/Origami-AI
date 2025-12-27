@@ -3,20 +3,20 @@ import axios from 'axios';
 import { Player } from '@remotion/player';
 import type { PlayerRef } from '@remotion/player';
 import { PDFUploader } from './components/PDFUploader';
-import { SlideEditor } from './components/SlideEditor';
-import type { SlideData } from './components/SlideEditor';
+import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
 import { SlideComposition } from './video/Composition';
 import { generateTTS, getAudioDuration } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
 
 import { saveState, loadState, clearState } from './services/storage';
-import { Download, Loader2, Video, Trash2 } from 'lucide-react';
+import { Download, Loader2, Video, RotateCcw, VolumeX } from 'lucide-react';
 
 function App() {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.5 });
   const playerRef = React.useRef<PlayerRef>(null);
 const [isRestoring, setIsRestoring] = useState(true);
 
@@ -117,7 +117,7 @@ const [isRestoring, setIsRestoring] = useState(true);
   const handleDownloadMP4 = async () => {
     setIsRendering(true);
     try {
-      const response = await axios.post('/api/render', { slides }, {
+      const response = await axios.post('/api/render', { slides, musicSettings }, {
         responseType: 'blob'
       });
       
@@ -125,6 +125,47 @@ const [isRestoring, setIsRestoring] = useState(true);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'tech-tutorial.mp4');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Failed to render video on server. Check server console for details.');
+    } finally {
+      setIsRendering(false);
+    }
+  };
+
+  const handleDownloadSilent = async () => {
+    if (!window.confirm("Download video without TTS audio? This will generate a video with 5s duration per slide (plus specified delays) unless otherwise configured.")) {
+      return;
+    }
+
+    setIsRendering(true);
+    try {
+      // Create a copy of slides with audio removed
+      const silentSlides = slides.map(s => ({
+        ...s,
+        audioUrl: undefined, 
+        // We leave duration to be handled by the Composition (defaults to 5s if undefined)
+        // or we can force it to undefined if it was previously set.
+        // If s.duration was set from previous audio generation, we should probably clear it 
+        // so it defaults to 5s, otherwise we get weird specific durations from the old audio.
+        duration: undefined 
+      }));
+
+      const response = await axios.post('/api/render', { 
+        slides: silentSlides,
+        musicSettings 
+      }, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'tech-tutorial-silent.mp4');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -160,8 +201,8 @@ const [isRestoring, setIsRestoring] = useState(true);
               className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all"
               title="Start Over"
             >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Reset</span>
+              <RotateCcw className="w-4 h-4" />
+              <span className="hidden sm:inline">Start Over</span>
             </button>
             <div className="w-px h-6 bg-white/10 mx-1" />
             <button
@@ -210,7 +251,9 @@ const [isRestoring, setIsRestoring] = useState(true);
                         duration: s.duration || 5,
                         postAudioDelay: s.postAudioDelay,
                         transition: s.transition
-                      }))
+
+                      })),
+                      musicSettings: musicSettings
                     }}
                     durationInFrames={totalDurationFrames}
                     fps={30}
@@ -222,15 +265,38 @@ const [isRestoring, setIsRestoring] = useState(true);
                 </div>
                 
                 <div className="flex justify-center flex-col items-center gap-6">
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={handleDownloadMP4}
-                      className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50"
-                      disabled={!allAudioReady || isRendering}
-                    >
-                      {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                      {isRendering ? 'Rendering Server...' : 'Download Tech Tutorial (MP4)'}
-                    </button>
+                  <div className="flex flex-col sm:flex-row gap-4 items-center">
+                    <div className="flex flex-col gap-2">
+                      <button 
+                        onClick={handleDownloadMP4}
+                        className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                        disabled={!allAudioReady || isRendering}
+                      >
+                        {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                        {isRendering ? 'Rendering Server...' : 'Download Video (With TTS)'}
+                      </button>
+                      {!allAudioReady && !isRendering && (
+                        <div className="text-[10px] text-center text-red-400 font-bold uppercase tracking-wider animate-pulse">
+                          Audio Required
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                       <button 
+                        onClick={handleDownloadSilent}
+                        className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 border border-white/10"
+                        disabled={isRendering}
+                      >
+                        {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <VolumeX className="w-5 h-5" />}
+                        Download Silent Video
+                      </button>
+                      {!isRendering && (
+                         <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">
+                           No TTS • 5s / slide
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -246,7 +312,10 @@ const [isRestoring, setIsRestoring] = useState(true);
                 onUpdateSlide={updateSlide}
                 onGenerateAudio={generateAudioForSlide}
                 isGeneratingAudio={isGenerating}
+
                 onReorderSlides={setSlides}
+                musicSettings={musicSettings}
+                onUpdateMusicSettings={setMusicSettings}
               />
             )}
           </div>

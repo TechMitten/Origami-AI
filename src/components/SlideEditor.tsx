@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser, GripVertical, Mic } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser, GripVertical, Mic, Music, Trash2, Upload } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -50,12 +50,19 @@ function mergeRanges(ranges: { start: number; end: number }[]) {
   return merged;
 }
 
+export interface MusicSettings {
+  url?: string;
+  volume: number;
+}
+
 interface SlideEditorProps {
   slides: SlideData[];
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
   onGenerateAudio: (index: number) => Promise<void>;
   isGeneratingAudio: boolean;
   onReorderSlides: (slides: SlideData[]) => void;
+  musicSettings: MusicSettings;
+  onUpdateMusicSettings: (settings: MusicSettings) => void;
 }
 
 const SortableSlideItem = ({ 
@@ -336,12 +343,59 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onUpdateSlide, 
   onGenerateAudio,
   isGeneratingAudio,
-  onReorderSlides
+  onReorderSlides,
+  musicSettings,
+  onUpdateMusicSettings
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
   const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const musicAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
+
+  const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.5 });
+    }
+  };
+
+  const toggleMusicPlayback = () => {
+    if (isMusicPlaying && musicAudioRef.current) {
+      musicAudioRef.current.pause();
+      setIsMusicPlaying(false);
+    } else if (musicSettings.url) {
+      const audio = new Audio(musicSettings.url);
+      audio.volume = musicSettings.volume;
+      audio.onended = () => setIsMusicPlaying(false);
+      audio.play().catch(e => {
+        console.error("Music playback failed", e);
+        setIsMusicPlaying(false);
+      });
+      musicAudioRef.current = audio;
+      setIsMusicPlaying(true);
+    }
+  };
+  
+  React.useEffect(() => {
+      return () => {
+          if (musicAudioRef.current) {
+              musicAudioRef.current.pause();
+          }
+      }
+  }, [musicSettings.url]);
+
+  const handleRemoveMusic = () => {
+      onUpdateMusicSettings({ ...musicSettings, url: undefined });
+      if (isMusicPlaying && musicAudioRef.current) {
+          musicAudioRef.current.pause();
+          setIsMusicPlaying(false);
+      }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -520,7 +574,71 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  Apply All
               </button>
            </div>
+
+           <div className="w-px h-10 bg-white/5 hidden md:block" />
+
+           {/* Background Music Control */}
+           <div className="flex items-end gap-3 group relative">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="audio/*"
+                onChange={handleMusicUpload}
+              />
+              <div className="space-y-2">
+                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
+                    <Music className="w-3 h-3" /> Background Music
+                 </label>
+                 
+                 {!musicSettings.url ? (
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-10 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-branding-primary text-white/60 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2"
+                    >
+                        <Upload className="w-3 h-3" /> Upload Track
+                    </button>
+                 ) : (
+                    <div className="flex items-center gap-2 h-10 bg-black/20 rounded-lg p-1 border border-white/10">
+                        <button
+                            onClick={toggleMusicPlayback}
+                            className="w-8 h-8 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
+                        >
+                            {isMusicPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                        </button>
+                        
+                        <div className="w-24 px-2 flex items-center gap-2" title={`Volume: ${Math.round(musicSettings.volume * 100)}%`}>
+                            <Volume2 className="w-3 h-3 text-white/40" />
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                value={musicSettings.volume}
+                                onChange={(e) => {
+                                    const newVol = parseFloat(e.target.value);
+                                    onUpdateMusicSettings({ ...musicSettings, volume: newVol });
+                                    if(musicAudioRef.current) musicAudioRef.current.volume = newVol;
+                                }}
+                                style={{
+                                    background: `linear-gradient(to right, var(--primary) ${musicSettings.volume * 100}%, rgba(255, 255, 255, 0.1) ${musicSettings.volume * 100}%)`
+                                }}
+                                className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleRemoveMusic}
+                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors"
+                        >
+                            <Trash2 className="w-3 h-3" />
+                        </button>
+                    </div>
+                 )}
+              </div>
+           </div>
         </div>
+
       </div>
 
       <DndContext

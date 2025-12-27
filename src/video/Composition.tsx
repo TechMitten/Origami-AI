@@ -10,11 +10,22 @@ export interface SlideCompositionProps extends Record<string, unknown> {
     postAudioDelay?: number;
     transition: 'fade' | 'slide' | 'zoom' | 'none';
   }[];
+  musicSettings?: {
+    url?: string;
+    volume: number;
+  };
 }
 
-export const SlideComposition: React.FC<SlideCompositionProps> = ({ slides }) => {
+export const SlideComposition: React.FC<SlideCompositionProps> = ({ slides, musicSettings }) => {
   return (
     <AbsoluteFill className="bg-black">
+      {musicSettings?.url && (
+        <Audio 
+          src={musicSettings.url} 
+          volume={musicSettings.volume}
+          loop 
+        />
+      )}
       <Series>
         {slides.map((slide, index) => {
           // Default duration to 5 seconds if audio is not yet generated

@@ -24,7 +24,7 @@ async function createServer() {
   // API Routes
   app.post('/api/render', async (req, res) => {
     try {
-      const { slides } = req.body;
+      const { slides, musicSettings } = req.body;
       if (!slides || !Array.isArray(slides)) {
          return res.status(400).json({ error: 'Invalid or missing slides data' });
       }
@@ -42,7 +42,7 @@ async function createServer() {
       const composition = await selectComposition({
         serveUrl: bundled,
         id: 'TechTutorial',
-        inputProps: { slides },
+        inputProps: { slides, musicSettings },
       });
 
       const outDir = path.resolve(__dirname, 'out');
@@ -57,7 +57,7 @@ async function createServer() {
         serveUrl: bundled,
         codec: 'h264',
         outputLocation,
-        inputProps: { slides },
+        inputProps: { slides, musicSettings },
         verbose: true,     // Enable verbose logging to see puppeteer errors
         dumpBrowserLogs: true, // Dump browser console logs to terminal
       });
