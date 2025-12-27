@@ -295,6 +295,22 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   isGeneratingAudio 
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
+  const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
+
+  const handleGenerateAll = async () => {
+    if (!window.confirm("This will generate audio for all slides, overwriting any existing audio. Continue?")) {
+      return;
+    }
+
+    setIsBatchGenerating(true);
+    try {
+      for (let i = 0; i < slides.length; i++) {
+        await onGenerateAudio(i);
+      }
+    } finally {
+      setIsBatchGenerating(false);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -334,6 +350,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Configure Slides</h2>
         <div className="flex items-center gap-4">
+          <button
+            onClick={handleGenerateAll}
+            disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-sm"
+          >
+            <Wand2 className="w-4 h-4" />
+            {isBatchGenerating ? 'Generating All...' : 'Generate All Audio'}
+          </button>
+          <div className="w-px h-6 bg-white/10" />
           <span className="text-sm text-white/40">{slides.length} slides ready</span>
         </div>
       </div>
@@ -346,7 +371,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
              index={index}
              onUpdate={onUpdateSlide}
              onGenerate={onGenerateAudio}
-             isGenerating={isGeneratingAudio}
+             isGenerating={isGeneratingAudio || isBatchGenerating}
              onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
           />
         ))}
