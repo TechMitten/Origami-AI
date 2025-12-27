@@ -63,6 +63,7 @@ function App() {
   const onUploadComplete = (pages: RenderedPage[]) => {
     const initialSlides: SlideData[] = pages.map(page => ({
       ...page,
+      id: crypto.randomUUID(),
       script: page.text,
       transition: 'fade',
       voice: 'af_heart'
@@ -280,6 +281,7 @@ function App() {
                 onUpdateSlide={updateSlide}
                 onGenerateAudio={generateAudioForSlide}
                 isGeneratingAudio={isGenerating}
+                onReorderSlides={setSlides}
               />
             )}
           </div>

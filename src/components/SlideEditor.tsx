@@ -1,10 +1,28 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, Eraser, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 
 export interface SlideData extends RenderedPage {
+  id: string;
   script: string;
   audioUrl?: string;
   duration?: number;
@@ -37,9 +55,10 @@ interface SlideEditorProps {
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
   onGenerateAudio: (index: number) => Promise<void>;
   isGeneratingAudio: boolean;
+  onReorderSlides: (slides: SlideData[]) => void;
 }
 
-const SlideItem = ({ 
+const SortableSlideItem = ({ 
   slide, 
   index, 
   onUpdate, 
@@ -54,6 +73,22 @@ const SlideItem = ({
   isGenerating: boolean,
   onExpand: (i: number) => void
 }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: slide.id });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
@@ -104,9 +139,6 @@ const SlideItem = ({
       const updatedRanges = mergeRanges([...currentRanges, newRange]);
       
       onUpdate(index, { selectionRanges: updatedRanges });
-      
-      // Optional: Clear native selection to indicate it's "moved" to the custom highlight, 
-      // but keeping it might be better for UX. Let's keep it for now.
     }
   };
 
@@ -114,8 +146,6 @@ const SlideItem = ({
     onUpdate(index, { selectionRanges: undefined });
   };
 
-  // If text changes, we try to preserve ranges if they are before the change, 
-  // but for simplicity and correctness, clearing highlights on text edit is safer.
   const handleTextChange = (newText: string) => {
     onUpdate(index, { script: newText, selectionRanges: undefined });
   };
@@ -153,10 +183,23 @@ const SlideItem = ({
   };
 
   return (
-    <div className="group relative flex gap-6 p-6 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-all duration-300">
+    <div 
+      ref={setNodeRef}
+      style={style}
+      className="group relative flex gap-6 p-6 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300"
+    >
+      {/* Drag Handle */}
+      <div 
+        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none"
+        {...attributes} 
+        {...listeners}
+      >
+        <GripVertical className="w-5 h-5" />
+      </div>
+
       {/* Slide Preview */}
       <div 
-        className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image"
+        className="w-1/3 aspect-video rounded-lg overflow-hidden border border-white/5 relative bg-black cursor-pointer group/image ml-6"
         onClick={() => onExpand(index)}
       >
         <img 
@@ -262,7 +305,7 @@ const SlideItem = ({
               className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm"
             >
               {slide.audioUrl ? <Volume2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
-              {slide.audioUrl ? 'Regenerate Audio' : 'Generate Audio'}
+              {slide.audioUrl ? 'Regenerate' : 'Generate'}
             </button>
 
             {slide.audioUrl && (
@@ -272,7 +315,7 @@ const SlideItem = ({
                 className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 transition-all font-medium text-sm"
               >
                 {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-                {isPlaying ? 'Stop Preview' : 'Preview Audio'}
+                {isPlaying ? 'Stop' : 'Preview'}
               </button>
             )}
           </div>
@@ -292,11 +335,30 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   slides, 
   onUpdateSlide, 
   onGenerateAudio,
-  isGeneratingAudio 
+  isGeneratingAudio,
+  onReorderSlides
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (active.id !== over?.id) {
+      const oldIndex = slides.findIndex((slide) => slide.id === active.id);
+      const newIndex = slides.findIndex((slide) => slide.id === over?.id);
+      
+      onReorderSlides(arrayMove(slides, oldIndex, newIndex));
+    }
+  };
 
   const handleApplyGlobalDelay = () => {
     if (window.confirm(`Apply ${globalDelay}s delay to all ${slides.length} slides?`)) {
@@ -411,19 +473,30 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </div>
       </div>
 
-      <div className="grid gap-6">
-        {slides.map((slide, index) => (
-          <SlideItem
-             key={index}
-             slide={slide}
-             index={index}
-             onUpdate={onUpdateSlide}
-             onGenerate={onGenerateAudio}
-             isGenerating={isGeneratingAudio || isBatchGenerating}
-             onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
-          />
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext 
+          items={slides.map(s => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="grid gap-6">
+            {slides.map((slide, index) => (
+              <SortableSlideItem
+                 key={slide.id}
+                 slide={slide}
+                 index={index}
+                 onUpdate={onUpdateSlide}
+                 onGenerate={onGenerateAudio}
+                 isGenerating={isGeneratingAudio || isBatchGenerating}
+                 onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 };
