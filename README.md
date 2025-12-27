@@ -12,6 +12,13 @@ A powerful, automated video generation platform designed to create educational t
 - **Interactive Slide Editor**: Drag-and-drop slide reordering, real-time audio generation, and script editing.
 - **Background Music**: Add and mix background tracks with custom volume controls.
 
+## Roadmap & TODO
+
+- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
+- [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
+- [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
+- [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
+
 ## Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS (v4)
