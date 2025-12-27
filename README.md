@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# PDF2Tutorial
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **PDF to Presentation**: Upload PDF slides and automatically extract them into a sequence of video scenes.
+- **AI-Powered Scripting**: Integrated with Google Gemini AI to transform fragmented slide notes into coherent, professional scripts.
+- **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using [Kokoro-js](https://github.com/m-bain/kokoro-js) with customizable voices and quantization.
+- **Rich Media Support**: Insert MP4 videos and GIFs seamlessly between slides.
+- **Programmatic Video Rendering**: Built on [Remotion](https://www.remotion.dev/), allowing for precise, frame-perfect video assembly and export.
+- **Interactive Slide Editor**: Drag-and-drop slide reordering, real-time audio generation, and script editing.
+- **Background Music**: Add and mix background tracks with custom volume controls.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React 19, Vite, Tailwind CSS (v4)
+- **Video Engine**: Remotion (v4)
+- **AI**: Google Gemini API (gemini-2.0-flash-lite)
+- **TTS**: Kokoro (FastAPI / Web Worker)
+- **Backend**: Express.js (serving as a rendering orchestration layer)
+- **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- [Node.js](https://nodejs.org/) (v20+)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [FFmpeg](https://ffmpeg.org/) (required by Remotion for rendering)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. Clone the repository:
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+   ```bash
+   git clone https://github.com/techcow2/pdf2tutorial.git
+   cd pdf2tutorial
+   ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+2. Install dependencies:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+   ```bash
+   npm install
+   ```
+
+3. Start the development server (runs both Vite and the rendering server):
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at `http://localhost:5173`.
+
+## Configuration
+
+Open the **Settings Modal** (Gear Icon) in the application to configure:
+
+- **API Keys**: Add your [Google AI Studio](https://aistudio.google.com/) API Key for script refinement.
+- **TTS Settings**: Choose between internal Web Worker TTS or a local Dockerized Kokoro FastAPI instance.
+- **Audio Defaults**: Set default voice models and quantization levels (q4/q8).
+
+## Project Structure
+
+- `src/video/`: Remotion compositions and video components.
+- `src/components/`: React UI components (Slide Editor, Modals, Uploaders).
+- `src/services/`: Core logic for AI, TTS, PDF processing, and local storage.
+- `server.ts`: Express server handling the `@remotion/renderer` logic.
+
+## Rendering
+
+Videos are rendered server-side using Remotion. When you click "Download Video", the sequence is bundled and rendered via an Express endpoint, then served back as an MP4 file.
+
+## License
+
+MIT
