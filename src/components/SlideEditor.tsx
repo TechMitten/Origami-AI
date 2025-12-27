@@ -540,7 +540,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           postAudioDelay: 0
       };
       
-      onReorderSlides([...slides, newSlide]);
+      onReorderSlides([newSlide, ...slides]);
     }
     // Reset
     if (mediaInputRef.current) mediaInputRef.current.value = '';
