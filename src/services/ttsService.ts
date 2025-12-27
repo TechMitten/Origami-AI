@@ -1,4 +1,5 @@
 import TTSWorker from './tts.worker?worker';
+import { loadGlobalSettings } from './storage';
 
 export interface TTSOptions {
   voice: string;
@@ -79,6 +80,40 @@ export function reloadTTS(quantization: 'q8' | 'q4') {
 
 
 export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
+  // Check for local TTS override
+  const settings = await loadGlobalSettings();
+  
+  if (settings?.useLocalTTS && settings?.localTTSUrl) {
+    try {
+      console.log(`[TTS Service] Using Local TTS at ${settings.localTTSUrl}`);
+      const response = await fetch(settings.localTTSUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'kokoro',
+          input: text,
+          voice: options.voice,
+          speed: options.speed,
+          response_format: 'wav' // or mp3, wav is safer for uncompressed quality if local
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Local TTS API Error (${response.status}): ${errorText}`);
+      }
+
+      const blob = await response.blob();
+      return await blobToBase64(blob);
+    } catch (err) {
+      console.error("[TTS Service] Local TTS generation failed:", err);
+      throw err; // Propagate error to UI
+    }
+  }
+
+  // Fallback / Standard Worker Implementation
   const worker = getWorker();
   const id = crypto.randomUUID();
   

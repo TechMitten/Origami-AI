@@ -20,6 +20,8 @@ export interface GlobalSettings {
     fileName: string;
   };
   ttsQuantization?: 'q8' | 'q4';
+  useLocalTTS?: boolean;
+  localTTSUrl?: string;
 }
 
 const openDB = (): Promise<IDBDatabase> => {

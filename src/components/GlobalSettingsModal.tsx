@@ -28,6 +28,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts'>('general');
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
+  const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
+  const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
@@ -68,7 +70,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         volume: musicVolume,
         fileName: savedMusicName
       } : undefined,
-      ttsQuantization
+      ttsQuantization,
+      useLocalTTS,
+      localTTSUrl
     };
     
     // Check if quantization changed to reload model
@@ -283,6 +287,52 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     </div>
 
                     <div className="space-y-4">
+                        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                        Use Local TTS Instance
+                                        {useLocalTTS && <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>}
+                                    </h3>
+                                    <p className="text-xs text-white/60">
+                                        Connect to a local Dockerized Kokoro FastAPI instance instead of using the browser model.
+                                    </p>
+                                </div>
+                                <button
+                                   onClick={() => setUseLocalTTS(!useLocalTTS)}
+                                   className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useLocalTTS ? 'bg-purple-500' : 'bg-white/10'}`}
+                                >
+                                   <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useLocalTTS ? 'translate-x-7' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+
+                            {useLocalTTS && (
+                                <div className="space-y-3 animate-fade-in border-t border-white/5 pt-3">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                                            API Endpoint URL
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={localTTSUrl}
+                                            onChange={(e) => setLocalTTSUrl(e.target.value)}
+                                            placeholder="http://localhost:8880/v1/audio/speech"
+                                            className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                                        <p className="text-[10px] text-yellow-200">
+                                            <strong>Note:</strong> When enabled, browser-side quantization settings are ignored. 
+                                            Request format follows OpenAI audio/speech standard.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {!useLocalTTS && (
+                    <div className="space-y-4">
                         <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
                             Model Quantization
                         </label>
@@ -307,6 +357,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             </button>
                         </div>
                     </div>
+                    )}
                 </div>
               </div>
           ) : (
