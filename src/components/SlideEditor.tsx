@@ -2,6 +2,7 @@ import React from 'react';
 import { Volume2, Wand2 } from 'lucide-react';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
+import { Dropdown } from './Dropdown';
 
 export interface SlideData extends RenderedPage {
   script: string;
@@ -66,29 +67,25 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <div className="flex items-center gap-6">
                 <div className="flex-1 space-y-2">
                   <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Voice</label>
-                  <select
+                  <Dropdown
+                    options={AVAILABLE_VOICES}
                     value={slide.voice}
-                    onChange={(e) => onUpdateSlide(index, { voice: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none cursor-pointer"
-                  >
-                    {AVAILABLE_VOICES.map(v => (
-                      <option key={v.id} value={v.id} className="bg-branding-surface">{v.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => onUpdateSlide(index, { voice: val })}
+                  />
                 </div>
 
                 <div className="flex-1 space-y-2">
                   <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Transition</label>
-                  <select
+                  <Dropdown
+                    options={[
+                      { id: 'fade', name: 'Fade' },
+                      { id: 'slide', name: 'Slide' },
+                      { id: 'zoom', name: 'Zoom' },
+                      { id: 'none', name: 'None' },
+                    ]}
                     value={slide.transition}
-                    onChange={(e) => onUpdateSlide(index, { transition: e.target.value as SlideData['transition'] })}
-                    className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none cursor-pointer"
-                  >
-                    <option value="fade" className="bg-branding-surface">Fade</option>
-                    <option value="slide" className="bg-branding-surface">Slide</option>
-                    <option value="zoom" className="bg-branding-surface">Zoom</option>
-                    <option value="none" className="bg-branding-surface">None</option>
-                  </select>
+                    onChange={(val) => onUpdateSlide(index, { transition: val as SlideData['transition'] })}
+                  />
                 </div>
 
                 <div className="pt-6">
