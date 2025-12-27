@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, ExternalLink } from 'lucide-react';
 import { AVAILABLE_VOICES } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -24,6 +24,15 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.5);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
+  const [activeTab, setActiveTab] = useState<'general' | 'api'>('general');
+  const [apiKey, setApiKey] = useState('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setApiKey(localStorage.getItem('gemini_api_key') || '');
+    }
+  }, [isOpen]);
+
   const [existingMusicBlob, setExistingMusicBlob] = useState<Blob | null>(currentSettings?.music?.blob ?? null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +63,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       } : undefined
     };
 
+    localStorage.setItem('gemini_api_key', apiKey);
     await onSave(settings);
     onClose();
   };
@@ -77,7 +87,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               <Settings className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Global Defaults</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight">Settings</h2>
               <p className="text-xs text-white/40 font-medium">Apply configured settings to all future videos</p>
             </div>
           </div>
@@ -89,9 +99,29 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </button>
         </div>
 
+
+
+        {/* Tabs */}
+        <div className="flex items-center gap-1 p-2 bg-white/5 border-b border-white/5">
+           <button
+             onClick={() => setActiveTab('general')}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           >
+             <Settings className="w-4 h-4" /> General
+           </button>
+           <button
+             onClick={() => setActiveTab('api')}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           >
+             <Key className="w-4 h-4" /> API Keys
+           </button>
+        </div>
+
         {/* Content */}
-        <div className="p-8 overflow-y-auto space-y-8">
+        <div className="p-8 overflow-y-auto space-y-8 flex-1">
           
+          {activeTab === 'general' ? (
+            <>
           {/* Master Toggle */}
           <div className="flex items-center justify-between p-4 rounded-xl bg-branding-primary/5 border border-branding-primary/20">
             <div className="space-y-1">
@@ -213,6 +243,50 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             </div>
 
           </div>
+          </>
+          ) : (
+            <div className="space-y-6">
+               <div className="p-4 rounded-xl bg-branding-accent/10 border border-branding-accent/20 flex gap-4">
+                 <div className="p-2 rounded-lg bg-branding-accent/20 text-branding-accent h-fit">
+                    <Sparkles className="w-5 h-5" />
+                 </div>
+                 <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-white">Gemini AI Integration</h3>
+                    <p className="text-xs text-white/60 leading-relaxed">
+                       Enter your Google Gemini API key to enable AI features, such as 
+                       smart text transformation to automatically improve script quality for TTS.
+                    </p>
+                 </div>
+               </div>
+
+               <div className="space-y-4">
+                 <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                   <Key className="w-4 h-4" /> Gemini API Key
+                 </label>
+                 <div className="relative">
+                    <input
+                     type="password"
+                     value={apiKey}
+                     onChange={(e) => setApiKey(e.target.value)}
+                     placeholder="AIzaSy..."
+                     className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
+                   />
+                 </div>
+                 <p className="text-[10px] text-white/30">
+                    Your key is stored locally in your browser and is never sent to our servers.
+                 </p>
+                  
+                 <a 
+                   href="https://aistudio.google.com/api-keys" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 hover:bg-white/10 text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-white transition-all group w-fit"
+                 >
+                    Get Gemini API Key <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                 </a>
+               </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -225,7 +299,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-8 py-2.5 rounded-xl bg-branding-primary text-black font-extrabold hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all text-sm shadow-lg shadow-branding-primary/20"
+            className="px-8 py-2.5 rounded-xl bg-white text-black font-extrabold hover:bg-white/90 hover:scale-105 active:scale-95 transition-all text-sm shadow-lg shadow-white/20"
           >
             Save Settings
           </button>

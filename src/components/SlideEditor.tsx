@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload } from 'lucide-react';
+import { Volume2, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -19,6 +19,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES } from '../services/ttsService';
+
+import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
 
 export interface SlideData extends RenderedPage {
@@ -99,6 +101,7 @@ const SortableSlideItem = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
+  const [isTransforming, setIsTransforming] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Cleanup audio on unmount or if slide changes
@@ -128,6 +131,30 @@ const SortableSlideItem = ({
     }
   };
 
+
+  const handleTransform = async () => {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      alert('Please enter your Gemini API Key in Settings (API Keys tab) to use this feature.');
+      return;
+    }
+
+    if (!slide.script.trim()) return;
+
+    if (!window.confirm("This will replace the current script with an AI-enhanced version. Continue?")) {
+        return; 
+    }
+
+    setIsTransforming(true);
+    try {
+      const transformed = await transformText(apiKey, slide.script);
+      onUpdate(index, { script: transformed, selectionRanges: undefined });
+    } catch (error) {
+      alert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsTransforming(false);
+    }
+  };
 
   const syncScroll = () => {
     if (textareaRef.current && backdropRef.current) {
@@ -228,6 +255,15 @@ const SortableSlideItem = ({
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
             <div className="flex gap-2">
+              <button
+                onClick={handleTransform}
+                disabled={isTransforming || !slide.script.trim()}
+                className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Use AI to transform raw PDF text into natural sentences"
+              >
+                {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                {isTransforming ? 'Fixing...' : 'AI Fix Script'}
+              </button>
               {slide.selectionRanges && slide.selectionRanges.length > 0 && (
                 <button
                   onClick={handleClearHighlight}
