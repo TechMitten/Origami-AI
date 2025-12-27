@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -22,31 +23,79 @@ interface DropdownProps {
 export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, className }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const selectedOption = options.find(o => o.id === value);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        isOpen && 
+        containerRef.current && !containerRef.current.contains(target) &&
+        menuRef.current && !menuRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    
+    // Handle scroll to close dropdown to avoid detachment
+    const handleScroll = () => {
+      if (isOpen) setIsOpen(false);
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', handleScroll, { capture: true });
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+    };
+  }, [isOpen]);
+
+  const toggleOpen = () => {
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  };
 
   return (
     <div className={cn("relative", className)} ref={containerRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-2 rounded-lg bg-[#0A0A0B] border border-white/10 text-white text-sm outline-none cursor-pointer hover:border-branding-primary/30 transition-all focus:border-branding-primary/50"
+        onClick={toggleOpen}
+        className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-white/10 text-white text-sm outline-none cursor-pointer hover:border-branding-primary/30 transition-all focus:border-branding-primary/50"
+        style={{ backgroundColor: '#18181b' }}
       >
         <span className="truncate">{selectedOption?.name || 'Select option'}</span>
         <ChevronDown className={cn("w-4 h-4 text-white/40 transition-transform", isOpen && "rotate-180")} />
       </button>
 
-      {isOpen && (
-        <div className="absolute z-50 mt-2 w-full py-2 bg-[#121214] border border-white/10 rounded-xl shadow-2xl animate-fade-in">
+      {isOpen && createPortal(
+        <div 
+          ref={menuRef}
+          className="fixed py-2 border border-white/10 rounded-xl shadow-2xl"
+          style={{ 
+            position: 'absolute',
+            top: coords.top,
+            left: coords.left,
+            width: coords.width,
+            backgroundColor: '#18181b', // Hardcoded solid background
+            boxShadow: '0 10px 40px -10px rgba(0,0,0,0.8)',
+            isolation: 'isolate',
+            zIndex: 9999
+          }}
+        >
           <div className="max-h-60 overflow-y-auto custom-scrollbar">
             {options.map((option) => (
               <button
@@ -57,7 +106,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full text-left px-4 py-2 text-sm transition-colors hover:bg-branding-primary/10",
+                  "w-full text-left px-4 py-2 text-sm transition-colors hover:bg-white/5",
                   option.id === value ? "text-branding-primary font-bold bg-branding-primary/5" : "text-white/80 hover:text-white"
                 )}
               >
@@ -65,7 +114,8 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -8,7 +8,7 @@ import type { SlideData } from './components/SlideEditor';
 import { SlideComposition } from './video/Composition';
 import { generateTTS, getAudioDuration } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
-import { useWebMExport } from './hooks/useWebMExport';
+
 import { saveState, loadState, clearState } from './services/storage';
 import { Download, Loader2, Video, Trash2 } from 'lucide-react';
 
@@ -18,8 +18,7 @@ function App() {
   const [isRendering, setIsRendering] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const playerRef = React.useRef<PlayerRef>(null);
-  const { exportWebM, isExporting, progress } = useWebMExport();
-  const [isRestoring, setIsRestoring] = useState(true);
+const [isRestoring, setIsRestoring] = useState(true);
 
   // Load state on mount
   React.useEffect(() => {
@@ -113,30 +112,7 @@ function App() {
     return Math.max(1, Math.round(totalSeconds * 30));
   }, [slides]);
 
-  const handleWebMExport = async () => {
-    const player = playerRef.current;
-    if (!player) return;
-    
-    // In a real scenario, we'd need a canvas that is visible or captured.
-    // For this demonstration, we use a custom capture logic that seeks the player.
-    const canvas = document.querySelector('canvas');
-    if (!canvas) {
-      alert("Please start the preview first to initialize the player's canvas.");
-      return;
-    }
 
-    try {
-      await exportWebM(canvas, totalDurationFrames, async (frame) => {
-        player.seekTo(frame);
-        // Give some time for the player to render the frame
-        await new Promise(r => setTimeout(r, 32));
-      });
-      alert('Export complete!');
-    } catch (err) {
-      console.error(err);
-      alert('Export failed. Browser might not support this capture method.');
-    }
-  };
 
   const handleDownloadMP4 = async () => {
     setIsRendering(true);
@@ -250,29 +226,12 @@ function App() {
                     <button 
                       onClick={handleDownloadMP4}
                       className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50"
-                      disabled={!allAudioReady || isExporting || isRendering}
+                      disabled={!allAudioReady || isRendering}
                     >
                       {isRendering ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                       {isRendering ? 'Rendering Server...' : 'Download Tech Tutorial (MP4)'}
                     </button>
-                    <button 
-                      onClick={handleWebMExport}
-                      className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-branding-secondary text-white font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-branding-secondary/20"
-                      disabled={!allAudioReady || isExporting}
-                    >
-                      {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                      {isExporting ? `Exporting ${progress}%` : 'Quick Export (WebM)'}
-                    </button>
                   </div>
-
-                  {isExporting && (
-                    <div className="w-full max-w-md bg-white/5 rounded-full h-2 overflow-hidden border border-white/10">
-                      <div 
-                        className="bg-branding-primary h-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {!allAudioReady && (
