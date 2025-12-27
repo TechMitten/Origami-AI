@@ -7,6 +7,7 @@ export interface SlideCompositionProps extends Record<string, unknown> {
     dataUrl: string;
     audioUrl?: string;
     duration: number;
+    postAudioDelay?: number;
     transition: 'fade' | 'slide' | 'zoom' | 'none';
   }[];
 }
@@ -17,7 +18,9 @@ export const SlideComposition: React.FC<SlideCompositionProps> = ({ slides }) =>
       <Series>
         {slides.map((slide, index) => {
           // Default duration to 5 seconds if audio is not yet generated
-          const slideDurationFrames = Math.max(1, Math.round(slide.duration * 30)); 
+          const currentDuration = slide.duration || 5;
+          const totalDuration = currentDuration + (slide.postAudioDelay || 0);
+          const slideDurationFrames = Math.max(1, Math.round(totalDuration * 30)); 
 
           return (
             <Series.Sequence 

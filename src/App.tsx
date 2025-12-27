@@ -63,7 +63,7 @@ function App() {
   };
 
   const totalDurationFrames = useMemo(() => {
-    const totalSeconds = slides.reduce((acc, s) => acc + (s.duration || 5), 0);
+    const totalSeconds = slides.reduce((acc, s) => acc + (s.duration || 5) + (s.postAudioDelay || 0), 0);
     return Math.max(1, Math.round(totalSeconds * 30));
   }, [slides]);
 
@@ -171,6 +171,7 @@ function App() {
                         dataUrl: s.dataUrl,
                         audioUrl: s.audioUrl,
                         duration: s.duration || 5,
+                        postAudioDelay: s.postAudioDelay,
                         transition: s.transition
                       }))
                     }}

@@ -11,6 +11,7 @@ export interface SlideData extends RenderedPage {
   transition: 'fade' | 'slide' | 'zoom' | 'none';
   voice: string;
   selectionRanges?: { start: number; end: number }[];
+  postAudioDelay?: number;
 }
 
 function mergeRanges(ranges: { start: number; end: number }[]) {
@@ -231,6 +232,18 @@ const SlideItem = ({
               ]}
               value={slide.transition}
               onChange={(val) => onUpdate(index, { transition: val as SlideData['transition'] })}
+            />
+          </div>
+
+          <div className="w-24 space-y-2">
+            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Delay (s)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={slide.postAudioDelay || 0}
+              onChange={(e) => onUpdate(index, { postAudioDelay: parseFloat(e.target.value) || 0 })}
+              className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
             />
           </div>
 
