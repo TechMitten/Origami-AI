@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Music, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -733,193 +733,190 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         </div>
 
-        <div className="mt-6 pt-6 border-t border-white/5 flex flex-wrap items-center gap-x-8 gap-y-6 pl-4.5 md:pl-0">
-           {/* Add Media Slide */}
-           <div className="space-y-2 group">
-              <input
-                type="file"
-                ref={mediaInputRef}
-                className="hidden"
-                accept="video/mp4,image/gif"
-                onChange={handleMediaUpload}
-              />
-             <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-hover:text-branding-primary transition-colors">
-               <VideoIcon className="w-3 h-3" /> Add Media
-             </label>
-            <button
-              onClick={() => mediaInputRef.current?.click()}
-              className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
-            >
-              <Plus className="w-3 h-3" />
-              Insert GIF/Video
-            </button>
-           </div>
-
-           <div className="w-px h-10 bg-white/10 hidden md:block" />
-           {/* Global Voice Control */}
-           <div className="flex items-end gap-3 group relative">
-              <div className="space-y-2">
-                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
-                   <Mic className="w-3 h-3" /> Global Voice
-                 </label>
-                <div className="w-64">
-                  <Dropdown
-                    options={AVAILABLE_VOICES}
-                    value={globalVoice}
-                    onChange={setGlobalVoice}
-                    className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white"
-                  />
-                </div>
-              </div>
-              <button
-                 onClick={handleApplyGlobalVoice}
-                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all"
-              >
-                 Apply All
-              </button>
-           </div>
-
-           <div className="w-px h-10 bg-white/10 hidden md:block" />
-
-           {/* Global Delay Control */}
-           <div className="flex items-end gap-3 group">
-              <div className="space-y-2">
-                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
-                    <Clock className="w-3 h-3" /> Global Delay
-                 </label>
-                 <div className="relative">
-                   <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={globalDelay}
-                    onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
-                    className="w-28 px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-8 hover:bg-white/20"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/50 pointer-events-none font-bold">SEC</span>
-                 </div>
-              </div>
-              <button
-                 onClick={handleApplyGlobalDelay}
-                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all"
-              >
-                 Apply All
-              </button>
-           </div>
-
-           <div className="w-px h-10 bg-white/10 hidden md:block" />
-
-           {/* Background Music Control */}
-           <div className="flex items-end gap-3 group relative">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="audio/*"
-                onChange={handleMusicUpload}
-              />
-              <div className="space-y-2">
-                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
-                    <Music className="w-3 h-3" /> Background Music
-                 </label>
-                 
-                 {!musicSettings.url ? (
-                    <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2"
+        <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+           {/* Section 1: Media & Assets */}
+           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
+              <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
+                <VideoIcon className="w-3 h-3" /> Media & Assets
+              </h3>
+              
+              <div className="space-y-4">
+                 {/* Add Media */}
+                 <div>
+                    <input
+                      type="file"
+                      ref={mediaInputRef}
+                      className="hidden"
+                      accept="video/mp4,image/gif"
+                      onChange={handleMediaUpload}
+                    />
+                    <button
+                      onClick={() => mediaInputRef.current?.click()}
+                      className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
                     >
-                        <Upload className="w-3 h-3" /> Upload Track
+                      <Plus className="w-3 h-3" />
+                      Insert GIF/Video
                     </button>
-                 ) : (
-                    <div className="flex items-center gap-2 h-10 bg-white/10 rounded-lg p-1 border border-white/20">
-                        <button
-                            onClick={toggleMusicPlayback}
-                            className="w-8 h-8 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
+                 </div>
+
+                 {/* Background Music */}
+                 <div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="audio/*"
+                      onChange={handleMusicUpload}
+                    />
+                    
+                     {!musicSettings.url ? (
+                        <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
                         >
-                            {isMusicPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                            <Upload className="w-3 h-3" /> Upload Background Music
                         </button>
-                        
-                        <div className="w-24 px-2 flex items-center gap-2" title={`Volume: ${Math.round(musicSettings.volume * 100)}%`}>
-                            <Volume2 className="w-3 h-3 text-white/40" />
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={musicSettings.volume}
-                                onChange={(e) => {
-                                    const newVol = parseFloat(e.target.value);
-                                    onUpdateMusicSettings({ ...musicSettings, volume: newVol });
-                                    if(musicAudioRef.current) musicAudioRef.current.volume = newVol;
-                                }}
-                                style={{
-                                    background: `linear-gradient(to right, var(--primary) ${musicSettings.volume * 100}%, rgba(255, 255, 255, 0.1) ${musicSettings.volume * 100}%)`
-                                }}
-                                className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
-                            />
+                     ) : (
+                        <div className="flex items-center gap-2 h-10 bg-white/5 rounded-lg p-1 border border-white/10">
+                            <button
+                                onClick={toggleMusicPlayback}
+                                className="w-8 h-8 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
+                            >
+                                {isMusicPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                            </button>
+                            
+                            <div className="flex-1 px-2 flex items-center gap-2 min-w-0" title={`Volume: ${Math.round(musicSettings.volume * 100)}%`}>
+                                <Volume2 className="w-3 h-3 text-white/40 shrink-0" />
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    value={musicSettings.volume}
+                                    onChange={(e) => {
+                                        const newVol = parseFloat(e.target.value);
+                                        onUpdateMusicSettings({ ...musicSettings, volume: newVol });
+                                        if(musicAudioRef.current) musicAudioRef.current.volume = newVol;
+                                    }}
+                                    style={{
+                                        background: `linear-gradient(to right, var(--primary) ${musicSettings.volume * 100}%, rgba(255, 255, 255, 0.1) ${musicSettings.volume * 100}%)`
+                                    }}
+                                    className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
+                                />
+                            </div>
+
+                            <button
+                                onClick={handleRemoveMusic}
+                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors shrink-0"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
                         </div>
-
-                        <button
-                            onClick={handleRemoveMusic}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-500/20 text-white/40 hover:text-red-500 transition-colors"
-                        >
-                            <Trash2 className="w-3 h-3" />
-                        </button>
-                    </div>
-                 )}
-              </div>
-           </div>
-
-           
-           <div className="w-px h-10 bg-white/10 hidden md:block" />
-
-           <div className="space-y-2 group">
-             <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-hover:text-branding-primary transition-colors">
-                <Wand2 className="w-3 h-3" /> Audio Generation
-             </label>
-            <button
-              onClick={handleGenerateAll}
-              disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-              className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
-            >
-              <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-              {isBatchGenerating ? 'Processing...' : 'Generate All'}
-            </button>
-           </div>
-
-           <div className="w-px h-10 bg-white/10 hidden md:block" />
-
-           {/* Find & Replace */}
-           <div className="flex items-end gap-3 group">
-              <div className="space-y-2">
-                 <label className="flex items-center gap-2 text-[10px] font-bold text-white/70 uppercase tracking-widest group-focus-within:text-branding-primary transition-colors">
-                    <Search className="w-3 h-3" /> Find & Replace
-                 </label>
-                 <div className="flex items-center gap-2">
-                   <input
-                    type="text"
-                    placeholder="Find..."
-                    value={findText}
-                    onChange={(e) => setFindText(e.target.value)}
-                    className="w-32 px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
-                  />
-                   <span className="text-white/50 text-xs">→</span>
-                   <input
-                    type="text"
-                    placeholder="Replace..."
-                    value={replaceText}
-                    onChange={(e) => setReplaceText(e.target.value)}
-                    className="w-32 px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
-                  />
+                     )}
                  </div>
               </div>
-              <button
-                 onClick={handleFindAndReplace}
-                 disabled={!findText}
-                 className="mb-[2px] px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                 Replace All
-              </button>
+           </div>
+
+           {/* Section 2: Global Configuration */}
+           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
+              <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
+                <Mic className="w-3 h-3" /> Global Settings
+              </h3>
+
+              <div className="space-y-4">
+                 {/* Global Voice */}
+                 <div className="flex items-end gap-2">
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                       <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Voice Model</label>
+                       <Dropdown
+                         options={AVAILABLE_VOICES}
+                         value={globalVoice}
+                         onChange={setGlobalVoice}
+                         className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white text-sm"
+                       />
+                    </div>
+                    <button
+                       onClick={handleApplyGlobalVoice}
+                       className="h-[42px] px-3 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-white/90 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all"
+                    >
+                       Apply
+                    </button>
+                 </div>
+
+                 {/* Global Delay */}
+                 <div className="flex items-end gap-2">
+                    <div className="space-y-1.5 flex-1">
+                       <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5"><Clock className="w-3 h-3" /> Post-Slide Delay</label>
+                       <div className="relative">
+                         <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={globalDelay}
+                          onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
+                          className="w-full h-[42px] px-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-8 hover:bg-white/20"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/50 pointer-events-none font-bold">SEC</span>
+                       </div>
+                    </div>
+                    <button
+                       onClick={handleApplyGlobalDelay}
+                       className="h-[42px] px-3 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-white/90 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all"
+                    >
+                       Apply
+                    </button>
+                 </div>
+              </div>
+           </div>
+
+           {/* Section 3: Batch Tools */}
+           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
+              <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
+                <Wand2 className="w-3 h-3" /> Batch Operations
+              </h3>
+
+              <div className="space-y-4">
+                 {/* Find & Replace */}
+                 <div className="space-y-2">
+                     <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5"><Search className="w-3 h-3" /> Find & Replace</label> 
+                     <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
+                       <input
+                        type="text"
+                        placeholder="Find"
+                        value={findText}
+                        onChange={(e) => setFindText(e.target.value)}
+                        className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
+                      />
+                       <span className="text-white/30 text-[10px]">to</span>
+                       <input
+                        type="text"
+                        placeholder="Replace"
+                        value={replaceText}
+                        onChange={(e) => setReplaceText(e.target.value)}
+                        className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
+                      />
+                     </div>
+                     <button
+                       onClick={handleFindAndReplace}
+                       disabled={!findText}
+                       className="w-full h-8 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                       Replace All Instances
+                    </button>
+                 </div>
+
+                 {/* Generate All */}
+                 <div className="pt-2 border-t border-white/5">
+                    <button
+                      onClick={handleGenerateAll}
+                      disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+                      className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                    >
+                      <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
+                      {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
+                    </button>
+                 </div>
+              </div>
            </div>
         </div>
 
