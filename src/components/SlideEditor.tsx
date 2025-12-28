@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -22,6 +22,11 @@ import { AVAILABLE_VOICES } from '../services/ttsService';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
+import modernEdm from '../assets/music/modern edm.mp3';
+
+const PREDEFINED_MUSIC = [
+  { id: modernEdm, name: 'Modern EDM' }
+];
 
 export interface SlideData extends Partial<RenderedPage> {
   id: string;
@@ -58,6 +63,7 @@ function mergeRanges(ranges: { start: number; end: number }[]) {
 export interface MusicSettings {
   url?: string;
   volume: number;
+  loop?: boolean;
 }
 
 interface SlideEditorProps {
@@ -609,6 +615,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     } else if (musicSettings.url) {
       const audio = new Audio(musicSettings.url);
       audio.volume = musicSettings.volume;
+      audio.loop = musicSettings.loop ?? true;
       audio.onended = () => setIsMusicPlaying(false);
       audio.play().catch(e => {
         console.error("Music playback failed", e);
@@ -626,6 +633,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           }
       }
   }, [musicSettings.url]);
+
+  React.useEffect(() => {
+    if (musicAudioRef.current) {
+      musicAudioRef.current.loop = musicSettings.loop ?? true;
+    }
+  }, [musicSettings.loop]);
 
   const handleRemoveMusic = () => {
       onUpdateMusicSettings({ ...musicSettings, url: undefined });
@@ -842,13 +855,35 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       onChange={handleMusicUpload}
                     />
                     
-                     {!musicSettings.url ? (
-                        <button 
-                            onClick={() => fileInputRef.current?.click()}
-                            className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
-                        >
-                            <Upload className="w-3 h-3" /> Upload Background Music
-                        </button>
+                    {!musicSettings.url ? (
+                        <div className="space-y-3">
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
+                            >
+                                <Upload className="w-3 h-3" /> Upload Background Music
+                            </button>
+
+                            <div className="flex items-center gap-3 py-1">
+                                <div className="h-px flex-1 bg-white/10"></div>
+                                <span className="text-[10px] font-bold text-white/30">OR</span>
+                                <div className="h-px flex-1 bg-white/10"></div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Music className="w-3 h-3" /> Music Library
+                                </label>
+                                <Dropdown
+                                    options={PREDEFINED_MUSIC}
+                                    value=""
+                                    onChange={(val) => {
+                                        if (val) onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.5 });
+                                    }}
+                                    className="bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-white text-xs"
+                                />
+                            </div>
+                        </div>
                      ) : (
                         <div className="flex items-center gap-2 h-10 bg-white/5 rounded-lg p-1 border border-white/10">
                             <button
@@ -872,11 +907,19 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                         if(musicAudioRef.current) musicAudioRef.current.volume = newVol;
                                     }}
                                     style={{
-                                        background: `linear-gradient(to right, var(--primary) ${musicSettings.volume * 100}%, rgba(255, 255, 255, 0.1) ${musicSettings.volume * 100}%)`
+                                        background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${musicSettings.volume * 100}%, rgba(255, 255, 255, 0.1) ${musicSettings.volume * 100}%)`
                                     }}
                                     className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
                                 />
                             </div>
+
+                            <button
+                                onClick={() => onUpdateMusicSettings({ ...musicSettings, loop: !(musicSettings.loop ?? true) })}
+                                className={`w-8 h-8 flex items-center justify-center rounded transition-colors shrink-0 ${(musicSettings.loop ?? true) ? 'bg-branding-primary/20 text-branding-primary' : 'bg-white/10 hover:bg-white/20 text-white/40'}`}
+                                title={(musicSettings.loop ?? true) ? "Loop Enabled" : "Loop Disabled"}
+                            >
+                                <Repeat className="w-3 h-3" />
+                            </button>
 
                             <button
                                 onClick={handleRemoveMusic}
@@ -888,17 +931,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                      )}
                  </div>
 
-                 {/* Generate All */}
-                 <div className="pt-2 border-t border-white/10">
-                    <button
-                      onClick={handleGenerateAll}
-                      disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-                      className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
-                    >
-                      <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-                      {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
-                    </button>
-                 </div>
+
+
               </div>
            </div>
 
@@ -991,6 +1025,16 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  </div>
 
                  {/* Generate All */}
+                 <div className="pt-2 border-t border-white/10">
+                    <button
+                      onClick={handleGenerateAll}
+                      disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+                      className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                    >
+                      <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
+                      {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
+                    </button>
+                 </div>
 
               </div>
            </div>
@@ -1016,7 +1060,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  onUpdate={onUpdateSlide}
                  onGenerate={onGenerateAudio}
                  isGenerating={isGeneratingAudio || isBatchGenerating}
-                 onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
+                 onExpand={(i) => {
+                   setPreviewIndex(prev => prev === i ? null : i);
+                   if (previewIndex !== i) {
+                     window.scrollTo({ top: 0, behavior: 'smooth' });
+                   }
+                 }}
                  highlightText={findText}
                  onDelete={handleDeleteSlide}
                  ttsVolume={ttsVolume}

@@ -16,6 +16,7 @@ export interface SlideCompositionProps extends Record<string, unknown> {
   musicSettings?: {
     url?: string;
     volume: number;
+    loop?: boolean;
   };
   ttsVolume?: number;
   showVolumeOverlay?: boolean;
@@ -71,7 +72,7 @@ export const SlideComposition: React.FC<SlideCompositionProps> = ({ slides, musi
         <Audio 
           src={musicSettings.url} 
           volume={getVolume}
-          loop 
+        loop={musicSettings?.loop ?? true} 
         />
       )}
       <Series>
