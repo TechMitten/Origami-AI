@@ -135,6 +135,7 @@ const SortableSlideItem = ({
   const [isCopied, setIsCopied] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
 
   // Cleanup audio on unmount or if slide changes
   React.useEffect(() => {
@@ -147,6 +148,7 @@ const SortableSlideItem = ({
         audioContextRef.current.close().catch(console.error);
         audioContextRef.current = null;
       }
+      gainNodeRef.current = null;
     };
   }, [slide.audioUrl]);
 
@@ -159,6 +161,7 @@ const SortableSlideItem = ({
          audioContextRef.current.close().catch(console.error);
          audioContextRef.current = null;
       }
+      gainNodeRef.current = null;
     } else if (slide.audioUrl) {
       const audio = new Audio(slide.audioUrl);
       const vol = ttsVolume ?? 1;
@@ -179,6 +182,7 @@ const SortableSlideItem = ({
              gainNode.connect(ctx.destination);
              
              audioContextRef.current = ctx;
+             gainNodeRef.current = gainNode;
           } catch (e) {
              console.error("Audio amplification failed", e);
              audio.volume = 1; // Fallback to max normal volume
@@ -193,6 +197,7 @@ const SortableSlideItem = ({
              audioContextRef.current.close().catch(console.error);
              audioContextRef.current = null;
           }
+          gainNodeRef.current = null;
       };
       
       audio.play().catch(e => {
@@ -203,6 +208,45 @@ const SortableSlideItem = ({
       setIsPlaying(true);
     }
   };
+
+  // Live volume adjustment effect
+  React.useEffect(() => {
+    if (isPlaying && audioRef.current) {
+        const vol = ttsVolume ?? 1;
+        const audio = audioRef.current;
+
+        // If volume exceeds 100% and we haven't set up Web Audio yet, do it now
+        if (vol > 1 && !audioContextRef.current) {
+             try {
+                 const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                 const ctx = new AudioContextClass();
+                 const source = ctx.createMediaElementSource(audio);
+                 const gainNode = ctx.createGain();
+                 
+                 source.connect(gainNode);
+                 gainNode.connect(ctx.destination);
+                 
+                 audioContextRef.current = ctx;
+                 gainNodeRef.current = gainNode;
+                 
+                 // Reset element volume to 1 so gain node controls full range
+                 audio.volume = 1;
+             } catch (e) {
+                 console.error("Audio amplification upgrade failed", e);
+             }
+        }
+
+        // Apply volume
+        if (audioContextRef.current && gainNodeRef.current) {
+            // Web Audio API control
+            gainNodeRef.current.gain.value = vol;
+            if (audio.volume !== 1) audio.volume = 1;
+        } else {
+            // Standard Audio API control
+            audio.volume = Math.max(0, vol);
+        }
+    }
+  }, [ttsVolume, isPlaying]);
 
 
   const handleTransform = async () => {
