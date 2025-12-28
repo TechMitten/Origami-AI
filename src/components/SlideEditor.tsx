@@ -18,8 +18,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { RenderedPage } from '../services/pdfService';
-import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice } from '../services/ttsService';
-import { loadGlobalSettings } from '../services/storage';
+import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
+import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
@@ -77,6 +77,7 @@ interface SlideEditorProps {
   onUpdateMusicSettings: (settings: MusicSettings) => void;
   ttsVolume?: number;
   onUpdateTtsVolume?: (volume: number) => void;
+  globalSettings?: GlobalSettings | null; // Add globalSettings prop
 }
 
 function getMatchRanges(text: string, term: string) {
@@ -583,7 +584,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   musicSettings,
   onUpdateMusicSettings,
   ttsVolume,
-  onUpdateTtsVolume
+  onUpdateTtsVolume,
+  globalSettings // Destructure globalSettings
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
@@ -591,57 +593,164 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
   const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
 
+  // Hybrid Voice State for Global Settings Sidebar
+  const [isGlobalHybrid, setIsGlobalHybrid] = React.useState(false);
+  const [globalVoiceA, setGlobalVoiceA] = React.useState('');
+  const [globalVoiceB, setGlobalVoiceB] = React.useState('');
+  const [globalMixBalance, setGlobalMixBalance] = React.useState(50);
+  
+  // Parse globalVoice into hybrid state components when it changes (e.g. loaded from settings)
   React.useEffect(() => {
-    loadGlobalSettings().then(settings => {
-      // Logic to fetch base voices
-      const fetchPromise = (settings?.useLocalTTS && settings?.localTTSUrl) 
-          ? fetchRemoteVoices(settings.localTTSUrl) 
-          : Promise.resolve(DEFAULT_VOICES);
+    if (globalVoice && globalVoice.includes('+')) {
+      setIsGlobalHybrid(true);
+      const match = globalVoice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
+      if (match) {
+          const [, idA, weightA, idB] = match;
+          setGlobalVoiceA(idA);
+          setGlobalVoiceB(idB);
+          if (weightA) setGlobalMixBalance(parseInt(weightA, 10));
+          else setGlobalMixBalance(50);
+      } else {
+          const [a, b] = globalVoice.split('+');
+          setGlobalVoiceA(a);
+          setGlobalVoiceB(b);
+          setGlobalMixBalance(50);
+      }
+    } else if (globalVoice) {
+      setIsGlobalHybrid(false);
+      setGlobalVoiceA(globalVoice);
+    }
+  }, [globalVoice]);
 
-      fetchPromise.then(fetchedVoices => {
-          let finalVoices = [...fetchedVoices];
+  const updateGlobalHybrid = (a: string, b: string, balance: number) => {
+      setGlobalVoiceA(a);
+      setGlobalVoiceB(b);
+      setGlobalMixBalance(balance);
+      
+      if (balance === 50) {
+          setGlobalVoice(`${a}+${b}`);
+      } else {
+          setGlobalVoice(`${a}(${balance})+${b}(${100 - balance})`);
+      }
+  };
 
-          // Check if we have a custom hybrid voice in settings
-          if (settings?.voice && settings.voice.includes('+')) {
-              // It's a hybrid voice. We need to add it to the list if not already there (it won't be in standard list)
-             
-             // Try to parse names from IDs if possible, otherwise use IDs
-             const match = settings.voice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
-             let name = "Custom Hybrid Voice";
-             
-             if (match) {
-                 const [, idA, weightA, idB, weightB] = match;
-                 // Try to find names in fetchedVoices
-                 const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
-                 const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
-                 const wA = weightA || "50";
-                 const wB = weightB || (weightA ? String(100 - parseInt(weightA)) : "50"); // approximation if B weight not explicit but A is
-                 
-                 name = `Hybrid: ${nameA} (${wA}%) + ${nameB} (${wB}%)`;
-             } else {
-                 // Fallback for simple A+B
-                 const [idA, idB] = settings.voice.split('+');
-                  const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
-                  const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
-                  name = `Hybrid: ${nameA} + ${nameB}`;
-             }
+  // Global Preview for Sidebar
+  const [isGlobalPreviewPlaying, setIsGlobalPreviewPlaying] = React.useState(false);
+  const [globalPreviewAudio, setGlobalPreviewAudio] = React.useState<HTMLAudioElement | null>(null);
 
-             const hybridVoice: Voice = {
-                 id: settings.voice,
-                 name: name
-             };
+  const handleGlobalPreview = async () => {
+       if (isGlobalPreviewPlaying && globalPreviewAudio) {
+           globalPreviewAudio.pause();
+           setIsGlobalPreviewPlaying(false);
+           return;
+       }
 
-             // Prepend to list so user can see/select it
-             finalVoices = [hybridVoice, ...finalVoices];
+       try {
+           setIsGlobalPreviewPlaying(true);
+           const text = "Hi there! This is a sample of how I sound. I hope you like it!";
+           
+           const audioUrl = await generateTTS(text, {
+               voice: globalVoice, 
+               speed: 1.0,
+               pitch: 1.0
+           });
+           
+           const audio = new Audio(audioUrl);
+           audio.onended = () => {
+               setIsGlobalPreviewPlaying(false);
+               setGlobalPreviewAudio(null);
+           };
+           audio.onerror = () => {
+                setIsGlobalPreviewPlaying(false);
+                setGlobalPreviewAudio(null);
+                alert("Failed to play audio preview.");
+           };
+
+           setGlobalPreviewAudio(audio);
+           await audio.play();
+       } catch (e) {
+           console.error("Preview failed", e);
+           setIsGlobalPreviewPlaying(false);
+           alert("Failed to generate preview");
+       }
+  };
+
+  React.useEffect(() => {
+      return () => {
+          if (globalPreviewAudio) {
+              globalPreviewAudio.pause();
           }
+      }
+  }, [globalPreviewAudio]);
 
-          setVoices(finalVoices);
-          
-          if (settings?.delay) setGlobalDelay(settings.delay);
-          if (settings?.voice) setGlobalVoice(settings.voice);
-      });
-    });
-  }, []);
+  // Effect to handle voice updates based on globalSettings
+  React.useEffect(() => {
+    // Helper to process settings and update state
+    const processSettings = (settings: GlobalSettings | null) => {
+        // Logic to fetch base voices
+        const fetchPromise = (settings?.useLocalTTS && settings?.localTTSUrl) 
+            ? fetchRemoteVoices(settings.localTTSUrl) 
+            : Promise.resolve(DEFAULT_VOICES);
+
+        fetchPromise.then(fetchedVoices => {
+            let finalVoices = [...fetchedVoices];
+
+            // Check if we have a custom hybrid voice in settings
+            if (settings?.voice && settings.voice.includes('+')) {
+               // Try to parse names from IDs if possible, otherwise use IDs
+               const match = settings.voice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
+               let name = "Custom Hybrid Voice";
+               
+               if (match) {
+                   const [, idA, weightA, idB, weightB] = match;
+                   // Try to find names in fetchedVoices
+                   const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
+                   const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
+                   // If B weight is missing but A is present, calculate B. If both missing, 50.
+                   const wA = weightA || "50";
+                   let wB = weightB;
+
+                   if (!wB) {
+                        if (weightA) wB = String(100 - parseInt(weightA));
+                        else wB = "50";
+                   }
+                   
+                   name = `Hybrid: ${nameA} (${wA}%) + ${nameB} (${wB}%)`;
+               } else {
+                   // Fallback for simple A+B
+                   const [idA, idB] = settings.voice.split('+');
+                    const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
+                    const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
+                    name = `Hybrid: ${nameA} + ${nameB}`;
+               }
+
+               const hybridVoice: Voice = {
+                   id: settings.voice,
+                   name: name
+               };
+
+               // Prepend to list so user can see/select it
+               // Check if it already exists to avoid dupes if re-running
+               if (!finalVoices.find(v => v.id === hybridVoice.id)) {
+                   finalVoices = [hybridVoice, ...finalVoices];
+               }
+            }
+
+            setVoices(finalVoices);
+            
+            if (settings?.delay) setGlobalDelay(settings.delay);
+            if (settings?.voice) setGlobalVoice(settings.voice);
+        });
+    };
+
+    if (globalSettings !== undefined) {
+        // If prop is provided (even if null), use it
+        processSettings(globalSettings);
+    } else {
+        // Fallback to loading from storage if prop not passed (legacy/safety)
+        loadGlobalSettings().then(processSettings);
+    }
+  }, [globalSettings]); // React to globalSettings changes
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -1044,22 +1153,117 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
               <div className="space-y-4">
                  {/* Global Voice */}
-                 <div className="flex items-end gap-2">
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                       <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Voice Model</label>
-                       <Dropdown
-                         options={voices}
-                         value={globalVoice}
-                         onChange={setGlobalVoice}
-                         className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white text-sm"
-                       />
+                 <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                         <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Voice Model</label>
+                         
+                         <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-white/40 font-bold uppercase">Hybrid</span>
+                            <button
+                                onClick={() => {
+                                    const newHybridState = !isGlobalHybrid;
+                                    setIsGlobalHybrid(newHybridState);
+                                    if (newHybridState) {
+                                        // Switching to hybrid, ensure defaults
+                                        const a = globalVoiceA || voices[0]?.id || 'af_heart';
+                                        const b = globalVoiceB || voices[1]?.id || 'am_adam';
+                                        setGlobalVoiceA(a);
+                                        setGlobalVoiceB(b);
+                                        updateGlobalHybrid(a, b, globalMixBalance);
+                                    } else {
+                                        // Switching off hybrid, revert to just A
+                                        setGlobalVoice(globalVoiceA || voices[0]?.id);
+                                    }
+                                }}
+                                className={`relative w-8 h-4 rounded-full transition-colors duration-300 ${isGlobalHybrid ? 'bg-branding-primary' : 'bg-white/10'}`}
+                            >
+                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isGlobalHybrid ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </button>
+                         </div>
                     </div>
-                    <button
-                       onClick={handleApplyGlobalVoice}
-                       className="h-[42px] px-3 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-white/90 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all"
-                    >
-                       Apply
-                    </button>
+
+                    {isGlobalHybrid ? (
+                        <div className="space-y-3 p-3 rounded-lg bg-black/20 border border-white/5">
+                            {/* Voice A */}
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-white/40 uppercase">Voice A</label>
+                                <Dropdown
+                                    options={voices}
+                                    value={globalVoiceA}
+                                    onChange={(val) => updateGlobalHybrid(val, globalVoiceB, globalMixBalance)}
+                                    className="bg-white/5 border border-white/10 h-8 text-xs"
+                                />
+                            </div>
+                            
+                            {/* Balance Slider */}
+                             <div className="py-2 space-y-2">
+                                <div className="flex justify-between text-[9px] font-bold text-white/50 uppercase tracking-wider">
+                                    <span>{globalMixBalance}% A</span>
+                                    <span>{100 - globalMixBalance}% B</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    value={100 - globalMixBalance}
+                                    onChange={(e) => updateGlobalHybrid(globalVoiceA, globalVoiceB, 100 - parseInt(e.target.value))}
+                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform"
+                                />
+                             </div>
+
+                            {/* Voice B */}
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-white/40 uppercase">Voice B</label>
+                                <Dropdown
+                                    options={voices}
+                                    value={globalVoiceB}
+                                    onChange={(val) => updateGlobalHybrid(globalVoiceA, val, globalMixBalance)}
+                                    className="bg-white/5 border border-white/10 h-8 text-xs"
+                                />
+                            </div>
+
+                            <div className="flex gap-2 mt-2">
+                                <button
+                                   onClick={handleGlobalPreview}
+                                    className={`flex-1 h-8 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/60 hover:text-white'}`}
+                                >
+                                    {isGlobalPreviewPlaying ? <Square className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                                    Test
+                                </button>
+                                <button
+                                   onClick={handleApplyGlobalVoice}
+                                   className="flex-2 h-8 rounded-lg bg-branding-primary/20 border border-branding-primary/30 hover:bg-branding-primary/30 text-white/90 font-bold text-[10px] uppercase tracking-wider transition-all"
+                                >
+                                   Apply Hybrid
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1 min-w-0">
+                                <Dropdown
+                                    options={voices}
+                                    value={globalVoice}
+                                    onChange={setGlobalVoice}
+                                    className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white text-sm"
+                                />
+                            </div>
+                            <button
+                                onClick={handleGlobalPreview}
+                                className={`h-[42px] px-3 rounded-lg border flex items-center justify-center transition-all ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-white/10 border-white/20 hover:bg-white/20 text-white/60 hover:text-white'}`}
+                                title="Test Voice"
+                            >
+                                {isGlobalPreviewPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                            </button>
+                            <button
+                                onClick={handleApplyGlobalVoice}
+                                className="h-[42px] px-3 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-white/90 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    )}
                  </div>
 
                  {/* Global Delay */}

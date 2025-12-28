@@ -466,6 +466,7 @@ function App() {
                 onUpdateMusicSettings={setMusicSettings}
                 ttsVolume={ttsVolume}
                 onUpdateTtsVolume={setTtsVolume}
+                globalSettings={globalSettings}
               />
             )}
           </div>
