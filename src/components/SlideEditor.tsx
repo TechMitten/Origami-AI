@@ -593,11 +593,53 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   React.useEffect(() => {
     loadGlobalSettings().then(settings => {
-      if (settings?.useLocalTTS && settings?.localTTSUrl) {
-          fetchRemoteVoices(settings.localTTSUrl).then(setVoices);
-      } else {
-          setVoices(DEFAULT_VOICES);
-      }
+      // Logic to fetch base voices
+      const fetchPromise = (settings?.useLocalTTS && settings?.localTTSUrl) 
+          ? fetchRemoteVoices(settings.localTTSUrl) 
+          : Promise.resolve(DEFAULT_VOICES);
+
+      fetchPromise.then(fetchedVoices => {
+          let finalVoices = [...fetchedVoices];
+
+          // Check if we have a custom hybrid voice in settings
+          if (settings?.voice && settings.voice.includes('+')) {
+              // It's a hybrid voice. We need to add it to the list if not already there (it won't be in standard list)
+             
+             // Try to parse names from IDs if possible, otherwise use IDs
+             const match = settings.voice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
+             let name = "Custom Hybrid Voice";
+             
+             if (match) {
+                 const [, idA, weightA, idB, weightB] = match;
+                 // Try to find names in fetchedVoices
+                 const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
+                 const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
+                 const wA = weightA || "50";
+                 const wB = weightB || (weightA ? String(100 - parseInt(weightA)) : "50"); // approximation if B weight not explicit but A is
+                 
+                 name = `Hybrid: ${nameA} (${wA}%) + ${nameB} (${wB}%)`;
+             } else {
+                 // Fallback for simple A+B
+                 const [idA, idB] = settings.voice.split('+');
+                  const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
+                  const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
+                  name = `Hybrid: ${nameA} + ${nameB}`;
+             }
+
+             const hybridVoice: Voice = {
+                 id: settings.voice,
+                 name: name
+             };
+
+             // Prepend to list so user can see/select it
+             finalVoices = [hybridVoice, ...finalVoices];
+          }
+
+          setVoices(finalVoices);
+          
+          if (settings?.delay) setGlobalDelay(settings.delay);
+          if (settings?.voice) setGlobalVoice(settings.voice);
+      });
     });
   }, []);
 
