@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square } from 'lucide-react';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -37,6 +37,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [isHybrid, setIsHybrid] = useState(false);
   const [voiceA, setVoiceA] = useState('');
   const [voiceB, setVoiceB] = useState('');
+  const [mixBalance, setMixBalance] = useState(50); // 0-100, favoring Voice A
   const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
@@ -51,8 +52,18 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
        try {
            setIsPreviewPlaying(true);
            const text = "Hi there! This is a sample of how I sound. I hope you like it!";
+           
+           let previewVoice = voice;
+           if (isHybrid) {
+               if (mixBalance === 50) {
+                   previewVoice = `${voiceA}+${voiceB}`;
+               } else {
+                   previewVoice = `${voiceA}(${mixBalance})+${voiceB}(${100 - mixBalance})`;
+               }
+           }
+
            const audioUrl = await generateTTS(text, {
-               voice: isHybrid ? `${voiceA}+${voiceB}` : voice,
+               voice: previewVoice,
                speed: 1.0,
                pitch: 1.0
            });
@@ -86,7 +97,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       }
   }, [previewAudio]);
 
-  const loadVoices = async () => {
+  const loadVoices = useCallback(async () => {
        if (!localTTSUrl) return;
        try {
            setVoiceFetchError(null);
@@ -97,7 +108,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
            setVoiceFetchError(err instanceof Error ? err.message : 'Failed to fetch voices');
            setAvailableVoices(DEFAULT_VOICES);
        }
-  };
+  }, [localTTSUrl]);
 
   // Fetch voices when Local TTS is enabled
   React.useEffect(() => {
@@ -106,15 +117,33 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     } else {
       setAvailableVoices(DEFAULT_VOICES);
     }
-  }, [useLocalTTS, localTTSUrl]);
+  }, [useLocalTTS, localTTSUrl, loadVoices]);
 
   // Parse initial voice for hybrid mode
   React.useEffect(() => {
     if (currentSettings?.voice && currentSettings.voice.includes('+')) {
       setIsHybrid(true);
-      const [a, b] = currentSettings.voice.split('+');
-      setVoiceA(a);
-      setVoiceB(b);
+      
+      // Parse format: idA(weight)+idB(weight) or idA+idB
+      const match = currentSettings.voice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
+      
+      if (match) {
+          const [, idA, weightA, idB] = match;
+          setVoiceA(idA);
+          setVoiceB(idB);
+          
+          if (weightA) {
+              setMixBalance(parseInt(weightA, 10));
+          } else {
+              setMixBalance(50);
+          }
+      } else {
+          // Fallback split
+          const [a, b] = currentSettings.voice.split('+');
+          setVoiceA(a);
+          setVoiceB(b);
+          setMixBalance(50);
+      }
     } else {
       setIsHybrid(false);
       if (currentSettings?.voice) {
@@ -126,11 +155,15 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   // Sync hybrid voice to main voice state
   React.useEffect(() => {
       if (isHybrid && voiceA && voiceB) {
-          setVoice(`${voiceA}+${voiceB}`);
+          if (mixBalance === 50) {
+            setVoice(`${voiceA}+${voiceB}`);
+          } else {
+            setVoice(`${voiceA}(${mixBalance})+${voiceB}(${100 - mixBalance})`);
+          }
       } else if (!isHybrid && voiceA) {
           setVoice(voiceA);
       }
-  }, [isHybrid, voiceA, voiceB]);
+  }, [isHybrid, voiceA, voiceB, mixBalance]);
   React.useEffect(() => {
     if (isOpen) {
       setApiKey(localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '');
@@ -436,9 +469,25 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                         className="bg-black/20"
                                     />
                                 </div>
-                                <div className="col-span-2 pt-2 border-t border-white/5">
+                                <div className="col-span-2 pt-4 px-2 space-y-3 border-t border-white/5">
+                                    <div className="flex justify-between items-center text-[10px] uppercase font-bold text-white/40">
+                                        <span>Use More {voiceA || 'Voice A'}</span>
+                                        <span>Use More {voiceB || 'Voice B'}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        step="5"
+                                        value={100 - mixBalance}
+                                        onChange={(e) => setMixBalance(100 - parseInt(e.target.value))}
+                                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform"
+                                    />
                                     <p className="text-[10px] text-white/40 text-center">
-                                        Voices will be mixed 50/50. Resulting ID: <span className="font-mono text-branding-primary">{voiceA}+{voiceB}</span>
+                                        Mix Ratio: <span className="font-mono text-white">{mixBalance}%</span> A / <span className="font-mono text-white">{100 - mixBalance}%</span> B
+                                    </p>
+                                    <p className="text-[10px] text-white/20 text-center truncate">
+                                        ID: <span className="font-mono">{mixBalance === 50 ? `${voiceA}+${voiceB}` : `${voiceA}(${mixBalance})+${voiceB}(${100 - mixBalance})`}</span>
                                     </p>
                                 </div>
                              </div>

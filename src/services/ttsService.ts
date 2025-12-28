@@ -75,9 +75,10 @@ export async function fetchRemoteVoices(baseUrl: string): Promise<Voice[]> {
         }
 
         // Normalize
-        return voices.map((v: any) => ({ 
-            id: v.id || v, 
-            name: v.name || v.id || v 
+        // Normalize
+        return voices.map((v: string | { id: string; name?: string }) => ({ 
+            id: typeof v === 'string' ? v : v.id, 
+            name: typeof v === 'string' ? v : (v.name || v.id) 
         }));
 
     } catch (e) {
