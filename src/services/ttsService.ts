@@ -7,7 +7,12 @@ export interface TTSOptions {
   pitch: number;
 }
 
-export const AVAILABLE_VOICES = [
+export interface Voice {
+  id: string;
+  name: string;
+}
+
+export const DEFAULT_VOICES: Voice[] = [
   { id: 'af_heart', name: 'Heart (Default)' },
   { id: 'af_bella', name: 'Bella' },
   { id: 'af_nicole', name: 'Nicole' },
@@ -16,6 +21,70 @@ export const AVAILABLE_VOICES = [
   { id: 'bf_emma', name: 'Emma (British)' },
   { id: 'bm_george', name: 'George (British)' },
 ];
+
+export const AVAILABLE_VOICES = DEFAULT_VOICES;
+
+export async function fetchRemoteVoices(baseUrl: string): Promise<Voice[]> {
+    let voicesUrl = baseUrl;
+    try {
+        // More robust URL construction
+        if (baseUrl.includes('/audio/speech')) {
+             voicesUrl = baseUrl.replace('/audio/speech', '/audio/voices');
+        } else if (baseUrl.endsWith('/v1')) {
+            voicesUrl = `${baseUrl}/audio/voices`;
+        } else if (!baseUrl.endsWith('/voices')) {
+             // Try to guess based on common patterns
+             try {
+                const url = new URL(baseUrl);
+                if (url.port === '8880') {
+                    // Kokoro Fast API default port
+                    url.pathname = '/v1/audio/voices';
+                    voicesUrl = url.toString();
+                } else {
+                    // fall back to replacing speech or appending
+                     voicesUrl = baseUrl.replace(/\/speech$/, '/voices');
+                }
+             } catch {
+                // Keep original if not parsable
+             }
+        }
+
+        console.log(`[TTS Service] Fetching voices from ${voicesUrl}`);
+        const res = await fetch(voicesUrl);
+        if (!res.ok) {
+            throw new Error(`Failed to fetch voices from ${voicesUrl} (Status: ${res.status})`);
+        }
+        
+        const data = await res.json();
+        
+        let voices: Voice[] = [];
+
+        // Handle various response formats
+        if (data.voices && Array.isArray(data.voices)) {
+             // Format: { voices: [...] }
+             voices = data.voices;
+        } else if (data.object === 'list' && Array.isArray(data.data)) {
+             // OpenAI Format: { object: 'list', data: [...] }
+             voices = data.data;
+        } else if (Array.isArray(data)) {
+             // Simple Array: [...]
+             voices = data;
+        } else {
+            console.warn("[TTS Service] Unknown voice response format", data);
+            return DEFAULT_VOICES;
+        }
+
+        // Normalize
+        return voices.map((v: any) => ({ 
+            id: v.id || v, 
+            name: v.name || v.id || v 
+        }));
+
+    } catch (e) {
+        console.error("[TTS Service] Voice fetch error:", e);
+        throw e; // Re-throw to let UI handle the error state
+    }
+}
 
 // Singleton worker instance
 let worker: Worker | null = null;

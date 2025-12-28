@@ -39,8 +39,11 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
       }
     };
     
-    // Handle scroll to close dropdown to avoid detachment
-    const handleScroll = () => {
+    // Handle scroll to close dropdown to avoid detachment, but allow scrolling inside menu
+    const handleScroll = (event: Event) => {
+      if (menuRef.current && menuRef.current.contains(event.target as Node)) {
+        return;
+      }
       if (isOpen) setIsOpen(false);
     };
 

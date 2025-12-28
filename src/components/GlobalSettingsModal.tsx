@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles } from 'lucide-react';
-import { AVAILABLE_VOICES } from '../services/ttsService';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square } from 'lucide-react';
+import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 
@@ -33,7 +33,104 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
+  const [availableVoices, setAvailableVoices] = useState<Voice[]>(AVAILABLE_VOICES);
+  const [isHybrid, setIsHybrid] = useState(false);
+  const [voiceA, setVoiceA] = useState('');
+  const [voiceB, setVoiceB] = useState('');
+  const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
 
+  const handlePlayPreview = async () => {
+       if (isPreviewPlaying && previewAudio) {
+           previewAudio.pause();
+           setIsPreviewPlaying(false);
+           return;
+       }
+
+       try {
+           setIsPreviewPlaying(true);
+           const text = "Hi there! This is a sample of how I sound. I hope you like it!";
+           const audioUrl = await generateTTS(text, {
+               voice: isHybrid ? `${voiceA}+${voiceB}` : voice,
+               speed: 1.0,
+               pitch: 1.0
+           });
+           
+           const audio = new Audio(audioUrl);
+           audio.onended = () => {
+               setIsPreviewPlaying(false);
+               setPreviewAudio(null);
+           };
+           audio.onerror = () => {
+                setIsPreviewPlaying(false);
+                setPreviewAudio(null);
+                alert("Failed to play audio preview.");
+           };
+
+           setPreviewAudio(audio);
+           await audio.play();
+       } catch (e) {
+           console.error("Preview failed", e);
+           setIsPreviewPlaying(false);
+           alert("Failed to generate preview: " + (e instanceof Error ? e.message : String(e)));
+       }
+  };
+
+  // Cleanup preview audio on unmount or tab change
+  React.useEffect(() => {
+      return () => {
+          if (previewAudio) {
+              previewAudio.pause();
+          }
+      }
+  }, [previewAudio]);
+
+  const loadVoices = async () => {
+       if (!localTTSUrl) return;
+       try {
+           setVoiceFetchError(null);
+           const voices = await fetchRemoteVoices(localTTSUrl);
+           setAvailableVoices(voices);
+       } catch (err) {
+           console.error("Failed to load voices", err);
+           setVoiceFetchError(err instanceof Error ? err.message : 'Failed to fetch voices');
+           setAvailableVoices(DEFAULT_VOICES);
+       }
+  };
+
+  // Fetch voices when Local TTS is enabled
+  React.useEffect(() => {
+    if (useLocalTTS && localTTSUrl) {
+      loadVoices();
+    } else {
+      setAvailableVoices(DEFAULT_VOICES);
+    }
+  }, [useLocalTTS, localTTSUrl]);
+
+  // Parse initial voice for hybrid mode
+  React.useEffect(() => {
+    if (currentSettings?.voice && currentSettings.voice.includes('+')) {
+      setIsHybrid(true);
+      const [a, b] = currentSettings.voice.split('+');
+      setVoiceA(a);
+      setVoiceB(b);
+    } else {
+      setIsHybrid(false);
+      if (currentSettings?.voice) {
+          setVoiceA(currentSettings.voice);
+      }
+    }
+  }, [currentSettings, isOpen]);
+
+  // Sync hybrid voice to main voice state
+  React.useEffect(() => {
+      if (isHybrid && voiceA && voiceB) {
+          setVoice(`${voiceA}+${voiceB}`);
+      } else if (!isHybrid && voiceA) {
+          setVoice(voiceA);
+      }
+  }, [isHybrid, voiceA, voiceB]);
   React.useEffect(() => {
     if (isOpen) {
       setApiKey(localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '');
@@ -275,15 +372,87 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     </div>
 
                     <div className="space-y-4">
-                        <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                            <Mic className="w-4 h-4" /> Default Voice
-                        </label>
-                        <Dropdown
-                            options={AVAILABLE_VOICES}
-                            value={voice}
-                            onChange={setVoice}
-                            className="bg-black/20"
-                        />
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                                <Mic className="w-4 h-4" /> Default Voice
+                            </label>
+                            {useLocalTTS && (
+                                <div className="flex items-center gap-2">
+                                     {voiceFetchError && (
+                                         <span className="text-[10px] text-red-400 font-bold animate-pulse" title={voiceFetchError}>
+                                             Fetch Failed
+                                         </span>
+                                     )}
+                                     <button
+                                        onClick={loadVoices}
+                                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                                        title="Refresh Voices from API"
+                                     >
+                                        <RotateCcw className="w-3 h-3" />
+                                     </button>
+
+                                    <div className="w-px h-3 bg-white/10 mx-1" />
+
+                                    <span className="text-xs text-white/60">Hybrid Mode</span>
+                                    <button
+                                        onClick={() => setIsHybrid(!isHybrid)}
+                                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isHybrid ? 'bg-branding-primary' : 'bg-white/10'}`}
+                                    >
+                                        <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isHybrid ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                            )}
+
+                             {/* Preview Button */}
+                            <button
+                                onClick={handlePlayPreview}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'}`}
+                            >
+                                {isPreviewPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                                {isPreviewPlaying ? 'Stop' : 'Test Voice'}
+                            </button>
+                        </div>
+
+                        {isHybrid ? (
+                             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                                <div className="space-y-2">
+                                     <label className="text-[10px] font-bold text-white/40 uppercase">Voice A</label>
+                                     <Dropdown
+                                        options={availableVoices}
+                                        value={voiceA}
+                                        onChange={setVoiceA}
+                                        className="bg-black/20"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-center pt-6 text-white/20">
+                                    <span className="text-xl font-bold">+</span>
+                                </div>
+                                <div className="space-y-2">
+                                     <label className="text-[10px] font-bold text-white/40 uppercase">Voice B</label>
+                                     <Dropdown
+                                        options={availableVoices}
+                                        value={voiceB}
+                                        onChange={setVoiceB}
+                                        className="bg-black/20"
+                                    />
+                                </div>
+                                <div className="col-span-2 pt-2 border-t border-white/5">
+                                    <p className="text-[10px] text-white/40 text-center">
+                                        Voices will be mixed 50/50. Resulting ID: <span className="font-mono text-branding-primary">{voiceA}+{voiceB}</span>
+                                    </p>
+                                </div>
+                             </div>
+                        ) : (
+                            <Dropdown
+                                options={availableVoices}
+                                value={voice}
+                                onChange={(v) => {
+                                    setVoice(v);
+                                    setVoiceA(v); // Keep sync
+                                }}
+                                className="bg-black/20"
+                            />
+                        )}
                     </div>
 
                     <div className="space-y-4">

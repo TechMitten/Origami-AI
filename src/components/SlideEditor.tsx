@@ -18,7 +18,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { RenderedPage } from '../services/pdfService';
-import { AVAILABLE_VOICES } from '../services/ttsService';
+import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice } from '../services/ttsService';
+import { loadGlobalSettings } from '../services/storage';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
@@ -100,7 +101,8 @@ const SortableSlideItem = ({
   onExpand,
   highlightText,
   onDelete,
-  ttsVolume
+  ttsVolume,
+  voices // Add voices to destructuring
 }: { 
   slide: SlideData, 
   index: number, 
@@ -111,6 +113,7 @@ const SortableSlideItem = ({
   highlightText?: string,
   onDelete: (index: number) => void;
   ttsVolume?: number;
+  voices: Voice[]; // Add voices prop
 }) => {
   const {
     attributes,
@@ -492,7 +495,7 @@ const SortableSlideItem = ({
           <div className="flex-1 space-y-2">
             <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Voice</label>
             <Dropdown
-              options={AVAILABLE_VOICES}
+              options={voices}
               value={slide.voice}
               onChange={(val) => onUpdate(index, { voice: val })}
             />
@@ -586,6 +589,17 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
   const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
+  const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
+
+  React.useEffect(() => {
+    loadGlobalSettings().then(settings => {
+      if (settings?.useLocalTTS && settings?.localTTSUrl) {
+          fetchRemoteVoices(settings.localTTSUrl).then(setVoices);
+      } else {
+          setVoices(DEFAULT_VOICES);
+      }
+    });
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -719,7 +733,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   };
 
   const handleApplyGlobalVoice = () => {
-    const voiceName = AVAILABLE_VOICES.find(v => v.id === globalVoice)?.name;
+    const voiceName = voices.find(v => v.id === globalVoice)?.name || globalVoice;
     if (window.confirm(`Apply "${voiceName}" voice to all ${slides.length} slides?`)) {
       slides.forEach((_, index) => {
         onUpdateSlide(index, { voice: globalVoice });
@@ -992,7 +1006,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <div className="space-y-1.5 flex-1 min-w-0">
                        <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Voice Model</label>
                        <Dropdown
-                         options={AVAILABLE_VOICES}
+                         options={voices}
                          value={globalVoice}
                          onChange={setGlobalVoice}
                          className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white text-sm"
@@ -1113,6 +1127,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  highlightText={findText}
                  onDelete={handleDeleteSlide}
                  ttsVolume={ttsVolume}
+                 voices={voices}
               />
             ))}
           </div>
