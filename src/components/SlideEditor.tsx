@@ -68,6 +68,8 @@ interface SlideEditorProps {
   onReorderSlides: (slides: SlideData[]) => void;
   musicSettings: MusicSettings;
   onUpdateMusicSettings: (settings: MusicSettings) => void;
+  ttsVolume?: number;
+  onUpdateTtsVolume?: (volume: number) => void;
 }
 
 function getMatchRanges(text: string, term: string) {
@@ -91,7 +93,8 @@ const SortableSlideItem = ({
   isGenerating,
   onExpand,
   highlightText,
-  onDelete
+  onDelete,
+  ttsVolume
 }: { 
   slide: SlideData, 
   index: number, 
@@ -101,6 +104,7 @@ const SortableSlideItem = ({
   onExpand: (i: number) => void,
   highlightText?: string,
   onDelete: (index: number) => void;
+  ttsVolume?: number;
 }) => {
   const {
     attributes,
@@ -124,6 +128,7 @@ const SortableSlideItem = ({
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Cleanup audio on unmount or if slide changes
   React.useEffect(() => {
@@ -132,17 +137,58 @@ const SortableSlideItem = ({
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(console.error);
+        audioContextRef.current = null;
+      }
     };
   }, [slide.audioUrl]);
 
-  const togglePlayback = () => {
+  const togglePlayback = async () => {
     if (isPlaying && audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
+      if (audioContextRef.current) {
+         audioContextRef.current.close().catch(console.error);
+         audioContextRef.current = null;
+      }
     } else if (slide.audioUrl) {
       const audio = new Audio(slide.audioUrl);
-      audio.onended = () => setIsPlaying(false);
+      const vol = ttsVolume ?? 1;
+
+      // Handle volume > 100% using Web Audio API
+      if (vol > 1) {
+          try {
+             // Fallback for safety if AudioContext fails
+             audio.volume = 1;
+             
+             const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+             const ctx = new AudioContextClass();
+             const source = ctx.createMediaElementSource(audio);
+             const gainNode = ctx.createGain();
+             
+             gainNode.gain.value = vol;
+             source.connect(gainNode);
+             gainNode.connect(ctx.destination);
+             
+             audioContextRef.current = ctx;
+          } catch (e) {
+             console.error("Audio amplification failed", e);
+             audio.volume = 1; // Fallback to max normal volume
+          }
+      } else {
+          audio.volume = Math.max(0, vol);
+      }
+
+      audio.onended = () => {
+          setIsPlaying(false);
+          if (audioContextRef.current) {
+             audioContextRef.current.close().catch(console.error);
+             audioContextRef.current = null;
+          }
+      };
+      
       audio.play().catch(e => {
         console.error("Audio playback failed", e);
         setIsPlaying(false);
@@ -482,7 +528,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   isGeneratingAudio,
   onReorderSlides,
   musicSettings,
-  onUpdateMusicSettings
+  onUpdateMusicSettings,
+  ttsVolume,
+  onUpdateTtsVolume
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
@@ -759,6 +807,31 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     </button>
                  </div>
 
+
+                 {/* TTS Volume */}
+                 <div className="space-y-1.5">
+                     <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5">
+                       <Volume2 className="w-3 h-3" /> TTS Volume
+                     </label>
+                     <div className="flex items-center gap-3 h-10 bg-white/5 rounded-lg px-3 border border-white/10">
+                          <input
+                              type="range"
+                              min="0"
+                              max="3"
+                              step="0.1"
+                              value={ttsVolume ?? 1}
+                              onChange={(e) => onUpdateTtsVolume?.(parseFloat(e.target.value))}
+                              style={{
+                                  background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${((ttsVolume ?? 1) / 3) * 100}%, rgba(255, 255, 255, 0.1) ${((ttsVolume ?? 1) / 3) * 100}%)`
+                              }}
+                              className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
+                          />
+                          <span className="text-[10px] w-9 text-right font-mono font-bold text-white/60">
+                            {Math.round((ttsVolume ?? 1) * 100)}%
+                          </span>
+                     </div>
+                 </div>
+
                  {/* Background Music */}
                  <div>
                     <input
@@ -813,6 +886,18 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             </button>
                         </div>
                      )}
+                 </div>
+
+                 {/* Generate All */}
+                 <div className="pt-2 border-t border-white/10">
+                    <button
+                      onClick={handleGenerateAll}
+                      disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+                      className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                    >
+                      <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
+                      {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
+                    </button>
                  </div>
               </div>
            </div>
@@ -906,16 +991,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  </div>
 
                  {/* Generate All */}
-                 <div className="pt-2 border-t border-white/5">
-                    <button
-                      onClick={handleGenerateAll}
-                      disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-                      className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
-                    >
-                      <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-                      {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
-                    </button>
-                 </div>
+
               </div>
            </div>
         </div>
@@ -943,6 +1019,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  onExpand={(i) => setPreviewIndex(prev => prev === i ? null : i)}
                  highlightText={findText}
                  onDelete={handleDeleteSlide}
+                 ttsVolume={ttsVolume}
               />
             ))}
           </div>

@@ -38,6 +38,7 @@ function App() {
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.5 });
+  const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
@@ -218,7 +219,8 @@ function App() {
 
       const response = await axios.post('/api/render', { 
         slides: convertedSlides, 
-        musicSettings: convertedMusicSettings 
+        musicSettings: convertedMusicSettings,
+        ttsVolume: ttsVolume
       }, {
         responseType: 'blob'
       });
@@ -270,7 +272,8 @@ function App() {
 
       const response = await axios.post('/api/render', { 
         slides: silentSlides,
-        musicSettings: convertedMusicSettings 
+        musicSettings: convertedMusicSettings,
+        ttsVolume: ttsVolume
       }, {
         responseType: 'blob'
       });
@@ -396,7 +399,9 @@ function App() {
                         mediaUrl: s.mediaUrl,
                         isVideoMusicPaused: s.isVideoMusicPaused
                       })),
-                      musicSettings: musicSettings
+                      musicSettings: musicSettings,
+                      ttsVolume: ttsVolume,
+                      showVolumeOverlay: true
                     }}
                     durationInFrames={totalDurationFrames}
                     fps={30}
@@ -459,6 +464,8 @@ function App() {
                 onReorderSlides={setSlides}
                 musicSettings={musicSettings}
                 onUpdateMusicSettings={setMusicSettings}
+                ttsVolume={ttsVolume}
+                onUpdateTtsVolume={setTtsVolume}
               />
             )}
           </div>
