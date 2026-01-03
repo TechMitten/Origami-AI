@@ -602,16 +602,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [globalMixBalance, setGlobalMixBalance] = React.useState(50);
 
   // Sync global settings changes to parent
-  React.useEffect(() => {
-    if (onUpdateGlobalSettings) {
-      if (globalSettings?.voice !== globalVoice || globalSettings?.delay !== globalDelay) {
-         onUpdateGlobalSettings({
-             voice: globalVoice,
-             delay: globalDelay
-         });
-      }
-    }
-  }, [globalVoice, globalDelay, onUpdateGlobalSettings, globalSettings]);
+
   
   // Parse globalVoice into hybrid state components when it changes (e.g. loaded from settings)
   React.useEffect(() => {
@@ -641,11 +632,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       setGlobalVoiceB(b);
       setGlobalMixBalance(balance);
       
+      let newVoice = '';
       if (balance === 50) {
-          setGlobalVoice(`${a}+${b}`);
+          newVoice = `${a}+${b}`;
       } else {
-          setGlobalVoice(`${a}(${balance})+${b}(${100 - balance})`);
+          newVoice = `${a}(${balance})+${b}(${100 - balance})`;
       }
+      setGlobalVoice(newVoice);
+      onUpdateGlobalSettings?.({ voice: newVoice });
   };
 
   // Global Preview for Sidebar
@@ -1061,18 +1055,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
 
   // Effect to sync local global settings changes back to parent/storage
-  React.useEffect(() => {
-    if (onUpdateGlobalSettings) {
-      // Avoid syncing if values haven't stabilized or are identical to props (optimization)
-      // But simplest is to just sync.
-      if (globalSettings?.voice !== globalVoice || globalSettings?.delay !== globalDelay) {
-         onUpdateGlobalSettings({
-             voice: globalVoice,
-             delay: globalDelay
-         });
-      }
-    }
-  }, [globalVoice, globalDelay, onUpdateGlobalSettings, globalSettings]);
+
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -1302,7 +1285,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                         updateGlobalHybrid(a, b, globalMixBalance);
                                     } else {
                                         // Switching off hybrid, revert to just A
-                                        setGlobalVoice(globalVoiceA || voices[0]?.id);
+                                        const newVoice = globalVoiceA || voices[0]?.id;
+                                        setGlobalVoice(newVoice);
+                                        onUpdateGlobalSettings?.({ voice: newVoice });
                                     }
                                 }}
                                 className={`relative w-8 h-4 rounded-full transition-colors duration-300 ${isGlobalHybrid ? 'bg-branding-primary' : 'bg-white/10'}`}
@@ -1375,7 +1360,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 <Dropdown
                                     options={voices}
                                     value={globalVoice}
-                                    onChange={setGlobalVoice}
+                                    onChange={(val) => {
+                                        setGlobalVoice(val);
+                                        onUpdateGlobalSettings?.({ voice: val });
+                                    }}
                                     className="bg-white/10 border border-white/20 hover:bg-white/20 transition-colors text-white text-sm"
                                 />
                             </div>
@@ -1406,7 +1394,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                           min="0"
                           step="0.5"
                           value={globalDelay}
-                          onChange={(e) => setGlobalDelay(parseFloat(e.target.value) || 0)}
+                          onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setGlobalDelay(val);
+                              onUpdateGlobalSettings?.({ delay: val });
+                          }}
                           className="w-full h-[42px] px-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-8 hover:bg-white/20"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white/50 pointer-events-none font-bold">SEC</span>
