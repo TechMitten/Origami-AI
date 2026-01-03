@@ -43,6 +43,7 @@ export interface SlideData extends Partial<RenderedPage> {
   postAudioDelay?: number;
   isTtsDisabled?: boolean;
   isMusicDisabled?: boolean;
+  lastGeneratedSelection?: { start: number; end: number }[];
 }
 
 function mergeRanges(ranges: { start: number; end: number }[]) {
@@ -495,7 +496,7 @@ const SortableSlideItem = ({
                   Audio will be generated only from the highlighted sections.
                </p>
                
-               {slide.audioUrl && (
+               {slide.audioUrl && (!slide.lastGeneratedSelection || JSON.stringify(slide.selectionRanges) !== JSON.stringify(slide.lastGeneratedSelection)) && (
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 animate-in fade-in slide-in-from-top-1 duration-300">
                     <div className="flex items-start gap-2">
                        <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />

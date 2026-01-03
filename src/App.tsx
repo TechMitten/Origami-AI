@@ -192,7 +192,7 @@ function App() {
         pitch: 1.0
       });
       const duration = await getAudioDuration(audioUrl);
-      updateSlide(index, { audioUrl, duration });
+      updateSlide(index, { audioUrl, duration, lastGeneratedSelection: slide.selectionRanges });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to generate audio');
     } finally {
