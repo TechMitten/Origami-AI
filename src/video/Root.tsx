@@ -12,9 +12,14 @@ const calculateMetadata = ({ props }: { props: SlideCompositionProps }) => {
   
   if (slides && slides.length > 0) {
     for (const slide of slides) {
-      const slideDuration = slide.duration || 5; // Default 5 seconds if not specified
-      const postAudioDelay = slide.postAudioDelay || 0;
-      totalDurationSeconds += slideDuration + postAudioDelay;
+      let duration = (slide.duration || 5) + (slide.postAudioDelay || 0);
+      
+      // If TTS is disabled, postAudioDelay acts as the total duration
+      if (slide.isTtsDisabled) {
+         duration = slide.postAudioDelay || 5;
+      }
+      
+      totalDurationSeconds += duration;
     }
   } else {
     // Fallback duration for preview when no slides

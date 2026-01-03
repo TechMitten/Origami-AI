@@ -24,7 +24,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
   const [transition, setTransition] = useState<GlobalSettings['transition']>(currentSettings?.transition ?? 'fade');
   const [musicFile, setMusicFile] = useState<File | null>(null);
-  const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.5);
+  const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.05);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface'>('general');
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
@@ -494,15 +494,29 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             <span>Volume</span>
                             <span>{Math.round(musicVolume * 100)}%</span>
                           </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.05"
-                            value={musicVolume}
-                            onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
-                            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary"
-                          />
+                          <div className="relative w-full flex items-center">
+                              <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.001"
+                                value={Math.sqrt(musicVolume)}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    setMusicVolume(val * val);
+                                }}
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary relative z-10"
+                              />
+                               {/* Ideal Level Marker (5% Volume -> ~22.4% Position) */}
+                               <button
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMusicVolume(0.05);
+                                  }}
+                                  className="absolute left-[22.4%] top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
+                                  title="Set to Ideal Background Level (5%)"
+                              />
+                          </div>
                       </div>
                     </div>
                   ) : (

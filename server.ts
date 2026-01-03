@@ -11,7 +11,7 @@ import multer from 'multer';
 
 import { randomUUID } from "crypto";
 import os from 'os';
-import { normalizeAudioQuick } from './src/services/audioNormalization.js'; 
+import { normalizeAudioToYouTubeLoudness } from './src/services/audioNormalization.js'; 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -122,7 +122,7 @@ async function createServer() {
       // Normalize audio to YouTube's recommended -14 LUFS
       console.log('Normalizing audio to YouTube loudness standards (-14 LUFS)...');
       try {
-        await normalizeAudioQuick(outputLocation);
+        await normalizeAudioToYouTubeLoudness(outputLocation);
         console.log('Audio normalization complete');
       } catch (normError) {
         console.warn('Audio normalization failed (video will be sent without normalization):', normError);
@@ -148,9 +148,12 @@ async function createServer() {
   // If you use your own express router (express.Router()), you should use router.use
   app.use(vite.middlewares);
 
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
   });
+  
+  // Set timeout to 15 minutes (900000 ms) - rendering can take time!
+  server.timeout = 900000;
 }
 
 createServer();

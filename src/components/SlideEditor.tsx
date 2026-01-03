@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -41,6 +41,8 @@ export interface SlideData extends Partial<RenderedPage> {
   voice: string;
   selectionRanges?: { start: number; end: number }[];
   postAudioDelay?: number;
+  isTtsDisabled?: boolean;
+  isMusicDisabled?: boolean;
 }
 
 function mergeRanges(ranges: { start: number; end: number }[]) {
@@ -487,9 +489,31 @@ const SortableSlideItem = ({
           </div>
           
           {slide.selectionRanges && slide.selectionRanges.length > 0 && (
-             <p className="text-[10px] text-branding-primary italic">
-                Audio will be generated only from the highlighted sections.
-             </p>
+            <div className="space-y-2 mt-2">
+               <p className="text-[10px] text-branding-primary italic flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-branding-primary animate-pulse"/>
+                  Audio will be generated only from the highlighted sections.
+               </p>
+               
+               {slide.audioUrl && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <div className="flex items-start gap-2">
+                       <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                       <div className="space-y-1">
+                          <p className="text-xs font-medium text-amber-100">
+                             Audio Update Required
+                          </p>
+                          <p className="text-[11px] leading-relaxed opacity-90">
+                             You've selected specific text, but the current audio plays the full script. You must <span className="font-bold text-amber-100">Regenerate Speech</span> to apply these changes.
+                          </p>
+                          <p className="text-[10px] pt-1.5 mt-1 border-t border-amber-500/10 text-amber-300/70 italic">
+                             <span className="font-semibold not-italic text-amber-300/90">Tip:</span> Highlighting your script <strong>before</strong> generating audio avoids having to regenerate!
+                          </p>
+                       </div>
+                    </div>
+                  </div>
+               )}
+            </div>
           )}
         </div>
 
@@ -517,8 +541,10 @@ const SortableSlideItem = ({
             />
           </div>
 
-          <div className="w-24 space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Delay (s)</label>
+          <div className="w-32 space-y-2">
+            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+              {slide.isTtsDisabled ? 'Duration (s)' : 'Delay (s)'}
+            </label>
             <input
               type="number"
               min="0"
@@ -558,9 +584,37 @@ const SortableSlideItem = ({
                     title="Pause background music while this video plays"
                 >
                     {slide.isVideoMusicPaused ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 opacity-50" />}
-                    {slide.isVideoMusicPaused ? 'Music Paused' : 'Music Playing'}
+                    {slide.isVideoMusicPaused ? 'Music Paused (Video)' : 'Music Playing (Video)'}
                 </button>
             )}
+
+            <div className="flex gap-2">
+                <button
+                    onClick={() => {
+                        const newDisabled = !slide.isTtsDisabled;
+                        const updates: Partial<SlideData> = { isTtsDisabled: newDisabled };
+                        // If switching to manual duration (No TTS) and value is small/zero, 
+                        // set a reasonable default duration (e.g. 5s) so the slide is visible.
+                        if (newDisabled && (slide.postAudioDelay || 0) < 1) {
+                            updates.postAudioDelay = 5;
+                        }
+                        onUpdate(index, updates);
+                    }}
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${slide.isTtsDisabled ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
+                    title="Mute TTS audio for this slide"
+                >
+                    {slide.isTtsDisabled ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3 opacity-50" />}
+                    {slide.isTtsDisabled ? 'No TTS' : 'TTS On'}
+                </button>
+                <button
+                    onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${slide.isMusicDisabled ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
+                    title="Mute background music for this slide"
+                >
+                    {slide.isMusicDisabled ? <VolumeX className="w-3 h-3" /> : <Music className="w-3 h-3 opacity-50" />}
+                    {slide.isMusicDisabled ? 'No Music' : 'Music On'}
+                </button>
+            </div>
 
 
           </div>
@@ -894,7 +948,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.5 });
+      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.05 });
     }
   };
 
@@ -1191,23 +1245,31 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                      <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5">
                        <Volume2 className="w-3 h-3" /> TTS Volume
                      </label>
-                     <div className="flex items-center gap-3 h-10 bg-white/5 rounded-lg px-3 border border-white/10">
-                          <input
-                              type="range"
-                              min="0"
-                              max="10"
-                              step="0.1"
-                              value={ttsVolume ?? 1}
-                              onChange={(e) => onUpdateTtsVolume?.(parseFloat(e.target.value))}
-                              style={{
-                                  background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${((ttsVolume ?? 1) / 10) * 100}%, rgba(255, 255, 255, 0.1) ${((ttsVolume ?? 1) / 10) * 100}%)`
-                              }}
-                              className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
-                          />
-                          <span className="text-[10px] w-9 text-right font-mono font-bold text-white/60">
-                            {Math.round((ttsVolume ?? 1) * 100)}%
-                          </span>
-                     </div>
+                      <div className="flex items-center gap-3 h-10 bg-white/5 rounded-lg px-3 border border-white/10 relative group/slider">
+                           <div className="relative w-full flex items-center">
+                               <input
+                                   type="range"
+                                   min="0"
+                                   max="1"
+                                   step="0.05"
+                                   value={ttsVolume ?? 1}
+                                   onChange={(e) => onUpdateTtsVolume?.(parseFloat(e.target.value))}
+                                   style={{
+                                       background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${(ttsVolume ?? 1) * 100}%, rgba(255, 255, 255, 0.1) ${(ttsVolume ?? 1) * 100}%)`
+                                   }}
+                                   className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform relative z-10"
+                               />
+                               {/* Ideal Level Marker (100%) */}
+                               <button
+                                   onClick={(e) => { e.stopPropagation(); onUpdateTtsVolume?.(1); }}
+                                   className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
+                                   title="Reset to Ideal Level (100%)"
+                               />
+                           </div>
+                           <span className="text-[10px] w-9 text-right font-mono font-bold text-white/60">
+                             {Math.round((ttsVolume ?? 1) * 100)}%
+                           </span>
+                      </div>
                  </div>
 
                  {/* Background Music */}
@@ -1243,7 +1305,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     options={PREDEFINED_MUSIC}
                                     value=""
                                     onChange={(val) => {
-                                        if (val) onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.5 });
+                                        if (val) onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.05 });
                                     }}
                                     className="bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-white text-xs"
                                 />
@@ -1258,24 +1320,39 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 {isMusicPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
                             </button>
                             
-                            <div className="flex-1 px-2 flex items-center gap-2 min-w-0" title={`Volume: ${Math.round(musicSettings.volume * 100)}%`}>
+                            <div className="flex-1 px-2 flex items-center gap-2 min-w-0" title={`Volume: ${(musicSettings.volume * 100).toFixed(1)}%`}>
                                 <Volume2 className="w-3 h-3 text-white/40 shrink-0" />
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.01"
-                                    value={musicSettings.volume}
-                                    onChange={(e) => {
-                                        const newVol = parseFloat(e.target.value);
-                                        onUpdateMusicSettings({ ...musicSettings, volume: newVol });
-                                        if(musicAudioRef.current) musicAudioRef.current.volume = newVol;
-                                    }}
-                                    style={{
-                                        background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${musicSettings.volume * 100}%, rgba(255, 255, 255, 0.1) ${musicSettings.volume * 100}%)`
-                                    }}
-                                    className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
-                                />
+                                <div className="relative w-full flex items-center">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.001"
+                                        value={Math.sqrt(musicSettings.volume)}
+                                        onChange={(e) => {
+                                            const newVol = parseFloat(e.target.value);
+                                            // Square the value to get volume (Audio Taper-ish)
+                                            const squaredVol = newVol * newVol;
+                                            onUpdateMusicSettings({ ...musicSettings, volume: squaredVol });
+                                            if(musicAudioRef.current) musicAudioRef.current.volume = squaredVol;
+                                        }}
+                                        style={{
+                                            background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${Math.sqrt(musicSettings.volume) * 100}%, rgba(255, 255, 255, 0.1) ${Math.sqrt(musicSettings.volume) * 100}%)`
+                                        }}
+                                        className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform relative z-10"
+                                    />
+                                    {/* Ideal Level Marker (5% Volume -> ~22.4% Position) */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const idealVol = 0.05;
+                                            onUpdateMusicSettings({ ...musicSettings, volume: idealVol });
+                                            if(musicAudioRef.current) musicAudioRef.current.volume = idealVol;
+                                        }}
+                                        className="absolute left-[22.4%] top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
+                                        title="Set to Ideal Background Level (5%)"
+                                    />
+                                </div>
                             </div>
 
                             <button

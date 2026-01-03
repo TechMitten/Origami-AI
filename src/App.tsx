@@ -46,7 +46,7 @@ function App() {
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.5 });
+  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.05 });
   const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -97,7 +97,7 @@ function App() {
       await clearState();
       setSlides([]);
       setActiveTab('edit');
-      setMusicSettings({ volume: 0.5 }); // Reset music settings on start over
+      setMusicSettings({ volume: 0.05 }); // Reset music settings on start over
     }
   };
 
@@ -149,11 +149,11 @@ function App() {
            console.error("Failed to create object URL for default music", e);
          }
       } else {
-        setMusicSettings({ volume: 0.5 });
+        setMusicSettings({ volume: 0.05 });
       }
     } else {
        // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
-       setMusicSettings({ volume: 0.5 });
+       setMusicSettings({ volume: 0.05 });
     }
 
     const initialSlides: SlideData[] = pages.map(page => ({
@@ -201,7 +201,16 @@ function App() {
   };
 
   const totalDurationFrames = useMemo(() => {
-    const totalSeconds = slides.reduce((acc, s) => acc + (s.duration || 5) + (s.postAudioDelay || 0), 0);
+    const totalSeconds = slides.reduce((acc, s) => {
+        let slideDuration = (s.duration || 5) + (s.postAudioDelay || 0);
+        
+        // If TTS is disabled, postAudioDelay acts as the manual total duration
+        if (s.isTtsDisabled) {
+             slideDuration = s.postAudioDelay || 5;
+        }
+        
+        return acc + slideDuration;
+    }, 0);
     return Math.max(1, Math.round(totalSeconds * 30));
   }, [slides]);
 
@@ -226,6 +235,8 @@ function App() {
             ? await uploadBlob(s.mediaUrl)
             : s.mediaUrl,
           isVideoMusicPaused: s.isVideoMusicPaused,
+          isTtsDisabled: s.isTtsDisabled,
+          isMusicDisabled: s.isMusicDisabled,
         }))
       );
 
@@ -282,7 +293,9 @@ function App() {
         mediaUrl: s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
           ? await uploadBlob(s.mediaUrl)
           : s.mediaUrl,
-        isVideoMusicPaused: s.isVideoMusicPaused
+        isVideoMusicPaused: s.isVideoMusicPaused,
+        isTtsDisabled: s.isTtsDisabled,
+        isMusicDisabled: s.isMusicDisabled,
       })));
 
       // Convert music URL if it's a blob
@@ -430,7 +443,9 @@ function App() {
                         transition: s.transition,
                         type: s.type,
                         mediaUrl: s.mediaUrl,
-                        isVideoMusicPaused: s.isVideoMusicPaused
+                        isVideoMusicPaused: s.isVideoMusicPaused,
+                        isTtsDisabled: s.isTtsDisabled,
+                        isMusicDisabled: s.isMusicDisabled,
                       })),
                       musicSettings: musicSettings,
                       ttsVolume: ttsVolume,
