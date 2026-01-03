@@ -103,7 +103,8 @@ async function createServer() {
       const outputLocation = path.resolve(outDir, `tutorial-${Date.now()}.mp4`);
 
       // Use all available CPU cores for parallel rendering
-      const cpuCount = os.cpus().length;
+      // Use 50% of available CPU cores for parallel rendering to avoid OOM
+      const cpuCount = Math.max(1, Math.floor(os.cpus().length / 2));
       console.log(`Using ${cpuCount} CPU cores for parallel rendering`);
 
       await renderMedia({

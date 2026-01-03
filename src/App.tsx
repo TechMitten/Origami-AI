@@ -221,24 +221,38 @@ function App() {
     try {
       // Convert all blob URLs to data URLs for server-side rendering
       // Remotion's headless browser cannot access blob URLs
-      const convertedSlides = await Promise.all(
-        slides.map(async (s) => ({
-          ...s,
-          dataUrl: s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
-            ? await uploadBlob(s.dataUrl)
-            : s.dataUrl,
-          audioUrl: s.audioUrl && (s.audioUrl.startsWith('blob:') || s.audioUrl.startsWith('data:'))
-            ? await uploadBlob(s.audioUrl) 
-            : s.audioUrl,
-          type: s.type,
-          mediaUrl: s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
-            ? await uploadBlob(s.mediaUrl)
-            : s.mediaUrl,
-          isVideoMusicPaused: s.isVideoMusicPaused,
-          isTtsDisabled: s.isTtsDisabled,
-          isMusicDisabled: s.isMusicDisabled,
-        }))
-      );
+      // Process slides sequentially to avoid flooding the server or hitting network limits
+      const convertedSlides = [];
+      for (const [index, s] of slides.entries()) {
+          try {
+              console.log(`Processing slide ${index + 1}/${slides.length} for upload...`);
+              const dataUrl = s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
+                  ? await uploadBlob(s.dataUrl)
+                  : s.dataUrl;
+              
+              const audioUrl = s.audioUrl && (s.audioUrl.startsWith('blob:') || s.audioUrl.startsWith('data:'))
+                  ? await uploadBlob(s.audioUrl)
+                  : s.audioUrl;
+              
+              const mediaUrl = s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
+                  ? await uploadBlob(s.mediaUrl)
+                  : s.mediaUrl;
+
+              convertedSlides.push({
+                  ...s,
+                  dataUrl,
+                  audioUrl,
+                  type: s.type,
+                  mediaUrl,
+                  isVideoMusicPaused: s.isVideoMusicPaused,
+                  isTtsDisabled: s.isTtsDisabled,
+                  isMusicDisabled: s.isMusicDisabled,
+              });
+          } catch (err) {
+              console.error(`Failed to process assets for slide ${index + 1}:`, err);
+              throw new Error(`Failed to upload assets for slide ${index + 1}: ${(err as Error).message}`);
+          }
+      }
 
       // Convert music URL if it's a blob
       const convertedMusicSettings = {
@@ -265,8 +279,15 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Download error:', error);
-      alert('Failed to render video on server. Check server console for details.');
+      const axiosError = axios.isAxiosError(error) ? error : null;
+      console.error('Download error details:', {
+        message: axiosError?.message || (error instanceof Error ? error.message : String(error)),
+        response: axiosError?.response?.data,
+        status: axiosError?.response?.status
+      });
+      
+      const errorMessage = axiosError?.response?.data?.error || axiosError?.message || (error instanceof Error ? error.message : 'Unknown error');
+      alert(`Failed to render video: ${errorMessage}`);
     } finally {
       setIsRenderingWithAudio(false);
     }
@@ -281,22 +302,34 @@ function App() {
     setIsRenderingSilent(true);
     try {
       // Create a copy of slides with audio removed, converting blobs
-      const silentSlides = await Promise.all(slides.map(async s => ({
-        ...s,
-        dataUrl: s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
-            ? await uploadBlob(s.dataUrl)
-            : s.dataUrl,
-        audioUrl: undefined, 
-        // We leave duration to be handled by the Composition (defaults to 5s if undefined)
-        duration: undefined,
-        type: s.type,
-        mediaUrl: s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
-          ? await uploadBlob(s.mediaUrl)
-          : s.mediaUrl,
-        isVideoMusicPaused: s.isVideoMusicPaused,
-        isTtsDisabled: s.isTtsDisabled,
-        isMusicDisabled: s.isMusicDisabled,
-      })));
+      // Process slides sequentially
+      const silentSlides = [];
+      for (const [index, s] of slides.entries()) {
+           try {
+               const dataUrl = s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
+                  ? await uploadBlob(s.dataUrl)
+                  : s.dataUrl;
+               
+               const mediaUrl = s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
+                  ? await uploadBlob(s.mediaUrl)
+                  : s.mediaUrl;
+
+               silentSlides.push({
+                  ...s,
+                  dataUrl,
+                  audioUrl: undefined,
+                  duration: undefined,
+                  type: s.type,
+                  mediaUrl,
+                  isVideoMusicPaused: s.isVideoMusicPaused,
+                  isTtsDisabled: s.isTtsDisabled,
+                  isMusicDisabled: s.isMusicDisabled,
+               });
+           } catch (err) {
+               console.error(`Failed to process assets for slide ${index + 1} (silent):`, err);
+               throw new Error(`Failed to upload assets for slide ${index + 1}: ${(err as Error).message}`);
+           }
+      }
 
       // Convert music URL if it's a blob
       const convertedMusicSettings = {
@@ -323,8 +356,15 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Download error:', error);
-      alert('Failed to render video on server. Check server console for details.');
+      const axiosError = axios.isAxiosError(error) ? error : null;
+      console.error('Download error details:', {
+        message: axiosError?.message || (error instanceof Error ? error.message : String(error)),
+        response: axiosError?.response?.data,
+        status: axiosError?.response?.status
+      });
+      
+      const errorMessage = axiosError?.response?.data?.error || axiosError?.message || (error instanceof Error ? error.message : 'Unknown error');
+      alert(`Failed to render video: ${errorMessage}`);
     } finally {
       setIsRenderingSilent(false);
     }
