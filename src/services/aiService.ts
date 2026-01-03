@@ -9,13 +9,28 @@ export const transformText = async (settings: LLMSettings, text: string): Promis
   const systemPrompt = `Transform the following slide text into a complete, natural-sounding script suitable for Text-to-Speech.
 The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent sentences.
 Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow well.
-IMPORTANT: Return ONLY the transformed text. Do not wrap the output in quotation marks.
+
+IMPORTANT TTS INSTRUCTIONS:
+1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
+   - Example: "MiB/s" -> "mebibytes per second"
+   - Example: "GB" -> "gigabytes"
+   - Example: "vs." -> "versus"
+   - Example: "etc." -> "et cetera"
+2. Terminal Commands:
+   - Do NOT read the leading '$' prompt symbol.
+   - Break down complex commands into clear, spoken steps.
+   - Spell out important symbols to ensure the listener knows exactly what to type.
+   - Example: "$ git commit -m 'msg'" -> "First type git commit space dash m, then include your message in quotes."
+   - Example: "$ npm install ." -> "Type npm install space period."
+   - Example: "ls -la" -> "Type ls space dash l a."
+3. Punctuation: Use proper punctuation to control pacing.
+4. Clean Output: Return ONLY the transformed text. Do not wrap the output in quotation marks.
 
 Example Input:
-" How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source"
+" How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
 
 Example Output:
-How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software.`;
+How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
 
   const userPrompt = `Input Text:
 "${text}"`;

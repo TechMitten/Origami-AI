@@ -92,6 +92,20 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       setAvailableModels([]); // Clear any previous models
   };
 
+  const handleUseCustom = () => {
+      // Save keys if we are switching away from a known provider
+      if (baseUrl.includes('googleapis')) {
+          setStoredGeminiKey(apiKey);
+      } else if (baseUrl.includes('openrouter')) {
+          setStoredOpenRouterKey(apiKey);
+      }
+
+      setBaseUrl('');
+      setApiKey('');
+      setModel('');
+      setAvailableModels([]);
+  };
+
   const handleFetchModels = async () => {
     if (!baseUrl || !apiKey) {
       alert("Please enter both Base URL and API Key first.");
@@ -765,6 +779,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             className="flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider border border-indigo-500/20"
                          >
                             <Globe className="w-3 h-3" /> Use OpenRouter
+                         </button>
+                         <button
+                            onClick={handleUseCustom}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-white/60 hover:text-white transition-colors uppercase tracking-wider border border-white/10"
+                         >
+                            <Settings className="w-3 h-3" /> Custom
                          </button>
                      </div>
                  </div>
