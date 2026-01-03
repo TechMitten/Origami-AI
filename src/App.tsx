@@ -425,7 +425,7 @@ function App() {
                       })),
                       musicSettings: musicSettings,
                       ttsVolume: ttsVolume,
-                      showVolumeOverlay: true
+                      showVolumeOverlay: globalSettings?.showVolumeOverlay ?? true
                     }}
                     durationInFrames={totalDurationFrames}
                     fps={30}

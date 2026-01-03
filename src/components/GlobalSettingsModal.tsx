@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout } from 'lucide-react';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -26,10 +26,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.5);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface'>('general');
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
   const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
   const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
+  const [showVolumeOverlay, setShowVolumeOverlay] = useState(currentSettings?.showVolumeOverlay ?? true);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
@@ -200,9 +201,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         volume: musicVolume,
         fileName: savedMusicName
       } : undefined,
+
       ttsQuantization,
       useLocalTTS,
-      localTTSUrl
+      localTTSUrl,
+      showVolumeOverlay
     };
     
     // Check if quantization changed to reload model
@@ -270,6 +273,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
            >
              <Mic className="w-4 h-4" /> TTS Model
            </button>
+           <button
+             onClick={() => setActiveTab('interface')}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'interface' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           >
+             <Layout className="w-4 h-4" /> Interface
+           </button>
         </div>
 
         {/* Content */}
@@ -288,7 +297,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             </div>
             <button
                onClick={() => setIsEnabled(!isEnabled)}
-               className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${isEnabled ? 'bg-branding-primary' : 'bg-white/10'}`}
+               className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${isEnabled ? 'bg-emerald-500' : 'bg-white/10'}`}
             >
                <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isEnabled ? 'translate-x-7' : 'translate-x-0'}`} />
             </button>
@@ -317,6 +326,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 </div>
               </div>
             </div>
+
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Transition */}
@@ -429,7 +440,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                     <span className="text-xs text-white/60">Hybrid Mode</span>
                                     <button
                                         onClick={() => setIsHybrid(!isHybrid)}
-                                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isHybrid ? 'bg-branding-primary' : 'bg-white/10'}`}
+                                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isHybrid ? 'bg-emerald-500' : 'bg-white/10'}`}
                                     >
                                         <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isHybrid ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
@@ -518,7 +529,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 </div>
                                 <button
                                    onClick={() => setUseLocalTTS(!useLocalTTS)}
-                                   className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useLocalTTS ? 'bg-purple-500' : 'bg-white/10'}`}
+                                   className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useLocalTTS ? 'bg-emerald-500' : 'bg-white/10'}`}
                                 >
                                    <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useLocalTTS ? 'translate-x-7' : 'translate-x-0'}`} />
                                 </button>
@@ -578,7 +589,38 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     )}
                 </div>
               </div>
-          ) : (
+           ) : activeTab === 'interface' ? (
+                <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-branding-primary/10 border border-branding-primary/20 flex gap-4">
+                        <div className="p-2 rounded-lg bg-branding-primary/20 text-branding-primary h-fit">
+                            <Layout className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-sm font-bold text-white">Interface Customization</h3>
+                            <p className="text-xs text-white/60 leading-relaxed">
+                                Customize the application layout and visual elements.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                            <div className="space-y-1">
+                                <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                                    <Activity className="w-4 h-4" /> Show Audio Meter
+                                </div>
+                                <p className="text-[10px] text-white/30">Display dB meter on video preview</p>
+                            </div>
+                            <button
+                                onClick={() => setShowVolumeOverlay(!showVolumeOverlay)}
+                                className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${showVolumeOverlay ? 'bg-emerald-500' : 'bg-white/10'}`}
+                            >
+                                <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${showVolumeOverlay ? 'translate-x-5' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+           ) : (
             <div className="space-y-6">
                <div className="p-4 rounded-xl bg-branding-accent/10 border border-branding-accent/20 flex gap-4">
                  <div className="p-2 rounded-lg bg-branding-accent/20 text-branding-accent h-fit">

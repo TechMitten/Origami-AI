@@ -22,6 +22,7 @@ export interface GlobalSettings {
   ttsQuantization?: 'q8' | 'q4';
   useLocalTTS?: boolean;
   localTTSUrl?: string;
+  showVolumeOverlay?: boolean;
 }
 
 const openDB = (): Promise<IDBDatabase> => {

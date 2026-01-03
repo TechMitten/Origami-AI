@@ -955,7 +955,38 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   };
 
   const handleApplyGlobalVoice = () => {
-    const voiceName = voices.find(v => v.id === globalVoice)?.name || globalVoice;
+    let currentVoices = voices;
+    
+    // If using a hybrid voice not in the list, add it
+    if (globalVoice && globalVoice.includes('+') && !voices.find(v => v.id === globalVoice)) {
+        const match = globalVoice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
+        let name = "Custom Hybrid Voice";
+        
+        if (match) {
+            const [, idA, weightA, idB, weightB] = match;
+            const nameA = voices.find(v => v.id === idA)?.name || idA;
+            const nameB = voices.find(v => v.id === idB)?.name || idB;
+            
+            const wA = weightA || "50";
+            let wB = weightB;
+            if (!wB) {
+                 if (weightA) wB = String(100 - parseInt(weightA));
+                 else wB = "50";
+            }
+            name = `Hybrid: ${nameA} (${wA}%) + ${nameB} (${wB}%)`;
+        } else {
+             const [idA, idB] = globalVoice.split('+');
+             const nameA = voices.find(v => v.id === idA)?.name || idA;
+             const nameB = voices.find(v => v.id === idB)?.name || idB;
+             name = `Hybrid: ${nameA} + ${nameB}`;
+        }
+        
+        const newHybridVoice: Voice = { id: globalVoice, name };
+        currentVoices = [newHybridVoice, ...voices];
+        setVoices(currentVoices);
+    }
+
+    const voiceName = currentVoices.find(v => v.id === globalVoice)?.name || globalVoice;
     if (window.confirm(`Apply "${voiceName}" voice to all ${slides.length} slides?`)) {
       slides.forEach((_, index) => {
         onUpdateSlide(index, { voice: globalVoice });
