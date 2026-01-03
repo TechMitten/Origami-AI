@@ -23,7 +23,7 @@ import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
-import modernEdm from '../assets/music/modern edm.mp3';
+const modernEdm = '/music/modern_edm.mp3';
 
 const PREDEFINED_MUSIC = [
   { id: modernEdm, name: 'Modern EDM' }
@@ -637,6 +637,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   // Global Preview for Sidebar
   const [isGlobalPreviewPlaying, setIsGlobalPreviewPlaying] = React.useState(false);
   const [globalPreviewAudio, setGlobalPreviewAudio] = React.useState<HTMLAudioElement | null>(null);
+  const globalAudioContextRef = useRef<AudioContext | null>(null);
+  const globalGainNodeRef = useRef<GainNode | null>(null);
 
   const handleGlobalPreview = async () => {
        if (isGlobalPreviewPlaying && globalPreviewAudio) {
@@ -656,9 +658,39 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            });
            
            const audio = new Audio(audioUrl);
+           const vol = ttsVolume ?? 1;
+
+           // Helper to setup amplification
+           if (vol > 1) {
+               try {
+                   audio.volume = 1;
+                   const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                   const ctx = new AudioContextClass();
+                   const source = ctx.createMediaElementSource(audio);
+                   const gainNode = ctx.createGain();
+                   
+                   gainNode.gain.value = vol;
+                   source.connect(gainNode);
+                   gainNode.connect(ctx.destination);
+                   
+                   globalAudioContextRef.current = ctx;
+                   globalGainNodeRef.current = gainNode;
+               } catch (e) {
+                   console.error("Global preview amplification failed", e);
+                   audio.volume = 1;
+               }
+           } else {
+               audio.volume = Math.max(0, vol);
+           }
+
            audio.onended = () => {
                setIsGlobalPreviewPlaying(false);
                setGlobalPreviewAudio(null);
+               if (globalAudioContextRef.current) {
+                   globalAudioContextRef.current.close().catch(console.error);
+                   globalAudioContextRef.current = null;
+               }
+               globalGainNodeRef.current = null;
            };
            audio.onerror = () => {
                 setIsGlobalPreviewPlaying(false);
@@ -680,8 +712,47 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           if (globalPreviewAudio) {
               globalPreviewAudio.pause();
           }
+          if (globalAudioContextRef.current) {
+               globalAudioContextRef.current.close().catch(console.error);
+          }
       }
   }, [globalPreviewAudio]);
+
+  // Live volume adjustment for Global Preview
+  React.useEffect(() => {
+    if (isGlobalPreviewPlaying && globalPreviewAudio) {
+        const vol = ttsVolume ?? 1;
+        const audio = globalPreviewAudio;
+
+        // Upgrade to Web Audio if needed
+        if (vol > 1 && !globalAudioContextRef.current) {
+             try {
+                 const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                 const ctx = new AudioContextClass();
+                 const source = ctx.createMediaElementSource(audio);
+                 const gainNode = ctx.createGain();
+                 
+                 source.connect(gainNode);
+                 gainNode.connect(ctx.destination);
+                 
+                 globalAudioContextRef.current = ctx;
+                 globalGainNodeRef.current = gainNode;
+                 
+                 audio.volume = 1;
+             } catch (e) {
+                 console.error("Global preview amplification upgrade failed", e);
+             }
+        }
+
+        // Apply volume
+        if (globalAudioContextRef.current && globalGainNodeRef.current) {
+            globalGainNodeRef.current.gain.value = vol;
+            if (audio.volume !== 1) audio.volume = 1;
+        } else {
+            audio.volume = Math.max(0, vol);
+        }
+    }
+  }, [ttsVolume, isGlobalPreviewPlaying, globalPreviewAudio]);
 
   // Effect to handle voice updates based on globalSettings
   React.useEffect(() => {
@@ -1039,12 +1110,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                           <input
                               type="range"
                               min="0"
-                              max="3"
+                              max="10"
                               step="0.1"
                               value={ttsVolume ?? 1}
                               onChange={(e) => onUpdateTtsVolume?.(parseFloat(e.target.value))}
                               style={{
-                                  background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${((ttsVolume ?? 1) / 3) * 100}%, rgba(255, 255, 255, 0.1) ${((ttsVolume ?? 1) / 3) * 100}%)`
+                                  background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${((ttsVolume ?? 1) / 10) * 100}%, rgba(255, 255, 255, 0.1) ${((ttsVolume ?? 1) / 10) * 100}%)`
                               }}
                               className="w-full h-1 rounded-lg appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-125 [&::-webkit-slider-thumb]:transition-transform"
                           />
@@ -1108,7 +1179,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     type="range"
                                     min="0"
                                     max="1"
-                                    step="0.1"
+                                    step="0.01"
                                     value={musicSettings.volume}
                                     onChange={(e) => {
                                         const newVol = parseFloat(e.target.value);

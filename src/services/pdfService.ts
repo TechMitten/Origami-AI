@@ -37,7 +37,9 @@ export async function renderPdfToImages(file: File): Promise<RenderedPage[]> {
       viewport: viewport,
     }).promise;
 
-    const dataUrl = canvas.toDataURL('image/png');
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Failed to convert canvas to blob');
+    const dataUrl = URL.createObjectURL(blob);
     
     // Extract text for initial script
     const textContent = await page.getTextContent();

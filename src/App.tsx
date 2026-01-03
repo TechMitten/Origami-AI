@@ -11,23 +11,32 @@ import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
 
 /**
- * Convert a blob URL to a base64 data URL.
- * This is necessary because Remotion's headless browser cannot access blob URLs.
+ * Upload a blob URL to the server and return the static file URL.
  */
-async function blobUrlToDataUrl(blobUrl: string): Promise<string> {
+async function uploadBlob(blobUrl: string): Promise<string> {
   const response = await fetch(blobUrl);
   const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+  
+  // Determine extension
+  let ext = '.bin';
+  if (blob.type.includes('image/png')) ext = '.png';
+  else if (blob.type.includes('image/jpeg')) ext = '.jpg';
+  else if (blob.type.includes('audio/mpeg')) ext = '.mp3';
+  else if (blob.type.includes('audio/wav')) ext = '.wav';
+  else if (blob.type.includes('video/mp4')) ext = '.mp4';
+  
+  const formData = new FormData();
+  formData.append('file', blob, `upload${ext}`);
+
+  const res = await axios.post('/api/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
   });
+  return new URL(res.data.url, window.location.origin).href;
 }
 
 
@@ -197,13 +206,15 @@ function App() {
       const convertedSlides = await Promise.all(
         slides.map(async (s) => ({
           ...s,
-          dataUrl: s.dataUrl, // Already a data URL
-          audioUrl: s.audioUrl && s.audioUrl.startsWith('blob:') 
-            ? await blobUrlToDataUrl(s.audioUrl) 
+          dataUrl: s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
+            ? await uploadBlob(s.dataUrl)
+            : s.dataUrl,
+          audioUrl: s.audioUrl && (s.audioUrl.startsWith('blob:') || s.audioUrl.startsWith('data:'))
+            ? await uploadBlob(s.audioUrl) 
             : s.audioUrl,
           type: s.type,
-          mediaUrl: s.mediaUrl && s.mediaUrl.startsWith('blob:')
-            ? await blobUrlToDataUrl(s.mediaUrl)
+          mediaUrl: s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
+            ? await uploadBlob(s.mediaUrl)
             : s.mediaUrl,
           isVideoMusicPaused: s.isVideoMusicPaused,
         }))
@@ -213,7 +224,7 @@ function App() {
       const convertedMusicSettings = {
         ...musicSettings,
         url: musicSettings.url && musicSettings.url.startsWith('blob:')
-          ? await blobUrlToDataUrl(musicSettings.url)
+          ? await uploadBlob(musicSettings.url)
           : musicSettings.url,
       };
 
@@ -252,12 +263,15 @@ function App() {
       // Create a copy of slides with audio removed, converting blobs
       const silentSlides = await Promise.all(slides.map(async s => ({
         ...s,
+        dataUrl: s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
+            ? await uploadBlob(s.dataUrl)
+            : s.dataUrl,
         audioUrl: undefined, 
         // We leave duration to be handled by the Composition (defaults to 5s if undefined)
         duration: undefined,
         type: s.type,
-        mediaUrl: s.mediaUrl && s.mediaUrl.startsWith('blob:')
-          ? await blobUrlToDataUrl(s.mediaUrl)
+        mediaUrl: s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
+          ? await uploadBlob(s.mediaUrl)
           : s.mediaUrl,
         isVideoMusicPaused: s.isVideoMusicPaused
       })));
@@ -266,7 +280,7 @@ function App() {
       const convertedMusicSettings = {
         ...musicSettings,
         url: musicSettings.url && musicSettings.url.startsWith('blob:')
-          ? await blobUrlToDataUrl(musicSettings.url)
+          ? await uploadBlob(musicSettings.url)
           : musicSettings.url,
       };
 
@@ -311,6 +325,16 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4">
+          <a
+            href="https://github.com/techcow2/pdf2tutorial"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            title="GitHub Repository"
+          >
+             <Github className="w-5 h-5" />
+             <span className="hidden sm:inline">GitHub</span>
+          </a>
           <button
             onClick={() => setIsTutorialOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
@@ -545,7 +569,7 @@ function TTSProgressOverlay() {
          <div className="flex items-center gap-3">
              {isIndeterminate && <Loader2 className="w-4 h-4 text-branding-primary animate-spin shrink-0" />}
              <h4 className="text-white font-bold text-xs uppercase tracking-wider text-shadow-sm">
-               {progress.status === 'progress' ? 'Downloading Model...' : progress.status}
+               {progress.status === 'progress' ? 'Downloading TTS Model...' : progress.status}
              </h4>
          </div>
          <span className="text-branding-primary text-xs font-mono font-bold shrink-0">

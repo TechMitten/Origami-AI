@@ -109,7 +109,7 @@ function getWorker(quantization: 'q8' | 'q4' = 'q4'): Worker {
       if (type === 'generate-complete' && id) {
         const req = pendingRequests.get(id);
         if (req) {
-          blobToBase64(blob).then(req.resolve).catch(req.reject);
+          req.resolve(URL.createObjectURL(blob));
           pendingRequests.delete(id);
         }
       } else if (type === 'error' && id) {
@@ -176,7 +176,7 @@ export async function generateTTS(text: string, options: TTSOptions): Promise<st
       }
 
       const blob = await response.blob();
-      return await blobToBase64(blob);
+      return URL.createObjectURL(blob);
     } catch (err) {
       console.error("[TTS Service] Local TTS generation failed:", err);
       throw err; // Propagate error to UI
@@ -202,14 +202,7 @@ export async function generateTTS(text: string, options: TTSOptions): Promise<st
   });
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+
 
 export async function getAudioDuration(url: string): Promise<number> {
   return new Promise((resolve) => {
