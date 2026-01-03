@@ -77,7 +77,8 @@ interface SlideEditorProps {
   onUpdateMusicSettings: (settings: MusicSettings) => void;
   ttsVolume?: number;
   onUpdateTtsVolume?: (volume: number) => void;
-  globalSettings?: GlobalSettings | null; // Add globalSettings prop
+  globalSettings?: GlobalSettings | null;
+  onUpdateGlobalSettings?: (settings: Partial<GlobalSettings>) => void;
 }
 
 function getMatchRanges(text: string, term: string) {
@@ -585,7 +586,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onUpdateMusicSettings,
   ttsVolume,
   onUpdateTtsVolume,
-  globalSettings // Destructure globalSettings
+  globalSettings, // Destructure globalSettings
+  onUpdateGlobalSettings
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
@@ -598,6 +600,18 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [globalVoiceA, setGlobalVoiceA] = React.useState('');
   const [globalVoiceB, setGlobalVoiceB] = React.useState('');
   const [globalMixBalance, setGlobalMixBalance] = React.useState(50);
+
+  // Sync global settings changes to parent
+  React.useEffect(() => {
+    if (onUpdateGlobalSettings) {
+      if (globalSettings?.voice !== globalVoice || globalSettings?.delay !== globalDelay) {
+         onUpdateGlobalSettings({
+             voice: globalVoice,
+             delay: globalDelay
+         });
+      }
+    }
+  }, [globalVoice, globalDelay, onUpdateGlobalSettings, globalSettings]);
   
   // Parse globalVoice into hybrid state components when it changes (e.g. loaded from settings)
   React.useEffect(() => {
@@ -1045,6 +1059,20 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   };
 
 
+
+  // Effect to sync local global settings changes back to parent/storage
+  React.useEffect(() => {
+    if (onUpdateGlobalSettings) {
+      // Avoid syncing if values haven't stabilized or are identical to props (optimization)
+      // But simplest is to just sync.
+      if (globalSettings?.voice !== globalVoice || globalSettings?.delay !== globalDelay) {
+         onUpdateGlobalSettings({
+             voice: globalVoice,
+             delay: globalDelay
+         });
+      }
+    }
+  }, [globalVoice, globalDelay, onUpdateGlobalSettings, globalSettings]);
 
   return (
     <div className="space-y-8 animate-fade-in relative">

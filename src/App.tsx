@@ -66,12 +66,7 @@ function App() {
       initTTS(settings?.ttsQuantization || 'q4');
 
       if (state && state.slides.length > 0) {
-        // Sanitize slides: Remove stale blob URLs which are invalid after reload
-        const sanitizedSlides = state.slides.map(s => ({
-          ...s,
-          audioUrl: s.audioUrl && s.audioUrl.startsWith('blob:') ? undefined : s.audioUrl
-        }));
-        setSlides(sanitizedSlides);
+        setSlides(state.slides);
       }
       setIsRestoring(false);
     };
@@ -115,6 +110,20 @@ function App() {
   const handleSaveGlobalSettings = async (settings: GlobalSettings) => {
     await saveGlobalSettings(settings);
     setGlobalSettings(settings);
+  };
+
+  const handlePartialGlobalSettings = async (updates: Partial<GlobalSettings>) => {
+      const defaults: GlobalSettings = {
+          isEnabled: true, // If interacting with settings, we assume enabled or effectively so for these values
+          voice: 'af_heart',
+          delay: 0.5,
+          transition: 'fade',
+      };
+      
+      const current = globalSettings || defaults;
+      const newSettings = { ...current, ...updates };
+      
+      await handleSaveGlobalSettings(newSettings);
   };
 
   const onUploadComplete = async (pages: RenderedPage[]) => {
@@ -491,6 +500,7 @@ function App() {
                 ttsVolume={ttsVolume}
                 onUpdateTtsVolume={setTtsVolume}
                 globalSettings={globalSettings}
+                onUpdateGlobalSettings={handlePartialGlobalSettings}
               />
             )}
           </div>
