@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe } from 'lucide-react';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -42,6 +42,104 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+
+  const [availableModels, setAvailableModels] = useState<{id: string, name: string}[]>([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+
+  // Backup keys state to allow switching
+  const [storedGeminiKey, setStoredGeminiKey] = useState(() => {
+     const saved = localStorage.getItem('google_api_key_backup');
+     // If we are currently using google, prefer the active key as the latest 'truth'
+     if (localStorage.getItem('llm_base_url')?.includes('googleapis')) {
+         return localStorage.getItem('llm_api_key') || saved || '';
+     }
+     return saved || '';
+  });
+  
+  const [storedOpenRouterKey, setStoredOpenRouterKey] = useState(() => {
+      const saved = localStorage.getItem('openrouter_api_key_backup');
+      if (localStorage.getItem('llm_base_url')?.includes('openrouter')) {
+          return localStorage.getItem('llm_api_key') || saved || '';
+      }
+      return saved || '';
+  });
+
+  const handleUseGemini = () => {
+    // Save current OpenRouter key if we are switching FROM OpenRouter
+    if (baseUrl.includes('openrouter')) {
+        setStoredOpenRouterKey(apiKey);
+    }
+    
+    setBaseUrl('https://generativelanguage.googleapis.com/v1beta/openai/');
+    setApiKey(storedGeminiKey); // Restore Gemini Key
+    
+    // Reset/Default Model for Gemini
+    if (!model || !model.startsWith('gemini')) {
+        setModel('gemini-2.0-flash-exp');
+    }
+    setAvailableModels([]); // Clear OpenRouter/Fetched models
+  };
+
+  const handleUseOpenRouter = () => {
+      // Save current Gemini key if we are switching FROM Google/Gemini
+      if (baseUrl.includes('googleapis') || baseUrl === '') {
+          setStoredGeminiKey(apiKey);
+      }
+
+      setBaseUrl('https://openrouter.ai/api/v1');
+      setApiKey(storedOpenRouterKey); // Restore OR Key (or empty if none)
+      setModel(''); // Clear model name
+      setAvailableModels([]); // Clear any previous models
+  };
+
+  const handleFetchModels = async () => {
+    if (!baseUrl || !apiKey) {
+      alert("Please enter both Base URL and API Key first.");
+      return;
+    }
+
+    setIsFetchingModels(true);
+    try {
+      // Handle trailing slash
+      const url = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          // OpenRouter specific headers (optional but good practice)
+          'HTTP-Referer': window.location.origin, 
+          'X-Title': 'TechCow Tutorials' 
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Standard OpenAI format: { data: [ { id: "...", ... }, ... ] }
+      if (data.data && Array.isArray(data.data)) {
+         const models = data.data
+            .map((m: { id: string; name?: string }) => ({ id: m.id, name: m.name || m.id }))
+            .sort((a: {name: string}, b: {name: string}) => a.name.localeCompare(b.name));
+         
+         setAvailableModels(models);
+         if (models.length > 0 && !model) {
+            setModel(models[0].id);
+         }
+      } else {
+         alert("Unexpected response format from API.");
+      }
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      alert("Failed to fetch models. Please check your Base URL and API Key.");
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
 
   const handlePlayPreview = async () => {
        if (isPreviewPlaying && previewAudio) {
@@ -216,6 +314,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     localStorage.setItem('llm_api_key', apiKey);
     localStorage.setItem('llm_base_url', baseUrl);
     localStorage.setItem('llm_model', model);
+    
+    // Persist backup keys
+    // If we are currently enabled as one provider, ensure its backup is also updated to the latest key
+    if (baseUrl.includes('googleapis')) {
+        localStorage.setItem('google_api_key_backup', apiKey);
+        if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', storedOpenRouterKey);
+    } else if (baseUrl.includes('openrouter')) {
+        localStorage.setItem('openrouter_api_key_backup', apiKey);
+        if (storedGeminiKey) localStorage.setItem('google_api_key_backup', storedGeminiKey);
+    } else {
+        // Fallback: save whatever we have in state
+        if (storedGeminiKey) localStorage.setItem('google_api_key_backup', storedGeminiKey);
+        if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', storedOpenRouterKey);
+    }
+
     await onSave(settings);
     onClose();
   };
@@ -636,33 +749,74 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
                {/* Base URL */}
                <div className="space-y-4">
-                 <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                   Base URL
-                 </label>
+                 <div className="flex items-center justify-between">
+                     <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                       Base URL
+                     </label>
+                     <div className="flex items-center gap-2">
+                         <button
+                            onClick={handleUseGemini}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-branding-accent/10 hover:bg-branding-accent/20 text-[10px] font-bold text-branding-accent hover:text-white transition-colors uppercase tracking-wider border border-branding-accent/20"
+                         >
+                            <Sparkles className="w-3 h-3" /> Use Gemini
+                         </button>
+                         <button
+                            onClick={handleUseOpenRouter}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider border border-indigo-500/20"
+                         >
+                            <Globe className="w-3 h-3" /> Use OpenRouter
+                         </button>
+                     </div>
+                 </div>
                  <div className="relative">
                     <input
                      type="text"
                      value={baseUrl}
                      onChange={(e) => setBaseUrl(e.target.value)}
                      placeholder="https://api.openai.com/v1"
-                     className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
+                     className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary"
                    />
                  </div>
                </div>
 
                {/* Model Name */}
                <div className="space-y-4">
-                 <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                   Model Name
-                 </label>
+                 <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                       Model Name
+                    </label>
+                    <button
+                        onClick={handleFetchModels}
+                        disabled={isFetchingModels || !apiKey || !baseUrl}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-white/60 hover:text-white transition-colors uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
+                     >
+                        <RefreshCw className={`w-3 h-3 ${isFetchingModels ? 'animate-spin' : ''}`} />
+                        {isFetchingModels ? 'Fetching...' : 'Fetch Models'}
+                     </button>
+                 </div>
+                 
                  <div className="relative">
-                    <input
-                     type="text"
-                     value={model}
-                     onChange={(e) => setModel(e.target.value)}
-                     placeholder="gpt-4o, gemini-1.5-pro, etc."
-                     className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
-                   />
+                    {availableModels.length > 0 ? (
+                        <div className="relative">
+                            <Dropdown
+                                options={availableModels}
+                                value={model}
+                                onChange={(val) => setModel(val)}
+                                className="bg-black/20 font-mono text-sm"
+                            />
+                            <div className="absolute -bottom-5 right-0 text-[10px] text-white/30">
+                                {availableModels.length} models available
+                            </div>
+                        </div>
+                    ) : (
+                        <input
+                            type="text"
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            placeholder="gpt-4o, gemini-1.5-pro, etc."
+                            className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary"
+                        />
+                    )}
                  </div>
                </div>
 

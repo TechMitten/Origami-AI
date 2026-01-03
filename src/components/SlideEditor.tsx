@@ -591,6 +591,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 }) => {
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
+  const [isBatchFixing, setIsBatchFixing] = React.useState(false);
+  const [batchProgress, setBatchProgress] = React.useState<{ current: number; total: number } | null>(null);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
   const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
   const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
@@ -1017,6 +1019,47 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
+  const handleFixAllScripts = async () => {
+    const apiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
+    const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
+
+    if (!apiKey) {
+      alert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.');
+      return;
+    }
+
+    if (!window.confirm("This will sequentially update ALL slide scripts using AI. This process runs individually for each slide to respect API limits. Continue?")) {
+      return;
+    }
+
+    setIsBatchFixing(true);
+    setBatchProgress({ current: 0, total: slides.length });
+    
+    try {
+      for (let i = 0; i < slides.length; i++) {
+        setBatchProgress({ current: i + 1, total: slides.length });
+        const slide = slides[i];
+        if (!slide.script.trim()) continue;
+
+        try {
+            const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
+            onUpdateSlide(i, { script: transformed, selectionRanges: undefined });
+        } catch (error) {
+            console.error(`Failed to fix slide ${i + 1}`, error);
+        }
+
+        // Delay 5s to prevent rate limiting (API imposes 15 RPM ~ 4s/req)
+        if (i < slides.length - 1) {
+             await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+    } finally {
+      setIsBatchFixing(false);
+      setBatchProgress(null);
+    }
+  };
+
   const handleFindAndReplace = () => {
     if (!findText) return;
 
@@ -1138,7 +1181,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       className="h-10 px-4 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 justify-center w-full"
                     >
                       <Plus className="w-3 h-3" />
-                      Insert GIF/Video
+                      Insert Video
                     </button>
                  </div>
 
@@ -1451,7 +1494,16 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                  </div>
 
                  {/* Generate All */}
-                 <div className="pt-2 border-t border-white/10">
+                 <div className="pt-2 border-t border-white/10 space-y-2">
+                    <button
+                      onClick={handleFixAllScripts}
+                      disabled={isBatchFixing || isBatchGenerating || slides.length === 0}
+                      className="h-10 px-4 rounded-lg bg-branding-accent/10 border border-branding-accent/20 hover:bg-branding-accent/20 hover:border-branding-accent/50 text-branding-accent hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                    >
+                      <Sparkles className={`w-3 h-3 ${isBatchFixing ? 'animate-spin' : ''}`} />
+                      {isBatchFixing ? `Fixing ${batchProgress?.current}/${batchProgress?.total}...` : 'AI Fix All Scripts'}
+                    </button>
+
                     <button
                       onClick={handleGenerateAll}
                       disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
