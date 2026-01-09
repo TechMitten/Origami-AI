@@ -594,26 +594,24 @@ const SortableSlideItem = ({
                     onClick={() => {
                         const newDisabled = !slide.isTtsDisabled;
                         const updates: Partial<SlideData> = { isTtsDisabled: newDisabled };
-                        // If switching to manual duration (No TTS) and value is small/zero, 
-                        // set a reasonable default duration (e.g. 5s) so the slide is visible.
                         if (newDisabled && (slide.postAudioDelay || 0) < 1) {
                             updates.postAudioDelay = 5;
                         }
                         onUpdate(index, updates);
                     }}
-                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${slide.isTtsDisabled ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
-                    title="Mute TTS audio for this slide"
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${!slide.isTtsDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
+                    title="Toggle TTS audio for this slide"
                 >
-                    {slide.isTtsDisabled ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3 opacity-50" />}
-                    {slide.isTtsDisabled ? 'No TTS' : 'TTS On'}
+                    {!slide.isTtsDisabled ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3 opacity-50" />}
+                    TTS
                 </button>
                 <button
                     onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
-                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${slide.isMusicDisabled ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
-                    title="Mute background music for this slide"
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
+                    title="Toggle background music for this slide"
                 >
-                    {slide.isMusicDisabled ? <VolumeX className="w-3 h-3" /> : <Music className="w-3 h-3 opacity-50" />}
-                    {slide.isMusicDisabled ? 'No Music' : 'Music On'}
+                    {!slide.isMusicDisabled ? <Music className="w-3 h-3" /> : <VolumeX className="w-3 h-3 opacity-50" />}
+                    Music
                 </button>
             </div>
 
@@ -1214,7 +1212,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         </div>
 
-        <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {/* Section 1: Media & Assets */}
            <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
               <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -1536,14 +1534,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            </div>
 
            {/* Section 3: Batch Tools */}
-           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
+           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors md:col-span-2 lg:col-span-1">
               <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
                 <Wand2 className="w-3 h-3" /> Batch Operations
               </h3>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
                  {/* Find & Replace */}
-                 <div className="space-y-2">
+                 <div className="space-y-2 h-full flex flex-col">
                      <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5"><Search className="w-3 h-3" /> Find & Replace</label> 
                      <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
                        <input
@@ -1562,34 +1560,39 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         className="w-full h-9 px-3 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/40 hover:bg-white/20"
                       />
                      </div>
-                     <button
-                       onClick={handleFindAndReplace}
-                       disabled={!findText}
-                       className="w-full h-8 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                       Replace All Instances
-                    </button>
+                     <div className="pt-2 mt-auto">
+                        <button
+                           onClick={handleFindAndReplace}
+                           disabled={!findText}
+                           className="w-full h-9 rounded-lg bg-white/10 border border-white/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 hover:text-white text-white/90 text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                           Replace All Instances
+                        </button>
+                     </div>
                  </div>
 
                  {/* Generate All */}
-                 <div className="pt-2 border-t border-white/10 space-y-2">
-                    <button
-                      onClick={handleFixAllScripts}
-                      disabled={isBatchFixing || isBatchGenerating || slides.length === 0}
-                      className="h-10 px-4 rounded-lg bg-branding-accent/10 border border-branding-accent/20 hover:bg-branding-accent/20 hover:border-branding-accent/50 text-branding-accent hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
-                    >
-                      <Sparkles className={`w-3 h-3 ${isBatchFixing ? 'animate-spin' : ''}`} />
-                      {isBatchFixing ? `Fixing ${batchProgress?.current}/${batchProgress?.total}...` : 'AI Fix All Scripts'}
-                    </button>
+                 <div className="pt-4 border-t border-white/10 space-y-2 md:pt-0 md:border-t-0 md:border-l md:border-white/10 md:pl-6 lg:pt-4 lg:border-t lg:border-l-0 lg:pl-0 flex flex-col">
+                    <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5 md:mb-2 lg:mb-0 hidden md:flex lg:hidden"><Sparkles className="w-3 h-3" /> Actions</label>
+                    <div className="flex flex-col gap-2 mt-auto">
+                        <button
+                          onClick={handleFixAllScripts}
+                          disabled={isBatchFixing || isBatchGenerating || slides.length === 0}
+                          className="h-10 px-4 rounded-lg bg-branding-accent/10 border border-branding-accent/20 hover:bg-branding-accent/20 hover:border-branding-accent/50 text-branding-accent hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                        >
+                          <Sparkles className={`w-3 h-3 ${isBatchFixing ? 'animate-spin' : ''}`} />
+                          {isBatchFixing ? `Fixing ${batchProgress?.current}/${batchProgress?.total}...` : 'AI Fix All Scripts'}
+                        </button>
 
-                    <button
-                      onClick={handleGenerateAll}
-                      disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-                      className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
-                    >
-                      <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-                      {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
-                    </button>
+                        <button
+                          onClick={handleGenerateAll}
+                          disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+                          className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                        >
+                          <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
+                          {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
+                        </button>
+                    </div>
                  </div>
 
               </div>

@@ -634,27 +634,36 @@ function TTSProgressOverlay() {
   const percent = isIndeterminate ? null : Math.round(progress.p);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 bg-[#0a0a0a] border border-white/20 rounded-xl p-5 shadow-2xl shadow-black/80 animate-fade-in w-80 flex flex-col gap-3 ring-1 ring-white/10">
+    <div className="fixed bottom-8 right-8 z-50 bg-gradient-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-cyan-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(6,182,212,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-cyan-400/30">
       <div className="flex items-center justify-between gap-3">
          <div className="flex items-center gap-3">
-             {isIndeterminate && <Loader2 className="w-4 h-4 text-branding-primary animate-spin shrink-0" />}
-             <h4 className="text-white font-bold text-xs uppercase tracking-wider text-shadow-sm">
-               {progress.status === 'progress' ? 'Downloading TTS Model...' : progress.status}
+             {isIndeterminate && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />}
+             <h4 className="text-cyan-50 font-bold text-xs uppercase tracking-wider text-shadow-sm">
+               {(() => {
+                 switch (progress.status) {
+                   case 'progress': return 'DOWNLOADING MODEL...';
+                   case 'Processing': 
+                   case 'processing': 
+                   case 'PROCESSING': return 'GENERATING AUDIO...';
+                   case 'done': return 'COMPLETE';
+                   default: return progress.status;
+                 }
+               })()}
              </h4>
          </div>
-         <span className="text-branding-primary text-xs font-mono font-bold shrink-0">
+         <span className="text-cyan-400 text-xs font-mono font-bold shrink-0">
             {percent !== null ? `${percent}%` : ''}
          </span>
       </div>
       
-      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden relative">
+      <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden relative ring-1 ring-white/5">
         <div 
-          className={`h-full bg-branding-primary transition-all duration-300 ease-out ${isIndeterminate ? 'absolute inset-0 animate-pulse w-full opacity-60' : ''}`}
+          className={`h-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-300 ease-out ${isIndeterminate ? 'absolute inset-0 animate-pulse w-full opacity-60' : ''}`}
           style={{ width: isIndeterminate ? '100%' : `${percent}%` }}
         />
       </div>
       
-      <p className="text-[10px] text-white/60 truncate font-mono">
+      <p className="text-[10px] text-cyan-200/50 truncate font-mono">
         {progress.file}
       </p>
     </div>
