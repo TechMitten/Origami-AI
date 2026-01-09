@@ -46,7 +46,7 @@ function App() {
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.05 });
+  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.03 });
   const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -97,7 +97,7 @@ function App() {
       await clearState();
       setSlides([]);
       setActiveTab('edit');
-      setMusicSettings({ volume: 0.05 }); // Reset music settings on start over
+      setMusicSettings({ volume: 0.03 }); // Reset music settings on start over
     }
   };
 
@@ -149,11 +149,11 @@ function App() {
            console.error("Failed to create object URL for default music", e);
          }
       } else {
-        setMusicSettings({ volume: 0.05 });
+        setMusicSettings({ volume: 0.03 });
       }
     } else {
        // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
-       setMusicSettings({ volume: 0.05 });
+       setMusicSettings({ volume: 0.03 });
     }
 
     const initialSlides: SlideData[] = pages.map(page => ({
@@ -376,13 +376,18 @@ function App() {
     <div className="min-h-screen bg-branding-dark text-white p-8">
       {/* Header */}
       <header className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-black/50 flex items-center justify-center shadow-lg shadow-branding-primary/20 border border-white/10 overflow-hidden">
-            <img src={appLogo} alt="Logo" className="w-full h-full object-cover" />
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
+            <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-2xl" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tighter uppercase italic">PDF to Tutorial</h1>
-            <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Powered by Remotion & Kokoros</p>
+            <h1 className="text-4xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
+              PDF to Tutorial
+            </h1>
+            <div className="flex items-center gap-2">
+              <div className="h-px w-8 bg-linear-to-r from-cyan-500/50 to-transparent"></div>
+              <p className="text-blue-200/60 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by Remotion & Kokoros</p>
+            </div>
           </div>
         </div>
 

@@ -24,7 +24,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
   const [transition, setTransition] = useState<GlobalSettings['transition']>(currentSettings?.transition ?? 'fade');
   const [musicFile, setMusicFile] = useState<File | null>(null);
-  const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.05);
+  const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.03);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface'>('general');
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
@@ -511,10 +511,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                <button
                                   onClick={(e) => {
                                       e.stopPropagation();
-                                      setMusicVolume(0.05);
+                                      setMusicVolume(0.03);
                                   }}
-                                  className="absolute left-[22.4%] top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
-                                  title="Set to Ideal Background Level (5%)"
+                                  className="absolute left-[17.3%] top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
+                                  title="Set to Ideal Background Level (3%)"
                               />
                           </div>
                       </div>

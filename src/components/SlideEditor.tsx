@@ -949,7 +949,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.05 });
+      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.03 });
     }
   };
 
@@ -1306,7 +1306,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     options={PREDEFINED_MUSIC}
                                     value=""
                                     onChange={(val) => {
-                                        if (val) onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.05 });
+                                        if (val) onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.03 });
                                     }}
                                     className="bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-white text-xs"
                                 />
@@ -1346,12 +1346,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            const idealVol = 0.05;
+                                            const idealVol = 0.03;
                                             onUpdateMusicSettings({ ...musicSettings, volume: idealVol });
                                             if(musicAudioRef.current) musicAudioRef.current.volume = idealVol;
                                         }}
-                                        className="absolute left-[22.4%] top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
-                                        title="Set to Ideal Background Level (5%)"
+                                        className="absolute left-[17.3%] top-1/2 -translate-y-1/2 w-1.5 h-3 bg-white/30 hover:bg-white rounded-full z-20 transition-all hover:scale-125 cursor-pointer"
+                                        title="Set to Ideal Background Level (3%)"
                                     />
                                 </div>
                             </div>
