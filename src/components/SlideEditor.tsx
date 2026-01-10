@@ -1221,7 +1221,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {/* Section 1: Media & Assets */}
-           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
+           <div className="space-y-4 p-5 rounded-xl bg-black/40 border border-white/10 hover:border-white/20 transition-colors">
               <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
                 <VideoIcon className="w-3 h-3" /> Media & Assets
               </h3>
@@ -1400,7 +1400,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            </div>
 
            {/* Section 2: Global Configuration */}
-           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors">
+           <div className="space-y-4 p-5 rounded-xl bg-black/40 border border-white/10 hover:border-white/20 transition-colors">
               <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
                 <Mic className="w-3 h-3" /> Global Settings
               </h3>
@@ -1556,7 +1556,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            </div>
 
            {/* Section 3: Batch Tools */}
-           <div className="space-y-4 p-5 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition-colors md:col-span-2 lg:col-span-1">
+           <div className="space-y-4 p-5 rounded-xl bg-black/40 border border-white/10 hover:border-white/20 transition-colors md:col-span-2 lg:col-span-1">
               <h3 className="text-xs font-bold text-white/70 uppercase tracking-widest flex items-center gap-2 mb-4">
                 <Wand2 className="w-3 h-3" /> Batch Operations
               </h3>
