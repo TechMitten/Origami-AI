@@ -6,55 +6,47 @@ A powerful, automated video generation platform designed to create educational t
 
 - **PDF to Presentation**: Upload PDF slides and automatically extract them into a sequence of video scenes.
 - **AI-Powered Scripting**: Integrated with Google Gemini AI to transform fragmented slide notes into coherent, professional scripts.
-- **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using [Kokoro-js](https://github.com/m-bain/kokoro-js) with customizable voices and quantization.
+- **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using [Kokoro-js](https://github.com/m-bain/kokoro-js).
+  - **Local Inference**: Run TTS entirely locally via Dockerized Kokoro FastAPI.
+  - **Hybrid Voices**: Create custom voice blends by mixing two models with adjustable weights.
 - **Rich Media Support**: Insert MP4 videos and GIFs seamlessly between slides.
-- **Programmatic Video Rendering**: Built on [Remotion](https://www.remotion.dev/), allowing for precise, frame-perfect video assembly and export.
-- **Interactive Slide Editor**: Drag-and-drop slide reordering, real-time audio generation, and script editing.
-- **Background Music**: Add and mix background tracks with custom volume controls.
+- **Programmatic Video Rendering**: Built on [Remotion](https://www.remotion.dev/) for frame-perfect assembly.
+- **Smart Audio Engineering**:
+  - **Auto-Ducking**: Background music volume automatically lowers during voiceovers.
+  - **Normalization**: Final render is automatically normalized to YouTube standards (-14 LUFS).
+- **Interactive Slide Editor**: Drag-and-drop reordering, real-time preview, and batch script updates.
 
-## Roadmap & TODO
+## Usage
 
-- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
-- [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
-- [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
-- [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
+### 1. Upload & Analyze
 
-## Tech Stack
+Drag and drop your presentation PDF into the main upload area. The application will process text from each page to create initial slides.
 
-- **Frontend**: React 19, Vite, Tailwind CSS (v4)
-- **Video Engine**: Remotion (v4)
-- **AI**: Google Gemini API (gemini-2.0-flash-lite)
-- **TTS**: Kokoro (FastAPI / Web Worker)
-- **Backend**: Express.js (serving as a rendering orchestration layer)
-- **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
+### 2. Configure & Enhance
 
-## Getting Started
+Scroll down to the **Configure Slides** panel to manage your project globally:
 
-### Prerequisites
+- **Global Settings**: Set a global voice (or create a custom **Hybrid Voice**), adjust post-slide delays, or run batch operations like "Find & Replace".
+- **Media Assets**: Click **Insert Video** to add MP4 clips or GIFs between slides.
+- **Audio Mixing**: Upload custom background music or select from the library (e.g., "Modern EDM"). Use the sliders to mix volume levels.
 
-- [Node.js](https://nodejs.org/) (v20+)
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
-- [FFmpeg](https://ffmpeg.org/) (required by Remotion for rendering)
+### 3. Crafting the Narrative
 
-### Installation
+In the **Slide Editor** grid:
 
-1. Clone the repository:
+- **AI Scripting**: Click the **AI Fix Script** button (Sparkles icon) to have Gemini rewrite raw slide text into a natural spoken script.
+- **Manual Editing**: Edit scripts directly. **Highlight** specific text sections to generate/regenerate audio for just that part.
+- **Generate Output**: Click the **Generate TTS** button (Speech icon) to create voiceovers.
+- **Preview**: Click the **Play** button to hear the result or click the slide thumbnail to expand the visual preview.
 
-   ```bash
-   git clone https://github.com/techcow2/pdf2tutorial.git
-   cd pdf2tutorial
-   ```
+### 4. Render
 
-2. Install dependencies:
+Click the **Download Video** button. The server will:
 
-   ```bash
-   npm install
-   ```
-
-3. Start the development server (runs both Vite and the rendering server):
-   ```bash
-   npm run dev
-   ```
+1. Bundle the Remotion composition.
+2. Render frames in parallel using available CPU cores.
+3. Normalize the final audio mix to -14 LUFS.
+4. Download the resulting MP4.
 
 The application will be available at `http://localhost:5173`.
 
@@ -65,6 +57,29 @@ Open the **Settings Modal** (Gear Icon) in the application to configure:
 - **API Keys**: Add your [Google AI Studio](https://aistudio.google.com/) API Key for script refinement.
 - **TTS Settings**: Choose between internal Web Worker TTS or a local Dockerized Kokoro FastAPI instance.
 - **Audio Defaults**: Set default voice models and quantization levels (q4/q8).
+
+## Usage
+
+### 1. Upload & Analyze
+
+Drag and drop your presentation PDF into the main upload area. The application will process the file, extracting each page as a distinct slide and readying it for editing.
+
+### 2. Crafting the Narrative
+
+- **Script Generation**: Use the "Magic Wand" icon on any slide to have Gemini automatically generate a spoken script based on the visual content.
+- **Manual Editing**: Fine-tune the generated script or write your own text directly in the slide editor.
+- **Text-to-Speech**: Click the "Speaker" icon to generate audio for your script using the configured high-quality TTS engine.
+
+### 3. Slide Management
+
+- **Reorder**: Drag and drop slides to rearrange the flow of your video.
+- **Enhance**: Insert MP4 videos or GIFs between slides to add dynamic content or breaks.
+- **Preview**: Use the integrated player to watch a real-time preview of your tutorial.
+
+### 4. Final Polish & Export
+
+- **Audio Mix**: Add background music and adjust the volume levels to balance with the voiceover.
+- **Render**: Click the **Download Video** button. The server will render the frame-perfect video using Remotion and trigger a download of the final MP4 file.
 
 ## Project Structure
 
