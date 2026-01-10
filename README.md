@@ -48,38 +48,70 @@ Click the **Download Video** button. The server will:
 3. Normalize the final audio mix to -14 LUFS.
 4. Download the resulting MP4.
 
-The application will be available at `http://localhost:5173`.
-
 ## Configuration
 
-Open the **Settings Modal** (Gear Icon) in the application to configure:
+Open the **Settings Modal** (Gear Icon) to customize the application:
 
-- **API Keys**: Add your [Google AI Studio](https://aistudio.google.com/) API Key for script refinement.
-- **TTS Settings**: Choose between internal Web Worker TTS or a local Dockerized Kokoro FastAPI instance.
+### 1. API Keys (Script Generation)
+
+Configure the AI model used for script refinement ("AI Fix Script").
+
+- **Google Gemini**: Built-in and recommended. Requires a [Google AI Studio](https://aistudio.google.com/) API Key.
+- **Custom/OpenAI-Compatible**: Point to any OpenAI-compatible endpoint (e.g., LocalAI, Ollama, vLLM).
+  - **Base URL**: Enter your provider's URL (e.g., `http://localhost:11434/v1`).
+  - **Model Name**: Specify the model ID (e.g., `llama-3`).
+  - **API Key**: Enter if required by your provider.
+
+### 2. Text-to-Speech (TTS)
+
+- **Engine**: Choose between the internal Web Worker (client-side) or a local Dockerized Kokoro instance (faster/server-side).
 - **Audio Defaults**: Set default voice models and quantization levels (q4/q8).
 
-## Usage
+## Roadmap & TODO
 
-### 1. Upload & Analyze
+- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
+- [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
+- [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
+- [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
 
-Drag and drop your presentation PDF into the main upload area. The application will process the file, extracting each page as a distinct slide and readying it for editing.
+## Tech Stack
 
-### 2. Crafting the Narrative
+- **Frontend**: React 19, Vite, Tailwind CSS (v4)
+- **Video Engine**: Remotion (v4)
+- **AI**: Google Gemini API (gemini-2.0-flash-lite)
+- **TTS**: Kokoro (FastAPI / Web Worker)
+- **Backend**: Express.js (serving as a rendering orchestration layer)
+- **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
 
-- **Script Generation**: Use the "Magic Wand" icon on any slide to have Gemini automatically generate a spoken script based on the visual content.
-- **Manual Editing**: Fine-tune the generated script or write your own text directly in the slide editor.
-- **Text-to-Speech**: Click the "Speaker" icon to generate audio for your script using the configured high-quality TTS engine.
+## Getting Started
 
-### 3. Slide Management
+### Prerequisites
 
-- **Reorder**: Drag and drop slides to rearrange the flow of your video.
-- **Enhance**: Insert MP4 videos or GIFs between slides to add dynamic content or breaks.
-- **Preview**: Use the integrated player to watch a real-time preview of your tutorial.
+- [Node.js](https://nodejs.org/) (v20+)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [FFmpeg](https://ffmpeg.org/) (required by Remotion for rendering)
 
-### 4. Final Polish & Export
+### Installation
 
-- **Audio Mix**: Add background music and adjust the volume levels to balance with the voiceover.
-- **Render**: Click the **Download Video** button. The server will render the frame-perfect video using Remotion and trigger a download of the final MP4 file.
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/techcow2/pdf2tutorial.git
+   cd pdf2tutorial
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Start the development server (runs both Vite and the rendering server):
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at `http://localhost:5173`.
 
 ## Project Structure
 
