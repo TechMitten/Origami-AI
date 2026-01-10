@@ -265,7 +265,8 @@ function App() {
       const response = await axios.post('/api/render', { 
         slides: convertedSlides, 
         musicSettings: convertedMusicSettings,
-        ttsVolume: ttsVolume
+        ttsVolume: ttsVolume,
+        disableAudioNormalization: globalSettings?.disableAudioNormalization ?? false
       }, {
         responseType: 'blob'
       });
@@ -342,7 +343,8 @@ function App() {
       const response = await axios.post('/api/render', { 
         slides: silentSlides,
         musicSettings: convertedMusicSettings,
-        ttsVolume: ttsVolume
+        ttsVolume: ttsVolume,
+        disableAudioNormalization: globalSettings?.disableAudioNormalization ?? false
       }, {
         responseType: 'blob'
       });

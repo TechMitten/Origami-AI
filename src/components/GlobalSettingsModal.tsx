@@ -1,10 +1,15 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus } from 'lucide-react';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 
+
 import { reloadTTS } from '../services/ttsService';
+
+const PREDEFINED_MUSIC = [
+  { id: '/music/modern_edm.mp3', name: 'Modern EDM' }
+];
 
 interface GlobalSettingsModalProps {
   isOpen: boolean;
@@ -31,6 +36,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
   const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
   const [showVolumeOverlay, setShowVolumeOverlay] = useState(currentSettings?.showVolumeOverlay ?? true);
+  const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [model, setModel] = useState('');
@@ -298,6 +304,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   };
 
+  const handlePredefinedMusicSelect = async (url: string, name: string) => {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const file = new File([blob], name + '.mp3', { type: 'audio/mpeg' });
+        
+        setMusicFile(file);
+        setSavedMusicName(name);
+        setExistingMusicBlob(null);
+    } catch (e) {
+        console.error("Failed to load predefined music", e);
+        alert("Failed to load music track");
+    }
+  };
+
   const handleSave = async () => {
     const musicBlob = musicFile ? musicFile : existingMusicBlob;
     
@@ -317,7 +338,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       ttsQuantization,
       useLocalTTS,
       localTTSUrl,
-      showVolumeOverlay
+      showVolumeOverlay,
+      disableAudioNormalization
     };
     
     // Check if quantization changed to reload model
@@ -454,6 +476,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               </div>
             </div>
 
+            <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                 <div className="space-y-1">
+                     <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                          <Activity className="w-4 h-4" /> Audio Normalization
+                     </div>
+                     <p className="text-[10px] text-white/30">Automatically normalize audio to -14 LUFS (YouTube Standard)</p>
+                 </div>
+                 <div className="flex items-center gap-3">
+                     <span className="text-[10px] font-bold text-white/40 uppercase">{disableAudioNormalization ? 'Off' : 'On'}</span>
+                     <button
+                        onClick={() => setDisableAudioNormalization(!disableAudioNormalization)}
+                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${!disableAudioNormalization ? 'bg-emerald-500' : 'bg-white/10'}`}
+                     >
+                        <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${!disableAudioNormalization ? 'translate-x-5' : 'translate-x-0'}`} />
+                     </button>
+                 </div>
+            </div>
+
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -520,12 +560,43 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full py-3 border border-dashed border-white/20 rounded-lg text-white/40 hover:text-white hover:border-white/40 hover:bg-white/5 transition-all text-sm font-medium flex items-center justify-center gap-2"
-                    >
-                      <Upload className="w-4 h-4" /> Upload Track
-                    </button>
+                    <div className="space-y-4">
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full py-3 border border-dashed border-white/20 rounded-lg text-white/40 hover:text-white hover:border-white/40 hover:bg-white/5 transition-all text-sm font-medium flex items-center justify-center gap-2"
+                        >
+                          <Upload className="w-4 h-4" /> Upload Track
+                        </button>
+                        
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-white/10"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-[#1a1a1a] px-2 text-white/30">Or select from library</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                            {PREDEFINED_MUSIC.map(track => (
+                                <button
+                                    key={track.id}
+                                    onClick={() => handlePredefinedMusicSelect(track.id, track.name)}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all group text-left"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-full bg-branding-primary/10 text-branding-primary group-hover:scale-110 transition-transform">
+                                            <Music className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-sm font-medium text-white/80 group-hover:text-white">{track.name}</span>
+                                    </div>
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Plus className="w-4 h-4 text-white/40" />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                   )}
                   <input
                     type="file"

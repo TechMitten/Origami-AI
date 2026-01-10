@@ -120,16 +120,21 @@ async function createServer() {
 
       console.log('Render complete:', outputLocation);
       
-      // Normalize audio to YouTube's recommended -14 LUFS
-      console.log('Normalizing audio to YouTube loudness standards (-14 LUFS)...');
-      try {
-        await normalizeAudioToYouTubeLoudness(outputLocation);
-        console.log('Audio normalization complete');
-      } catch (normError) {
-        console.warn('Audio normalization failed (video will be sent without normalization):', normError);
-        // Continue without normalization - the video is still valid
-      }
       
+      // Normalize audio to YouTube's recommended -14 LUFS
+      if (!req.body.disableAudioNormalization) {
+        console.log('Normalizing audio to YouTube loudness standards (-14 LUFS)...');
+        try {
+          await normalizeAudioToYouTubeLoudness(outputLocation);
+          console.log('Audio normalization complete');
+        } catch (normError) {
+          console.warn('Audio normalization failed (video will be sent without normalization):', normError);
+          // Continue without normalization - the video is still valid
+        }
+      } else {
+        console.log('Audio normalization disabled by user setting.');
+      }
+            
       res.download(outputLocation, (err) => {
         if (err) {
             console.error('Error sending file:', err);

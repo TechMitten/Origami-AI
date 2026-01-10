@@ -34,6 +34,7 @@ export interface GlobalSettings {
   useLocalTTS?: boolean;
   localTTSUrl?: string;
   showVolumeOverlay?: boolean;
+  disableAudioNormalization?: boolean;
 }
 
 
