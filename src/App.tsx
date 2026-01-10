@@ -427,7 +427,7 @@ function App() {
             <div className="flex items-center gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
               <button
                 onClick={handleStartOver}
-                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all"
+                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all whitespace-nowrap"
                 title="Start Over"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -435,7 +435,7 @@ function App() {
               </button>
               <button
                 onClick={handleResetHighlights}
-                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-red-400 hover:bg-white/5 transition-all"
+                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-red-400 hover:bg-white/5 transition-all whitespace-nowrap"
                 title="Reset All Highlights"
               >
                 <Eraser className="w-4 h-4" />
