@@ -1,13 +1,9 @@
 # PDF2Tutorial
 
-<div align="center">
-
 ![License](https://img.shields.io/github/license/techcow2/pdf2tutorial?style=flat-square)
 ![Issues](https://img.shields.io/github/issues/techcow2/pdf2tutorial?style=flat-square)
 ![Stars](https://img.shields.io/github/stars/techcow2/pdf2tutorial?style=flat-square)
 ![Forks](https://img.shields.io/github/forks/techcow2/pdf2tutorial?style=flat-square)
-
-</div>
 
 A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
 
