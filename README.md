@@ -2,6 +2,17 @@
 
 A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
 
+## Table of Contents
+
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Roadmap & TODO](#roadmap--todo)
+- [License](#license)
+
 ## Features
 
 - **PDF to Presentation**: Upload PDF slides and automatically extract them into a sequence of video scenes.
@@ -15,6 +26,36 @@ A powerful, automated video generation platform designed to create educational t
   - **Auto-Ducking**: Background music volume automatically lowers during voiceovers.
   - **Normalization**: Final render is automatically normalized to YouTube standards (-14 LUFS).
 - **Interactive Slide Editor**: Drag-and-drop reordering, real-time preview, and batch script updates.
+
+## Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v20+)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [FFmpeg](https://ffmpeg.org/) (required by Remotion for rendering)
+
+### Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/techcow2/pdf2tutorial.git
+   cd pdf2tutorial
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Start the development server (runs both Vite and the rendering server):
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at `http://localhost:5173`.
 
 ## Usage
 
@@ -67,13 +108,6 @@ Configure the AI model used for script refinement ("AI Fix Script").
 - **Engine**: Choose between the internal Web Worker (client-side) or a local Dockerized Kokoro instance (faster/server-side).
 - **Audio Defaults**: Set default voice models and quantization levels (q4/q8).
 
-## Roadmap & TODO
-
-- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
-- [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
-- [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
-- [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
-
 ## Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS (v4)
@@ -83,36 +117,6 @@ Configure the AI model used for script refinement ("AI Fix Script").
 - **Backend**: Express.js (serving as a rendering orchestration layer)
 - **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
 
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v20+)
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
-- [FFmpeg](https://ffmpeg.org/) (required by Remotion for rendering)
-
-### Installation
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/techcow2/pdf2tutorial.git
-   cd pdf2tutorial
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Start the development server (runs both Vite and the rendering server):
-   ```bash
-   npm run dev
-   ```
-
-The application will be available at `http://localhost:5173`.
-
 ## Project Structure
 
 - `src/video/`: Remotion compositions and video components.
@@ -120,9 +124,12 @@ The application will be available at `http://localhost:5173`.
 - `src/services/`: Core logic for AI, TTS, PDF processing, and local storage.
 - `server.ts`: Express server handling the `@remotion/renderer` logic.
 
-## Rendering
+## Roadmap & TODO
 
-Videos are rendered server-side using Remotion. When you click "Download Video", the sequence is bundled and rendered via an Express endpoint, then served back as an MP4 file.
+- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
+- [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
+- [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
+- [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
 
 ## License
 
