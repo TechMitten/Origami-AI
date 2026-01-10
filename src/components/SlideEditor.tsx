@@ -68,6 +68,7 @@ export interface MusicSettings {
   url?: string;
   volume: number;
   loop?: boolean;
+  title?: string;
 }
 
 interface SlideEditorProps {
@@ -952,7 +953,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.03 });
+      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.03, title: file.name });
     }
   };
 
@@ -989,7 +990,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   }, [musicSettings.loop]);
 
   const handleRemoveMusic = () => {
-      onUpdateMusicSettings({ ...musicSettings, url: undefined });
+      onUpdateMusicSettings({ ...musicSettings, url: undefined, title: undefined });
       if (isMusicPlaying && musicAudioRef.current) {
           musicAudioRef.current.pause();
           setIsMusicPlaying(false);
@@ -1171,11 +1172,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                e.stopPropagation();
                setPreviewIndex(null);
             }}
-            className="absolute top-4 right-4 z-10 p-2 text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
+            className="absolute top-10 right-10 z-50 p-2 text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
+            title="Close Preview"
           >
             <span className="uppercase text-xs font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Close</span>
-            <div className="bg-white/10 p-2 rounded-full group-hover:bg-white/20 transition-colors">
-              <X className="w-6 h-6" />
+            <div className="transition-colors">
+              <X className="w-8 h-8 drop-shadow-md" />
             </div>
           </button>
 
@@ -1309,14 +1311,28 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     options={PREDEFINED_MUSIC}
                                     value=""
                                     onChange={(val) => {
-                                        if (val) onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.03 });
+                                        if (val) {
+                                            const track = PREDEFINED_MUSIC.find(m => m.id === val);
+                                            onUpdateMusicSettings({ 
+                                                ...musicSettings, 
+                                                url: val, 
+                                                volume: musicSettings.volume || 0.03,
+                                                title: track?.name
+                                            });
+                                        }
                                     }}
                                     className="bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-white text-xs"
                                 />
                             </div>
                         </div>
                      ) : (
-                        <div className="flex items-center gap-2 h-10 bg-white/5 rounded-lg p-1 border border-white/10">
+                        <div className="flex flex-col gap-2 rounded-lg bg-white/5 border border-white/10 p-2">
+                           {musicSettings.title && (
+                               <div className="px-2 pb-1 text-[10px] font-bold text-white/60 truncate border-b border-white/5 mb-1">
+                                   {musicSettings.title}
+                               </div>
+                           )}
+                           <div className="flex items-center gap-2 h-8">
                             <button
                                 onClick={toggleMusicPlayback}
                                 className="w-8 h-8 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
@@ -1373,6 +1389,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             >
                                 <Trash2 className="w-3 h-3" />
                             </button>
+                        </div>
                         </div>
                      )}
                  </div>

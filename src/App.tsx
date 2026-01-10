@@ -143,7 +143,8 @@ function App() {
            const url = URL.createObjectURL(globalSettings.music.blob);
            setMusicSettings({
              url,
-             volume: globalSettings.music.volume
+             volume: globalSettings.music.volume,
+             title: globalSettings.music.fileName
            });
          } catch (e) {
            console.error("Failed to create object URL for default music", e);
