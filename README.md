@@ -2,6 +2,9 @@
 
 A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
 
+> [!WARNING]  
+> **Local Deployment Only**: This project is designed as a local productivity tool. It has **not** been tested or secured for use as a public-facing website. Using this application on a public server is unsafe and not recommended.
+
 ## Table of Contents
 
 - [Features](#features)
