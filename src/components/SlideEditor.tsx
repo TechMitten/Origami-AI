@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -570,10 +570,10 @@ const SortableSlideItem = ({
              <button
               onClick={() => onGenerate(index)}
               disabled={isGenerating || !slide.script.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
             >
-              {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Wand2 className="w-3.5 h-3.5" />}
-              {slide.audioUrl ? 'Regenerate' : 'Generate'}
+              {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
+              {slide.audioUrl ? 'Regenerate' : 'Generate TTS'}
             </button>
 
             {slide.audioUrl && (
