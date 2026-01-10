@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+dist/*
+!dist/.gitkeep
 dist-ssr
 *.local
 
@@ -22,5 +23,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-out/
-public/
+out/*
+!out/.gitkeep
+public/*
+!public/.gitkeep
+!public/music/
+public/music/*
+!public/music/.gitkeep
+!public/uploads/
+public/uploads/*
+!public/uploads/.gitkeep
