@@ -634,7 +634,7 @@ function TTSProgressOverlay() {
   const percent = isIndeterminate ? null : Math.round(progress.p);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 bg-gradient-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-cyan-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(6,182,212,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-cyan-400/30">
+    <div className="fixed bottom-8 right-8 z-50 bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-cyan-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(6,182,212,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-cyan-400/30">
       <div className="flex items-center justify-between gap-3">
          <div className="flex items-center gap-3">
              {isIndeterminate && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />}

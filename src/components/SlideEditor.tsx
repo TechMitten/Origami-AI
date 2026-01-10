@@ -518,104 +518,109 @@ const SortableSlideItem = ({
           )}
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex-1 space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Voice</label>
-            <Dropdown
-              options={voices}
-              value={slide.voice}
-              onChange={(val) => onUpdate(index, { voice: val })}
-            />
+        <div className="space-y-6 pt-2">
+          {/* Inputs Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">Voice</label>
+              <Dropdown
+                options={voices}
+                value={slide.voice}
+                onChange={(val) => onUpdate(index, { voice: val })}
+                className="bg-white/5 border border-white/10 hover:border-white/20 backdrop-blur-sm transition-all focus:border-branding-primary/50 text-sm h-10 rounded-lg"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">Transition</label>
+              <Dropdown
+                options={[
+                  { id: 'fade', name: 'Fade' },
+                  { id: 'slide', name: 'Slide' },
+                  { id: 'zoom', name: 'Zoom' },
+                  { id: 'none', name: 'None' },
+                ]}
+                value={slide.transition}
+                onChange={(val) => onUpdate(index, { transition: val as SlideData['transition'] })}
+                className="bg-white/5 border border-white/10 hover:border-white/20 backdrop-blur-sm transition-all focus:border-branding-primary/50 text-sm h-10 rounded-lg"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">
+                {slide.isTtsDisabled ? 'Duration (s)' : 'Delay (s)'}
+              </label>
+              <div className="relative group/input">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={slide.postAudioDelay || 0}
+                    onChange={(e) => onUpdate(index, { postAudioDelay: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 h-10 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-branding-primary/50 focus:ring-1 focus:ring-branding-primary/50 outline-none transition-all backdrop-blur-sm group-hover/input:bg-white/10"
+                  />
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1 space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Transition</label>
-            <Dropdown
-              options={[
-                { id: 'fade', name: 'Fade' },
-                { id: 'slide', name: 'Slide' },
-                { id: 'zoom', name: 'Zoom' },
-                { id: 'none', name: 'None' },
-              ]}
-              value={slide.transition}
-              onChange={(val) => onUpdate(index, { transition: val as SlideData['transition'] })}
-            />
-          </div>
-
-          <div className="w-32 space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
-              {slide.isTtsDisabled ? 'Duration (s)' : 'Delay (s)'}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              value={slide.postAudioDelay || 0}
-              onChange={(e) => onUpdate(index, { postAudioDelay: parseFloat(e.target.value) || 0 })}
-              className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
-            />
-          </div>
-
-          
-          <div className="pt-6 flex flex-col gap-2">
+          {/* Actions Toolbar */}
+          <div className="flex flex-wrap items-center gap-3 p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm">
+             {/* Generate Button */}
              <button
               onClick={() => onGenerate(index)}
               disabled={isGenerating || !slide.script.trim()}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium text-sm cursor-pointer justify-center"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9"
             >
-              {slide.audioUrl ? <Volume2 className="w-4 h-4" /> : <Wand2 className="w-4 h-4" />}
-              {slide.audioUrl ? 'Regenerate' : 'Generate Speech'}
+              {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Wand2 className="w-3.5 h-3.5" />}
+              {slide.audioUrl ? 'Regenerate' : 'Generate'}
             </button>
 
             {slide.audioUrl && (
               <button
                 onClick={togglePlayback}
                 disabled={isGenerating}
-                className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-50 transition-all font-medium text-sm justify-center"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider h-9 ${isPlaying ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40'}`}
               >
-                {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                {isPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                 {isPlaying ? 'Stop' : 'Preview'}
               </button>
             )}
 
-            {slide.type === 'video' && (
-                <button
-                    onClick={() => onUpdate(index, { isVideoMusicPaused: !slide.isVideoMusicPaused })}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all font-medium text-sm justify-center border ${slide.isVideoMusicPaused ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
-                    title="Pause background music while this video plays"
-                >
-                    {slide.isVideoMusicPaused ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 opacity-50" />}
-                    {slide.isVideoMusicPaused ? 'Music Paused (Video)' : 'Music Playing (Video)'}
-                </button>
-            )}
+            <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
 
-            <div className="flex gap-2">
+            {/* Controls Group */}
+            <div className="flex items-center gap-2 ml-auto w-full sm:w-auto">
+                 {slide.type === 'video' && (
+                    <button
+                        onClick={() => onUpdate(index, { isVideoMusicPaused: !slide.isVideoMusicPaused })}
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all h-9 ${slide.isVideoMusicPaused ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'}`}
+                        title="Toggle Video Music"
+                    >
+                        {slide.isVideoMusicPaused ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                )}
+
                 <button
                     onClick={() => {
                         const newDisabled = !slide.isTtsDisabled;
                         const updates: Partial<SlideData> = { isTtsDisabled: newDisabled };
-                        if (newDisabled && (slide.postAudioDelay || 0) < 1) {
-                            updates.postAudioDelay = 5;
-                        }
+                        if (newDisabled && (slide.postAudioDelay || 0) < 1) updates.postAudioDelay = 5;
                         onUpdate(index, updates);
                     }}
-                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${!slide.isTtsDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
-                    title="Toggle TTS audio for this slide"
+                    className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isTtsDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
                 >
-                    {!slide.isTtsDisabled ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3 opacity-50" />}
-                    TTS
+                    {!slide.isTtsDisabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+                    <span className="hidden sm:inline">TTS</span>
                 </button>
+
                 <button
                     onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
-                    className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg transition-all font-medium text-xs justify-center border ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white'}`}
-                    title="Toggle background music for this slide"
+                    className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
                 >
-                    {!slide.isMusicDisabled ? <Music className="w-3 h-3" /> : <VolumeX className="w-3 h-3 opacity-50" />}
-                    Music
+                    {!slide.isMusicDisabled ? <Music className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                   <span className="hidden sm:inline">Music</span>
                 </button>
             </div>
-
-
           </div>
         </div>
 
@@ -1573,7 +1578,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                  {/* Generate All */}
                  <div className="pt-4 border-t border-white/10 space-y-2 md:pt-0 md:border-t-0 md:border-l md:border-white/10 md:pl-6 lg:pt-4 lg:border-t lg:border-l-0 lg:pl-0 flex flex-col">
-                    <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest flex items-center gap-1.5 md:mb-2 lg:mb-0 hidden md:flex lg:hidden"><Sparkles className="w-3 h-3" /> Actions</label>
+                    <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest items-center gap-1.5 md:mb-2 lg:mb-0 hidden md:flex lg:hidden"><Sparkles className="w-3 h-3" /> Actions</label>
                     <div className="flex flex-col gap-2 mt-auto">
                         <button
                           onClick={handleFixAllScripts}
