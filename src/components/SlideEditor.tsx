@@ -24,11 +24,7 @@ import { useModal } from '../context/ModalContext';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
-const modernEdm = '/music/modern_edm.mp3';
-
-const PREDEFINED_MUSIC = [
-  { id: modernEdm, name: 'Modern EDM' }
-];
+import { PREDEFINED_MUSIC } from '../config/music';
 
 export interface SlideData extends Partial<RenderedPage> {
   id: string;

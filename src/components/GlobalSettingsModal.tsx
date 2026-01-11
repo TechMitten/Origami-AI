@@ -8,9 +8,7 @@ import { useModal } from '../context/ModalContext';
 
 import { reloadTTS } from '../services/ttsService';
 
-const PREDEFINED_MUSIC = [
-  { id: '/music/modern_edm.mp3', name: 'Modern EDM' }
-];
+import { PREDEFINED_MUSIC } from '../config/music';
 
 interface GlobalSettingsModalProps {
   isOpen: boolean;
