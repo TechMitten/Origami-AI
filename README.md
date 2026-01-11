@@ -123,7 +123,6 @@ You can build your own library of background music tracks that will be available
 1.  Navigate to the `src/assets/music/` directory.
 2.  Paste your `.mp3` files here.
 3.  The application will **automatically detect** these files and list them in the UI (e.g., `my_cool_track.mp3` becomes "My Cool Track").
-4.  **Note**: This folder is configured to ignore MP3 files in Git. Your personal music collection stays local to your machine and will not be pushed to the repository.
 
 ## Tech Stack
 
