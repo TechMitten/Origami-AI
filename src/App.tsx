@@ -11,7 +11,7 @@ import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
 import { useModal } from './context/ModalContext';
@@ -19,7 +19,7 @@ import { useModal } from './context/ModalContext';
 /**
  * Upload a blob URL to the server and return the static file URL.
  */
-async function uploadBlob(blobUrl: string): Promise<string> {
+async function uploadBlob(blobUrl: string, signal?: AbortSignal): Promise<string> {
   const response = await fetch(blobUrl);
   const blob = await response.blob();
   
@@ -35,7 +35,8 @@ async function uploadBlob(blobUrl: string): Promise<string> {
   formData.append('file', blob, `upload${ext}`);
 
   const res = await axios.post('/api/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    signal
   });
   return new URL(res.data.url, window.location.origin).href;
 }
@@ -56,6 +57,16 @@ function App() {
   const playerRef = React.useRef<PlayerRef>(null);
   const [isRestoring, setIsRestoring] = useState(true);
   const { showAlert, showConfirm } = useModal();
+  const [renderAbortController, setRenderAbortController] = useState<AbortController | null>(null);
+
+  const handleCancelRender = async () => {
+    if (renderAbortController) {
+      if (await showConfirm("Are you sure you want to cancel the rendering process?", { type: 'warning', title: 'Cancel Rendering', confirmText: 'Yes, Cancel' })) {
+         renderAbortController.abort();
+         setRenderAbortController(null);
+      }
+    }
+  };
 
   // Load state on mount
   React.useEffect(() => {
@@ -220,6 +231,8 @@ function App() {
 
 
   const handleDownloadMP4 = async () => {
+    const controller = new AbortController();
+    setRenderAbortController(controller);
     setIsRenderingWithAudio(true);
     try {
       // Convert all blob URLs to data URLs for server-side rendering
@@ -230,15 +243,15 @@ function App() {
           try {
               console.log(`Processing slide ${index + 1}/${slides.length} for upload...`);
               const dataUrl = s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
-                  ? await uploadBlob(s.dataUrl)
+                  ? await uploadBlob(s.dataUrl, controller.signal)
                   : s.dataUrl;
               
               const audioUrl = s.audioUrl && (s.audioUrl.startsWith('blob:') || s.audioUrl.startsWith('data:'))
-                  ? await uploadBlob(s.audioUrl)
+                  ? await uploadBlob(s.audioUrl, controller.signal)
                   : s.audioUrl;
               
               const mediaUrl = s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
-                  ? await uploadBlob(s.mediaUrl)
+                  ? await uploadBlob(s.mediaUrl, controller.signal)
                   : s.mediaUrl;
 
               convertedSlides.push({
@@ -261,7 +274,7 @@ function App() {
       const convertedMusicSettings = {
         ...musicSettings,
         url: musicSettings.url && musicSettings.url.startsWith('blob:')
-          ? await uploadBlob(musicSettings.url)
+          ? await uploadBlob(musicSettings.url, controller.signal)
           : musicSettings.url,
       };
 
@@ -271,7 +284,8 @@ function App() {
         ttsVolume: ttsVolume,
         disableAudioNormalization: globalSettings?.disableAudioNormalization ?? false
       }, {
-        responseType: 'blob'
+        responseType: 'blob',
+        signal: controller.signal
       });
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -283,6 +297,10 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      if (axios.isCancel(error)) {
+        showAlert('Rendering canceled by user.', { type: 'info' });
+        return;
+      }
       const axiosError = axios.isAxiosError(error) ? error : null;
       console.error('Download error details:', {
         message: axiosError?.message || (error instanceof Error ? error.message : String(error)),
@@ -294,6 +312,7 @@ function App() {
       showAlert(`Failed to render video: ${errorMessage}`, { type: 'error', title: 'Render Failed' });
     } finally {
       setIsRenderingWithAudio(false);
+      setRenderAbortController(null);
     }
   };
 
@@ -303,6 +322,8 @@ function App() {
       return;
     }
 
+    const controller = new AbortController();
+    setRenderAbortController(controller);
     setIsRenderingSilent(true);
     try {
       // Create a copy of slides with audio removed, converting blobs
@@ -311,11 +332,11 @@ function App() {
       for (const [index, s] of slides.entries()) {
            try {
                const dataUrl = s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
-                  ? await uploadBlob(s.dataUrl)
+                  ? await uploadBlob(s.dataUrl, controller.signal)
                   : s.dataUrl;
                
                const mediaUrl = s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
-                  ? await uploadBlob(s.mediaUrl)
+                  ? await uploadBlob(s.mediaUrl, controller.signal)
                   : s.mediaUrl;
 
                silentSlides.push({
@@ -339,7 +360,7 @@ function App() {
       const convertedMusicSettings = {
         ...musicSettings,
         url: musicSettings.url && musicSettings.url.startsWith('blob:')
-          ? await uploadBlob(musicSettings.url)
+          ? await uploadBlob(musicSettings.url, controller.signal)
           : musicSettings.url,
       };
 
@@ -349,7 +370,8 @@ function App() {
         ttsVolume: ttsVolume,
         disableAudioNormalization: globalSettings?.disableAudioNormalization ?? false
       }, {
-        responseType: 'blob'
+        responseType: 'blob',
+        signal: controller.signal
       });
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -361,6 +383,10 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      if (axios.isCancel(error)) {
+        showAlert('Rendering canceled by user.', { type: 'info' });
+        return;
+      }
       const axiosError = axios.isAxiosError(error) ? error : null;
       console.error('Download error details:', {
         message: axiosError?.message || (error instanceof Error ? error.message : String(error)),
@@ -372,6 +398,7 @@ function App() {
       showAlert(`Failed to render video: ${errorMessage}`, { type: 'error', title: 'Render Failed' });
     } finally {
       setIsRenderingSilent(false);
+      setRenderAbortController(null);
     }
   };
 
@@ -511,7 +538,7 @@ function App() {
                 </div>
                 
                 <div className="flex justify-center flex-col items-center gap-6">
-                  <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
                     <div className="flex flex-col gap-2">
                       <button 
                         onClick={handleDownloadMP4}
@@ -519,12 +546,20 @@ function App() {
                         disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingWithAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        {isRenderingWithAudio ? 'Rendering Server...' : 'Render Video (With TTS)'}
+                        {isRenderingWithAudio ? 'Rendering Video...' : 'Render Video (With TTS)'}
                       </button>
                       {!allAudioReady && !isRenderingWithAudio && !isRenderingSilent && (
                         <div className="text-[10px] text-center text-red-400 font-bold uppercase tracking-wider animate-pulse">
                           Audio Required
                         </div>
+                      )}
+                      {isRenderingWithAudio && (
+                        <button
+                          onClick={handleCancelRender}
+                          className="flex items-center justify-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Cancel Rendering
+                        </button>
                       )}
                     </div>
 
@@ -541,6 +576,14 @@ function App() {
                          <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">
                            No TTS • 5s / slide
                         </div>
+                      )}
+                      {isRenderingSilent && (
+                        <button
+                          onClick={handleCancelRender}
+                          className="flex items-center justify-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Cancel
+                        </button>
                       )}
                     </div>
                   </div>

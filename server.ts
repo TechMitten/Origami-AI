@@ -107,6 +107,15 @@ async function createServer() {
       const cpuCount = Math.max(1, Math.floor(os.cpus().length / 2));
       console.log(`Using ${cpuCount} CPU cores for parallel rendering`);
 
+      const controller = new AbortController();
+
+      res.on('close', () => {
+          if (!res.writableEnded) {
+              console.log('Client disconnected, cancelling render...');
+              controller.abort();
+          }
+      });
+
       await renderMedia({
         composition,
         serveUrl: bundled,
@@ -116,6 +125,13 @@ async function createServer() {
         verbose: false,
         dumpBrowserLogs: false,
         concurrency: cpuCount, // Parallel frame rendering
+        cancelSignal: (callback: () => void) => {
+          if (controller.signal.aborted) {
+            callback();
+          } else {
+            controller.signal.addEventListener('abort', () => callback(), { once: true });
+          }
+        },
       });
 
       console.log('Render complete:', outputLocation);
@@ -145,8 +161,17 @@ async function createServer() {
       });
 
     } catch (error) {
-      console.error('Render error:', error);
-      res.status(500).json({ error: (error as Error).message });
+      const msg = (error as Error).message;
+      const isAbort = msg?.includes('aborted') || (error as Error).name === 'AbortError';
+      
+      if (isAbort) {
+          console.log('Render operation was cancelled by user.');
+      } else {
+          console.error('Render error:', error);
+          if (!res.headersSent) {
+             res.status(500).json({ error: msg });
+          }
+      }
     }
   });
 

@@ -1087,13 +1087,16 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
 
     setIsBatchGenerating(true);
+    setBatchProgress({ current: 0, total: slides.length });
     try {
       for (let i = 0; i < slides.length; i++) {
+        setBatchProgress({ current: i + 1, total: slides.length });
         await onGenerateAudio(i);
       }
       showAlert('Batch audio generation completed successfully!', { type: 'success', title: 'Batch Complete' });
     } finally {
       setIsBatchGenerating(false);
+      setBatchProgress(null);
     }
   };
 
@@ -1432,7 +1435,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                          <label className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Voice Model</label>
                          
                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-white/40 font-bold uppercase">Hybrid</span>
+                            <span className={`text-[10px] font-bold uppercase transition-colors ${isGlobalHybrid ? 'text-branding-primary' : 'text-white/40'}`}>Hybrid</span>
                             <button
                                 onClick={() => {
                                     const newHybridState = !isGlobalHybrid;
@@ -1451,9 +1454,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                         onUpdateGlobalSettings?.({ voice: newVoice });
                                     }
                                 }}
-                                className={`relative w-8 h-4 rounded-full transition-colors duration-300 ${isGlobalHybrid ? 'bg-branding-primary' : 'bg-white/10'}`}
+                                className={`relative w-8 h-4 rounded-full transition-all duration-300 border ${isGlobalHybrid ? 'bg-branding-primary border-branding-primary' : 'bg-white/5 border-white/20'}`}
                             >
-                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isGlobalHybrid ? 'translate-x-4' : 'translate-x-0'}`} />
+                                <div className={`absolute top-[1px] left-[1px] w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isGlobalHybrid ? 'translate-x-4' : 'translate-x-0'}`} />
                             </button>
                          </div>
                     </div>
@@ -1632,7 +1635,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                           className="h-10 px-4 rounded-lg bg-branding-primary/10 border border-branding-primary/20 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
                         >
                           <Wand2 className={`w-3 h-3 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-                          {isBatchGenerating ? 'Processing...' : 'Generate All Audio'}
+                          {isBatchGenerating ? `Generating ${batchProgress?.current}/${batchProgress?.total}...` : 'Generate All Audio'}
                         </button>
                     </div>
                  </div>
