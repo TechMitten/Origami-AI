@@ -1456,7 +1456,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 }}
                                 className={`relative w-8 h-4 rounded-full transition-all duration-300 border ${isGlobalHybrid ? 'bg-branding-primary border-branding-primary' : 'bg-white/5 border-white/20'}`}
                             >
-                                <div className={`absolute top-[1px] left-[1px] w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isGlobalHybrid ? 'translate-x-4' : 'translate-x-0'}`} />
+                                <div className={`absolute top-px left-px w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isGlobalHybrid ? 'translate-x-4' : 'translate-x-0'}`} />
                             </button>
                          </div>
                     </div>
