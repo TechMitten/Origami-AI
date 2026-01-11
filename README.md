@@ -116,6 +116,15 @@ Configure the AI model used for script refinement ("AI Fix Script").
 - **Engine**: Choose between the internal Web Worker (client-side) or a local Dockerized Kokoro instance (faster/server-side).
 - **Audio Defaults**: Set default voice models and quantization levels (q4/q8).
 
+### 3. Background Music Library
+
+You can build your own library of background music tracks that will be available in the dropdown menus:
+
+1.  Navigate to the `src/assets/music/` directory.
+2.  Paste your `.mp3` files here.
+3.  The application will **automatically detect** these files and list them in the UI (e.g., `my_cool_track.mp3` becomes "My Cool Track").
+4.  **Note**: This folder is configured to ignore MP3 files in Git. Your personal music collection stays local to your machine and will not be pushed to the repository.
+
 ## Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS (v4)
