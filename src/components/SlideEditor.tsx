@@ -1091,6 +1091,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       for (let i = 0; i < slides.length; i++) {
         await onGenerateAudio(i);
       }
+      showAlert('Batch audio generation completed successfully!', { type: 'success', title: 'Batch Complete' });
     } finally {
       setIsBatchGenerating(false);
     }
@@ -1131,6 +1132,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
              await new Promise(resolve => setTimeout(resolve, 5000));
         }
       }
+      showAlert('Batch script fixing completed successfully!', { type: 'success', title: 'Batch Complete' });
     } finally {
       setIsBatchFixing(false);
       setBatchProgress(null);

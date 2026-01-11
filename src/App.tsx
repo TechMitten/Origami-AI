@@ -299,7 +299,7 @@ function App() {
 
 
   const handleDownloadSilent = async () => {
-    if (!await showConfirm("Download video without TTS audio? This will generate a video with 5s duration per slide (plus specified delays) unless otherwise configured.", { type: 'info', title: 'Download Silent Video', confirmText: 'Download' })) {
+    if (!await showConfirm("Render video without TTS audio? This will generate a video with 5s duration per slide (plus specified delays) unless otherwise configured.", { type: 'info', title: 'Render Silent Video', confirmText: 'Render' })) {
       return;
     }
 
@@ -519,7 +519,7 @@ function App() {
                         disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingWithAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        {isRenderingWithAudio ? 'Rendering Server...' : 'Download Video (With TTS)'}
+                        {isRenderingWithAudio ? 'Rendering Server...' : 'Render Video (With TTS)'}
                       </button>
                       {!allAudioReady && !isRenderingWithAudio && !isRenderingSilent && (
                         <div className="text-[10px] text-center text-red-400 font-bold uppercase tracking-wider animate-pulse">
@@ -535,7 +535,7 @@ function App() {
                         disabled={isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingSilent ? <Loader2 className="w-5 h-5 animate-spin" /> : <VolumeX className="w-5 h-5" />}
-                        Download Silent Video
+                        Render Silent Video
                       </button>
                       {!isRenderingWithAudio && !isRenderingSilent && (
                          <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">

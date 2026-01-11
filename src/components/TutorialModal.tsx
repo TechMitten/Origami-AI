@@ -166,8 +166,8 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
                 Switch to the <strong>Preview Tab</strong> to watch your full video composition. When you're happy with the result, choose between:
               </p>
               <ul className="space-y-2 text-sm text-white/60 list-disc pl-5">
-                <li><strong>Download Video (With TTS)</strong>: The complete package with all voiceovers and music.</li>
-                <li><strong>Download Silent Video</strong>: Perfect if you want to record your own voiceover later or just need the visuals.</li>
+                <li><strong>Render Video (With TTS)</strong>: The complete package with all voiceovers and music.</li>
+                <li><strong>Render Silent Video</strong>: Perfect if you want to record your own voiceover later or just need the visuals.</li>
               </ul>
             </div>
           </section>
