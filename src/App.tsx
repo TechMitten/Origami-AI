@@ -465,7 +465,7 @@ function App() {
 
       <main className="max-w-7xl mx-auto">
         {slides.length === 0 ? (
-          <div className="mt-20">
+          <div className="min-h-[70vh] flex flex-col items-center justify-center">
             <PDFUploader onUploadComplete={onUploadComplete} />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
