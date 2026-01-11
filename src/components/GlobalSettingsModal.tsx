@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu } from 'lucide-react';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -112,6 +112,20 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       setAvailableModels([]);
   };
 
+  const handleUseOllama = () => {
+      // Save keys if we are switching away from a known provider
+      if (baseUrl.includes('googleapis')) {
+          setStoredGeminiKey(apiKey);
+      } else if (baseUrl.includes('openrouter')) {
+          setStoredOpenRouterKey(apiKey);
+      }
+
+      setBaseUrl('http://localhost:11434/v1/');
+      setApiKey('ollama');
+      setModel('');
+      setAvailableModels([]);
+  };
+
   const handleFetchModels = async () => {
     if (!baseUrl || !apiKey) {
       alert("Please enter both Base URL and API Key first.");
@@ -123,15 +137,22 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       // Handle trailing slash
       const url = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
       
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      };
+
+      // OpenRouter specific headers (optional but good practice)
+      // We conditionally add these because strict CORS on local endpoints (like Ollama) 
+      // might reject requests with custom headers if they aren't explicitly allowed.
+      if (baseUrl.includes('openrouter')) {
+          headers['HTTP-Referer'] = window.location.origin;
+          headers['X-Title'] = 'TechCow Tutorials';
+      }
+
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          // OpenRouter specific headers (optional but good practice)
-          'HTTP-Referer': window.location.origin, 
-          'X-Title': 'TechCow Tutorials' 
-        }
+        headers
       });
 
       if (!response.ok) {
@@ -139,19 +160,37 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       }
 
       const data = await response.json();
+      console.log("Fetched models response:", data);
       
-      // Standard OpenAI format: { data: [ { id: "...", ... }, ... ] }
+      let rawModels: { id?: string; name?: string }[] = [];
+      
+      // Handle various response formats from "OpenAI-compatible" endpoints
       if (data.data && Array.isArray(data.data)) {
-         const models = data.data
-            .map((m: { id: string; name?: string }) => ({ id: m.id, name: m.name || m.id }))
-            .sort((a: {name: string}, b: {name: string}) => a.name.localeCompare(b.name));
+          rawModels = data.data;
+      } else if (data.models && Array.isArray(data.models)) {
+          rawModels = data.models;
+      } else if (Array.isArray(data)) {
+          rawModels = data;
+      }
+
+      if (rawModels.length > 0) {
+         const models = rawModels
+            .map((m) => ({ 
+                id: m.id || m.name || 'unknown', 
+                name: m.name || m.id || 'Unknown Model' 
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
          
          setAvailableModels(models);
-         if (models.length > 0 && !model) {
+         
+         // If no model is currently selected (or the current one isn't in the list), select the first one
+         if (!model || !models.find(m => m.id === model)) {
             setModel(models[0].id);
          }
       } else {
-         alert("Unexpected response format from API.");
+         console.warn("No models found in response", data);
+         alert("No models found. Ensure your local LLM server has models installed and running.");
+         setAvailableModels([]);
       }
     } catch (error) {
       console.error("Error fetching models:", error);
@@ -855,19 +894,41 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                      <div className="flex items-center gap-2">
                          <button
                             onClick={handleUseGemini}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-branding-accent/10 hover:bg-branding-accent/20 text-[10px] font-bold text-branding-accent hover:text-white transition-colors uppercase tracking-wider border border-branding-accent/20"
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
+                              baseUrl.includes('googleapis') 
+                                ? 'bg-branding-accent/20 border-branding-accent/50 text-branding-accent shadow-lg shadow-branding-accent/10' 
+                                : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                            }`}
                          >
                             <Sparkles className="w-3 h-3" /> Use Gemini
                          </button>
                          <button
                             onClick={handleUseOpenRouter}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-wider border border-indigo-500/20"
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
+                              baseUrl.includes('openrouter')
+                                ? 'bg-branding-primary/20 border-branding-primary/50 text-branding-primary shadow-lg shadow-branding-primary/10'
+                                : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                            }`}
                          >
                             <Globe className="w-3 h-3" /> Use OpenRouter
                          </button>
                          <button
+                            onClick={handleUseOllama}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
+                              baseUrl.includes('localhost:11434')
+                                ? 'bg-branding-secondary/20 border-branding-secondary/50 text-branding-secondary shadow-lg shadow-branding-secondary/10'
+                                : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                            }`}
+                         >
+                            <Cpu className="w-3 h-3" /> Use Ollama
+                         </button>
+                         <button
                             onClick={handleUseCustom}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-white/60 hover:text-white transition-colors uppercase tracking-wider border border-white/10"
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
+                              (!baseUrl.includes('googleapis') && !baseUrl.includes('openrouter') && !baseUrl.includes('localhost:11434'))
+                                ? 'bg-white/10 border-white/50 text-white shadow-lg shadow-white/10'
+                                : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                            }`}
                          >
                             <Settings className="w-3 h-3" /> Custom
                          </button>

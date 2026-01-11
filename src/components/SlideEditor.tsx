@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -44,6 +44,7 @@ export interface SlideData extends Partial<RenderedPage> {
   isTtsDisabled?: boolean;
   isMusicDisabled?: boolean;
   lastGeneratedSelection?: { start: number; end: number }[];
+  originalScript?: string;
 }
 
 function mergeRanges(ranges: { start: number; end: number }[]) {
@@ -277,7 +278,7 @@ const SortableSlideItem = ({
     setIsTransforming(true);
     try {
       const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
-      onUpdate(index, { script: transformed, selectionRanges: undefined });
+      onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
       alert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
@@ -293,6 +294,14 @@ const SortableSlideItem = ({
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
+    }
+  };
+
+  const handleRevertScript = () => {
+    if (slide.originalScript) {
+      if (window.confirm("Revert to original script? This will discard current changes.")) {
+         onUpdate(index, { script: slide.originalScript, originalScript: undefined, selectionRanges: undefined });
+      }
     }
   };
 
@@ -456,6 +465,15 @@ const SortableSlideItem = ({
                 {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
                 {isCopied ? 'Copied!' : 'Copy'}
               </button>
+              {slide.originalScript && (
+                <button
+                  onClick={handleRevertScript}
+                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                  title="Revert to original script"
+                >
+                  <Undo2 className="w-3 h-3" /> Revert
+                </button>
+              )}
               {slide.selectionRanges && slide.selectionRanges.length > 0 && (
                 <button
                   onClick={handleClearHighlight}
@@ -1103,7 +1121,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         try {
             const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
-            onUpdateSlide(i, { script: transformed, selectionRanges: undefined });
+            onUpdateSlide(i, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
         } catch (error) {
             console.error(`Failed to fix slide ${i + 1}`, error);
         }
