@@ -3,6 +3,7 @@ import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Spar
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
+import { useModal } from '../context/ModalContext';
 
 
 import { reloadTTS } from '../services/ttsService';
@@ -48,6 +49,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+  
+  const { showAlert } = useModal();
 
   const [availableModels, setAvailableModels] = useState<{id: string, name: string}[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
@@ -128,7 +131,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   const handleFetchModels = async () => {
     if (!baseUrl || !apiKey) {
-      alert("Please enter both Base URL and API Key first.");
+      showAlert("Please enter both Base URL and API Key first.", { type: 'warning', title: 'Missing API Credentials' });
       return;
     }
 
@@ -189,12 +192,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
          }
       } else {
          console.warn("No models found in response", data);
-         alert("No models found. Ensure your local LLM server has models installed and running.");
+         showAlert("No models found. Ensure your local LLM server has models installed and running.", { type: 'warning', title: 'No Models Found' });
          setAvailableModels([]);
       }
     } catch (error) {
       console.error("Error fetching models:", error);
-      alert("Failed to fetch models. Please check your Base URL and API Key.");
+      showAlert("Failed to fetch models. Please check your Base URL and API Key.", { type: 'error', title: 'Details Incorrect' });
     } finally {
       setIsFetchingModels(false);
     }
@@ -234,7 +237,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
            audio.onerror = () => {
                 setIsPreviewPlaying(false);
                 setPreviewAudio(null);
-                alert("Failed to play audio preview.");
+                showAlert("Failed to play audio preview.", { type: 'error', title: 'Playback Error' });
            };
 
            setPreviewAudio(audio);
@@ -242,7 +245,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
        } catch (e) {
            console.error("Preview failed", e);
            setIsPreviewPlaying(false);
-           alert("Failed to generate preview: " + (e instanceof Error ? e.message : String(e)));
+           showAlert("Failed to generate preview: " + (e instanceof Error ? e.message : String(e)), { type: 'error', title: 'Preview Error' });
        }
   };
 
@@ -354,7 +357,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         setExistingMusicBlob(null);
     } catch (e) {
         console.error("Failed to load predefined music", e);
-        alert("Failed to load music track");
+        showAlert("Failed to load music track", { type: 'error', title: 'Load Error' });
     }
   };
 
@@ -453,7 +456,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
              onClick={() => setActiveTab('api')}
              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
-             <Key className="w-4 h-4" /> API Keys
+             <Key className="w-4 h-4" /> API
            </button>
            <button
              onClick={() => setActiveTab('tts')}
@@ -900,7 +903,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
                             }`}
                          >
-                            <Sparkles className="w-3 h-3" /> Use Gemini
+                            <Sparkles className="w-3 h-3" /> Gemini
                          </button>
                          <button
                             onClick={handleUseOpenRouter}
@@ -910,7 +913,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
                             }`}
                          >
-                            <Globe className="w-3 h-3" /> Use OpenRouter
+                            <Globe className="w-3 h-3" /> OpenRouter
                          </button>
                          <button
                             onClick={handleUseOllama}
@@ -920,7 +923,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
                             }`}
                          >
-                            <Cpu className="w-3 h-3" /> Use Ollama
+                            <Cpu className="w-3 h-3" /> Ollama
                          </button>
                          <button
                             onClick={handleUseCustom}

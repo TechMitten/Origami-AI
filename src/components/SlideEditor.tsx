@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { RenderedPage } from '../services/pdfService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
+import { useModal } from '../context/ModalContext';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
@@ -130,6 +131,8 @@ const SortableSlideItem = ({
     transition,
     isDragging,
   } = useSortable({ id: slide.id });
+
+  const { showAlert, showConfirm } = useModal();
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -265,13 +268,13 @@ const SortableSlideItem = ({
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
 
     if (!apiKey) {
-      alert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.');
+      showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning', title: 'Missing Usage' });
       return;
     }
 
     if (!slide.script.trim()) return;
 
-    if (!window.confirm("This will replace the current script with an AI-enhanced version. Continue?")) {
+    if (!await showConfirm("This will replace the current script with an AI-enhanced version. Continue?", { title: 'AI Enhancement', confirmText: 'Enhance' })) {
         return; 
     }
 
@@ -280,7 +283,7 @@ const SortableSlideItem = ({
       const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
-      alert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)));
+      showAlert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Transformation Failed' });
     } finally {
       setIsTransforming(false);
     }
@@ -297,9 +300,9 @@ const SortableSlideItem = ({
     }
   };
 
-  const handleRevertScript = () => {
+  const handleRevertScript = async () => {
     if (slide.originalScript) {
-      if (window.confirm("Revert to original script? This will discard current changes.")) {
+      if (await showConfirm("Revert to original script? This will discard current changes.", { type: 'warning', title: 'Revert Script', confirmText: 'Revert' })) {
          onUpdate(index, { script: slide.originalScript, originalScript: undefined, selectionRanges: undefined });
       }
     }
@@ -666,6 +669,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   globalSettings, // Destructure globalSettings
   onUpdateGlobalSettings
 }) => {
+  const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [isBatchFixing, setIsBatchFixing] = React.useState(false);
@@ -782,7 +786,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            audio.onerror = () => {
                 setIsGlobalPreviewPlaying(false);
                 setGlobalPreviewAudio(null);
-                alert("Failed to play audio preview.");
+                showAlert("Failed to play audio preview.", { type: 'error' });
            };
 
            setGlobalPreviewAudio(audio);
@@ -790,7 +794,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
        } catch (e) {
            console.error("Preview failed", e);
            setIsGlobalPreviewPlaying(false);
-           alert("Failed to generate preview");
+           showAlert("Failed to generate preview", { type: 'error' });
        }
   };
 
@@ -939,7 +943,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       const isGif = file.type === 'image/gif' || file.name.endsWith('.gif');
       
       if (!isVideo && !isGif) {
-          alert("Please upload an MP4 video or a GIF.");
+          showAlert("Please upload an MP4 video or a GIF.", { type: 'error', title: 'Invalid File' });
           return;
       }
 
@@ -1033,15 +1037,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
-  const handleApplyGlobalDelay = () => {
-    if (window.confirm(`Apply ${globalDelay}s delay to all ${slides.length} slides?`)) {
+  const handleApplyGlobalDelay = async () => {
+    if (await showConfirm(`Apply ${globalDelay}s delay to all ${slides.length} slides?`, { title: 'Apply Delay', confirmText: 'Apply' })) {
       slides.forEach((_, index) => {
         onUpdateSlide(index, { postAudioDelay: globalDelay });
       });
     }
   };
 
-  const handleApplyGlobalVoice = () => {
+  const handleApplyGlobalVoice = async () => {
     let currentVoices = voices;
     
     // If using a hybrid voice not in the list, add it
@@ -1074,7 +1078,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
 
     const voiceName = currentVoices.find(v => v.id === globalVoice)?.name || globalVoice;
-    if (window.confirm(`Apply "${voiceName}" voice to all ${slides.length} slides?`)) {
+    if (await showConfirm(`Apply "${voiceName}" voice to all ${slides.length} slides?`, { title: 'Apply Voice', confirmText: 'Apply' })) {
       slides.forEach((_, index) => {
         onUpdateSlide(index, { voice: globalVoice });
       });
@@ -1082,7 +1086,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   };
 
   const handleGenerateAll = async () => {
-    if (!window.confirm("This will generate audio for all slides, overwriting any existing audio. Continue?")) {
+    if (!await showConfirm("This will generate audio for all slides, overwriting any existing audio. Continue?", { title: 'Batch Generate', confirmText: 'Generate All' })) {
       return;
     }
 
@@ -1102,11 +1106,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
 
     if (!apiKey) {
-      alert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.');
+      showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning' });
       return;
     }
 
-    if (!window.confirm("This will sequentially update ALL slide scripts using AI. This process runs individually for each slide to respect API limits. Continue?")) {
+    if (!await showConfirm("This will sequentially update ALL slide scripts using AI. This process runs individually for each slide to respect API limits. Continue?", { title: 'Batch AI Fix', confirmText: 'Start Processing' })) {
       return;
     }
 
@@ -1137,7 +1141,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
-  const handleFindAndReplace = () => {
+  const handleFindAndReplace = async () => {
     if (!findText) return;
 
     let matchCount = 0;
@@ -1155,17 +1159,17 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     });
 
     if (matchCount > 0) {
-        if (window.confirm(`Found ${matchCount} matches. Replace all occurrences of "${findText}" with "${replaceText}"?`)) {
+        if (await showConfirm(`Found ${matchCount} matches. Replace all occurrences of "${findText}" with "${replaceText}"?`, { title: 'Replace Text', confirmText: 'Replace All' })) {
              onReorderSlides(newSlides);
-             alert(`Replaced ${matchCount} occurrences.`);
+             showAlert(`Replaced ${matchCount} occurrences.`, { type: 'success' });
         }
     } else {
-        alert("No matches found.");
+        showAlert("No matches found.", { type: 'info' });
     }
   };
 
-  const handleDeleteSlide = (index: number) => {
-    if (confirm("Are you sure you want to delete this slide?")) {
+  const handleDeleteSlide = async (index: number) => {
+    if (await showConfirm("Are you sure you want to delete this slide?", { type: 'error', title: 'Delete Slide', confirmText: 'Delete' })) {
         const newSlides = [...slides];
         newSlides.splice(index, 1);
         onReorderSlides(newSlides);

@@ -14,6 +14,7 @@ import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSetting
 import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
+import { useModal } from './context/ModalContext';
 
 /**
  * Upload a blob URL to the server and return the static file URL.
@@ -54,6 +55,7 @@ function App() {
   
   const playerRef = React.useRef<PlayerRef>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const { showAlert, showConfirm } = useModal();
 
   // Load state on mount
   React.useEffect(() => {
@@ -93,7 +95,7 @@ function App() {
   }, [slides, isRestoring]);
 
   const handleStartOver = async () => {
-    if (window.confirm("Are you sure you want to start over? This will delete all current slides and progress.")) {
+    if (await showConfirm("Are you sure you want to start over? This will delete all current slides and progress.", { type: 'warning', title: 'Start Over', confirmText: 'Yes, Start Over' })) {
       await clearState();
       setSlides([]);
       setActiveTab('edit');
@@ -101,8 +103,8 @@ function App() {
     }
   };
 
-  const handleResetHighlights = () => {
-    if (window.confirm("Are you sure you want to remove ALL text highlighting from every slide?")) {
+  const handleResetHighlights = async () => {
+    if (await showConfirm("Are you sure you want to remove ALL text highlighting from every slide?", { type: 'warning', title: 'Reset Highlights', confirmText: 'Reset' })) {
       setSlides(prev => prev.map(s => ({ ...s, selectionRanges: undefined })));
     }
   };
@@ -195,7 +197,7 @@ function App() {
       const duration = await getAudioDuration(audioUrl);
       updateSlide(index, { audioUrl, duration, lastGeneratedSelection: slide.selectionRanges });
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to generate audio');
+      showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {
       setIsGenerating(false);
     }
@@ -289,7 +291,7 @@ function App() {
       });
       
       const errorMessage = axiosError?.response?.data?.error || axiosError?.message || (error instanceof Error ? error.message : 'Unknown error');
-      alert(`Failed to render video: ${errorMessage}`);
+      showAlert(`Failed to render video: ${errorMessage}`, { type: 'error', title: 'Render Failed' });
     } finally {
       setIsRenderingWithAudio(false);
     }
@@ -297,7 +299,7 @@ function App() {
 
 
   const handleDownloadSilent = async () => {
-    if (!window.confirm("Download video without TTS audio? This will generate a video with 5s duration per slide (plus specified delays) unless otherwise configured.")) {
+    if (!await showConfirm("Download video without TTS audio? This will generate a video with 5s duration per slide (plus specified delays) unless otherwise configured.", { type: 'info', title: 'Download Silent Video', confirmText: 'Download' })) {
       return;
     }
 
@@ -367,7 +369,7 @@ function App() {
       });
       
       const errorMessage = axiosError?.response?.data?.error || axiosError?.message || (error instanceof Error ? error.message : 'Unknown error');
-      alert(`Failed to render video: ${errorMessage}`);
+      showAlert(`Failed to render video: ${errorMessage}`, { type: 'error', title: 'Render Failed' });
     } finally {
       setIsRenderingSilent(false);
     }
