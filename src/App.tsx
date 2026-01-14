@@ -192,7 +192,7 @@ function App() {
     try {
       const slide = slides[index];
       const textToSpeak = slide.selectionRanges && slide.selectionRanges.length > 0
-        ? slide.selectionRanges
+        ? [...slide.selectionRanges]
             .sort((a, b) => a.start - b.start)
             .map(r => slide.script.slice(r.start, r.end))
             .join(' ')
