@@ -36,6 +36,35 @@ async function createServer() {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
+  // Cleanup function for potentially stuck files
+  const cleanupOldFiles = () => {
+     try {
+         const now = Date.now();
+         const clean = (dir: string, ageMs: number) => {
+             if (!fs.existsSync(dir)) return;
+             fs.readdirSync(dir).forEach(file => {
+                 const filePath = path.join(dir, file);
+                 const stat = fs.statSync(filePath);
+                 if (now - stat.mtimeMs > ageMs) {
+                     fs.unlinkSync(filePath);
+                     console.log(`Deleted old file: ${file}`);
+                 }
+             });
+         };
+         // Clean uploads older than 1 hour
+         clean(uploadDir, 60 * 60 * 1000);
+         // Clean outputs older than 1 hour
+         clean(path.resolve(__dirname, 'out'), 60 * 60 * 1000);
+     } catch (err) {
+         console.error("Cleanup error:", err);
+     }
+  };
+  
+  // Run cleanup on startup
+  cleanupOldFiles();
+  // Run cleanup every 15 minutes
+  setInterval(cleanupOldFiles, 15 * 60 * 1000);
+
   const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
       cb(null, uploadDir);
@@ -139,8 +168,10 @@ async function createServer() {
 
       // Use all available CPU cores for parallel rendering
       // Use 50% of available CPU cores for parallel rendering to avoid OOM
-      const cpuCount = Math.max(1, Math.floor(os.cpus().length / 2));
-      console.log(`Using ${cpuCount} CPU cores for parallel rendering`);
+      // If we are on a free tier (1 vCPU or less), force concurrency to 1 to prevent OOM
+      const cpuCount = os.cpus().length;
+      const concurrency = cpuCount <= 1 ? 1 : Math.max(1, Math.floor(cpuCount / 2));
+      console.log(`Using ${concurrency} CPU cores for parallel rendering (Total CPUs: ${cpuCount})`);
 
       const controller = new AbortController();
 
@@ -157,9 +188,9 @@ async function createServer() {
         codec: 'h264',
         outputLocation,
         inputProps: { slides, musicSettings: processedMusicSettings, ttsVolume },
-        verbose: false,
-        dumpBrowserLogs: false,
-        concurrency: cpuCount, // Parallel frame rendering
+        verbose: true,
+        dumpBrowserLogs: true,
+        concurrency: concurrency, // Parallel frame rendering
         cancelSignal: (callback: () => void) => {
           if (controller.signal.aborted) {
             callback();
