@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2 } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Plus, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -42,6 +42,7 @@ export interface SlideData extends Partial<RenderedPage> {
   isMusicDisabled?: boolean;
   lastGeneratedSelection?: { start: number; end: number }[];
   originalScript?: string;
+  isSelected?: boolean;
 }
 
 function mergeRanges(ranges: { start: number; end: number }[]) {
@@ -416,20 +417,20 @@ const SortableSlideItem = ({
       {/* Slide Preview */}
       {/* Slide Preview Column */}
       <div className="w-1/3 ml-6 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(index, { isSelected: !slide.isSelected });
+            }}
+            className={`p-1 rounded-md transition-all ${slide.isSelected ? 'text-branding-primary' : 'text-white/40 hover:text-white/70'}`}
+            title={slide.isSelected ? "Deselect Slide" : "Select Slide"}
+          >
+             {slide.isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+          </button>
           <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
             Slide {index + 1} {slide.type === 'video' && '(Media)'}
           </span>
-          <button 
-             onClick={(e) => {
-                 e.stopPropagation();
-                 onDelete(index);
-             }}
-             className="p-1.5 text-white/20 hover:text-red-400 hover:bg-white/5 rounded-lg transition-all"
-             title="Delete Slide"
-          >
-             <Trash2 className="w-4 h-4 opacity-70 hover:opacity-100" />
-          </button>
         </div>
         
         <div 
@@ -450,7 +451,9 @@ const SortableSlideItem = ({
             />
           )}
           
-          <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100">
+
+
+          <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100 pointer-events-none">
              <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
           </div>
         </div>
@@ -664,6 +667,17 @@ const SortableSlideItem = ({
           </div>
         )}
       </div>
+
+      <button 
+         onClick={(e) => {
+             e.stopPropagation();
+             onDelete(index);
+         }}
+         className="absolute bottom-3 left-3 p-1.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all z-20"
+         title="Delete Slide"
+      >
+         <Trash2 className="w-4 h-4" />
+      </button>
     </div>
   );
 };

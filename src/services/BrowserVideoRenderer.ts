@@ -8,6 +8,7 @@ interface Slide {
   duration?: number;
   postAudioDelay?: number;
   type?: 'image' | 'video';
+  transition?: 'none' | 'fade' | 'slide' | 'wipe' | 'blur' | 'zoom';
   isVideoMusicPaused?: boolean;
   isTtsDisabled?: boolean;
   isMusicDisabled?: boolean;
@@ -228,13 +229,58 @@ export class BrowserVideoRenderer {
          }
       }
 
-      // Concat
-      const n = slides.length;
-      if (n > 0) {
-        const concatV = videoStreamLabels.map(l => `[${l}]`).join('');
-        const concatA = audioStreamLabels.map(l => `[${l}]`).join('');
-        videoFilterParts.push(`${concatV}concat=n=${n}:v=1:a=0[vout_raw]`);
-        audioFilterParts.push(`${concatA}concat=n=${n}:v=0:a=1[aout_speech]`);
+      // 5. Chain Transition Filters
+      // Re-calculate durations as we need them for offset calculations
+      const calcDuration = (s: Slide) => Math.max((s.duration || 5) + (s.postAudioDelay || 0), 0.1);
+
+      let lastV = videoStreamLabels[0];
+      let lastA = audioStreamLabels[0];
+      let currentDuration = calcDuration(slides[0]);
+
+      if (slides.length > 1) {
+        for (let i = 1; i < slides.length; i++) {
+            const slide = slides[i];
+            const transType = slide.transition || 'fade';
+            
+            let ffmpegTrans = 'fade';
+            switch (transType) {
+                case 'slide': ffmpegTrans = 'slideleft'; break;
+                case 'wipe': ffmpegTrans = 'wipeleft'; break;
+                case 'blur': ffmpegTrans = 'circleopen'; break;
+                case 'zoom': ffmpegTrans = 'zoomin'; break;
+                case 'none': ffmpegTrans = 'fade'; break;
+                default: ffmpegTrans = 'fade';
+            }
+
+            let transDur = 0.5;
+            if (transType === 'none') transDur = 0.1;
+
+            const dCurrent = calcDuration(slide);
+            const safeTransDur = Math.min(transDur, currentDuration / 2, dCurrent / 2);
+            transDur = Math.max(safeTransDur, 0.05);
+
+            const offset = currentDuration - transDur;
+            
+            const nextV = `vMerged${i}`;
+            const nextA = `aMerged${i}`;
+
+            videoFilterParts.push(`[${lastV}][${videoStreamLabels[i]}]xfade=transition=${ffmpegTrans}:duration=${transDur}:offset=${offset}[${nextV}]`);
+            audioFilterParts.push(`[${lastA}][${audioStreamLabels[i]}]acrossfade=d=${transDur}:c1=tri:c2=tri[${nextA}]`);
+
+            lastV = nextV;
+            lastA = nextA;
+            currentDuration = offset + dCurrent;
+        }
+      }
+
+      // Output mapping
+      if (slides.length > 0) {
+         // Rename final output to standard labels expected by footer
+         videoFilterParts.push(`[${lastV}]format=yuv420p[vout_raw]`);
+         audioFilterParts.push(`[${lastA}]volume=1.0[aout_speech]`);
+      } else {
+         videoFilterParts.push(`color=black:1920x1080:d=1[vout_raw]`);
+         audioFilterParts.push(`anullsrc[aout_speech]`);
       }
 
       // Background Music
@@ -253,11 +299,13 @@ export class BrowserVideoRenderer {
           audioFilterParts.push(`[speech_vol][music_vol]amix=inputs=2:duration=first:dropout_transition=0.5[aout_mixed]`);
           finalAudioMap = '[aout_mixed]';
       } else {
-        audioFilterParts.push(`[aout_speech]volume=${ttsVolume}[aout_mixed]`);
-        finalAudioMap = '[aout_mixed]';
+         // Ensure we have the mixed map even if no music
+         audioFilterParts.push(`[aout_speech]volume=${ttsVolume}[aout_mixed]`);
+         finalAudioMap = '[aout_mixed]';
       }
 
       const complexFilter = [...videoFilterParts, ...audioFilterParts].join(';');
+
 
       // Run FFmpeg
       await ffmpeg.exec([

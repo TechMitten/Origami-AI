@@ -9,7 +9,7 @@ import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle, Trash2 } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
 import { useModal } from './context/ModalContext';
@@ -194,6 +194,15 @@ function App() {
   const handleResetHighlights = async () => {
     if (await showConfirm("Are you sure you want to remove ALL text highlighting from every slide?", { type: 'warning', title: 'Reset Highlights', confirmText: 'Reset' })) {
       setSlides(prev => prev.map(s => ({ ...s, selectionRanges: undefined })));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    const selectedCount = slides.filter(s => s.isSelected).length;
+    if (selectedCount === 0) return;
+
+    if (await showConfirm(`Are you sure you want to delete the ${selectedCount} selected slides?`, { type: 'error', title: 'Delete Selected', confirmText: 'Delete' })) {
+        setSlides(prev => prev.filter(s => !s.isSelected));
     }
   };
 
@@ -442,6 +451,16 @@ function App() {
                 <Eraser className="w-4 h-4" />
                 <span className="hidden sm:inline">Reset Highlights</span>
               </button>
+              {slides.some(s => s.isSelected) && (
+                  <button
+                    onClick={handleDeleteSelected}
+                    className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300"
+                    title="Delete Selected Slides"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Delete Selected ({slides.filter(s => s.isSelected).length})</span>
+                  </button>
+              )}
               <div className="w-px h-6 bg-white/10 mx-1" />
               <button
                 onClick={() => setActiveTab('edit')}
