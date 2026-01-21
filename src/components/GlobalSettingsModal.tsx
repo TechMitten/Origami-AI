@@ -1066,7 +1066,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             
                             {webLlmDownloadProgress && (
                                 <div className="p-3 rounded-lg bg-black/20 border border-white/10">
-                                    <p className="text-xs font-mono text-white/70 wrap-break-word leading-relaxed whitespace-pre-wrap">
+                                    <p className={`font-mono wrap-break-word leading-relaxed whitespace-pre-wrap ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-sm text-emerald-400 font-bold' : 'text-xs text-white/70'}`}>
                                         {webLlmDownloadProgress}
                                     </p>
                                 </div>
