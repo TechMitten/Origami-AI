@@ -106,7 +106,8 @@ const SortableSlideItem = ({
   highlightText,
   onDelete,
   ttsVolume,
-  voices // Add voices to destructuring
+  voices, // Add voices to destructuring
+  globalSettings // Add globalSettings to destructuring
 }: { 
   slide: SlideData, 
   index: number, 
@@ -118,6 +119,7 @@ const SortableSlideItem = ({
   onDelete: (index: number) => void;
   ttsVolume?: number;
   voices: Voice[]; // Add voices prop
+  globalSettings?: GlobalSettings | null; // Add globalSettings prop
 }) => {
   const {
     attributes,
@@ -154,8 +156,8 @@ const SortableSlideItem = ({
         audioRef.current = null;
       }
       if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-        audioContextRef.current = null;
+         audioContextRef.current.close().catch(console.error);
+         audioContextRef.current = null;
       }
       gainNodeRef.current = null;
     };
@@ -259,13 +261,21 @@ const SortableSlideItem = ({
 
 
   const handleTransform = async () => {
+    const useWebLLM = globalSettings?.useWebLLM;
+    const webLlmModel = globalSettings?.webLlmModel;
+
     const apiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
     const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
 
-    if (!apiKey) {
+    if (!useWebLLM && !apiKey) {
       showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning', title: 'Missing Usage' });
       return;
+    }
+
+    if (useWebLLM && !webLlmModel) {
+        showAlert('Please select and load a WebLLM model in Settings (WebLLM tab) to use this feature.', { type: 'warning', title: 'WebLLM Not Configured' });
+        return;
     }
 
     if (!slide.script.trim()) return;
@@ -276,7 +286,13 @@ const SortableSlideItem = ({
 
     setIsTransforming(true);
     try {
-      const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
+      const transformed = await transformText({ 
+          apiKey: apiKey || '', 
+          baseUrl, 
+          model,
+          useWebLLM,
+          webLlmModel
+      }, slide.script);
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
       showAlert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Transformation Failed' });
@@ -1101,13 +1117,21 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   };
 
   const handleFixAllScripts = async () => {
+    const useWebLLM = globalSettings?.useWebLLM;
+    const webLlmModel = globalSettings?.webLlmModel;
+
     const apiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
     const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
 
-    if (!apiKey) {
+    if (!useWebLLM && !apiKey) {
       showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning' });
       return;
+    }
+
+    if (useWebLLM && !webLlmModel) {
+        showAlert('Please select and load a WebLLM model in Settings (WebLLM tab) to use this feature.', { type: 'warning', title: 'WebLLM Not Configured' });
+        return;
     }
 
     if (!await showConfirm("This will sequentially update ALL slide scripts using AI. This process runs individually for each slide to respect API limits. Continue?", { title: 'Batch AI Fix', confirmText: 'Start Processing' })) {
@@ -1124,7 +1148,13 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         if (!slide.script.trim()) continue;
 
         try {
-            const transformed = await transformText({ apiKey, baseUrl, model }, slide.script);
+            const transformed = await transformText({ 
+                apiKey: apiKey || '', 
+                baseUrl, 
+                model,
+                useWebLLM,
+                webLlmModel
+            }, slide.script);
             onUpdateSlide(i, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
         } catch (error) {
             console.error(`Failed to fix slide ${i + 1}`, error);
@@ -1671,10 +1701,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                    }
                  }}
                  highlightText={findText}
-                 onDelete={handleDeleteSlide}
-                 ttsVolume={ttsVolume}
-                 voices={voices}
-              />
+                  onDelete={handleDeleteSlide}
+                  ttsVolume={ttsVolume}
+                  voices={voices}
+                  globalSettings={globalSettings}
+               />
             ))}
           </div>
         </SortableContext>

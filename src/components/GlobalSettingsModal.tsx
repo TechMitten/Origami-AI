@@ -1,5 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, AlertCircle, ExternalLink } from 'lucide-react';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -15,14 +16,17 @@ interface GlobalSettingsModalProps {
   onClose: () => void;
   currentSettings: GlobalSettings | null;
   onSave: (settings: GlobalSettings) => Promise<void>;
+  initialTab?: 'general' | 'api' | 'tts' | 'interface' | 'webllm';
 }
 
 export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   isOpen,
   onClose,
   currentSettings,
-  onSave
+  onSave,
+  initialTab = 'general'
 }) => {
+  const { showAlert } = useModal();
   const [isEnabled, setIsEnabled] = useState(currentSettings?.isEnabled ?? false);
   const [voice, setVoice] = useState(currentSettings?.voice ?? AVAILABLE_VOICES[0].id);
   const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
@@ -30,7 +34,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.03);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm'>(initialTab);
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
   const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
   const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
@@ -38,7 +42,33 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
+
   const [model, setModel] = useState('');
+  
+  // WebLLM State
+  const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
+  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? AVAILABLE_WEB_LLM_MODELS[0].id);
+  const [webLlmDownloadProgress, setWebLlmDownloadProgress] = useState<string>('');
+  const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
+  const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
+  const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'webllm' && webGpuSupport === null) {
+      checkWebGPUSupport().then((info) => {
+          setWebGpuSupport(info);
+          if (info.supported && !info.hasF16) {
+             const currentIsF16 = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.precision === 'f16';
+             if (currentIsF16) {
+                 const f32Model = AVAILABLE_WEB_LLM_MODELS.find(m => m.precision === 'f32');
+                 if (f32Model) setWebLlmModel(f32Model.id);
+                 setPrecisionFilter('f32');
+                 showAlert("Your GPU does not support f16 shaders. Switched to f32 mode for compatibility.", { type: 'info', title: 'WebGPU Compatibility' });
+             }
+          }
+      });
+    }
+  }, [activeTab, webGpuSupport, webLlmModel, showAlert]);
   const [availableVoices, setAvailableVoices] = useState<Voice[]>(AVAILABLE_VOICES);
   const [isHybrid, setIsHybrid] = useState(false);
   const [voiceA, setVoiceA] = useState('');
@@ -48,7 +78,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   
-  const { showAlert } = useModal();
 
   const [availableModels, setAvailableModels] = useState<{id: string, name: string}[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
@@ -198,6 +227,23 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       showAlert("Failed to fetch models. Please check your Base URL and API Key.", { type: 'error', title: 'Details Incorrect' });
     } finally {
       setIsFetchingModels(false);
+    }
+  };
+
+  const handleDownloadWebLlm = async () => {
+    if (!webLlmModel) return;
+    setIsDownloadingWebLlm(true);
+    setWebLlmDownloadProgress('Starting download...');
+    try {
+        await initWebLLM(webLlmModel, (progress) => {
+            setWebLlmDownloadProgress(progress.text);
+        });
+        setWebLlmDownloadProgress('Model loaded successfully!');
+    } catch (e) {
+        console.error(e);
+        setWebLlmDownloadProgress('Download failed. Check console.');
+    } finally {
+        setIsDownloadingWebLlm(false);
     }
   };
 
@@ -379,8 +425,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useLocalTTS,
       localTTSUrl,
       showVolumeOverlay,
-      disableAudioNormalization
+      disableAudioNormalization,
+
+      useWebLLM,
+      webLlmModel
     };
+
     
     // Check if quantization changed to reload model
     if (currentSettings?.ttsQuantization !== ttsQuantization) {
@@ -467,6 +517,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'interface' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Layout className="w-4 h-4" /> Interface
+           </button>
+           <button
+             onClick={() => setActiveTab('webllm')}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webllm' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           >
+             <Cpu className="w-4 h-4" /> WebLLM
            </button>
         </div>
 
@@ -872,6 +928,228 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         </div>
                     </div>
                 </div>
+           ) : activeTab === 'webllm' ? (
+                <div className="space-y-6">
+                   <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 flex gap-4">
+                     <div className="p-2 rounded-lg bg-purple-500/20 text-purple-500 h-fit">
+                        <Cpu className="w-5 h-5" />
+                     </div>
+                     <div className="space-y-1">
+                        <h3 className="text-sm font-bold text-white">Browser-Based AI (WebLLM)</h3>
+                        <p className="text-xs text-white/60 leading-relaxed">
+                           Run AI models entirely in your browser using WebGPU. No API key required, free, private, and offline-capable.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* WebLLM Toggle */}
+                    <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-4">
+                      <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                  Enable WebLLM
+                                  {useWebLLM && <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>}
+                              </h3>
+                              <p className="text-xs text-white/60">
+                                  Use browser-based AI instead of remote API for script fixes. Requires ~4GB+ VRAM and ~2GB download.
+                              </p>
+                          </div>
+                          <button
+                              onClick={() => setUseWebLLM(!useWebLLM)}
+                              className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-emerald-500' : 'bg-white/10'}`}
+                          >
+                              <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-7' : 'translate-x-0'}`} />
+                          </button>
+                      </div>
+                    </div>
+
+                    {useWebLLM && (
+                      <>
+                        {/* Precision Filter */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                                    Model Precision
+                                </label>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <button
+                                    onClick={() => setPrecisionFilter('all')}
+                                    className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                                >
+                                    <span className="text-sm font-bold">All Models</span>
+                                    <span className={`text-[10px] ${precisionFilter === 'all' ? 'text-black/60' : 'text-white/40'}`}>
+                                        Show both
+                                    </span>
+                                </button>
+                                <button
+                                    onClick={() => setPrecisionFilter('f16')}
+                                    disabled={webGpuSupport?.supported && !webGpuSupport.hasF16}
+                                    className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${
+                                        precisionFilter === 'f16' 
+                                            ? 'bg-white text-black border-white shadow-lg' 
+                                            : (webGpuSupport?.supported && !webGpuSupport.hasF16)
+                                                ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'
+                                                : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+                                    }`}
+                                >
+                                    <span className="text-sm font-bold">f16 (Fast)</span>
+                                    <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-black/60' : 'text-white/40'}`}>
+                                        {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory'}
+                                    </span>
+                                </button>
+                                <button
+                                    onClick={() => setPrecisionFilter('f32')}
+                                    className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                                >
+                                    <span className="text-sm font-bold">f32 (Compatible)</span>
+                                    <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-black/60' : 'text-white/40'}`}>
+                                        Better support
+                                    </span>
+                                </button>
+                            </div>
+                            
+                            {/* Precision Explanation */}
+                            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                <div className="flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-blue-200 font-bold">When to use each precision:</p>
+                                        <ul className="text-[10px] text-blue-200/80 space-y-1 list-disc list-inside">
+                                            <li><strong>f16 (Float16):</strong> Faster inference, lower memory usage. Use if you have a modern GPU with good WebGPU support. {(webGpuSupport?.supported && !webGpuSupport.hasF16) && <span className="text-red-300 font-bold ml-1">(Not supported on your device)</span>}</li>
+                                            <li><strong>f32 (Float32):</strong> Better compatibility with older GPUs or if f16 models fail to load. Slightly slower but more stable.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Model Selection */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                                Select Model
+                            </label>
+                            <Dropdown
+                                options={AVAILABLE_WEB_LLM_MODELS
+                                    .filter(m => {
+                                        // Hide f16 models if not supported
+                                        if (webGpuSupport?.supported && !webGpuSupport.hasF16 && m.precision === 'f16') return false;
+                                        return precisionFilter === 'all' || m.precision === precisionFilter;
+                                    })
+                                    .map(m => ({ 
+                                        id: m.id, 
+                                        name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}` 
+                                    }))}
+                                value={webLlmModel}
+                                onChange={setWebLlmModel}
+                                className="bg-black/20"
+                            />
+                            
+                            {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel) && (
+                                <div className="flex items-center gap-2 text-[10px] text-white/40">
+                                    <Activity className="w-3 h-3" />
+                                    Est. VRAM Usage: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Download Button */}
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleDownloadWebLlm}
+                                disabled={isDownloadingWebLlm}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/10 text-white/60 cursor-wait' : 'bg-white text-black hover:bg-white/90'}`}
+                            >
+                                {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                {isDownloadingWebLlm ? 'Downloading...' : 'Load Model'}
+                            </button>
+                            
+                            {webLlmDownloadProgress && (
+                                <div className="p-3 rounded-lg bg-black/20 border border-white/10">
+                                    <p className="text-xs font-mono text-white/70 wrap-break-word leading-relaxed whitespace-pre-wrap">
+                                        {webLlmDownloadProgress}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Troubleshooting Section */}
+                        <div className="space-y-4 pt-4 border-t border-white/10">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-yellow-400" />
+                                <h4 className="text-sm font-bold text-white">Troubleshooting</h4>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                {/* WebGPU Report */}
+                                <a
+                                    href="https://webgpureport.org/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-full bg-blue-500/10 text-blue-400">
+                                            <Activity className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">Check WebGPU Support</p>
+                                            <p className="text-[10px] text-white/40">Test your browser's WebGPU compatibility</p>
+                                        </div>
+                                    </div>
+                                    <ExternalLink className="w-4 h-4 text-white/40 group-hover:text-white transition-colors" />
+                                </a>
+
+                                {/* Browser Recommendations */}
+                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                                    <div className="flex items-start gap-2">
+                                        <Globe className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-white">Recommended Browsers</p>
+                                            <ul className="text-[10px] text-white/60 space-y-0.5 list-disc list-inside">
+                                                <li>Chrome/Edge 113+ (Best support)</li>
+                                                <li>Firefox Nightly with WebGPU enabled</li>
+                                                <li>Safari Technology Preview (macOS)</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Chrome Flags */}
+                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                                    <div className="flex items-start gap-2">
+                                        <Settings className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-white">Chrome Flags (if needed)</p>
+                                            <p className="text-[10px] text-white/60">Visit <code className="px-1 py-0.5 rounded bg-black/30 font-mono">chrome://flags</code> and enable:</p>
+                                            <ul className="text-[10px] text-white/60 space-y-0.5 list-disc list-inside">
+                                                <li>Unsafe WebGPU (for development)</li>
+                                                <li>WebGPU Developer Features</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* GPU Driver Suggestions */}
+                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                                    <div className="flex items-start gap-2">
+                                        <Cpu className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-white">GPU Driver Requirements</p>
+                                            <ul className="text-[10px] text-white/60 space-y-0.5 list-disc list-inside">
+                                                <li><strong>NVIDIA:</strong> Driver 470+ (Vulkan 1.3 support)</li>
+                                                <li><strong>AMD:</strong> Latest Adrenalin drivers</li>
+                                                <li><strong>Intel:</strong> Latest graphics drivers (Arc/Iris Xe)</li>
+                                                <li>Ensure hardware acceleration is enabled in browser settings</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                      </>
+                    )}
+                </div>
            ) : (
             <div className="space-y-6">
                <div className="p-4 rounded-xl bg-branding-accent/10 border border-branding-accent/20 flex gap-4">
@@ -879,14 +1157,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <Sparkles className="w-5 h-5" />
                  </div>
                  <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-white">LLM Configuration</h3>
+                    <h3 className="text-sm font-bold text-white">Remote API Configuration</h3>
                     <p className="text-xs text-white/60 leading-relaxed">
-                       Configure an OpenAI-compatible endpoint (e.g., Gemini, OpenAI, LocalAI) for script enhancement.
+                       Configure your API credentials for remote AI services (Gemini, OpenAI, etc.)
                     </p>
-                 </div>
-               </div>
-
-               {/* Base URL */}
+                  </div>
+                </div>
+                {/* Base URL */}
                <div className="space-y-4">
                  <div className="flex items-center justify-between">
                      <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
@@ -1003,11 +1280,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                  </div>
                  <p className="text-[10px] text-white/30">
                     Your key is stored locally in your browser and is never sent to our servers.
-                 </p>
-               </div>
-            </div>
-          )}
-        </div>
+                  </p>
+                </div>
+           </div>
+           )}
+         </div>
 
         {/* Footer */}
         <div className="p-6 border-t border-white/5 bg-white/5 flex justify-end gap-3 transition-colors">

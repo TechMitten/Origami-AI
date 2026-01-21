@@ -1,12 +1,15 @@
+import { generateWebLLMResponse, initWebLLM } from './webLlmService';
 
 interface LLMSettings {
   apiKey: string;
   baseUrl: string;
   model: string;
+  useWebLLM?: boolean;
+  webLlmModel?: string;
 }
 
 export const transformText = async (settings: LLMSettings, text: string): Promise<string> => {
-  const systemPrompt = `Transform the following slide text into a complete, natural-sounding script suitable for Text-to-Speech.
+  const remoteSystemPrompt = `Transform the following slide text into a complete, natural-sounding script suitable for Text-to-Speech.
 The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent sentences.
 Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow well.
 
@@ -32,8 +35,35 @@ Example Input:
 Example Output:
 How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
 
+  const webLlmSystemPrompt = `Transform this slide text into a natural TTS script. Expand abbreviations (e.g., GB -> gigabytes). Explain terminal commands step-by-step. Return ONLY the transformed text.`;
+
+  const systemPrompt = settings.useWebLLM ? webLlmSystemPrompt : remoteSystemPrompt;
+
   const userPrompt = `Input Text:
 "${text}"`;
+
+  if (settings.useWebLLM) {
+    if (!settings.webLlmModel) {
+        throw new Error("WebLLM is enabled but no model is selected.");
+    }
+    try {
+        // Ensure initialized. If not already loaded, this might take time.
+        // We pass a simple console logger for this implicit init.
+        await initWebLLM(settings.webLlmModel, (progress) => {
+            console.log(`[WebLLM Auto-Init] ${progress.text}`);
+        });
+
+        const messages = [
+            { role: "system" as const, content: systemPrompt },
+            { role: "user" as const, content: userPrompt }
+        ];
+
+        return await generateWebLLMResponse(messages);
+    } catch (error) {
+        console.error("WebLLM Error:", error);
+        throw error;
+    }
+  }
 
   let endpoint = settings.baseUrl;
   // Ensure we hit the chat completions endpoint if not provided

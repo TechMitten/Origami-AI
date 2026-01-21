@@ -112,6 +112,8 @@ function getWorker(quantization: 'q8' | 'q4' = 'q4'): Worker {
           req.resolve(URL.createObjectURL(blob));
           pendingRequests.delete(id);
         }
+      } else if (type === 'init-complete') {
+        ttsEvents.dispatchEvent(new CustomEvent('tts-init-complete'));
       } else if (type === 'error' && id) {
         const req = pendingRequests.get(id);
         if (req) {

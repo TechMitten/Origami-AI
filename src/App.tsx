@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
@@ -14,6 +14,8 @@ import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
+import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
+import { initWebLLM, webLlmEvents } from './services/webLlmService';
 
 
 
@@ -28,7 +30,10 @@ function App() {
   const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm'>('general');
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   
 
   const [isRestoring, setIsRestoring] = useState(true);
@@ -47,6 +52,37 @@ function App() {
     }
   };
 
+  // Listen for successful resource loading to update cache status
+  useEffect(() => {
+    const updateCacheStatus = (key: 'tts' | 'ffmpeg' | 'webllm') => {
+        const current = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+        if (!current[key]) {
+            current[key] = true;
+            localStorage.setItem('resource_cache_status', JSON.stringify(current));
+            console.log(`[Resources] Marked ${key} as cached/installed.`);
+        }
+    };
+
+    const handleTTSInit = () => updateCacheStatus('tts');
+    const handleVideoProgress = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail.status === 'FFmpeg ready') {
+            updateCacheStatus('ffmpeg');
+        }
+    };
+    const handleWebLLMInit = () => updateCacheStatus('webllm');
+
+    ttsEvents.addEventListener('tts-init-complete', handleTTSInit);
+    videoEvents.addEventListener('video-progress', handleVideoProgress);
+    webLlmEvents.addEventListener('webllm-init-complete', handleWebLLMInit);
+    
+    return () => {
+        ttsEvents.removeEventListener('tts-init-complete', handleTTSInit);
+        videoEvents.removeEventListener('video-progress', handleVideoProgress);
+        webLlmEvents.removeEventListener('webllm-init-complete', handleWebLLMInit);
+    };
+  }, []);
+
   // Load state on mount
   React.useEffect(() => {
     const load = async () => {
@@ -54,19 +90,78 @@ function App() {
       const settings = await loadGlobalSettings();
       setGlobalSettings(settings);
       
-      // Initialize TTS with saved quantization preference
-      initTTS(settings?.ttsQuantization || 'q4');
-
       if (state && state.slides.length > 0) {
         setSlides(state.slides);
       }
       setIsRestoring(false);
       
-      // Preload FFmpeg
-      renderer.load().catch(console.error);
+      // Check resource cache status
+      const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+      setPreinstalledResources(cached);
+      
+      // Always init preinstalled/cached resources immediately
+      if (cached.tts) initTTS(settings?.ttsQuantization || 'q4');
+      if (cached.ffmpeg) renderer.load().catch(console.error);
+      
+      // Only init WebLLM if enabled specifically in settings AND cached
+      if (cached.webllm && settings?.useWebLLM) {
+          const model = settings.webLlmModel || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+          initWebLLM(model, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
+      }
+
+      // Check startup preferences
+      const storedPref = localStorage.getItem('startup_resource_pref');
+      if (storedPref) { // User said "Remember my choice"
+        try {
+            const pref = JSON.parse(storedPref);
+            // We only need to init things that were NOT cached but user WANTED. 
+            // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
+            if (pref.downloadTTS) initTTS(settings?.ttsQuantization || 'q4');
+            if (pref.downloadFFmpeg) renderer.load().catch(console.error);
+            if (pref.enableWebLLM) {
+                const model = settings?.webLlmModel || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                initWebLLM(model, () => {
+                    // console.log('WebLLM Loading:', p);
+                }).catch(console.error);
+            }
+        } catch (e) {
+            console.error("Invalid startup pref", e);
+            // If error, fall back to modal logic, considering cache
+             if (!cached.tts || !cached.ffmpeg) {
+                setIsResourceModalOpen(true);
+             }
+        }
+      } else {
+        // No "Never show again".
+        // Show modal ONLY if something is missing
+        if (!cached.tts || !cached.ffmpeg) {
+            setIsResourceModalOpen(true);
+        }
+      }
     };
     load();
   }, [renderer]);
+
+  const handleResourceConfirm = async (selection: ResourceSelection) => {
+      setIsResourceModalOpen(false);
+      
+      if (selection.downloadTTS) {
+           initTTS(globalSettings?.ttsQuantization || 'q4');
+      }
+      if (selection.downloadFFmpeg) {
+           renderer.load().catch(console.error);
+      }
+      if (selection.enableWebLLM) {
+           // We do NOT init webllm here automatically if user just selected "Enable WebLLM".
+           // Instead, we open the settings modal to the WebLLM tab so they can see/choose the model and download it.
+           
+           // However, let's enable the setting flag so when they open it, it's checked (if logic supports that, which it does via props).
+           await handlePartialGlobalSettings({ useWebLLM: true });
+           
+           setActiveSettingsTab('webllm');
+           setIsSettingsOpen(true);
+      }
+  };
 
   // Save state on changes
   React.useEffect(() => {
@@ -483,6 +578,7 @@ function App() {
        {isSettingsOpen && (
          <GlobalSettingsModal
           isOpen={isSettingsOpen}
+          initialTab={activeSettingsTab}
           onClose={() => setIsSettingsOpen(false)}
           currentSettings={globalSettings}
           onSave={handleSaveGlobalSettings}
@@ -492,6 +588,12 @@ function App() {
        <TutorialModal 
           isOpen={isTutorialOpen} 
           onClose={() => setIsTutorialOpen(false)} 
+       />
+
+       <RuntimeResourceModal
+          isOpen={isResourceModalOpen}
+          onConfirm={handleResourceConfirm}
+          preinstalled={preinstalledResources}
        />
 
       {/* Background Image */}

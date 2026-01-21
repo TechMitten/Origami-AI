@@ -35,6 +35,8 @@ export interface GlobalSettings {
   localTTSUrl?: string;
   showVolumeOverlay?: boolean;
   disableAudioNormalization?: boolean;
+  useWebLLM?: boolean;
+  webLlmModel?: string;
 }
 
 

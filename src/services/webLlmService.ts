@@ -1,0 +1,119 @@
+
+import { CreateMLCEngine, MLCEngine, type InitProgressCallback } from "@mlc-ai/web-llm";
+
+export interface ModelInfo {
+    id: string;
+    name: string;
+    size?: string;
+    vram_required_MB?: number;
+    precision: 'f16' | 'f32';
+}
+
+// Filter mostly for smaller models suitable for browser
+// This list can be expanded based on prebuiltAppConfig.model_list
+// f16 models are faster and use less memory, f32 models have better compatibility
+export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
+    // f16 models (faster, lower memory, requires good GPU support)
+    { id: "Llama-3.2-3B-Instruct-q4f16_1-MLC", name: "Llama 3.2 3B", size: "1.7GB", vram_required_MB: 2500, precision: 'f16' },
+    { id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", name: "Llama 3.2 1B", size: "800MB", vram_required_MB: 1500, precision: 'f16' },
+    { id: "Noh-3-8B-Instruct-q4f16_1-MLC", name: "Llama 3.1 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16' },
+    { id: "Gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 2B", size: "1.4GB", vram_required_MB: 2000, precision: 'f16' },
+    { id: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC", name: "DeepSeek R1 Distill 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16' },
+    { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 1.5B", size: "1GB", vram_required_MB: 2000, precision: 'f16' },
+    { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", name: "Phi 3.5 Mini", size: "2.5GB", vram_required_MB: 3000, precision: 'f16' },
+    
+    // f32 models (better compatibility, slower, more memory)
+    { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 3B", size: "2.0GB", vram_required_MB: 3000, precision: 'f32' },
+    { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 1B", size: "1.0GB", vram_required_MB: 1800, precision: 'f32' },
+    { id: "Gemma-2-2b-it-q4f32_1-MLC", name: "Gemma 2 2B", size: "1.7GB", vram_required_MB: 2500, precision: 'f32' },
+    { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", name: "Qwen 2.5 1.5B", size: "1.2GB", vram_required_MB: 2300, precision: 'f32' },
+    { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", name: "Phi 3.5 Mini", size: "3.0GB", vram_required_MB: 3500, precision: 'f32' },
+];
+
+// WebGPU types are often not included by default in standard lib yet
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getNavigator = () => navigator as any;
+
+export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16: boolean; error?: string }> => {
+    const nav = getNavigator();
+    if (!nav.gpu) {
+        return { supported: false, hasF16: false, error: "WebGPU is not supported in your browser. Please use Chrome, Edge, or a compatible browser." };
+    }
+    try {
+        const adapter = await nav.gpu.requestAdapter();
+        if (!adapter) {
+            return { supported: false, hasF16: false, error: "No WebGPU adapter found. Your GPU might not be compatible or hardware acceleration is disabled." };
+        }
+        // Check for f16 support
+        const hasF16 = adapter.features.has('shader-f16');
+        return { supported: true, hasF16 };
+    } catch (e) {
+        return { supported: false, hasF16: false, error: `WebGPU initialization failed: ${e instanceof Error ? e.message : String(e)}` };
+    }
+};
+
+let engine: MLCEngine | null = null;
+let currentModelId: string | null = null;
+
+
+export const webLlmEvents = new EventTarget();
+
+export const initWebLLM = async (
+    modelId: string, 
+    onProgress: InitProgressCallback
+) => {
+    // If engine exists and is loaded with the same model, do nothing
+    if (engine && currentModelId === modelId) {
+        return engine;
+    }
+
+    // If engine exists but different model, we might need to reload or create new.
+    // MLCEngine typically handles reloading if we call reload, but CreateMLCEngine is easier for now.
+    // Ideally we reuse the engine instance if possible, but simplest is to just create new or reload.
+    
+    try {
+        if (!engine) {
+            engine = await CreateMLCEngine(modelId, { initProgressCallback: onProgress });
+        } else {
+            // Reload/recreate engine if model changed
+            // We'll create a new engine instance to ensure clean state and correct callback binding
+            engine.unload();
+            engine = await CreateMLCEngine(modelId, { initProgressCallback: onProgress });
+        }
+        currentModelId = modelId;
+        
+        webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-complete', { detail: { modelId } }));
+        
+        return engine;
+    } catch (error) {
+        console.error("Failed to initialize WebLLM:", error);
+        throw error;
+    }
+};
+
+export const getWebLLMEngine = () => engine;
+
+export const generateWebLLMResponse = async (
+    messages: { role: "system" | "user" | "assistant"; content: string }[],
+    temperature: number = 0.7
+) => {
+    if (!engine) {
+        throw new Error("WebLLM Engine not initialized. Please load a model first.");
+    }
+
+    try {
+        const reply = await engine.chat.completions.create({
+            messages,
+            temperature,
+            stream: false, // For now, no streaming to keep it simple with existing architecture
+        });
+        
+        return reply.choices[0].message.content || "";
+    } catch (error) {
+        console.error("WebLLM Generation Error:", error);
+        throw error;
+    }
+};
+
+export const isWebLLMLoaded = () => !!engine;
+export const getCurrentWebLLMModel = () => currentModelId;

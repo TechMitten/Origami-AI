@@ -18,6 +18,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@mlc-ai/web-llm": "^0.2.80",
     "@remotion/bundler": "^4.0.396",
     "@remotion/media-utils": "^4.0.396",
     "@remotion/renderer": "^4.0.396",
