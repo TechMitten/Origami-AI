@@ -8,8 +8,42 @@ interface LLMSettings {
   webLlmModel?: string;
 }
 
+
+const cleanLLMResponse = (text: string): string => {
+  let cleaned = text.trim();
+
+  // Remove common conversational prefixes
+  const prefixes = [
+    /^Here is the (transformed )?text:?\s*/i,
+    /^Here is the (transformed )?script:?\s*/i,
+    /^Transformed text:?\s*/i,
+    /^Output:?\s*/i,
+    /^Sure,? here is (the )?(transformed )?(text|script)( you requested)?:?\s*/i,
+    /^Okay,? here is (the )?(transformed )?text:?\s*/i
+  ];
+
+  for (const prefix of prefixes) {
+    cleaned = cleaned.replace(prefix, '');
+  }
+
+  // Remove markdown code blocks if present
+  cleaned = cleaned.replace(/^```(markdown|text)?\n/, '').replace(/\n```$/, '');
+
+  // Re-trim after prefix removal
+  cleaned = cleaned.trim();
+
+  // Remove wrapping quotes if they appear on both ends
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+      (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+      cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+
+  return cleaned.trim();
+};
+
 export const transformText = async (settings: LLMSettings, text: string): Promise<string> => {
-  const remoteSystemPrompt = `Transform the following slide text into a complete, natural-sounding script suitable for Text-to-Speech.
+  /* Shared System Prompt for both WebLLM and Remote API */
+  const systemPrompt = `Transform the following slide text into a complete, natural-sounding script suitable for Text-to-Speech.
 The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent sentences.
 Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow well.
 
@@ -27,17 +61,16 @@ IMPORTANT TTS INSTRUCTIONS:
    - Example: "$ npm install ." -> "Type npm install space period."
    - Example: "ls -la" -> "Type ls space dash l a."
 3. Punctuation: Use proper punctuation to control pacing.
-4. Clean Output: Return ONLY the transformed text. Do not wrap the output in quotation marks.
+4. Clean Output: Return ONLY the raw string of the transformed text. 
+   - Do NOT wrap the output in quotation marks. 
+   - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
+   - Do NOT use Markdown code blocks.
 
 Example Input:
 " How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
 
 Example Output:
 How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
-
-  const webLlmSystemPrompt = `Transform this slide text into a natural TTS script. Expand abbreviations (e.g., GB -> gigabytes). Explain terminal commands step-by-step. Return ONLY the transformed text.`;
-
-  const systemPrompt = settings.useWebLLM ? webLlmSystemPrompt : remoteSystemPrompt;
 
   const userPrompt = `Input Text:
 "${text}"`;
@@ -58,7 +91,8 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
             { role: "user" as const, content: userPrompt }
         ];
 
-        return await generateWebLLMResponse(messages);
+        const response = await generateWebLLMResponse(messages);
+        return cleanLLMResponse(response);
     } catch (error) {
         console.error("WebLLM Error:", error);
         throw error;
@@ -98,8 +132,7 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
     const data = await response.json();
     const textContent = data.choices?.[0]?.message?.content || '';
     
-    // Remove any leading/trailing quotes that might have slipped through
-    return textContent.replace(/^["']|["']$/g, '').trim();
+    return cleanLLMResponse(textContent);
   } catch (error) {
     console.error('LLM API Error:', error);
     throw error;
