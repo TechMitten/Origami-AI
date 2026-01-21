@@ -34,7 +34,8 @@ async function uploadBlob(blobUrl: string, signal?: AbortSignal): Promise<string
   const formData = new FormData();
   formData.append('file', blob, `upload${ext}`);
 
-  const res = await axios.post('/api/upload', formData, {
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const res = await axios.post(`${baseUrl}/api/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     signal
   });
@@ -278,7 +279,8 @@ function App() {
           : musicSettings.url,
       };
 
-      const response = await axios.post('/api/render', { 
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const response = await axios.post(`${baseUrl}/api/render`, { 
         slides: convertedSlides, 
         musicSettings: convertedMusicSettings,
         ttsVolume: ttsVolume,
@@ -364,7 +366,8 @@ function App() {
           : musicSettings.url,
       };
 
-      const response = await axios.post('/api/render', { 
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const response = await axios.post(`${baseUrl}/api/render`, { 
         slides: silentSlides,
         musicSettings: convertedMusicSettings,
         ttsVolume: ttsVolume,

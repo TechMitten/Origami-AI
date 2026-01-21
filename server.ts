@@ -17,7 +17,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function createServer() {
   const app = express();
-  app.use(cors());
+  // In production, restrict this to your Cloudflare Pages URL
+  app.use(cors({
+    origin: process.env.CLIENT_URL || '*', 
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+  }));
   app.use(express.json({ limit: '200mb' }));
   // Serve static files from public directory
   app.use('/music', express.static(path.resolve(__dirname, 'public/music')));
@@ -43,14 +48,44 @@ async function createServer() {
     }
   });
 
-  const upload = multer({ storage });
+  const upload = multer({ 
+    storage,
+    limits: {
+      fileSize: 100 * 1024 * 1024, // 100MB max file size
+    },
+    fileFilter: (_req, file, cb) => {
+      // Strict MIME type checking
+      const allowedMimes = [
+        'application/pdf',
+        'image/png', 
+        'image/jpeg', 
+        'image/webp',
+        'audio/mpeg', 
+        'audio/wav', 
+        'audio/mp3',
+        'video/mp4'
+      ];
+      
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Invalid file type: ${file.mimetype}. Only specific media files are allowed.`));
+      }
+    }
+  });
 
   // Create Vite server in middleware mode and configure the app type as 'custom'
   // (server.middlewareMode: true)
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
+  // Create Vite server in middleware mode and configure the app type as 'custom'
+  // (server.middlewareMode: true)
+  // Only create Vite server in development
+  let vite;
+  if (process.env.NODE_ENV !== 'production') {
+    vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+  }
 
   // API Routes
   app.post('/api/upload', upload.single('file'), (req, res) => {
@@ -177,7 +212,20 @@ async function createServer() {
 
   // Use vite's connect instance as middleware
   // If you use your own express router (express.Router()), you should use router.use
-  app.use(vite.middlewares);
+  // Use vite's connect instance as middleware in dev
+  // In production, serve built assets
+  if (process.env.NODE_ENV === 'production') {
+      const distDir = path.resolve(__dirname, 'dist');
+      app.use(express.static(distDir));
+
+      // SPA fallback
+      app.get('*', (req, res) => {
+          if (req.originalUrl.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
+          res.sendFile(path.resolve(distDir, 'index.html'));
+      });
+  } else {
+      if (vite) app.use(vite.middlewares);
+  }
 
   const server = app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);

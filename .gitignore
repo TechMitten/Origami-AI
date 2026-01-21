@@ -33,3 +33,5 @@ public/music/*
 !public/uploads/
 public/uploads/*
 !public/uploads/.gitkeep
+.env
+RAILWAY_DEPLOY.md
