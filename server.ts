@@ -250,7 +250,7 @@ async function createServer() {
       app.use(express.static(distDir));
 
       // SPA fallback
-      app.get('*', (req, res) => {
+      app.get('(.*)', (req, res) => {
           if (req.originalUrl.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
           res.sendFile(path.resolve(distDir, 'index.html'));
       });
