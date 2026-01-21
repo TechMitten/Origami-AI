@@ -39,6 +39,7 @@
 
 - [Node.js](https://nodejs.org/) (v20+)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/) (Required for local server-side TTS and deployment)
 
 ### Installation
 
