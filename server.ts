@@ -23,10 +23,20 @@ async function createServer() {
     allowedHeaders: ['Content-Type']
   }));
 
+  // Add CORP header for COOP/COEP compatibility
+  // Using 'credentialless' instead of 'require-corp' allows CDN resources
+  app.use((_req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    next();
+  });
+
   app.use(express.json({ limit: '200mb' }));
 
   // Serve static files from public directory
   app.use('/music', express.static(path.resolve(__dirname, 'public/music')));
+
   app.use(express.static(path.resolve(__dirname, 'public')));
 
   // Updated to default to 8080 for your VPS setup

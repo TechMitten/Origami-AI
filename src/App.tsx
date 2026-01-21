@@ -1,10 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import axios from 'axios';
-import { Player } from '@remotion/player';
-import type { PlayerRef } from '@remotion/player';
+
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
-import { SlideComposition } from './video/Composition';
+import { SimplePreview } from './components/SimplePreview';
 import { generateTTS, getAudioDuration, ttsEvents, initTTS, type ProgressEventDetail } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
@@ -15,32 +13,9 @@ import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, G
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo.png';
 import { useModal } from './context/ModalContext';
+import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 
-/**
- * Upload a blob URL to the server and return the static file URL.
- */
-async function uploadBlob(blobUrl: string, signal?: AbortSignal): Promise<string> {
-  const response = await fetch(blobUrl);
-  const blob = await response.blob();
-  
-  // Determine extension
-  let ext = '.bin';
-  if (blob.type.includes('image/png')) ext = '.png';
-  else if (blob.type.includes('image/jpeg')) ext = '.jpg';
-  else if (blob.type.includes('audio/mpeg')) ext = '.mp3';
-  else if (blob.type.includes('audio/wav')) ext = '.wav';
-  else if (blob.type.includes('video/mp4')) ext = '.mp4';
-  
-  const formData = new FormData();
-  formData.append('file', blob, `upload${ext}`);
 
-  const baseUrl = import.meta.env.VITE_API_URL || '';
-  const res = await axios.post(`${baseUrl}/api/upload`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    signal
-  });
-  return new URL(res.data.url, window.location.origin).href;
-}
 
 
 function App() {
@@ -55,10 +30,13 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   
-  const playerRef = React.useRef<PlayerRef>(null);
+
   const [isRestoring, setIsRestoring] = useState(true);
   const { showAlert, showConfirm } = useModal();
   const [renderAbortController, setRenderAbortController] = useState<AbortController | null>(null);
+  const [renderProgress, setRenderProgress] = useState<number>(0);
+
+  const renderer = useMemo(() => new BrowserVideoRenderer(), []);
 
   const handleCancelRender = async () => {
     if (renderAbortController) {
@@ -83,9 +61,12 @@ function App() {
         setSlides(state.slides);
       }
       setIsRestoring(false);
+      
+      // Preload FFmpeg
+      renderer.load().catch(console.error);
     };
     load();
-  }, []);
+  }, [renderer]);
 
   // Save state on changes
   React.useEffect(() => {
@@ -215,82 +196,29 @@ function App() {
     }
   };
 
-  const totalDurationFrames = useMemo(() => {
-    const totalSeconds = slides.reduce((acc, s) => {
-        let slideDuration = (s.duration || 5) + (s.postAudioDelay || 0);
-        
-        // If TTS is disabled, postAudioDelay acts as the manual total duration
-        if (s.isTtsDisabled) {
-             slideDuration = s.postAudioDelay || 5;
-        }
-        
-        return acc + slideDuration;
-    }, 0);
-    return Math.max(1, Math.round(totalSeconds * 30));
-  }, [slides]);
+
 
 
 
   const handleDownloadMP4 = async () => {
-    const controller = new AbortController();
-    setRenderAbortController(controller);
+    // const controller = new AbortController(); // Browser renderer cancellation not implemented yet
+    // setRenderAbortController(controller);
     setIsRenderingWithAudio(true);
+    setRenderProgress(0);
+    
     try {
-      // Convert all blob URLs to data URLs for server-side rendering
-      // Remotion's headless browser cannot access blob URLs
-      // Process slides sequentially to avoid flooding the server or hitting network limits
-      const convertedSlides = [];
-      for (const [index, s] of slides.entries()) {
-          try {
-              console.log(`Processing slide ${index + 1}/${slides.length} for upload...`);
-              const dataUrl = s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
-                  ? await uploadBlob(s.dataUrl, controller.signal)
-                  : s.dataUrl;
-              
-              const audioUrl = s.audioUrl && (s.audioUrl.startsWith('blob:') || s.audioUrl.startsWith('data:'))
-                  ? await uploadBlob(s.audioUrl, controller.signal)
-                  : s.audioUrl;
-              
-              const mediaUrl = s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
-                  ? await uploadBlob(s.mediaUrl, controller.signal)
-                  : s.mediaUrl;
-
-              convertedSlides.push({
-                  ...s,
-                  dataUrl,
-                  audioUrl,
-                  type: s.type,
-                  mediaUrl,
-                  isVideoMusicPaused: s.isVideoMusicPaused,
-                  isTtsDisabled: s.isTtsDisabled,
-                  isMusicDisabled: s.isMusicDisabled,
-              });
-          } catch (err) {
-              console.error(`Failed to process assets for slide ${index + 1}:`, err);
-              throw new Error(`Failed to upload assets for slide ${index + 1}: ${(err as Error).message}`);
-          }
-      }
-
-      // Convert music URL if it's a blob
-      const convertedMusicSettings = {
-        ...musicSettings,
-        url: musicSettings.url && musicSettings.url.startsWith('blob:')
-          ? await uploadBlob(musicSettings.url, controller.signal)
-          : musicSettings.url,
-      };
-
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      const response = await axios.post(`${baseUrl}/api/render`, { 
-        slides: convertedSlides, 
-        musicSettings: convertedMusicSettings,
-        ttsVolume: ttsVolume,
-        disableAudioNormalization: globalSettings?.disableAudioNormalization ?? false
-      }, {
-        responseType: 'blob',
-        signal: controller.signal
+      const blob = await renderer.render({
+        slides: slides.map(s => ({
+            ...s,
+            // Ensure we use the raw blob/data URLs directly
+            // No need to upload
+        })),
+        musicSettings,
+        ttsVolume,
+        onProgress: (p) => setRenderProgress(p)
       });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'tech-tutorial.mp4');
@@ -299,21 +227,11 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      if (axios.isCancel(error)) {
-        showAlert('Rendering canceled by user.', { type: 'info' });
-        return;
-      }
-      const axiosError = axios.isAxiosError(error) ? error : null;
-      console.error('Download error details:', {
-        message: axiosError?.message || (error instanceof Error ? error.message : String(error)),
-        response: axiosError?.response?.data,
-        status: axiosError?.response?.status
-      });
-      
-      const errorMessage = axiosError?.response?.data?.error || axiosError?.message || (error instanceof Error ? error.message : 'Unknown error');
-      showAlert(`Failed to render video: ${errorMessage}`, { type: 'error', title: 'Render Failed' });
+       console.error(error);
+       showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
     } finally {
       setIsRenderingWithAudio(false);
+      setRenderProgress(0);
       setRenderAbortController(null);
     }
   };
@@ -324,60 +242,27 @@ function App() {
       return;
     }
 
-    const controller = new AbortController();
-    setRenderAbortController(controller);
     setIsRenderingSilent(true);
+    setRenderProgress(0);
     try {
-      // Create a copy of slides with audio removed, converting blobs
-      // Process slides sequentially
-      const silentSlides = [];
-      for (const [index, s] of slides.entries()) {
-           try {
-               const dataUrl = s.dataUrl && (s.dataUrl.startsWith('blob:') || s.dataUrl.startsWith('data:'))
-                  ? await uploadBlob(s.dataUrl, controller.signal)
-                  : s.dataUrl;
-               
-               const mediaUrl = s.mediaUrl && (s.mediaUrl.startsWith('blob:') || s.mediaUrl.startsWith('data:'))
-                  ? await uploadBlob(s.mediaUrl, controller.signal)
-                  : s.mediaUrl;
+      const silentSlides = slides.map(s => ({
+          ...s,
+          audioUrl: undefined,
+          duration: s.duration, // Keep duration? Or undefined? original code set undefined.
+          // In browser renderer, if duration is undefined, it defaults to 5.
+          // But 's.duration' from state is usually the AUDIO duration. 
+          // If we remove audio, we might want to default to 5 or keep strict silence if video.
+          // Let's pass undefined to force default behavior, OR keep loop video duration.
+      }));
 
-               silentSlides.push({
-                  ...s,
-                  dataUrl,
-                  audioUrl: undefined,
-                  duration: undefined,
-                  type: s.type,
-                  mediaUrl,
-                  isVideoMusicPaused: s.isVideoMusicPaused,
-                  isTtsDisabled: s.isTtsDisabled,
-                  isMusicDisabled: s.isMusicDisabled,
-               });
-           } catch (err) {
-               console.error(`Failed to process assets for slide ${index + 1} (silent):`, err);
-               throw new Error(`Failed to upload assets for slide ${index + 1}: ${(err as Error).message}`);
-           }
-      }
-
-      // Convert music URL if it's a blob
-      const convertedMusicSettings = {
-        ...musicSettings,
-        url: musicSettings.url && musicSettings.url.startsWith('blob:')
-          ? await uploadBlob(musicSettings.url, controller.signal)
-          : musicSettings.url,
-      };
-
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      const response = await axios.post(`${baseUrl}/api/render`, { 
+      const blob = await renderer.render({
         slides: silentSlides,
-        musicSettings: convertedMusicSettings,
-        ttsVolume: ttsVolume,
-        disableAudioNormalization: globalSettings?.disableAudioNormalization ?? false
-      }, {
-        responseType: 'blob',
-        signal: controller.signal
+        musicSettings,
+        ttsVolume,
+        onProgress: (p) => setRenderProgress(p)
       });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'tech-tutorial-silent.mp4');
@@ -386,22 +271,11 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      if (axios.isCancel(error)) {
-        showAlert('Rendering canceled by user.', { type: 'info' });
-        return;
-      }
-      const axiosError = axios.isAxiosError(error) ? error : null;
-      console.error('Download error details:', {
-        message: axiosError?.message || (error instanceof Error ? error.message : String(error)),
-        response: axiosError?.response?.data,
-        status: axiosError?.response?.status
-      });
-      
-      const errorMessage = axiosError?.response?.data?.error || axiosError?.message || (error instanceof Error ? error.message : 'Unknown error');
-      showAlert(`Failed to render video: ${errorMessage}`, { type: 'error', title: 'Render Failed' });
+      console.error(error);
+      showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
     } finally {
       setIsRenderingSilent(false);
-      setRenderAbortController(null);
+      setRenderProgress(0);
     }
   };
 
@@ -421,7 +295,7 @@ function App() {
             </h1>
             <div className="flex items-center gap-2">
               <div className="h-px w-8 bg-linear-to-r from-cyan-500/50 to-transparent"></div>
-              <p className="text-blue-200/60 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by Remotion & Kokoros</p>
+              <p className="text-blue-200/60 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by FFmpeg WASM & Kokoro</p>
             </div>
           </div>
         </div>
@@ -510,33 +384,20 @@ function App() {
             {activeTab === 'preview' ? (
               <div className="space-y-8">
                 <div className="aspect-video w-full max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/5 bg-black">
-                  <Player
-                    ref={playerRef}
-                    component={SlideComposition}
-                    acknowledgeRemotionLicense={true}
-                    inputProps={{
-                      slides: slides.map(s => ({
-                        dataUrl: s.dataUrl,
-                        audioUrl: s.audioUrl,
-                        duration: s.duration || 5,
-                        postAudioDelay: s.postAudioDelay,
-                        transition: s.transition,
-                        type: s.type,
-                        mediaUrl: s.mediaUrl,
-                        isVideoMusicPaused: s.isVideoMusicPaused,
-                        isTtsDisabled: s.isTtsDisabled,
-                        isMusicDisabled: s.isMusicDisabled,
-                      })),
-                      musicSettings: musicSettings,
-                      ttsVolume: ttsVolume,
-                      showVolumeOverlay: globalSettings?.showVolumeOverlay ?? true
-                    }}
-                    durationInFrames={totalDurationFrames}
-                    fps={30}
-                    compositionWidth={1920}
-                    compositionHeight={1080}
-                    style={{ width: '100%', height: '100%' }}
-                    controls
+                  <SimplePreview
+                    slides={slides.map(s => ({
+                      dataUrl: s.dataUrl,
+                      audioUrl: s.audioUrl,
+                      duration: s.duration || 5,
+                      postAudioDelay: s.postAudioDelay,
+                      transition: s.transition,
+                      type: s.type,
+                      mediaUrl: s.mediaUrl,
+                      isTtsDisabled: s.isTtsDisabled,
+                    }))}
+                    musicUrl={musicSettings?.url}
+                    musicVolume={musicSettings?.volume || 0.03}
+                    ttsVolume={ttsVolume}
                   />
                 </div>
                 
@@ -549,7 +410,7 @@ function App() {
                         disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingWithAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        {isRenderingWithAudio ? 'Rendering Video...' : 'Render Video (With TTS)'}
+                        {isRenderingWithAudio ? `Processing... ${Math.round(renderProgress)}%` : 'Render Video (With TTS)'}
                       </button>
                       {!allAudioReady && !isRenderingWithAudio && !isRenderingSilent && (
                         <div className="text-[10px] text-center text-red-400 font-bold uppercase tracking-wider animate-pulse">
@@ -567,13 +428,13 @@ function App() {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                       <button 
+                      <button 
                         onClick={handleDownloadSilent}
                         className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 border border-white/10"
                         disabled={isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingSilent ? <Loader2 className="w-5 h-5 animate-spin" /> : <VolumeX className="w-5 h-5" />}
-                        Render Silent Video
+                        {isRenderingSilent ? `Processing... ${Math.round(renderProgress)}%` : 'Render Silent Video'}
                       </button>
                       {!isRenderingWithAudio && !isRenderingSilent && (
                          <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">
@@ -642,6 +503,70 @@ function App() {
 
       {/* TTS Progress Overlay */}
       <TTSProgressOverlay />
+      
+      {/* Video Progress Overlay */}
+      <VideoProgressOverlay />
+    </div>
+  );
+}
+
+// ... TTSProgressOverlay code ...
+
+function VideoProgressOverlay() {
+  const [progress, setProgress] = useState<{ p: number, status: string } | null>(null);
+  const timeoutRef = React.useRef<number | undefined>(undefined);
+
+  React.useEffect(() => {
+    const handleProgress = (e: Event) => {
+        const detail = (e as CustomEvent<{ progress: number; status: string }>).detail;
+        
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = undefined;
+        }
+
+        setProgress({ p: detail.progress, status: detail.status }); 
+        
+        if (detail.progress >= 100) {
+             timeoutRef.current = window.setTimeout(() => {
+                 setProgress(null);
+                 timeoutRef.current = undefined;
+             }, 2000);
+        }
+    };
+    
+    videoEvents.addEventListener('video-progress', handleProgress);
+    return () => {
+         videoEvents.removeEventListener('video-progress', handleProgress);
+         if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  if (!progress) return null;
+
+  const isIndeterminate = progress.p < 0;
+  const percent = isIndeterminate ? null : Math.round(progress.p);
+
+  return (
+    <div className="fixed bottom-8 left-8 z-50 bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-purple-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-purple-400/30">
+      <div className="flex items-center justify-between gap-3">
+         <div className="flex items-center gap-3">
+             <Loader2 className="w-4 h-4 text-purple-400 animate-spin shrink-0" />
+             <h4 className="text-purple-50 font-bold text-xs uppercase tracking-wider text-shadow-sm">
+               {progress.status}
+             </h4>
+         </div>
+         <span className="text-purple-400 text-xs font-mono font-bold shrink-0">
+            {percent !== null ? `${percent}%` : ''}
+         </span>
+      </div>
+      
+      <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden relative ring-1 ring-white/5">
+        <div 
+          className={`h-full bg-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.6)] transition-all duration-300 ease-out ${isIndeterminate ? 'absolute inset-0 animate-pulse w-full opacity-60' : ''}`}
+          style={{ width: isIndeterminate ? '100%' : `${percent}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -692,7 +617,7 @@ function TTSProgressOverlay() {
              <h4 className="text-cyan-50 font-bold text-xs uppercase tracking-wider text-shadow-sm">
                {(() => {
                  switch (progress.status) {
-                   case 'progress': return 'DOWNLOADING MODEL...';
+                   case 'progress': return 'DOWNLOADING TTS MODEL...';
                    case 'Processing': 
                    case 'processing': 
                    case 'PROCESSING': return 'GENERATING AUDIO...';

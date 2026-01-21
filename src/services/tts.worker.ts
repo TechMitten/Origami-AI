@@ -19,6 +19,15 @@ env.allowLocalModels = false; // We are loading from HF Hub, so this should stri
 // Actually, for ONNX runtime web, just enabling browser cache is usually enough.
 env.useBrowserCache = true;
 
+// Suppress specific harmless warning from onnxruntime/transformers
+const originalConsoleWarn = console.warn;
+console.warn = (...args) => {
+    if (typeof args[0] === 'string' && args[0].includes('Unable to determine content-length')) {
+        return;
+    }
+    originalConsoleWarn.apply(console, args);
+};
+
 const ctx = self as unknown as Worker;
 
 async function getModel(quantization: 'q8' | 'q4' = 'q4'): Promise<KokoroTTS> {

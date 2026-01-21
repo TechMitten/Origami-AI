@@ -14,7 +14,11 @@ body {
   padding: 0;
   background-color: var(--bg-dark);
   color: #ffffff;
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -66,26 +70,33 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Remotion Player Customization */
-.remotion-player {
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-}
-
+/* Preview Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.5s ease-out forwards;
 }
 
 .dropdown-solid {
@@ -93,6 +104,7 @@ body {
   background: #09090b !important;
   opacity: 1 !important;
   z-index: 9999 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8),
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.8),
     0 8px 10px -6px rgba(0, 0, 0, 0.8) !important;
 }
