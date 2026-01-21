@@ -8,5 +8,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["server.ts", "src/services/audioNormalization.ts"]
+  "include": ["server.ts", "src/services/audioNormalization.ts", "src/services/FfmpegTutorialRenderer.ts"]
 }

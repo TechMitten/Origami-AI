@@ -1,7 +1,6 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition } from '@remotion/renderer';
+import { renderVideoWithFfmpeg } from './src/services/FfmpegTutorialRenderer.js';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
@@ -10,7 +9,6 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 
 import { randomUUID } from "crypto";
-import os from 'os';
 import { normalizeAudioToYouTubeLoudness } from './src/services/audioNormalization.js'; 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -123,25 +121,7 @@ async function createServer() {
          return res.status(400).json({ error: 'Invalid or missing slides data' });
       }
 
-      let processedMusicSettings = musicSettings;
-      if (musicSettings?.url && musicSettings.url.startsWith('/')) {
-        const serverUrl = `http://localhost:${port}`;
-        processedMusicSettings = {
-          ...musicSettings,
-          url: `${serverUrl}${musicSettings.url}`
-        };
-      }
-
       console.log('Starting render process with', slides.length, 'slides...');
-
-      const entryPoint = path.resolve(__dirname, './src/video/Root.tsx');
-      const bundled = await bundle({ entryPoint });
-
-      const composition = await selectComposition({
-        serveUrl: bundled,
-        id: 'TechTutorial',
-        inputProps: { slides, musicSettings: processedMusicSettings, ttsVolume },
-      });
 
       const outDir = path.resolve(__dirname, 'out');
       if (!fs.existsSync(outDir)) {
@@ -149,37 +129,20 @@ async function createServer() {
       }
       
       const outputLocation = path.resolve(outDir, `tutorial-${Date.now()}.mp4`);
+      
+      const publicDir = path.resolve(__dirname, 'public');
 
-      const cpuCount = os.cpus().length;
-      const concurrency = cpuCount <= 1 ? 1 : Math.max(1, Math.floor(cpuCount / 2));
-      console.log(`Using ${concurrency} CPU cores for parallel rendering (Total CPUs: ${cpuCount})`);
-
-      const controller = new AbortController();
-
-      res.on('close', () => {
-          if (!res.writableEnded) {
-              console.log('Client disconnected, cancelling render...');
-              controller.abort();
-          }
+      // Use the new native FFmpeg renderer
+      // This avoids Puppeteer/Remotion overhead completely
+      await renderVideoWithFfmpeg({
+          slides,
+          musicSettings: musicSettings, // Pass original settings, renderer handles paths
+          ttsVolume,
+          outputLocation,
+          publicDir
       });
 
-      await renderMedia({
-        composition,
-        serveUrl: bundled,
-        codec: 'h264',
-        outputLocation,
-        inputProps: { slides, musicSettings: processedMusicSettings, ttsVolume },
-        verbose: true,
-        dumpBrowserLogs: true,
-        concurrency: concurrency,
-        cancelSignal: (callback: () => void) => {
-          if (controller.signal.aborted) {
-            callback();
-          } else {
-            controller.signal.addEventListener('abort', () => callback(), { once: true });
-          }
-        },
-      });
+      console.log('FFmpeg render completed successfully.');
 
       if (!req.body.disableAudioNormalization) {
         try {
@@ -197,13 +160,9 @@ async function createServer() {
 
     } catch (error) {
       const msg = (error as Error).message;
-      if (msg?.includes('aborted')) {
-          console.log('Render operation was cancelled.');
-      } else {
-          console.error('Render error:', error);
-          if (!res.headersSent) {
-             res.status(500).json({ error: msg });
-          }
+      console.error('Render error:', error);
+      if (!res.headersSent) {
+          res.status(500).json({ error: msg });
       }
     }
   });

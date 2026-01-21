@@ -65,6 +65,18 @@ A powerful, automated video generation platform designed to create educational t
 
 The application will be available at `http://localhost:5173`.
 
+### Deployment (Dokploy)
+
+This project is configured to be deployed easily using [Dokploy](https://dokploy.com/) with the **Nixpacks** build strategy.
+
+1. Create a new application in Dokploy.
+2. Connect your GitHub repository.
+3. Configure the **Build Type** to `Nixpacks` (or `Docker`).
+4. Set the **Container Port** to `3000`.
+5. Deploy!
+
+> **Note:** The `package.json` enforces Node.js >= 20.19.0 to ensure compatibility with Vite 7 and recent dependencies. Nixpacks will automatically respect this.
+
 ## Usage
 
 ### 1. Upload & Analyze
