@@ -17,18 +17,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function createServer() {
   const app = express();
+  
   // In production, restrict this to your Cloudflare Pages URL
   app.use(cors({
     origin: process.env.CLIENT_URL || '*', 
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
   }));
+
   app.use(express.json({ limit: '200mb' }));
+
   // Serve static files from public directory
   app.use('/music', express.static(path.resolve(__dirname, 'public/music')));
   app.use(express.static(path.resolve(__dirname, 'public')));
 
-  const port = process.env.PORT || 5173; 
+  // Updated to default to 8080 for your VPS setup
+  const port = process.env.PORT || 8080; 
 
   // Configure Multer for file uploads
   const uploadDir = path.resolve(__dirname, 'public/uploads');
@@ -70,7 +74,6 @@ async function createServer() {
       cb(null, uploadDir);
     },
     filename: (_req, file, cb) => {
-      // Keep original extension
       const ext = path.extname(file.originalname) || '.bin';
       const name = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '-');
       cb(null, `${name}-${Date.now()}-${randomUUID()}${ext}`);
@@ -83,16 +86,9 @@ async function createServer() {
       fileSize: 100 * 1024 * 1024, // 100MB max file size
     },
     fileFilter: (_req, file, cb) => {
-      // Strict MIME type checking
       const allowedMimes = [
-        'application/pdf',
-        'image/png', 
-        'image/jpeg', 
-        'image/webp',
-        'audio/mpeg', 
-        'audio/wav', 
-        'audio/mp3',
-        'video/mp4'
+        'application/pdf', 'image/png', 'image/jpeg', 'image/webp',
+        'audio/mpeg', 'audio/wav', 'audio/mp3', 'video/mp4'
       ];
       
       if (allowedMimes.includes(file.mimetype)) {
@@ -103,11 +99,6 @@ async function createServer() {
     }
   });
 
-  // Create Vite server in middleware mode and configure the app type as 'custom'
-  // (server.middlewareMode: true)
-  // Create Vite server in middleware mode and configure the app type as 'custom'
-  // (server.middlewareMode: true)
-  // Only create Vite server in development
   let vite;
   if (process.env.NODE_ENV !== 'production') {
     vite = await createViteServer({
@@ -132,7 +123,6 @@ async function createServer() {
          return res.status(400).json({ error: 'Invalid or missing slides data' });
       }
 
-      // Convert relative music URL to absolute URL for rendering
       let processedMusicSettings = musicSettings;
       if (musicSettings?.url && musicSettings.url.startsWith('/')) {
         const serverUrl = `http://localhost:${port}`;
@@ -140,18 +130,12 @@ async function createServer() {
           ...musicSettings,
           url: `${serverUrl}${musicSettings.url}`
         };
-        console.log('Converted music URL:', musicSettings.url, '->', processedMusicSettings.url);
       }
 
       console.log('Starting render process with', slides.length, 'slides...');
 
       const entryPoint = path.resolve(__dirname, './src/video/Root.tsx');
-      console.log('Bundling from:', entryPoint);
-
-      const bundled = await bundle({
-        entryPoint,
-        // Optional: webpack override if needed
-      });
+      const bundled = await bundle({ entryPoint });
 
       const composition = await selectComposition({
         serveUrl: bundled,
@@ -166,9 +150,6 @@ async function createServer() {
       
       const outputLocation = path.resolve(outDir, `tutorial-${Date.now()}.mp4`);
 
-      // Use all available CPU cores for parallel rendering
-      // Use 50% of available CPU cores for parallel rendering to avoid OOM
-      // If we are on a free tier (1 vCPU or less), force concurrency to 1 to prevent OOM
       const cpuCount = os.cpus().length;
       const concurrency = cpuCount <= 1 ? 1 : Math.max(1, Math.floor(cpuCount / 2));
       console.log(`Using ${concurrency} CPU cores for parallel rendering (Total CPUs: ${cpuCount})`);
@@ -190,7 +171,7 @@ async function createServer() {
         inputProps: { slides, musicSettings: processedMusicSettings, ttsVolume },
         verbose: true,
         dumpBrowserLogs: true,
-        concurrency: concurrency, // Parallel frame rendering
+        concurrency: concurrency,
         cancelSignal: (callback: () => void) => {
           if (controller.signal.aborted) {
             callback();
@@ -200,38 +181,24 @@ async function createServer() {
         },
       });
 
-      console.log('Render complete:', outputLocation);
-      
-      
-      // Normalize audio to YouTube's recommended -14 LUFS
       if (!req.body.disableAudioNormalization) {
-        console.log('Normalizing audio to YouTube loudness standards (-14 LUFS)...');
         try {
           await normalizeAudioToYouTubeLoudness(outputLocation);
-          console.log('Audio normalization complete');
         } catch (normError) {
-          console.warn('Audio normalization failed (video will be sent without normalization):', normError);
-          // Continue without normalization - the video is still valid
+          console.warn('Audio normalization failed:', normError);
         }
-      } else {
-        console.log('Audio normalization disabled by user setting.');
       }
             
       res.download(outputLocation, (err) => {
-        if (err) {
-            console.error('Error sending file:', err);
-             if (!res.headersSent) {
-                res.status(500).send('Error downloading file');
-             }
+        if (err && !res.headersSent) {
+          res.status(500).send('Error downloading file');
         }
       });
 
     } catch (error) {
       const msg = (error as Error).message;
-      const isAbort = msg?.includes('aborted') || (error as Error).name === 'AbortError';
-      
-      if (isAbort) {
-          console.log('Render operation was cancelled by user.');
+      if (msg?.includes('aborted')) {
+          console.log('Render operation was cancelled.');
       } else {
           console.error('Render error:', error);
           if (!res.headersSent) {
@@ -241,28 +208,29 @@ async function createServer() {
     }
   });
 
-  // Use vite's connect instance as middleware
-  // If you use your own express router (express.Router()), you should use router.use
-  // Use vite's connect instance as middleware in dev
-  // In production, serve built assets
+  // --- START MODIFIED SECTION ---
   if (process.env.NODE_ENV === 'production') {
       const distDir = path.resolve(__dirname, 'dist');
       app.use(express.static(distDir));
 
-      // SPA fallback
-      app.get('/:any*', (req, res) => {
-          if (req.originalUrl.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
+      // Fixed wildcard route to prevent path-to-regexp crash
+      app.get('*', (req, res) => {
+          // If the request starts with /api but didn't match any route above, 404 it
+          if (req.originalUrl.startsWith('/api')) {
+            return res.status(404).json({ error: 'API route not found' });
+          }
+          // Otherwise, serve the SPA index.html
           res.sendFile(path.resolve(distDir, 'index.html'));
       });
   } else {
       if (vite) app.use(vite.middlewares);
   }
+  // --- END MODIFIED SECTION ---
 
   const server = app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
   });
   
-  // Set timeout to 15 minutes (900000 ms) - rendering can take time!
   server.timeout = 900000;
 }
 
