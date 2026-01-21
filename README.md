@@ -178,7 +178,7 @@ You can build your own library of background music tracks that will be available
 
 - **Frontend**: React 19, Vite, Tailwind CSS (v4)
 - **Video Engine**: FFmpeg WASM (Client-side)
-- **AI**: [Google Gemini API](https://ai.google.dev/) & [WebLLM](https://webllm.mlc-ai.org/) (Local Browser Inference)
+- **AI**: Google Gemini API & WebLLM (Local Browser Inference)
 - **TTS**: Kokoro (FastAPI / Web Worker)
 - **Backend**: Express.js (serving as a rendering orchestration layer)
 - **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
