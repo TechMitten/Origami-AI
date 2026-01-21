@@ -206,4 +206,4 @@ This project is made possible by the following incredible open-source libraries 
 
 ## License
 
-MIT
+[MIT](https://github.com/techcow2/Origami-AI/blob/main/LICENSE)
