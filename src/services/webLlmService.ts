@@ -58,6 +58,14 @@ let currentModelId: string | null = null;
 
 export const webLlmEvents = new EventTarget();
 
+export const unloadWebLLM = async () => {
+    if (engine) {
+        await engine.unload();
+        engine = null;
+        currentModelId = null;
+    }
+};
+
 export const initWebLLM = async (
     modelId: string, 
     onProgress: InitProgressCallback
@@ -67,17 +75,14 @@ export const initWebLLM = async (
         return engine;
     }
 
-    // If engine exists but different model, we might need to reload or create new.
-    // MLCEngine typically handles reloading if we call reload, but CreateMLCEngine is easier for now.
-    // Ideally we reuse the engine instance if possible, but simplest is to just create new or reload.
-    
     try {
         if (!engine) {
             engine = await CreateMLCEngine(modelId, { initProgressCallback: onProgress });
         } else {
             // Reload/recreate engine if model changed
             // We'll create a new engine instance to ensure clean state and correct callback binding
-            engine.unload();
+            await engine.unload();
+            engine = null; // Prevent access to unloaded engine
             engine = await CreateMLCEngine(modelId, { initProgressCallback: onProgress });
         }
         currentModelId = modelId;
@@ -87,6 +92,10 @@ export const initWebLLM = async (
         return engine;
     } catch (error) {
         console.error("Failed to initialize WebLLM:", error);
+        // CRITICAL: Clear the engine reference if initialization fails
+        // This prevents the "Cannot pass deleted object" error on retry
+        engine = null;
+        currentModelId = null;
         throw error;
     }
 };

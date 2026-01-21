@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, AlertCircle, ExternalLink } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -244,6 +244,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         setWebLlmDownloadProgress('Download failed. Check console.');
     } finally {
         setIsDownloadingWebLlm(false);
+    }
+  };
+
+  const handleResetWebLlm = async () => {
+    try {
+        await unloadWebLLM();
+        setWebLlmDownloadProgress('Engine reset. Memory cleared.');
+        showAlert("WebLLM Engine has been reset.", { type: 'success', title: 'Engine Reset' });
+    } catch (e) {
+        console.error("Failed to reset WebLLM:", e);
+        showAlert("Failed to reset engine.", { type: 'error', title: 'Reset Error' });
     }
   };
 
@@ -1055,14 +1066,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
                         {/* Download Button */}
                         <div className="space-y-3">
-                            <button
-                                onClick={handleDownloadWebLlm}
-                                disabled={isDownloadingWebLlm}
-                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/10 text-white/60 cursor-wait' : 'bg-white text-black hover:bg-white/90'}`}
-                            >
-                                {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                {isDownloadingWebLlm ? 'Downloading...' : 'Load Model'}
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleDownloadWebLlm}
+                                    disabled={isDownloadingWebLlm}
+                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/10 text-white/60 cursor-wait' : 'bg-white text-black hover:bg-white/90'}`}
+                                >
+                                    {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                    {isDownloadingWebLlm ? 'Downloading...' : 'Load Model'}
+                                </button>
+
+                                <button
+                                    onClick={handleResetWebLlm}
+                                    className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-bold text-sm transition-all"
+                                    title="Force unload model and clear GPU memory"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                             
                             {webLlmDownloadProgress && (
                                 <div className="p-3 rounded-lg bg-black/20 border border-white/10">
