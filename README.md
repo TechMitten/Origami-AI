@@ -203,6 +203,7 @@ This project is made possible by the following incredible open-source libraries 
 - **[PDF.js](https://mozilla.github.io/pdf.js/)**: The standard for parsing and rendering PDF documents.
 - **[Lucide React](https://lucide.dev/)**: Beautifully crafted open-source icons.
 - **[dnd-kit](https://dndkit.com/)**: A modern, lightweight toolkit for drag-and-drop interfaces.
+- **[Google Antigravity](https://antigravity.google)**: The AI-powered IDE used to build and refine this project.
 
 ## License
 
