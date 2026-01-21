@@ -28,12 +28,12 @@ COPY . .
 RUN npm run build
 
 # Expose port (Railway will override this with its own PORT env var, but 8080 is standard)
-EXPOSE 8080
+EXPOSE 3000
 
 # Start server
 # Since "npm run dev" uses tsx watch, we want a production start.
 # "tsx" is in dependencies, so we can use it directly or via npx
 ENV NODE_ENV=production
-ENV PORT=8080
+ENV PORT=3000
 
 CMD ["npx", "tsx", "server.ts"]
