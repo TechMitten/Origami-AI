@@ -108,6 +108,10 @@ services:
    docker run -d -p 3000:3000 --name origami-ai origami-ai
    ```
 
+### Self-Hosting with Dokploy
+
+This project is designed to be easily self-hosted using [Dokploy](https://dokploy.com/). Simply point Dokploy to this repository, and it will automatically detect the `Dockerfile` and `docker-compose.yml` to orchestrate the deployment.
+
 The application will be available at `http://localhost:3000`.
 
 ## Usage
@@ -203,6 +207,7 @@ This project is made possible by the following incredible open-source libraries 
 - **[PDF.js](https://mozilla.github.io/pdf.js/)**: The standard for parsing and rendering PDF documents.
 - **[Lucide React](https://lucide.dev/)**: Beautifully crafted open-source icons.
 - **[dnd-kit](https://dndkit.com/)**: A modern, lightweight toolkit for drag-and-drop interfaces.
+- **[Dokploy](https://dokploy.com/)**: The open-source platform used for seamless self-hosting and deployment.
 - **[Google Antigravity](https://antigravity.google)**: The AI-powered IDE used to build and refine this project.
 
 ## License
