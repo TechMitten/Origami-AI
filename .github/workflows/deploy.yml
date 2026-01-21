@@ -12,7 +12,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create deployment artifact
-        run: tar -czf deploy.tar --exclude='.git' --exclude='.github' --exclude='deploy.tar' .
+        run: |
+          tar -czf /tmp/deploy.tar . --exclude='.git' --exclude='.github'
+          mv /tmp/deploy.tar ./deploy.tar
 
       - name: Deploy to CapRover
         uses: caprover/deploy-from-github@v1.1.2
