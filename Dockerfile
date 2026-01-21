@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:20-bullseye
 
 # Install FFmpeg and Google Chrome dependencies
 # We use chromium instead of chrome-stable for easier compatibility
