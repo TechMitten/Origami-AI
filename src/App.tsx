@@ -395,8 +395,8 @@ function App() {
             <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-2xl" />
           </div>
           <div className="-ml-2">
-            <h1 className="text-4xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
-              Origami AI
+            <h1 className="text-4xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm pr-4">
+              Origami
             </h1>
           </div>
         </div>

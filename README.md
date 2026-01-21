@@ -1,4 +1,4 @@
-# Origami AI
+# Origami
 
 ![License](https://img.shields.io/github/license/techcow2/Origami-AI?style=flat-square)
 ![Issues](https://img.shields.io/github/issues/techcow2/Origami-AI?style=flat-square)
