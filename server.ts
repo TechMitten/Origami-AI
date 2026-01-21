@@ -1,15 +1,8 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { renderVideoWithFfmpeg } from './src/services/FfmpegTutorialRenderer.js';
 import path from 'path';
-import fs from 'fs';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
-
-import multer from 'multer';
-
-import { randomUUID } from "crypto";
-import { normalizeAudioToYouTubeLoudness } from './src/services/audioNormalization.js'; 
+import { fileURLToPath } from 'url'; 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,70 +35,8 @@ async function createServer() {
   // Updated to default to 8080 for your VPS setup
   const port = process.env.PORT || 3000; 
 
-  // Configure Multer for file uploads
-  const uploadDir = path.resolve(__dirname, 'public/uploads');
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  // Cleanup function for potentially stuck files
-  const cleanupOldFiles = () => {
-     try {
-         const now = Date.now();
-         const clean = (dir: string, ageMs: number) => {
-             if (!fs.existsSync(dir)) return;
-             fs.readdirSync(dir).forEach(file => {
-                 const filePath = path.join(dir, file);
-                 const stat = fs.statSync(filePath);
-                 if (now - stat.mtimeMs > ageMs) {
-                     fs.unlinkSync(filePath);
-                     console.log(`Deleted old file: ${file}`);
-                 }
-             });
-         };
-         // Clean uploads older than 1 hour
-         clean(uploadDir, 60 * 60 * 1000);
-         // Clean outputs older than 1 hour
-         clean(path.resolve(__dirname, 'out'), 60 * 60 * 1000);
-     } catch (err) {
-         console.error("Cleanup error:", err);
-     }
-  };
-  
-  // Run cleanup on startup
-  cleanupOldFiles();
-  // Run cleanup every 15 minutes
-  setInterval(cleanupOldFiles, 15 * 60 * 1000);
-
-  const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, uploadDir);
-    },
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || '.bin';
-      const name = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '-');
-      cb(null, `${name}-${Date.now()}-${randomUUID()}${ext}`);
-    }
-  });
-
-  const upload = multer({ 
-    storage,
-    limits: {
-      fileSize: 100 * 1024 * 1024, // 100MB max file size
-    },
-    fileFilter: (_req, file, cb) => {
-      const allowedMimes = [
-        'application/pdf', 'image/png', 'image/jpeg', 'image/webp',
-        'audio/mpeg', 'audio/wav', 'audio/mp3', 'video/mp4'
-      ];
-      
-      if (allowedMimes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`Invalid file type: ${file.mimetype}. Only specific media files are allowed.`));
-      }
-    }
-  });
+  // Server-side endpoints removed as rendering is now client-side.
+  // Files are no longer stored on the server.
 
   let vite;
   if (process.env.NODE_ENV !== 'production') {
@@ -115,67 +46,6 @@ async function createServer() {
     });
   }
 
-  // API Routes
-  app.post('/api/upload', upload.single('file'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: fileUrl });
-  });
-
-  app.post('/api/render', async (req, res) => {
-    try {
-      const { slides, musicSettings, ttsVolume } = req.body;
-      if (!slides || !Array.isArray(slides)) {
-         return res.status(400).json({ error: 'Invalid or missing slides data' });
-      }
-
-      console.log('Starting render process with', slides.length, 'slides...');
-
-      const outDir = path.resolve(__dirname, 'out');
-      if (!fs.existsSync(outDir)) {
-          fs.mkdirSync(outDir, { recursive: true });
-      }
-      
-      const outputLocation = path.resolve(outDir, `tutorial-${Date.now()}.mp4`);
-      
-      const publicDir = path.resolve(__dirname, 'public');
-
-      // Use the new native FFmpeg renderer
-      // This avoids Puppeteer/Remotion overhead completely
-      await renderVideoWithFfmpeg({
-          slides,
-          musicSettings: musicSettings, // Pass original settings, renderer handles paths
-          ttsVolume,
-          outputLocation,
-          publicDir
-      });
-
-      console.log('FFmpeg render completed successfully.');
-
-      if (!req.body.disableAudioNormalization) {
-        try {
-          await normalizeAudioToYouTubeLoudness(outputLocation);
-        } catch (normError) {
-          console.warn('Audio normalization failed:', normError);
-        }
-      }
-            
-      res.download(outputLocation, (err) => {
-        if (err && !res.headersSent) {
-          res.status(500).send('Error downloading file');
-        }
-      });
-
-    } catch (error) {
-      const msg = (error as Error).message;
-      console.error('Render error:', error);
-      if (!res.headersSent) {
-          res.status(500).json({ error: msg });
-      }
-    }
-  });
 
   // --- START MODIFIED SECTION ---
   if (process.env.NODE_ENV === 'production') {
