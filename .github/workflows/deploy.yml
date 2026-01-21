@@ -11,6 +11,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create deployment artifact
+        run: tar -czf deploy.tar . --exclude=.git --exclude=.github
+
       - name: Deploy to CapRover
         uses: caprover/deploy-from-github@v1.1.2
         with:
