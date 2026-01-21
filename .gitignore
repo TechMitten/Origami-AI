@@ -33,5 +33,6 @@ public/music/*
 !public/uploads/
 public/uploads/*
 !public/uploads/.gitkeep
+!public/app-logo.png
+!public/_headers
 .env
-RAILWAY_DEPLOY.md
