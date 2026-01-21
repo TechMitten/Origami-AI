@@ -7,11 +7,12 @@ import { generateTTS, getAudioDuration, ttsEvents, initTTS, type ProgressEventDe
 import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
+import { Footer } from './components/Footer';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
 import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle, Trash2 } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
-import appLogo from './assets/images/app-logo.png';
+import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
@@ -386,51 +387,47 @@ function App() {
   const allAudioReady = slides.length > 0 && slides.every(s => !!s.audioUrl);
 
   return (
-    <div className="min-h-screen bg-branding-dark text-white p-8">
+    <div className="min-h-screen bg-branding-dark text-white px-8 pt-8 pb-2 flex flex-col">
       {/* Header */}
-      <header className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
+      <header className="w-full max-w-[1400px] mx-auto mb-10 flex items-center justify-between px-6 sm:px-10">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
             <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-2xl" />
           </div>
-          <div>
+          <div className="-ml-2">
             <h1 className="text-4xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
-              PDF to Tutorial
+              Origami AI
             </h1>
-            <div className="flex items-center gap-2">
-              <div className="h-px w-8 bg-linear-to-r from-cyan-500/50 to-transparent"></div>
-              <p className="text-blue-200/60 text-[10px] font-bold uppercase tracking-[0.2em]">Powered by FFmpeg WASM & Kokoro</p>
-            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-8 sm:gap-12 lg:gap-16">
           <a
             href="https://github.com/techcow2/pdf2tutorial"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
             title="GitHub Repository"
           >
              <Github className="w-5 h-5" />
-             <span className="hidden sm:inline">GitHub</span>
+             <span className="hidden md:inline">GitHub</span>
           </a>
           <button
             onClick={() => setIsTutorialOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
             title="How to Use"
           >
              <CircleHelp className="w-5 h-5" />
-             <span className="hidden sm:inline">Tutorial</span>
+             <span className="hidden md:inline">Tutorial</span>
           </button>
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
             title="Global Settings"
           >
              <Settings2 className="w-5 h-5" />
-             <span className="hidden sm:inline">Settings</span>
+             <span className="hidden md:inline">Settings</span>
           </button>
 
           {slides.length > 0 && (
@@ -485,7 +482,7 @@ function App() {
 
       <main className="max-w-7xl mx-auto">
         {slides.length === 0 ? (
-          <div className="min-h-[70vh] flex flex-col items-center justify-center">
+          <div className="min-h-[60vh] flex flex-col items-center justify-center">
             <PDFUploader onUploadComplete={onUploadComplete} />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
@@ -592,6 +589,8 @@ function App() {
           </div>
         )}
       </main>
+
+      <Footer />
 
        {/* Global Settings Modal */}
        {isSettingsOpen && (

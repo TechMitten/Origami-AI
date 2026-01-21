@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { FileText, Loader2 } from 'lucide-react';
-import uploadIllustration from '../assets/images/upload-illustration.png';
+import uploadIllustration from '../assets/images/app-logo.png';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { clsx, type ClassValue } from 'clsx';
@@ -45,55 +45,78 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
 
   return (
     <div className="w-full max-w-2xl mx-auto">
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-15px) rotate(1deg); }
+        }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+      `}</style>
       <div
         {...getRootProps()}
         className={cn(
-          "relative group cursor-pointer transition-all duration-300",
-          "border-2 border-dashed rounded-2xl p-12 text-center",
+          "relative group cursor-pointer transition-all duration-500",
+          "border-2 border-dashed rounded-3xl p-12 text-center overflow-hidden",
+          "backdrop-blur-md bg-white/2",
           isDragActive 
-            ? "border-branding-primary bg-branding-primary/10" 
-            : "border-white/10 bg-branding-surface hover:border-branding-primary/50"
+            ? "border-cyan-500/50 bg-cyan-500/10 scale-[1.02]" 
+            : "border-white/10 hover:border-purple-500/40 hover:bg-white/4"
         )}
       >
         <input {...getInputProps()} />
         
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center relative z-10">
           {isProcessing ? (
-            <Loader2 className="w-16 h-16 text-branding-primary animate-spin mb-4" />
+            <div className="w-96 h-96 flex items-center justify-center -mb-8">
+              <Loader2 className="w-20 h-20 text-cyan-400 animate-spin" />
+            </div>
           ) : (
-            <img 
-              src={uploadIllustration} 
-              alt="Upload"
-              className={cn(
-                "w-48 h-48 mb-6 object-contain drop-shadow-[0_0_30px_rgba(0,209,255,0.3)] transition-transform duration-500",
-                isDragActive ? "scale-110" : "group-hover:scale-105"
-              )} 
-            />
+            <div className={cn(
+              "relative transition-transform duration-700 ease-out animate-float",
+              isDragActive ? "scale-110" : "group-hover:scale-105"
+            )}>
+              <img 
+                src={uploadIllustration} 
+                alt="Logo"
+                className="w-96 h-96 -mb-16 object-contain drop-shadow-[0_0_50px_rgba(34,211,238,0.2)]" 
+              />
+              {/* Extra glow layer */}
+              <div className="absolute inset-0 bg-linear-to-b from-cyan-500/20 to-purple-500/20 blur-[60px] -z-10 opacity-50" />
+            </div>
           )}
           
-          <h3 className="text-2xl font-bold mb-2 tracking-tight">
-            {isProcessing ? 'Processing PDF...' : isDragActive ? 'Drop it here!' : 'Upload your PDF'}
+          <h3 className={cn(
+            "text-3xl font-black mb-3 tracking-tighter italic uppercase text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600",
+            isProcessing && "animate-pulse"
+          )}>
+            {isProcessing ? 'Processing...' : isDragActive ? 'Release to Fold' : 'Upload PDF'}
           </h3>
-          <p className="text-white/60 mb-6 max-w-xs mx-auto">
+          
+          <p className="text-white/40 mb-8 max-w-xs mx-auto font-medium text-sm">
             {isProcessing 
-              ? 'Rendering pages and extracting text for your tutorial.' 
-              : 'Drag & drop your multi-page PDF or click to browse.'}
+              ? 'Turning your PDF into a cinematic tutorial.' 
+              : 'Drag & drop your presentation or click to browse.'}
           </p>
 
           {!isProcessing && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium">
-              <FileText className="w-4 h-4" />
-              <span>PDF</span>
+            <div className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 group-hover:text-white/80 group-hover:border-white/20 transition-all">
+              <FileText className="w-3.5 h-3.5" />
+              <span>Select Document</span>
             </div>
           )}
         </div>
 
-        {/* Glow effect */}
-        <div className="absolute inset-0 -z-10 bg-branding-primary/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+        {/* Dynamic Background Glow */}
+        <div className={cn(
+          "absolute inset-0 -z-10 transition-opacity duration-700 blur-[100px]",
+          isDragActive ? "opacity-40 bg-cyan-500/20" : "opacity-0 group-hover:opacity-20 bg-purple-500/20"
+        )} />
       </div>
 
       {error && (
-        <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm animate-fade-in">
+        <div className="mt-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2">
           {error}
         </div>
       )}
