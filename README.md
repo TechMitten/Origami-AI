@@ -5,7 +5,7 @@
 ![Stars](https://img.shields.io/github/stars/techcow2/Origami-AI?style=flat-square)
 ![Forks](https://img.shields.io/github/forks/techcow2/Origami-AI?style=flat-square)
 
-A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
+**Origami** is a high-fidelity automated video generation platform that transforms PDF slides into cinematic narrated content. By leveraging advanced AI for script synthesis, professional Text-to-Speech (TTS), and programmatic video rendering, Origami streamlines the creation of engaging presentations, tutorials, and educational media directly from your static documents.
 
 ## Table of Contents
 
