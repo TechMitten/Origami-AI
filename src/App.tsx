@@ -501,11 +501,11 @@ function App() {
         className="fixed inset-0 -z-50 w-full h-full object-cover opacity-40 blur-[2px] brightness-75 scale-105" 
       />
 
-      {/* TTS Progress Overlay */}
-      <TTSProgressOverlay />
-      
-      {/* Video Progress Overlay */}
-      <VideoProgressOverlay />
+      {/* Notifications Container */}
+      <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4 items-end pointer-events-none">
+        <VideoProgressOverlay />
+        <TTSProgressOverlay />
+      </div>
     </div>
   );
 }
@@ -548,7 +548,7 @@ function VideoProgressOverlay() {
   const percent = isIndeterminate ? null : Math.round(progress.p);
 
   return (
-    <div className="fixed bottom-8 left-8 z-50 bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-purple-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-purple-400/30">
+    <div className="pointer-events-auto bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-purple-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-purple-400/30">
       <div className="flex items-center justify-between gap-3">
          <div className="flex items-center gap-3">
              <Loader2 className="w-4 h-4 text-purple-400 animate-spin shrink-0" />
@@ -610,7 +610,7 @@ function TTSProgressOverlay() {
   const percent = isIndeterminate ? null : Math.round(progress.p);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-cyan-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(6,182,212,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-cyan-400/30">
+    <div className="pointer-events-auto bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-cyan-500/50 rounded-xl p-5 shadow-[0_0_40px_-10px_rgba(6,182,212,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-80 flex flex-col gap-3 ring-1 ring-cyan-400/30">
       <div className="flex items-center justify-between gap-3">
          <div className="flex items-center gap-3">
              {isIndeterminate && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />}
