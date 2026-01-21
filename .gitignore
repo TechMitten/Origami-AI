@@ -36,3 +36,4 @@ public/uploads/*
 !public/app-logo.png
 !public/_headers
 .env
+RAILWAY_DEPLOY.md
