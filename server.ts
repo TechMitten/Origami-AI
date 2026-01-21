@@ -32,7 +32,7 @@ async function createServer() {
   app.use(express.static(path.resolve(__dirname, 'public')));
 
   // Updated to default to 8080 for your VPS setup
-  const port = process.env.PORT || 8080; 
+  const port = process.env.PORT || 3000; 
 
   // Configure Multer for file uploads
   const uploadDir = path.resolve(__dirname, 'public/uploads');
