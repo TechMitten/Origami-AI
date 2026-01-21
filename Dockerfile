@@ -19,18 +19,7 @@ RUN npm run build
 FROM node:20-slim AS runner
 WORKDIR /app
 
-# Install runtime system dependencies
-# We use chromium instead of chrome-stable for easier compatibility
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    chromium \
-    fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set Puppeteer environment variables
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# In production, we only need basic node environment since rendering is client-side
 ENV NODE_ENV=production
 ENV PORT=3000
 

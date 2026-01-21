@@ -7,9 +7,6 @@
 
 A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
 
-> [!WARNING]  
-> **Local Deployment Only**: This project is designed as a local productivity tool. It has **not** been tested or secured for use as a public-facing website. Using this application on a public server is unsafe and not recommended.
-
 ## Table of Contents
 
 - [Features](#features)
@@ -19,12 +16,13 @@ A powerful, automated video generation platform designed to create educational t
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Roadmap & TODO](#roadmap--todo)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## Features
 
 - **PDF to Presentation**: Upload PDF slides and automatically extract them into a sequence of video scenes.
-- **AI-Powered Scripting**: Integrated with Google Gemini AI to transform fragmented slide notes into coherent, professional scripts.
+- **AI-Powered Scripting**: Integrated with Google Gemini AI and [WebLLM](https://webllm.mlc-ai.org/) (Local Browser Inference) to transform fragmented slide notes into coherent, professional scripts.
 - **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using [Kokoro-js](https://github.com/m-bain/kokoro-js).
   - **Local Inference**: Run TTS entirely locally via Dockerized Kokoro FastAPI.
   - **Hybrid Voices**: Create custom voice blends by mixing two models with adjustable weights.
@@ -41,7 +39,6 @@ A powerful, automated video generation platform designed to create educational t
 
 - [Node.js](https://nodejs.org/) (v20+)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
-- [FFmpeg](https://ffmpeg.org/) (required by Remotion for rendering)
 
 ### Installation
 
@@ -63,19 +60,55 @@ A powerful, automated video generation platform designed to create educational t
    npm run dev
    ```
 
-The application will be available at `http://localhost:5173`.
+The application will be available at `http://localhost:3000`.
 
-### Deployment (Dokploy)
+### Deployment (Docker)
 
-This project is configured to be deployed easily using [Dokploy](https://dokploy.com/) with the **Nixpacks** build strategy.
+To deploy this application using Docker, you **must first clone the repository**, as the image is built locally from the source.
 
-1. Create a new application in Dokploy.
-2. Connect your GitHub repository.
-3. Configure the **Build Type** to `Nixpacks` (or `Docker`).
-4. Set the **Container Port** to `3000`.
-5. Deploy!
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/techcow2/pdf2tutorial.git
+   cd pdf2tutorial
+   ```
 
-> **Note:** The `package.json` enforces Node.js >= 20.19.0 to ensure compatibility with Vite 7 and recent dependencies. Nixpacks will automatically respect this.
+#### Using Docker Compose (Recommended)
+
+A `docker-compose.yml` file is provided in the root directory. To start the application, run:
+
+```bash
+docker-compose up -d
+```
+
+Example `docker-compose.yml`:
+
+```yaml
+services:
+  pdf2tutorial:
+    build: .
+    container_name: pdf2tutorial
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+```
+
+#### Using Docker CLI
+
+1. Build the image:
+
+   ```bash
+   docker build -t pdf2tutorial .
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -d -p 3000:3000 --name pdf2tutorial pdf2tutorial
+   ```
+
+The application will be available at `http://localhost:3000`.
 
 ## Usage
 
@@ -91,7 +124,7 @@ Scroll down to the **Configure Slides** panel to manage your project globally:
 - **Media Assets**: Click **Insert Video** to add MP4 clips or GIFs between slides.
 - **Audio Mixing**: Upload custom background music or select from the library (e.g., "Modern EDM"). Use the sliders to mix volume levels.
 
-### 3. Crafting the Narrative
+### 3. Creating the Narrative
 
 In the **Slide Editor** grid:
 
@@ -102,12 +135,12 @@ In the **Slide Editor** grid:
 
 ### 4. Render
 
-Click the **Download Video** button. The server will:
+Click the **Download Video** button. The application will:
 
-1. Bundle the Remotion composition.
-2. Render frames in parallel using available CPU cores.
-3. Normalize the final audio mix to -14 LUFS.
-4. Download the resulting MP4.
+1. Bundle the Remotion composition in your browser.
+2. Render frames in parallel using your browser's resources.
+3. Process the final video and audio mix using client-side FFmpeg WASM.
+4. Normalize the audio to -14 LUFS and download the resulting MP4.
 
 ## Configuration
 
@@ -139,18 +172,17 @@ You can build your own library of background music tracks that will be available
 ## Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS (v4)
-- **Video Engine**: Remotion (v4)
-- **AI**: Google Gemini API (gemini-2.0-flash-lite)
+- **Video Engine**: FFmpeg WASM (Client-side)
+- **AI**: Google Gemini API (gemini-2.0-flash-lite) & [WebLLM](https://webllm.mlc-ai.org/) (Local Browser Inference)
 - **TTS**: Kokoro (FastAPI / Web Worker)
 - **Backend**: Express.js (serving as a rendering orchestration layer)
 - **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
 
 ## Project Structure
 
-- `src/video/`: Remotion compositions and video components.
 - `src/components/`: React UI components (Slide Editor, Modals, Uploaders).
 - `src/services/`: Core logic for AI, TTS, PDF processing, and local storage.
-- `server.ts`: Express server handling the `@remotion/renderer` logic.
+- `server.ts`: Express server handling static file serving and SPA routing.
 
 ## Roadmap & TODO
 
@@ -158,6 +190,19 @@ You can build your own library of background music tracks that will be available
 - [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
 - [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
 - [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
+
+## Acknowledgements
+
+This project is made possible by the following incredible open-source libraries and projects:
+
+- **[Remotion](https://www.remotion.dev/)**: The core engine for programmatic video rendering.
+- **[FFmpeg.wasm](https://ffmpegwasm.netlify.app/)**: Enabling frame-perfect video assembly directly in the browser.
+- **[WebLLM](https://webllm.mlc-ai.org/)**: Bringing high-performance local LLM inference to the web.
+- **[Kokoro-js](https://github.com/m-bain/kokoro-js)**: Providing high-quality, local Text-to-Speech capabilities.
+- **[Hugging Face Transformers](https://huggingface.co/docs/transformers.js)**: Powering state-of-the-art machine learning in the browser.
+- **[PDF.js](https://mozilla.github.io/pdf.js/)**: The standard for parsing and rendering PDF documents.
+- **[Lucide React](https://lucide.dev/)**: Beautifully crafted open-source icons.
+- **[dnd-kit](https://dndkit.com/)**: A modern, lightweight toolkit for drag-and-drop interfaces.
 
 ## License
 
