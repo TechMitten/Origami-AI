@@ -1,7 +1,7 @@
 services:
-  pdf2tutorial:
+  origami-ai:
     build: .
-    container_name: pdf2tutorial
+    container_name: origami-ai
     ports:
       - "3000:3000"
     restart: unless-stopped

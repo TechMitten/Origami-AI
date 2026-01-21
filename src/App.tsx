@@ -403,7 +403,7 @@ function App() {
 
         <div className="flex items-center gap-8 sm:gap-12 lg:gap-16">
           <a
-            href="https://github.com/techcow2/pdf2tutorial"
+            href="https://github.com/techcow2/Origami-AI"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"

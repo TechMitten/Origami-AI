@@ -1,9 +1,9 @@
 # Origami AI
 
-![License](https://img.shields.io/github/license/techcow2/pdf2tutorial?style=flat-square)
-![Issues](https://img.shields.io/github/issues/techcow2/pdf2tutorial?style=flat-square)
-![Stars](https://img.shields.io/github/stars/techcow2/pdf2tutorial?style=flat-square)
-![Forks](https://img.shields.io/github/forks/techcow2/pdf2tutorial?style=flat-square)
+![License](https://img.shields.io/github/license/techcow2/Origami-AI?style=flat-square)
+![Issues](https://img.shields.io/github/issues/techcow2/Origami-AI?style=flat-square)
+![Stars](https://img.shields.io/github/stars/techcow2/Origami-AI?style=flat-square)
+![Forks](https://img.shields.io/github/forks/techcow2/Origami-AI?style=flat-square)
 
 A powerful, automated video generation platform designed to create educational tech tutorials from PDF slides. This project leverages AI for script refinement, high-quality Text-to-Speech (TTS), and programmatic video rendering.
 
@@ -45,8 +45,8 @@ A powerful, automated video generation platform designed to create educational t
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/techcow2/pdf2tutorial.git
-   cd pdf2tutorial
+   git clone https://github.com/techcow2/Origami-AI.git
+   cd Origami-AI
    ```
 
 2. Install dependencies:
@@ -68,8 +68,8 @@ To deploy this application using Docker, you **must first clone the repository**
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/techcow2/pdf2tutorial.git
-   cd pdf2tutorial
+   git clone https://github.com/techcow2/Origami-AI.git
+   cd Origami-AI
    ```
 
 #### Using Docker Compose (Recommended)
@@ -84,9 +84,9 @@ Example `docker-compose.yml`:
 
 ```yaml
 services:
-  pdf2tutorial:
+  origami-ai:
     build: .
-    container_name: pdf2tutorial
+    container_name: origami-ai
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -100,12 +100,12 @@ services:
 1. Build the image:
 
    ```bash
-   docker build -t pdf2tutorial .
+   docker build -t origami-ai .
    ```
 
 2. Run the container:
    ```bash
-   docker run -d -p 3000:3000 --name pdf2tutorial pdf2tutorial
+   docker run -d -p 3000:3000 --name origami-ai origami-ai
    ```
 
 The application will be available at `http://localhost:3000`.
