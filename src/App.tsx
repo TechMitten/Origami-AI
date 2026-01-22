@@ -8,9 +8,10 @@ import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 import { Footer } from './components/Footer';
+import { ThumbnailGeneratorModal } from './components/ThumbnailGeneratorModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle, Trash2 } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle, Trash2, Image } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -33,6 +34,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm'>('general');
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   
@@ -306,8 +308,8 @@ function App() {
 
 
   const handleDownloadMP4 = async () => {
-    // const controller = new AbortController(); // Browser renderer cancellation not implemented yet
-    // setRenderAbortController(controller);
+    const controller = new AbortController();
+    setRenderAbortController(controller);
     setIsRenderingWithAudio(true);
     setRenderProgress(0);
     
@@ -320,6 +322,7 @@ function App() {
         })),
         musicSettings,
         ttsVolume,
+        signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
       });
 
@@ -333,7 +336,11 @@ function App() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
        console.error(error);
-       showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
+       if ((error as Error).message === 'Render aborted') {
+           showAlert('Rendering cancelled.', { type: 'info' });
+       } else {
+           showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
+       }
     } finally {
       setIsRenderingWithAudio(false);
       setRenderProgress(0);
@@ -347,6 +354,8 @@ function App() {
       return;
     }
 
+    const controller = new AbortController();
+    setRenderAbortController(controller);
     setIsRenderingSilent(true);
     setRenderProgress(0);
     try {
@@ -364,6 +373,7 @@ function App() {
         slides: silentSlides,
         musicSettings,
         ttsVolume,
+        signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
       });
 
@@ -377,7 +387,11 @@ function App() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
-      showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
+      if ((error as Error).message === 'Render aborted') {
+          showAlert('Rendering cancelled.', { type: 'info' });
+      } else {
+          showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
+      }
     } finally {
       setIsRenderingSilent(false);
       setRenderProgress(0);
@@ -387,100 +401,134 @@ function App() {
   const allAudioReady = slides.length > 0 && slides.every(s => !!s.audioUrl);
 
   return (
-    <div className="min-h-screen bg-branding-dark text-white px-8 pt-8 pb-2 flex flex-col">
+    <div className={`min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col transition-all duration-500 ${activeTab === 'preview' ? 'px-4' : 'px-8'}`}>
       {/* Header */}
-      <header className="w-full max-w-[1400px] mx-auto mb-10 flex items-center justify-between px-6 sm:px-10">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
-            <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-2xl" />
+      <header className={`relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 transition-all duration-500 ${activeTab === 'preview' ? 'max-w-[95vw]' : 'max-w-7xl'}`}>
+        {/* Left: Logo */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
+            <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
-          <div className="-ml-2">
-            <h1 className="text-4xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm pr-4">
-              Origami
-            </h1>
-          </div>
+          <h1 className="hidden sm:block text-2xl sm:text-3xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
+            Origami
+          </h1>
         </div>
 
-        <div className="flex items-center gap-8 sm:gap-12 lg:gap-16">
-          <a
-            href="https://github.com/techcow2/Origami-AI"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
-            title="GitHub Repository"
-          >
-             <Github className="w-5 h-5" />
-             <span className="hidden md:inline">GitHub</span>
-          </a>
-          <button
-            onClick={() => setIsTutorialOpen(true)}
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
-            title="How to Use"
-          >
-             <CircleHelp className="w-5 h-5" />
-             <span className="hidden md:inline">Tutorial</span>
-          </button>
-
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10"
-            title="Global Settings"
-          >
-             <Settings2 className="w-5 h-5" />
-             <span className="hidden md:inline">Settings</span>
-          </button>
-
-          {slides.length > 0 && (
-            <div className="flex items-center gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
-              <button
-                onClick={handleStartOver}
-                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-400 hover:text-red-300 hover:bg-white/5 transition-all whitespace-nowrap"
-                title="Start Over"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span className="hidden sm:inline">Start Over</span>
-              </button>
-              <button
-                onClick={handleResetHighlights}
-                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-red-400 hover:bg-white/5 transition-all whitespace-nowrap"
-                title="Reset All Highlights"
-              >
-                <Eraser className="w-4 h-4" />
-                <span className="hidden sm:inline">Reset Highlights</span>
-              </button>
-              {slides.some(s => s.isSelected) && (
-                  <button
-                    onClick={handleDeleteSelected}
-                    className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all whitespace-nowrap animate-in fade-in slide-in-from-left-2 duration-300"
-                    title="Delete Selected Slides"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">Delete Selected ({slides.filter(s => s.isSelected).length})</span>
-                  </button>
-              )}
-              <div className="w-px h-6 bg-white/10 mx-1" />
+        {/* Center: View Toggle (Segmented Control) */}
+        {slides.length > 0 && (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
               <button
                 onClick={() => setActiveTab('edit')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-                  activeTab === 'edit' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
+                className={`px-4 sm:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                  activeTab === 'edit' 
+                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm' 
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
                 }`}
               >
                 Edit
               </button>
               <button
                 onClick={() => setActiveTab('preview')}
-                className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-                  activeTab === 'preview' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
+                className={`px-4 sm:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                  activeTab === 'preview' 
+                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm' 
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
                 }`}
               >
                 Preview
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Right: Tools & Actions */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Global Tools */}
+          <div className="flex items-center gap-1">
+             <a
+              href="https://github.com/techcow2/Origami-AI"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+              title="GitHub Repository"
+            >
+               <Github className="w-5 h-5" />
+            </a>
+            {slides.length > 0 && (
+               <button
+                onClick={() => setIsThumbnailModalOpen(true)}
+                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                title="Generate Thumbnail"
+              >
+                 <Image className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setIsTutorialOpen(true)}
+              className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+              title="How to Use"
+            >
+               <CircleHelp className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+              title="Settings"
+            >
+               <Settings2 className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Session Actions Menu */}
+          {slides.length > 0 && (
+            <>
+              <div className="w-px h-6 bg-white/10 mx-1 sm:mx-2" />
+              
+              <div className="relative group/menu">
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
+                >
+                  <span className="hidden sm:inline">Actions</span>
+                  <Settings2 className="w-4 h-4 sm:hidden" /> 
+                  <svg className="w-4 h-4 opacity-50 group-hover/menu:opacity-100 transition-opacity hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-full mt-2 w-48 py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 transform origin-top-right z-60">
+                   <button
+                    onClick={handleStartOver}
+                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Start Over
+                  </button>
+                  <button
+                    onClick={handleResetHighlights}
+                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                  >
+                    <Eraser className="w-4 h-4" /> Reset Highlights
+                  </button>
+                  {slides.some(s => s.isSelected) && (
+                    <>
+                      <div className="h-px bg-white/10 my-1" />
+                      <button
+                        onClick={handleDeleteSelected}
+                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete Selected ({slides.filter(s => s.isSelected).length})
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto">
+      <main className={`mx-auto transition-all duration-500 ${activeTab === 'preview' ? 'w-full max-w-[95vw]' : 'max-w-7xl'}`}>
         {slides.length === 0 ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
             <PDFUploader onUploadComplete={onUploadComplete} />
@@ -494,7 +542,7 @@ function App() {
           <div className="grid grid-cols-1 gap-8 animate-slide-up">
             {activeTab === 'preview' ? (
               <div className="space-y-8">
-                <div className="aspect-video w-full max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/5 bg-black">
+                <div className="aspect-video w-full mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/5 bg-black">
                   <SimplePreview
                     slides={slides.map(s => ({
                       dataUrl: s.dataUrl,
@@ -612,6 +660,13 @@ function App() {
           isOpen={isResourceModalOpen}
           onConfirm={handleResourceConfirm}
           preinstalled={preinstalledResources}
+       />
+
+       <ThumbnailGeneratorModal
+          isOpen={isThumbnailModalOpen}
+          onClose={() => setIsThumbnailModalOpen(false)}
+          slides={slides}
+          globalSettings={globalSettings}
        />
 
       {/* Background Image */}

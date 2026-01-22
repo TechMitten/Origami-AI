@@ -26,6 +26,7 @@ export interface RenderOptions {
   ttsVolume?: number;
   onProgress?: (progress: number) => void;
   onLog?: (message: string) => void;
+  signal?: AbortSignal;
 }
 
 export const videoEvents = new EventTarget();
@@ -92,7 +93,8 @@ export class BrowserVideoRenderer {
     musicSettings,
     ttsVolume = 1,
     onProgress,
-    onLog
+    onLog,
+    signal
   }: RenderOptions): Promise<Blob> {
     if (!this.loaded) {
       await this.load();
@@ -106,15 +108,47 @@ export class BrowserVideoRenderer {
         console.log('[FFmpeg Log]:', message);
     });
 
-    ffmpeg.on('progress', ({ progress }) => {
-        // progress is 0-1
-        const p = progress * 100;
+    ffmpeg.on('progress', ({ progress, time }) => {
+        // Prefer time-based calculation if we have a valid estimated duration
+        let p = 0;
+        
+        if (typeof time === 'number' && estimatedTotalDuration > 0) {
+             // time is usually in microseconds in recent ffmpeg.wasm versions
+             // estimatedTotalDuration is in seconds
+             const timeInSeconds = time / 1000000;
+             p = (timeInSeconds / estimatedTotalDuration) * 100;
+        } else {
+             // Fallback to progress (0-1)
+             p = progress * 100;
+        }
+
+        // Clamp
+        p = Math.max(0, Math.min(100, p));
+        
+        if (isNaN(p) || !isFinite(p)) p = 0;
+
         if (onProgress) onProgress(p);
         
         videoEvents.dispatchEvent(new CustomEvent<VideoProgressEventDetail>('video-progress', {
             detail: { progress: p, status: 'Rendering Video...' }
         }));
     });
+
+    // Handle Abort Signal
+    if (signal) {
+        if (signal.aborted) {
+            throw new Error('Render aborted');
+        }
+        signal.addEventListener('abort', () => {
+             console.log('[FFmpeg] Render aborted by user. Terminating worker...');
+             try {
+                this.ffmpeg.terminate(); 
+             } catch (e) {
+                console.error("Error terminating ffmpeg:", e);
+             }
+             this.loaded = false; // Force reload next time
+        });
+    }
 
     const videoStreamLabels: string[] = [];
     const audioStreamLabels: string[] = [];
@@ -125,6 +159,9 @@ export class BrowserVideoRenderer {
     const FPS = 30;
 
     const cleanupFiles: string[] = [];
+    
+    // Track estimated duration for progress calculation
+    let estimatedTotalDuration = 0;
 
     try {
       // Input Arguments Construction
@@ -272,6 +309,9 @@ export class BrowserVideoRenderer {
             currentDuration = offset + dCurrent;
         }
       }
+      
+      // Store the final calculated duration for progress reporting
+      estimatedTotalDuration = currentDuration;
 
       // Output mapping
       if (slides.length > 0) {

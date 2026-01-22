@@ -18,9 +18,10 @@ interface DropdownProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  placeholder?: string;
 }
 
-export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, className }) => {
+export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, className, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -80,7 +81,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
         className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-white/10 text-white text-sm outline-none cursor-pointer hover:border-branding-primary/30 transition-all focus:border-branding-primary/50"
         style={{ backgroundColor: '#18181b' }}
       >
-        <span className="truncate">{selectedOption?.name || 'Select option'}</span>
+        <span className="truncate">{selectedOption?.name || placeholder || 'Select option'}</span>
         <ChevronDown className={cn("w-4 h-4 text-white/40 transition-transform", isOpen && "rotate-180")} />
       </button>
 
