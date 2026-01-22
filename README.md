@@ -27,7 +27,7 @@
   - **Local Inference**: Run TTS entirely locally via Dockerized Kokoro FastAPI.
   - **Hybrid Voices**: Create custom voice blends by mixing two models with adjustable weights.
 - **Rich Media Support**: Insert MP4 videos and GIFs seamlessly between slides.
-- **Programmatic Video Rendering**: Built on [Remotion](https://www.remotion.dev/) for frame-perfect assembly.
+- **Programmatic Video Rendering**: Frame-perfect assembly powered by high-performance canvas rendering.
 - **Smart Audio Engineering**:
   - **Auto-Ducking**: Background music volume automatically lowers during voiceovers.
   - **Normalization**: Final render is automatically normalized to YouTube standards (-14 LUFS).
@@ -142,7 +142,7 @@ In the **Slide Editor** grid:
 
 Click the **Download Video** button. The application will:
 
-1. Bundle the Remotion composition in your browser.
+1. Pre-process the slide configuration in your browser.
 2. Render frames in parallel using your browser's resources.
 3. Process the final video and audio mix using client-side FFmpeg WASM.
 4. Normalize the audio to -14 LUFS and download the resulting MP4.
@@ -192,7 +192,7 @@ You can build your own library of background music tracks that will be available
 ## Roadmap & TODO
 
 - [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
-- [ ] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
+- [x] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
 - [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
 - [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
 
@@ -200,7 +200,6 @@ You can build your own library of background music tracks that will be available
 
 This project is made possible by the following incredible open-source libraries and projects:
 
-- **[Remotion](https://www.remotion.dev/)**: The core engine for programmatic video rendering.
 - **[FFmpeg.wasm](https://ffmpegwasm.netlify.app/)**: Enabling frame-perfect video assembly directly in the browser.
 - **[WebLLM](https://webllm.mlc-ai.org/)**: Bringing high-performance local LLM inference to the web.
 - **[Kokoro-js](https://github.com/m-bain/kokoro-js)**: Providing high-quality, local Text-to-Speech capabilities.
