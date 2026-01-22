@@ -403,7 +403,7 @@ function App() {
   return (
     <div className={`min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col transition-all duration-500 ${activeTab === 'preview' ? 'px-4' : 'px-8'}`}>
       {/* Header */}
-      <header className={`relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 transition-all duration-500 ${activeTab === 'preview' ? 'max-w-[95vw]' : 'max-w-7xl'}`}>
+      <header className="relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 transition-all duration-500 max-w-7xl">
         {/* Left: Logo */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
@@ -528,7 +528,7 @@ function App() {
         </div>
       </header>
 
-      <main className={`mx-auto transition-all duration-500 ${activeTab === 'preview' ? 'w-full max-w-[95vw]' : 'max-w-7xl'}`}>
+      <main className={`mx-auto transition-all duration-500 ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`}>
         {slides.length === 0 ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
             <PDFUploader onUploadComplete={onUploadComplete} />
@@ -542,7 +542,7 @@ function App() {
           <div className="grid grid-cols-1 gap-8 animate-slide-up">
             {activeTab === 'preview' ? (
               <div className="space-y-8">
-                <div className="aspect-video w-full mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/5 bg-black">
+                <div className="aspect-video w-full max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/5 bg-black">
                   <SimplePreview
                     slides={slides.map(s => ({
                       dataUrl: s.dataUrl,
