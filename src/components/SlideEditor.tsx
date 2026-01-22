@@ -403,20 +403,20 @@ const SortableSlideItem = ({
     <div 
       ref={setNodeRef}
       style={style}
-      className="group relative flex gap-6 p-6 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300"
+      className="group relative flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300"
     >
       {/* Drag Handle */}
       <div 
-        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none"
+        className="absolute left-1/2 -top-3 sm:left-2 sm:top-1/2 -translate-x-1/2 sm:translate-x-0 sm:-translate-y-1/2 p-1.5 sm:p-2 cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none bg-[#18181b] sm:bg-transparent rounded-full border border-white/10 sm:border-transparent"
         {...attributes} 
         {...listeners}
       >
-        <GripVertical className="w-5 h-5" />
+        <GripVertical className="w-5 h-5 rotate-90 sm:rotate-0" />
       </div>
 
       {/* Slide Preview */}
       {/* Slide Preview Column */}
-      <div className="w-1/3 ml-6 flex flex-col gap-2">
+      <div className="w-full sm:w-1/3 sm:ml-6 flex flex-col gap-2 mt-4 sm:mt-0">
         <div className="flex items-center gap-3 mb-1">
           <button
             onClick={(e) => {
@@ -673,7 +673,7 @@ const SortableSlideItem = ({
              e.stopPropagation();
              onDelete(index);
          }}
-         className="absolute bottom-3 left-3 p-1.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all z-20"
+         className="absolute top-2 right-2 sm:bottom-3 sm:right-auto sm:left-3 p-1.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all z-20"
          title="Delete Slide"
       >
          <Trash2 className="w-4 h-4" />
@@ -1272,10 +1272,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </div>
       )}
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm shadow-xl shadow-black/20">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
               <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
               Configure Slides
             </h2>
@@ -1289,51 +1289,51 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         <div className="mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
            {/* Left Navigation */}
-           <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-6">
+           <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
               <button
                 onClick={() => setActiveTab('voice')}
-                className={`flex-1 md:flex-none px-8 py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-4 transition-all text-left whitespace-nowrap ${
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
                   activeTab === 'voice' 
                     ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
-                <Mic className="w-5 h-5 shrink-0" /> Voice Settings
+                <Mic className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Voice Settings
               </button>
               <button
                 onClick={() => setActiveTab('mixing')}
-                className={`flex-1 md:flex-none px-8 py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-4 transition-all text-left whitespace-nowrap ${
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
                   activeTab === 'mixing' 
                     ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
-                <Volume2 className="w-5 h-5 shrink-0" /> Audio Mixing
+                <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Audio Mixing
               </button>
               <button
                 onClick={() => setActiveTab('tools')}
-                className={`flex-1 md:flex-none px-8 py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-4 transition-all text-left whitespace-nowrap ${
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
                   activeTab === 'tools' 
                     ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
-                <Wand2 className="w-5 h-5 shrink-0" /> Batch Tools
+                <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Batch Tools
               </button>
               <button
                 onClick={() => setActiveTab('media')}
-                className={`flex-1 md:flex-none px-8 py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-4 transition-all text-left whitespace-nowrap ${
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
                   activeTab === 'media' 
                     ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
-                <VideoIcon className="w-5 h-5 shrink-0" /> Slide Media
+                <VideoIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Slide Media
               </button>
            </div>
 
            {/* Right Content */}
-           <div className="flex-1 p-10 bg-black/10 flex flex-col">
+           <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col">
              {activeTab === 'voice' && (
                 <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="flex items-center justify-between shrink-0">
@@ -1371,8 +1371,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     </div>
 
                     {isGlobalHybrid ? (
-                        <div className="flex-1 space-y-8 p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
-                            <div className="grid grid-cols-2 gap-8">
+                        <div className="flex-1 space-y-8 p-6 sm:p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                                 <div className="space-y-3">
                                     <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Voice A (Primary)</label>
                                     <Dropdown
@@ -1419,7 +1419,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="flex-1 space-y-8 p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
+                        <div className="flex-1 space-y-6 sm:space-y-8 p-6 sm:p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Select Voice</label>
                                 <Dropdown
@@ -1429,11 +1429,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     className="h-14 text-base px-6"
                                 />
                             </div>
-                            <div className="flex gap-6 pt-4">
-                                <button onClick={handleGlobalPreview} className={`flex-1 h-14 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
+                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-4">
+                                <button onClick={handleGlobalPreview} className={`flex-1 h-12 sm:h-14 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
                                     {isGlobalPreviewPlaying ? <Square className="w-5 h-5" /> : <Play className="w-5 h-5" />} Preview Voice
                                 </button>
-                                <button onClick={handleApplyGlobalVoice} className="flex-1 h-14 rounded-xl bg-branding-primary/20 border border-branding-primary/30 hover:bg-branding-primary/30 text-white font-bold text-sm uppercase tracking-wider transition-all">
+                                <button onClick={handleApplyGlobalVoice} className="flex-1 h-12 sm:h-14 rounded-xl bg-branding-primary/20 border border-branding-primary/30 hover:bg-branding-primary/30 text-white font-bold text-sm uppercase tracking-wider transition-all">
                                     Apply to All Slides
                                 </button>
                             </div>

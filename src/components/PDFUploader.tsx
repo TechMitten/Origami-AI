@@ -58,7 +58,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
         {...getRootProps()}
         className={cn(
           "relative group cursor-pointer transition-all duration-500",
-          "border-2 border-dashed rounded-3xl px-20 py-10 text-center overflow-hidden",
+          "border-2 border-dashed rounded-3xl px-8 py-8 sm:px-20 sm:py-10 text-center overflow-hidden",
           "backdrop-blur-md bg-white/2",
           isDragActive 
             ? "border-cyan-500/50 bg-cyan-500/10 scale-[1.02]" 
@@ -69,8 +69,8 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
         
         <div className="flex flex-col items-center relative z-10">
           {isProcessing ? (
-            <div className="w-64 h-64 flex items-center justify-center -mb-4">
-              <Loader2 className="w-16 h-16 text-cyan-400 animate-spin" />
+            <div className="w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center -mb-4">
+              <Loader2 className="w-12 h-12 sm:w-16 sm:h-16 text-cyan-400 animate-spin" />
             </div>
           ) : (
             <div className={cn(
@@ -80,7 +80,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
               <img 
                 src={uploadIllustration} 
                 alt="Logo"
-                className="w-64 h-64 -mb-8 object-contain drop-shadow-[0_0_50px_rgba(34,211,238,0.2)]" 
+                className="w-48 h-48 sm:w-64 sm:h-64 -mb-6 sm:-mb-8 object-contain drop-shadow-[0_0_50px_rgba(34,211,238,0.2)]" 
               />
               {/* Extra glow layer */}
               <div className="absolute inset-0 bg-linear-to-b from-cyan-500/20 to-purple-500/20 blur-[60px] -z-10 opacity-50" />
@@ -88,13 +88,13 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
           )}
           
           <h3 className={cn(
-            "text-3xl font-black mb-3 tracking-tighter italic uppercase text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 pr-2",
+            "text-2xl sm:text-3xl font-black mb-3 tracking-tighter italic uppercase text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 pr-2",
             isProcessing && "animate-pulse"
           )}>
             {isProcessing ? 'Processing...' : isDragActive ? 'Release to Fold' : 'Upload PDF'}
           </h3>
           
-          <p className="text-white/40 mb-8 max-w-xs mx-auto font-medium text-sm">
+          <p className="text-white/40 mb-8 max-w-xs mx-auto font-medium text-xs sm:text-sm">
             {isProcessing 
               ? 'Turning your PDF into a cinematic tutorial.' 
               : 'Drag & drop your presentation or click to browse.'}

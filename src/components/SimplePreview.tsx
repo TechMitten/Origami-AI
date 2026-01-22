@@ -377,48 +377,48 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
         </div>
 
         {/* Controls Row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-y-4">
+          <div className="flex items-center gap-2 sm:gap-4">
              {/* Playback Controls */}
             <button
               onClick={skipBack}
-              className="p-2 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all"
+              className="p-1.5 sm:p-2 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all"
               title="-5s"
             >
-              <SkipBack className="w-5 h-5" />
+              <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             <button
               onClick={togglePlayPause}
-              className="p-3 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black transition-all hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20"
+              className="p-2.5 sm:p-3 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black transition-all hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20"
             >
-              {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
+              {isPlaying ? <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current ml-0.5" />}
             </button>
 
             <button
               onClick={skipForward}
-              className="p-2 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all"
+              className="p-1.5 sm:p-2 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all"
               title="+5s"
             >
-              <SkipForward className="w-5 h-5" />
+              <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             {/* Time Display */}
-            <div className="ml-2 text-xs font-mono font-medium text-white/50">
+            <div className="ml-1 sm:ml-2 text-[10px] sm:text-xs font-mono font-medium text-white/50">
                {formatTime(elapsedTime)} / {formatTime(totalDuration)}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 ml-auto sm:ml-0">
              {/* Volume Control */}
              <div className="flex items-center gap-2 group/volume">
                 <button 
                   onClick={() => setIsMuted(!isMuted)}
-                  className="p-2 text-white/70 hover:text-white transition-colors"
+                  className="p-1.5 sm:p-2 text-white/70 hover:text-white transition-colors"
                 >
-                    {isMuted || masterVolume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                    {isMuted || masterVolume === 0 ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </button>
-                <div className="w-0 overflow-hidden group-hover/volume:w-24 transition-all duration-300">
+                <div className="w-16 sm:w-0 overflow-hidden sm:group-hover/volume:w-24 transition-all duration-300">
                     <input 
                         type="range" 
                         min="0" 
@@ -429,27 +429,27 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
                             setMasterVolume(parseFloat(e.target.value));
                             if (isMuted && parseFloat(e.target.value) > 0) setIsMuted(false);
                         }}
-                        className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                        className="w-16 sm:w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                     />
                 </div>
              </div>
 
-            <div className="w-px h-4 bg-white/10" />
+            <div className="w-px h-4 bg-white/10 hidden sm:block" />
 
             {/* Slide Counter */}
-            <span className="text-xs font-mono font-bold text-white/40">
+            <span className="text-xs font-mono font-bold text-white/40 hidden sm:inline">
               SLIDE {currentSlideIndex + 1} <span className="text-white/20">/</span> {slides.length}
             </span>
 
-            <div className="w-px h-4 bg-white/10" />
+            <div className="w-px h-4 bg-white/10 hidden sm:block" />
 
              {/* Full Screen */}
             <button
               onClick={toggleFullScreen}
-              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+              className="p-1.5 sm:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all"
               title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
             >
-              {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              {isFullScreen ? <Minimize className="w-4 h-4 sm:w-5 sm:h-5" /> : <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, AlertCircle, ExternalLink } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, AlertCircle } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -631,7 +631,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   {savedMusicName ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between bg-white/5 p-2 rounded-lg">
-                        <span className="text-sm text-white truncate max-w-[150px]">{savedMusicName}</span>
+                        <span className="text-sm text-white truncate max-w-37.5">{savedMusicName}</span>
                         <button onClick={removeMusic} className="text-white/40 hover:text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1094,80 +1094,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             )}
                         </div>
 
-                        {/* Troubleshooting Section */}
-                        <div className="space-y-4 pt-4 border-t border-white/10">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 text-yellow-400" />
-                                <h4 className="text-sm font-bold text-white">Troubleshooting</h4>
-                            </div>
-                            
-                            <div className="space-y-3">
-                                {/* WebGPU Report */}
-                                <a
-                                    href="https://webgpureport.org/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-full bg-blue-500/10 text-blue-400">
-                                            <Activity className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-white">Check WebGPU Support</p>
-                                            <p className="text-[10px] text-white/40">Test your browser's WebGPU compatibility</p>
-                                        </div>
-                                    </div>
-                                    <ExternalLink className="w-4 h-4 text-white/40 group-hover:text-white transition-colors" />
-                                </a>
-
-                                {/* Browser Recommendations */}
-                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                    <div className="flex items-start gap-2">
-                                        <Globe className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-white">Recommended Browsers</p>
-                                            <ul className="text-[10px] text-white/60 space-y-0.5 list-disc list-inside">
-                                                <li>Chrome/Edge 113+ (Best support)</li>
-                                                <li>Firefox Nightly with WebGPU enabled</li>
-                                                <li>Safari Technology Preview (macOS)</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Chrome Flags */}
-                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                    <div className="flex items-start gap-2">
-                                        <Settings className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-white">Chrome Flags (if needed)</p>
-                                            <p className="text-[10px] text-white/60">Visit <code className="px-1 py-0.5 rounded bg-black/30 font-mono">chrome://flags</code> and enable:</p>
-                                            <ul className="text-[10px] text-white/60 space-y-0.5 list-disc list-inside">
-                                                <li>Unsafe WebGPU (for development)</li>
-                                                <li>WebGPU Developer Features</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* GPU Driver Suggestions */}
-                                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                                    <div className="flex items-start gap-2">
-                                        <Cpu className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-white">GPU Driver Requirements</p>
-                                            <ul className="text-[10px] text-white/60 space-y-0.5 list-disc list-inside">
-                                                <li><strong>NVIDIA:</strong> Driver 470+ (Vulkan 1.3 support)</li>
-                                                <li><strong>AMD:</strong> Latest Adrenalin drivers</li>
-                                                <li><strong>Intel:</strong> Latest graphics drivers (Arc/Iris Xe)</li>
-                                                <li>Ensure hardware acceleration is enabled in browser settings</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                       </>
                     )}
                 </div>
