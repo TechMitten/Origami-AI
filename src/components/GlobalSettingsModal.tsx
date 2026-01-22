@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, AlertCircle } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -47,11 +47,23 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   
   // WebLLM State
   const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
-  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? AVAILABLE_WEB_LLM_MODELS[0].id);
+  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? "gemma-2-2b-it-q4f16_1-MLC");
   const [webLlmDownloadProgress, setWebLlmDownloadProgress] = useState<string>('');
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
   const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
+
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (activeTab === 'webllm' && webGpuSupport === null) {
@@ -481,7 +493,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[80vh] sm:h-auto sm:max-h-[90vh] sm:min-h-[600px]">
         {/* Header */}
         <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
@@ -504,34 +516,34 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 p-2 bg-white/5 border-b border-white/5">
+        <div className="flex items-center gap-1 p-2 bg-white/5 border-b border-white/5 overflow-x-auto no-scrollbar">
            <button
              onClick={() => setActiveTab('general')}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Settings className="w-4 h-4" /> General
            </button>
            <button
              onClick={() => setActiveTab('api')}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Key className="w-4 h-4" /> API
            </button>
            <button
              onClick={() => setActiveTab('tts')}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tts' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tts' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Mic className="w-4 h-4" /> TTS Model
            </button>
            <button
              onClick={() => setActiveTab('interface')}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'interface' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'interface' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Layout className="w-4 h-4" /> Interface
            </button>
            <button
              onClick={() => setActiveTab('webllm')}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webllm' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webllm' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Cpu className="w-4 h-4" /> WebLLM
            </button>
@@ -547,9 +559,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             <div className="space-y-1">
               <div className="text-sm font-bold text-white flex items-center gap-2">
                 Enable Global Defaults
-                {isEnabled && <span className="text-[10px] bg-branding-primary text-black px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>}
+                {/* {isEnabled && <span className="text-[10px] bg-branding-primary text-black px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>} */}
               </div>
-              <p className="text-xs text-white/50">Overrides individual slide settings upon creation</p>
+              {/* <p className="text-xs text-white/50">Overrides individual slide settings upon creation</p> */}
             </div>
             <button
                onClick={() => setIsEnabled(!isEnabled)}
@@ -588,7 +600,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                      <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
                           <Activity className="w-4 h-4" /> Audio Normalization
                      </div>
-                     <p className="text-[10px] text-white/30">Automatically normalize audio to -14 LUFS (YouTube Standard)</p>
+                     {/* <p className="text-[10px] text-white/30">Automatically normalize audio to -14 LUFS (YouTube Standard)</p> */}
                  </div>
                  <div className="flex items-center gap-3">
                      <span className="text-[10px] font-bold text-white/40 uppercase">{disableAudioNormalization ? 'Off' : 'On'}</span>
@@ -727,10 +739,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-sm font-bold text-white">Kokoro TTS Configuration</h3>
-                            <p className="text-xs text-white/60 leading-relaxed">
+                            {/* <p className="text-xs text-white/60 leading-relaxed">
                                 Configure the local Text-to-Speech model. "q8" offers higher quality but is larger (~80MB), 
                                 while "q4" is faster and smaller (~45MB) with slightly reduced quality.
-                            </p>
+                            </p> */}
                         </div>
                     </div>
 
@@ -840,11 +852,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                                         Use Local TTS Instance
-                                        {useLocalTTS && <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>}
+                                        {/* {useLocalTTS && <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>} */}
                                     </h3>
-                                    <p className="text-xs text-white/60">
+                                    {/* <p className="text-xs text-white/60">
                                         Connect to a local Dockerized Kokoro FastAPI instance instead of using the browser model.
-                                    </p>
+                                    </p> */}
                                 </div>
                                 <button
                                    onClick={() => setUseLocalTTS(!useLocalTTS)}
@@ -884,22 +896,22 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
                             Model Quantization
                         </label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => setTtsQuantization('q8')}
-                                className={`p-4 rounded-xl border flex flex-col gap-2 transition-all ${ttsQuantization === 'q8' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                                className={`p-2 rounded-lg border flex flex-col gap-1 transition-all ${ttsQuantization === 'q8' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                             >
-                                <span className="text-lg font-bold">q8 (High Quality)</span>
-                                <span className={`text-xs ${ttsQuantization === 'q8' ? 'text-black/60' : 'text-white/40'}`}>
+                                <span className="text-sm font-bold">q8 (High Quality)</span>
+                                <span className={`text-[10px] ${ttsQuantization === 'q8' ? 'text-black/60' : 'text-white/40'}`}>
                                     Recommended for best audio output.
                                 </span>
                             </button>
                             <button
                                 onClick={() => setTtsQuantization('q4')}
-                                className={`p-4 rounded-xl border flex flex-col gap-2 transition-all ${ttsQuantization === 'q4' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                                className={`p-2 rounded-lg border flex flex-col gap-1 transition-all ${ttsQuantization === 'q4' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                             >
-                                <span className="text-lg font-bold">q4 (Fastest)</span>
-                                <span className={`text-xs ${ttsQuantization === 'q4' ? 'text-black/60' : 'text-white/40'}`}>
+                                <span className="text-sm font-bold">q4 (Fastest)</span>
+                                <span className={`text-[10px] ${ttsQuantization === 'q4' ? 'text-black/60' : 'text-white/40'}`}>
                                     Faster inference, smaller download.
                                 </span>
                             </button>
@@ -916,9 +928,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-sm font-bold text-white">Interface Customization</h3>
-                            <p className="text-xs text-white/60 leading-relaxed">
+                            {/* <p className="text-xs text-white/60 leading-relaxed">
                                 Customize the application layout and visual elements.
-                            </p>
+                            </p> */}
                         </div>
                     </div>
 
@@ -928,7 +940,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
                                     <Activity className="w-4 h-4" /> Show Audio Meter
                                 </div>
-                                <p className="text-[10px] text-white/30">Display dB meter on video preview</p>
+                                {/* <p className="text-[10px] text-white/30">Display dB meter on video preview</p> */}
                             </div>
                             <button
                                 onClick={() => setShowVolumeOverlay(!showVolumeOverlay)}
@@ -947,9 +959,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                      </div>
                      <div className="space-y-1">
                         <h3 className="text-sm font-bold text-white">Browser-Based AI (WebLLM)</h3>
-                        <p className="text-xs text-white/60 leading-relaxed">
+                        {/* <p className="text-xs text-white/60 leading-relaxed">
                            Run AI models entirely in your browser using WebGPU. No API key required, free, private, and offline-capable.
-                        </p>
+                        </p> */}
                       </div>
                     </div>
 
@@ -959,11 +971,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                           <div className="space-y-1">
                               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                                   Enable WebLLM
-                                  {useWebLLM && <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>}
+                              {/* {useWebLLM && <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>} */}
                               </h3>
-                              <p className="text-xs text-white/60">
+                              {/* <p className="text-xs text-white/60">
                                   Use browser-based AI instead of remote API for script fixes. Requires ~4GB+ VRAM and ~2GB download.
-                              </p>
+                              </p> */}
                           </div>
                           <button
                               onClick={() => setUseWebLLM(!useWebLLM)}
@@ -1021,18 +1033,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             </div>
                             
                             {/* Precision Explanation */}
-                            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                                <div className="flex items-start gap-2">
-                                    <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-blue-200 font-bold">When to use each precision:</p>
-                                        <ul className="text-[10px] text-blue-200/80 space-y-1 list-disc list-inside">
-                                            <li><strong>f16 (Float16):</strong> Faster inference, lower memory usage. Use if you have a modern GPU with good WebGPU support. {(webGpuSupport?.supported && !webGpuSupport.hasF16) && <span className="text-red-300 font-bold ml-1">(Not supported on your device)</span>}</li>
-                                            <li><strong>f32 (Float32):</strong> Better compatibility with older GPUs or if f16 models fail to load. Slightly slower but more stable.</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* Precision Explanation - Removed per user request */}
                         </div>
 
                         {/* Model Selection */}
@@ -1049,7 +1050,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                     })
                                     .map(m => ({ 
                                         id: m.id, 
-                                        name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}` 
+                                        name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}${m.name.includes('Gemma 2') ? ' ★ (Recommended)' : ''}` 
                                     }))}
                                 value={webLlmModel}
                                 onChange={setWebLlmModel}
@@ -1070,7 +1071,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 <button
                                     onClick={handleDownloadWebLlm}
                                     disabled={isDownloadingWebLlm}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/10 text-white/60 cursor-wait' : 'bg-white text-black hover:bg-white/90'}`}
+                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/5 text-white/40 cursor-wait' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'}`}
                                 >
                                     {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                                     {isDownloadingWebLlm ? 'Downloading...' : 'Load Model'}
@@ -1105,9 +1106,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                  </div>
                  <div className="space-y-1">
                     <h3 className="text-sm font-bold text-white">Remote API Configuration</h3>
-                    <p className="text-xs text-white/60 leading-relaxed">
+                    {/* <p className="text-xs text-white/60 leading-relaxed">
                        Configure your API credentials for remote AI services (Gemini, OpenAI, etc.)
-                    </p>
+                    </p> */}
                   </div>
                 </div>
                 {/* Base URL */}
@@ -1243,7 +1244,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-8 py-2.5 rounded-xl bg-white text-black font-extrabold hover:bg-white/90 hover:scale-105 active:scale-95 transition-all text-sm shadow-lg shadow-white/20"
+            className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20"
           >
             Save Settings
           </button>

@@ -1336,15 +1336,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col">
              {activeTab === 'voice' && (
                 <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="flex items-center justify-between shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 shrink-0">
                         <div className="space-y-2">
                             <h3 className="text-xl font-bold text-white flex items-center gap-3">
                                 Voice Configuration
                             </h3>
-                            <p className="text-base text-white/50">Choose the narrator voice for all slides.</p>
+                            <p className="text-base text-white/50 leading-relaxed">Choose the narrator voice for all slides.</p>
                         </div>
                         {/* Hybrid Toggle */}
-                         <div className="flex items-center gap-4 px-5 py-3 rounded-xl bg-white/5 border border-white/10">
+                         <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-4 px-5 py-3 rounded-xl bg-white/5 border border-white/10">
                             <span className={`text-xs font-bold uppercase transition-colors ${isGlobalHybrid ? 'text-branding-primary' : 'text-white/40'}`}>Hybrid Mode</span>
 
                             <button
@@ -1409,7 +1409,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 />
                             </div>
 
-                            <div className="flex gap-6 pt-6 border-t border-white/5">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-6 border-t border-white/5">
                                 <button onClick={handleGlobalPreview} className={`flex-1 h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
                                     {isGlobalPreviewPlaying ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />} Test Mix
                                 </button>
