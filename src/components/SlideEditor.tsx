@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -97,6 +98,182 @@ function getMatchRanges(text: string, term: string) {
   return ranges;
 }
 
+
+
+const ScriptEditorModal = ({
+  isOpen,
+  onClose,
+  script,
+  selectionRanges,
+  onUpdate,
+  highlightText
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  script: string;
+  selectionRanges?: { start: number; end: number }[];
+  onUpdate: (data: Partial<SlideData>) => void;
+  highlightText?: string;
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSelection = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    
+    // Check if we have a valid selection that is not just a caret position
+    if (el.selectionStart !== el.selectionEnd) {
+      const newRange = { start: el.selectionStart, end: el.selectionEnd };
+      const currentRanges = selectionRanges || [];
+      const updatedRanges = mergeRanges([...currentRanges, newRange]);
+      onUpdate({ selectionRanges: updatedRanges });
+    }
+  };
+
+  const handleClearHighlight = () => {
+    onUpdate({ selectionRanges: undefined });
+  };
+
+  const syncScroll = () => {
+    if (textareaRef.current && backdropRef.current) {
+      backdropRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  };
+
+  const renderBackdrop = () => {
+    if ((!selectionRanges || selectionRanges.length === 0) && !highlightText) {
+         return script; 
+    }
+
+    const selections = selectionRanges || [];
+    const matches = getMatchRanges(script, highlightText || '');
+    
+    const boundaries = new Set<number>([0, script.length]);
+    selections.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
+    matches.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
+    
+    const points = Array.from(boundaries).sort((a, b) => a - b);
+    const parts = [];
+    
+    for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i];
+        const end = points[i+1];
+        const text = script.slice(start, end);
+        
+        if (!text) continue;
+        
+        const isSelected = selections.some(r => r.start <= start && r.end >= end);
+        const isMatch = matches.some(r => r.start <= start && r.end >= end);
+        
+        let className = "";
+        if (isSelected && isMatch) {
+            className = "bg-emerald-500/60"; 
+        } else if (isSelected) {
+            className = "bg-teal-500/30"; 
+        } else if (isMatch) {
+            className = "bg-yellow-500/60"; 
+        }
+        
+        if (className) {
+            parts.push(<mark key={start} className={`${className} text-transparent rounded-sm px-0 py-0`}>{text}</mark>);
+        } else {
+            parts.push(text);
+        }
+    }
+    
+    return <>{parts}</>;
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full h-full sm:h-[85vh] sm:w-[800px] bg-[#121212] sm:rounded-2xl border-white/10 sm:border flex flex-col shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 bg-white/5 border-b border-white/5">
+           <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                 <Maximize2 className="w-5 h-5 text-branding-primary" />
+                 Focus Mode
+              </h3>
+              <p className="text-xs text-white/40">Select text ranges for targeted audio generation</p>
+           </div>
+           <button 
+             onClick={onClose}
+             className="p-2 -mr-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+           >
+             <Minimize2 className="w-6 h-6" />
+           </button>
+        </div>
+        
+        {/* Toolbar */}
+        <div className="px-6 py-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
+           <span className="text-xs font-bold text-white/30 uppercase tracking-widest">Script Editor</span>
+           {selectionRanges && selectionRanges.length > 0 && (
+             <button
+               onClick={handleClearHighlight}
+               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 text-xs font-bold uppercase tracking-wider transition-colors"
+             >
+               <X className="w-3.5 h-3.5" />
+               Clear Highlights
+             </button>
+           )}
+        </div>
+
+        {/* Editor Area */}
+        <div className="relative flex-1 bg-[#1a1a1a]">
+           <div className="absolute inset-0 overflow-hidden">
+             {/* Backdrop */}
+             <div 
+               ref={backdropRef}
+               className="absolute inset-0 w-full h-full px-6 py-6 text-base sm:text-lg font-sans leading-relaxed whitespace-pre-wrap wrap-break-word overflow-hidden text-transparent pointer-events-none"
+               aria-hidden="true"
+             >
+               {renderBackdrop()}
+             </div>
+
+             {/* Textarea */}
+             <textarea
+               ref={textareaRef}
+               value={script}
+               onChange={(e) => onUpdate({ script: e.target.value, selectionRanges: undefined })}
+               onScroll={syncScroll}
+               onSelect={handleSelection} // Using onSelect for better mobile support
+               onTouchEnd={handleSelection} // Additional trigger for touch devices
+               onTouchCancel={handleSelection}
+               onBlur={handleSelection} // Ensure selection is captured on exit
+               className="absolute inset-0 w-full h-full px-6 py-6 bg-transparent text-white text-base sm:text-lg font-sans leading-relaxed resize-none outline-none border-none focus:ring-0 selection:bg-branding-primary/30"
+               placeholder="Enter your script here. Highlight text to select specific parts for audio generation..."
+               spellCheck={false}
+             />
+           </div>
+        </div>
+        
+        {/* Footer info */}
+        <div className="px-6 py-3 bg-white/5 border-t border-white/5">
+             <div className="flex items-center gap-2 text-xs text-white/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-branding-primary animate-pulse"/>
+                Highlighting text automatically enables selective TTS generation. Changes are saved automatically.
+             </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const SortableSlideItem = ({ 
   slide, 
   index, 
@@ -145,6 +322,7 @@ const SortableSlideItem = ({
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
+  const [showScriptEditor, setShowScriptEditor] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
@@ -466,6 +644,13 @@ const SortableSlideItem = ({
             <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
             <div className="flex gap-2">
               <button
+                onClick={() => setShowScriptEditor(true)}
+                className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-primary hover:text-white transition-colors cursor-pointer"
+                title="Open Focus Mode Editor"
+              >
+                <Maximize2 className="w-3 h-3" /> Focus Mode
+              </button>
+              <button
                 onClick={handleTransform}
                 disabled={isTransforming || !slide.script.trim()}
                 className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
@@ -678,6 +863,14 @@ const SortableSlideItem = ({
       >
          <Trash2 className="w-4 h-4" />
       </button>
+      <ScriptEditorModal
+        isOpen={showScriptEditor}
+        onClose={() => setShowScriptEditor(false)}
+        script={slide.script}
+        selectionRanges={slide.selectionRanges}
+        onUpdate={(data) => onUpdate(index, data)}
+        highlightText={highlightText}
+      />
     </div>
   );
 };
