@@ -1,9 +1,9 @@
 # Origami
 
-![License](https://img.shields.io/github/license/techcow2/Origami-AI?style=flat-square)
-![Issues](https://img.shields.io/github/issues/techcow2/Origami-AI?style=flat-square)
-![Stars](https://img.shields.io/github/stars/techcow2/Origami-AI?style=flat-square)
-![Forks](https://img.shields.io/github/forks/techcow2/Origami-AI?style=flat-square)
+![License](https://img.shields.io/github/license/IslandApps/Origami-AI?style=flat-square)
+![Issues](https://img.shields.io/github/issues/IslandApps/Origami-AI?style=flat-square)
+![Stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=flat-square)
+![Forks](https://img.shields.io/github/forks/IslandApps/Origami-AI?style=flat-square)
 
 **Origami** is a high-fidelity automated video generation platform that transforms PDF slides into cinematic narrated content. By leveraging advanced AI for script synthesis, professional Text-to-Speech (TTS), and programmatic video rendering, Origami streamlines the creation of engaging presentations, tutorials, and educational media directly from your static documents.
 
@@ -46,7 +46,7 @@
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/techcow2/Origami-AI.git
+   git clone https://github.com/IslandApps/Origami-AI.git
    cd Origami-AI
    ```
 
@@ -69,7 +69,7 @@ To deploy this application using Docker, you **must first clone the repository**
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/techcow2/Origami-AI.git
+   git clone https://github.com/IslandApps/Origami-AI.git
    cd Origami-AI
    ```
 
@@ -213,4 +213,4 @@ This project is made possible by the following incredible open-source libraries 
 
 ## License
 
-[MIT](https://github.com/techcow2/Origami-AI/blob/main/LICENSE)
+[MIT](https://github.com/IslandApps/Origami-AI/blob/main/LICENSE)

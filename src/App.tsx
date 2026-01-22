@@ -447,7 +447,7 @@ function App() {
           {/* Global Tools */}
           <div className="flex items-center gap-1">
              <a
-              href="https://github.com/techcow2/Origami-AI"
+              href="https://github.com/IslandApps/Origami-AI"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"

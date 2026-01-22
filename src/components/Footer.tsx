@@ -17,7 +17,7 @@ export const Footer: React.FC = () => {
         <div className="hidden sm:block w-px h-4 bg-white/10" />
 
         <a
-          href="https://github.com/techcow2/Origami-AI"
+          href="https://github.com/IslandApps/Origami-AI"
           target="_blank"
           rel="noopener noreferrer"
           className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2"
