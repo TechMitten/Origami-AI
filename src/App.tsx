@@ -37,6 +37,7 @@ function App() {
   const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   
 
   const [isRestoring, setIsRestoring] = useState(true);
@@ -485,43 +486,54 @@ function App() {
             <>
               <div className="w-px h-6 bg-white/10 mx-1 sm:mx-2" />
               
-              <div className="relative group/menu">
+              <div className="relative z-60">
                 <button
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
+                  onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all border ${isActionsMenuOpen ? 'bg-white/10 text-white border-white/20' : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10'}`}
                 >
                   <span className="hidden sm:inline">Actions</span>
                   <Settings2 className="w-4 h-4 sm:hidden" /> 
-                  <svg className="w-4 h-4 opacity-50 group-hover/menu:opacity-100 transition-opacity hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`w-4 h-4 transition-transform duration-200 hidden sm:block ${isActionsMenuOpen ? 'rotate-180 text-white' : 'opacity-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
+                {/* Backdrop to close menu when clicking outside */}
+                {isActionsMenuOpen && (
+                   <div 
+                     className="fixed inset-0 z-[-1] cursor-default" 
+                     onClick={() => setIsActionsMenuOpen(false)}
+                   />
+                )}
+
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 top-full mt-2 w-48 py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 transform origin-top-right z-60">
-                   <button
-                    onClick={handleStartOver}
-                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4" /> Start Over
-                  </button>
-                  <button
-                    onClick={handleResetHighlights}
-                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                  >
-                    <Eraser className="w-4 h-4" /> Reset Highlights
-                  </button>
-                  {slides.some(s => s.isSelected) && (
-                    <>
-                      <div className="h-px bg-white/10 my-1" />
-                      <button
-                        onClick={handleDeleteSelected}
-                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" /> Delete Selected ({slides.filter(s => s.isSelected).length})
-                      </button>
-                    </>
-                  )}
-                </div>
+                {isActionsMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-48 py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-60">
+                    <button
+                      onClick={() => { handleStartOver(); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                    >
+                      <RotateCcw className="w-4 h-4" /> Start Over
+                    </button>
+                    <button
+                      onClick={() => { handleResetHighlights(); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                    >
+                      <Eraser className="w-4 h-4" /> Reset Highlights
+                    </button>
+                    {slides.some(s => s.isSelected) && (
+                      <>
+                        <div className="h-px bg-white/10 my-1" />
+                        <button
+                          onClick={() => { handleDeleteSelected(); setIsActionsMenuOpen(false); }}
+                          className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" /> Delete Selected ({slides.filter(s => s.isSelected).length})
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
