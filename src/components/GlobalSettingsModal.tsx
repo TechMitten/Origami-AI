@@ -177,7 +177,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       // might reject requests with custom headers if they aren't explicitly allowed.
       if (baseUrl.includes('openrouter')) {
           headers['HTTP-Referer'] = window.location.origin;
-          headers['X-Title'] = 'TechCow Tutorials';
+          headers['X-Title'] = 'Island Applications';
       }
 
       const response = await fetch(url, {
