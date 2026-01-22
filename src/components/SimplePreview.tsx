@@ -296,8 +296,39 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
       return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+    const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInteraction = useCallback(() => {
+     setShowControls(true);
+     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+     
+     if (isPlaying) {
+         controlsTimeoutRef.current = setTimeout(() => {
+             setShowControls(false);
+         }, 3000);
+     }
+  }, [isPlaying]);
+
+  useEffect(() => {
+      if (isPlaying) {
+          controlsTimeoutRef.current = setTimeout(() => {
+              setShowControls(false);
+          }, 3000);
+      }
+      return () => {
+          if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      };
+  }, [isPlaying]);
+
   return (
-    <div ref={containerRef} className={`relative w-full bg-black overflow-hidden group/player ${isFullScreen ? 'fixed inset-0 z-50 rounded-none' : 'rounded-3xl h-full'}`}>
+    <div 
+        ref={containerRef} 
+        className={`relative w-full bg-black overflow-hidden group/player ${isFullScreen ? 'fixed inset-0 z-50 rounded-none' : 'rounded-3xl h-full'}`}
+        onMouseMove={handleInteraction}
+        onTouchStart={handleInteraction}
+        onClick={handleInteraction}
+    >
       {/* Slide Content */}
       <div className="absolute inset-0 flex items-center justify-center">
         {currentSlide?.dataUrl && (
@@ -334,13 +365,16 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
       </div>
 
       {/* Controls Overlay */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 via-black/60 to-transparent pt-12 pb-6 px-6 transition-opacity duration-300 ${isPlaying && !isDragging ? 'opacity-0 group-hover/player:opacity-100' : 'opacity-100'}`}>
+      <div className={`absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 via-black/60 to-transparent pt-12 pb-6 px-6 transition-opacity duration-300 ${ (isPlaying && !isDragging && !showControls) ? 'opacity-0 group-hover/player:opacity-100' : 'opacity-100' }`}>
         {/* Progress Bar */}
         <div 
             className="mb-4 group/timeline relative py-2 cursor-pointer"
             ref={progressBarRef}
             onMouseDown={handleMouseDown}
-            onTouchStart={handleSeek}
+            onTouchStart={(e) => {
+                handleInteraction();
+                handleSeek(e);
+            }}
         >
           {/* Background */}
           <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden group-hover/timeline:h-2 transition-all">
