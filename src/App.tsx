@@ -685,7 +685,7 @@ function App() {
       <img 
         src={backgroundImage} 
         alt="" 
-        className="fixed inset-0 -z-50 w-full h-full object-cover opacity-40 blur-[2px] brightness-75 scale-105" 
+        className="fixed inset-0 -z-50 w-full h-lvh object-cover opacity-40 blur-[2px] brightness-75 scale-105" 
       />
 
       {/* Notifications Container */}
