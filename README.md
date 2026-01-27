@@ -22,7 +22,7 @@
 ## Features
 
 - **PDF to Presentation**: Upload PDF slides and automatically extract them into a sequence of video scenes.
-- **AI-Powered Scripting**: Integrated with Google Gemini AI and [WebLLM](https://webllm.mlc-ai.org/) (Local Browser Inference) to transform fragmented slide notes into coherent, professional scripts.
+- **AI-Powered Scripting**: Integrated with [WebLLM](https://webllm.mlc-ai.org/) (Local Browser Inference) to transform fragmented slide notes into coherent, professional scripts.
 - **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using [Kokoro-js](https://github.com/m-bain/kokoro-js).
   - **Local Inference**: Run TTS entirely locally via Dockerized Kokoro FastAPI.
   - **Hybrid Voices**: Create custom voice blends by mixing two models with adjustable weights.
@@ -73,29 +73,6 @@ To deploy this application using Docker, you **must first clone the repository**
    cd Origami-AI
    ```
 
-#### Using Docker Compose (Recommended)
-
-A `docker-compose.yml` file is provided in the root directory. To start the application, run:
-
-```bash
-docker-compose up -d
-```
-
-Example `docker-compose.yml`:
-
-```yaml
-services:
-  origami-ai:
-    build: .
-    container_name: origami-ai
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
-    environment:
-      - PORT=3000
-      - NODE_ENV=production
-```
-
 #### Using Docker CLI
 
 1. Build the image:
@@ -133,7 +110,7 @@ Scroll down to the **Configure Slides** panel to manage your project globally:
 
 In the **Slide Editor** grid:
 
-- **AI Scripting**: Click the **AI Fix Script** button (Sparkles icon) to have Gemini rewrite raw slide text into a natural spoken script.
+- **AI Scripting**: Click the **AI Fix Script** button (Sparkles icon) to rewrite raw slide text into a natural spoken script.
 - **Manual Editing**: Edit scripts directly. **Highlight** specific text sections to generate/regenerate audio for just that part.
 - **Generate Output**: Click the **Generate TTS** button (Speech icon) to create voiceovers.
 - **Preview**: Click the **Play** button to hear the result or click the slide thumbnail to expand the visual preview.
@@ -155,7 +132,8 @@ Open the **Settings Modal** (Gear Icon) to customize the application:
 
 Configure the AI model used for script refinement ("AI Fix Script").
 
-- **Google Gemini**: Built-in and recommended. Requires a [Google AI Studio](https://aistudio.google.com/) API Key.
+- **WebLLM (Default)**: Runs entirely in your browser using WebGPU. No API key required, completely free, and keeps your data private. Models are downloaded once and cached locally for fast inference.
+
 - **Custom/OpenAI-Compatible**: Point to any OpenAI-compatible endpoint (e.g., LocalAI, Ollama, vLLM).
   - **Base URL**: Enter your provider's URL (e.g., `http://localhost:11434/v1`).
   - **Model Name**: Specify the model ID (e.g., `llama-3`).
@@ -178,7 +156,7 @@ You can build your own library of background music tracks that will be available
 
 - **Frontend**: React 19, Vite, Tailwind CSS (v4)
 - **Video Engine**: FFmpeg WASM (Client-side)
-- **AI**: Google Gemini API & WebLLM (Local Browser Inference)
+- **AI**: WebLLM (Local Browser Inference)
 - **TTS**: Kokoro (FastAPI / Web Worker)
 - **Backend**: Express.js (serving as a rendering orchestration layer)
 - **Utilities**: Lucide React (icons), dnd-kit (drag & drop), pdfjs-dist (PDF processing)
@@ -191,7 +169,7 @@ You can build your own library of background music tracks that will be available
 
 ## Roadmap & TODO
 
-- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions using Gemini.
+- [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions.
 - [x] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
 - [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
 - [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
@@ -208,7 +186,6 @@ This project is made possible by the following incredible open-source libraries 
 - **[Lucide React](https://lucide.dev/)**: Beautifully crafted open-source icons.
 - **[dnd-kit](https://dndkit.com/)**: A modern, lightweight toolkit for drag-and-drop interfaces.
 - **[Dokploy](https://dokploy.com/)**: The open-source platform used for seamless self-hosting and deployment.
-- **[Google Antigravity](https://antigravity.google)**: The AI-powered IDE used to build and refine this project.
 
 ## License
 
