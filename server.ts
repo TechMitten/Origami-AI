@@ -33,7 +33,7 @@ async function createServer() {
   app.use(express.static(path.resolve(__dirname, 'public')));
 
   // Updated to default to 8080 for your VPS setup
-  const port = process.env.PORT || 3000; 
+  const port = Number(process.env.PORT) || 3000; 
 
   // Server-side endpoints removed as rendering is now client-side.
   // Files are no longer stored on the server.
@@ -66,8 +66,8 @@ async function createServer() {
   }
   // --- END MODIFIED SECTION ---
 
-  const server = app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running at http://0.0.0.0:${port}`);
   });
   
   server.timeout = 900000;
