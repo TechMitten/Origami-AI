@@ -1,5 +1,5 @@
 # Stage 1: Dependencies
-FROM node:20-slim AS deps
+FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 # Install all dependencies (including devDependencies like 'vite')
@@ -7,26 +7,25 @@ COPY package*.json ./
 RUN npm ci
 
 # Stage 2: Builder
-FROM node:20-slim AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Build the application
 RUN npm run build
 
 # Stage 3: Runner
-FROM node:20-slim AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 # In production, we only need basic node environment since rendering is client-side
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy necessary files from previous stages
+# Copy package.json and node_modules from deps, then prune dev dependencies
 COPY package*.json ./
-# Install only production dependencies (faster, smaller image)
-RUN npm ci --omit=dev
+COPY --from=deps /app/node_modules ./node_modules
+RUN npm prune --production
 COPY --from=builder /app/dist ./dist
 COPY public ./public
 COPY server.ts ./
