@@ -22,10 +22,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy package.json and node_modules from deps, then prune dev dependencies
+# Copy package.json and node_modules from deps, keep vite for static import
 COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
-RUN npm prune --production
+# Keep vite since server.ts has a static import of it
+RUN npm prune --production && npm install vite --no-save
 COPY --from=builder /app/dist ./dist
 COPY public ./public
 COPY server.ts ./
