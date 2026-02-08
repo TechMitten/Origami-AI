@@ -1155,7 +1155,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         }
         
         const video = document.createElement('video');
-        video.src = url;
+        video.src = parsed.href; // Use sanitized URL from URL parser
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
            resolve(video.duration);
