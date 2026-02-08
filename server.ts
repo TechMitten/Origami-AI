@@ -52,14 +52,18 @@ async function createServer() {
       const distDir = path.resolve(__dirname, 'dist');
       app.use(express.static(distDir));
 
-      // Fixed wildcard route to prevent path-to-regexp crash (Express 5 syntax)
-      app.get('/*', (req, res) => {
+      // Catch-all route for SPA - must be last
+      // Use middleware style to avoid Express 5 path-to-regexp issues
+      app.use((req, res, next) => {
           // If the request starts with /api but didn't match any route above, 404 it
           if (req.originalUrl.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
           }
-          // Otherwise, serve the SPA index.html
-          res.sendFile(path.resolve(distDir, 'index.html'));
+          // Otherwise, serve the SPA index.html for all non-file routes
+          if (!req.path.includes('.')) {
+            return res.sendFile(path.resolve(distDir, 'index.html'));
+          }
+          next();
       });
   } else {
       if (vite) app.use(vite.middlewares);
