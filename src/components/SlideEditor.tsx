@@ -1149,15 +1149,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       try {
         if (!url) throw new Error("Empty URL");
         
-        // Allow Blob URLs
-        if (url.startsWith('blob:')) {
-            // Safe to use
-        } else {
-            // Strict parsing for others
-            const parsed = new URL(url);
-            if (!['http:', 'https:'].includes(parsed.protocol)) {
-                throw new Error("Invalid protocol");
-            }
+        const parsed = new URL(url, window.location.href); // Handle relative URLs by providing base
+        if (!['http:', 'https:', 'blob:'].includes(parsed.protocol)) {
+            throw new Error("Invalid protocol");
         }
         
         const video = document.createElement('video');
