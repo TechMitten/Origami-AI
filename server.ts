@@ -14,9 +14,33 @@ async function createServer() {
   const app = express();
 
   // Security Middleware
+  // Security Middleware
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for now to avoid breaking existing scripts/styles
-    crossOriginEmbedderPolicy: false, // Disabled to allow cross-origin resources if needed
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "blob:"], // unsafe-eval needed for some dev tools/libraries
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        mediaSrc: ["'self'", "data:", "blob:", "https:"],
+        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "https://unpkg.com"], // ws: for Vite HMR, blob: for FFmpeg workers
+        workerSrc: ["'self'", "blob:"], // Explicitly allow blob workers for FFmpeg
+      },
+    }, 
+    crossOriginEmbedderPolicy: false, // Keeping false for now as true often breaks cross-origin subresources like CDNs without proper headers 
+    // Update: To fix "Insecure configuration", we should strive for better defaults, but if it breaks the app, the user will be unhappy.
+    // However, the report is explicitly about "Insecure configuration". 
+    // Let's enable strict CSP but keep COEP off if we use external resources without CORP headers.
+    // Actually, let's try to enable it but allow credentialless if possible, or just remove the explicit 'false' to use default (which is require-corp).
+    // The user's code had:
+    // app.use((_req, res, next) => {
+    //  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+    // ...
+    // So we might conflict if we set it in Helmet too. 
+    // Let's set it to false in Helmet and let the manual middleware handle it, or configure it here.
+    // The manual middleware uses 'credentialless', which Helmet might not support directly in older versions?
+    // Let's trust the manual middleware for COEP/COOP tokens and focus on CSP here.
   }));
   app.use(compression());
   app.use(hpp());
@@ -40,7 +64,7 @@ async function createServer() {
   
   // In production, restrict this to your Cloudflare Pages URL
   app.use(cors({
-    origin: process.env.CLIENT_URL || '*', 
+    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : false, // Default to no access if not configured
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
   }));

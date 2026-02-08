@@ -5,6 +5,7 @@ import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, genera
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
+import { encrypt, decrypt } from '../utils/secureStorage';
 
 
 import { reloadTTS } from '../services/ttsService';
@@ -101,17 +102,19 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
      const saved = localStorage.getItem('google_api_key_backup');
      // If we are currently using google, prefer the active key as the latest 'truth'
      if (localStorage.getItem('llm_base_url')?.includes('googleapis')) {
-         return localStorage.getItem('llm_api_key') || saved || '';
+         const key = localStorage.getItem('llm_api_key');
+         return key ? decrypt(key) : (saved ? decrypt(saved) : '');
      }
-     return saved || '';
+     return saved ? decrypt(saved) : '';
   });
   
   const [storedOpenRouterKey, setStoredOpenRouterKey] = useState(() => {
       const saved = localStorage.getItem('openrouter_api_key_backup');
       if (localStorage.getItem('llm_base_url')?.includes('openrouter')) {
-          return localStorage.getItem('llm_api_key') || saved || '';
+          const key = localStorage.getItem('llm_api_key');
+          return key ? decrypt(key) : (saved ? decrypt(saved) : '');
       }
-      return saved || '';
+      return saved ? decrypt(saved) : '';
   });
 
   const handleUseGemini = () => {
@@ -396,7 +399,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   }, [isHybrid, voiceA, voiceB, mixBalance]);
   React.useEffect(() => {
     if (isOpen) {
-      setApiKey(localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '');
+      const key = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
+      setApiKey(key ? decrypt(key) : '');
       setBaseUrl(localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/');
       setModel(localStorage.getItem('llm_model') || 'gemini-2.5-flash');
     }
@@ -462,22 +466,22 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
          if (ttsQuantization) reloadTTS(ttsQuantization);
     }
 
-    localStorage.setItem('llm_api_key', apiKey);
+    localStorage.setItem('llm_api_key', encrypt(apiKey));
     localStorage.setItem('llm_base_url', baseUrl);
     localStorage.setItem('llm_model', model);
     
     // Persist backup keys
     // If we are currently enabled as one provider, ensure its backup is also updated to the latest key
     if (baseUrl.includes('googleapis')) {
-        localStorage.setItem('google_api_key_backup', apiKey);
-        if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', storedOpenRouterKey);
+        localStorage.setItem('google_api_key_backup', encrypt(apiKey));
+        if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
     } else if (baseUrl.includes('openrouter')) {
-        localStorage.setItem('openrouter_api_key_backup', apiKey);
-        if (storedGeminiKey) localStorage.setItem('google_api_key_backup', storedGeminiKey);
+        localStorage.setItem('openrouter_api_key_backup', encrypt(apiKey));
+        if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
     } else {
         // Fallback: save whatever we have in state
-        if (storedGeminiKey) localStorage.setItem('google_api_key_backup', storedGeminiKey);
-        if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', storedOpenRouterKey);
+        if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
+        if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
     }
 
     await onSave(settings);

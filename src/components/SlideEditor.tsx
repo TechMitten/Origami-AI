@@ -1145,6 +1145,13 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const getVideoDuration = (url: string): Promise<number> => {
     return new Promise((resolve) => {
+      // Validate URL protocol to prevent potential DOM XSS (CodeQL fix)
+      // We generally expect blob: URLs from createObjectURL, or http/https from remote sources
+      if (!url || (!url.startsWith('blob:') && !url.startsWith('http:') && !url.startsWith('https:'))) {
+         resolve(5);
+         return;
+      }
+
       const video = document.createElement('video');
       video.src = url;
       video.preload = 'metadata';
