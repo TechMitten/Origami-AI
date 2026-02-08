@@ -17,7 +17,8 @@ import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
-import { initWebLLM, webLlmEvents } from './services/webLlmService';
+import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
+import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
 
 
 
@@ -35,6 +36,7 @@ function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   
@@ -155,9 +157,16 @@ function App() {
            renderer.load().catch(console.error);
       }
       if (selection.enableWebLLM) {
-           // Enable WebLLM in settings but don't open modal automatically
-           // User can access Settings when ready to configure WebLLM
-           await handlePartialGlobalSettings({ useWebLLM: true });
+           // Check WebGPU support first
+           const webgpuStatus = await checkWebGPUSupport();
+           if (!webgpuStatus.supported) {
+               // Show WebGPU instructions modal
+               setIsWebGPUModalOpen(true);
+               return;
+           }
+           // Enable WebLLM in settings with the default model
+           // Use f32 variant for better compatibility
+           await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: 'gemma-2-2b-it-q4f32_1-MLC' });
       }
   };
 
@@ -653,6 +662,7 @@ function App() {
           onClose={() => setIsSettingsOpen(false)}
           currentSettings={globalSettings}
           onSave={handleSaveGlobalSettings}
+          onShowWebGPUModal={() => setIsWebGPUModalOpen(true)}
         />
        )}
 
@@ -672,6 +682,11 @@ function App() {
           onClose={() => setIsThumbnailModalOpen(false)}
           slides={slides}
           globalSettings={globalSettings}
+       />
+
+       <WebGPUInstructionsModal
+          isOpen={isWebGPUModalOpen}
+          onClose={() => setIsWebGPUModalOpen(false)}
        />
 
       {/* Background Image */}

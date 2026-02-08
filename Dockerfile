@@ -23,14 +23,16 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Copy node_modules from deps - keep all including vite for static import
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY public ./public
-COPY server.ts ./
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --chown=node:node public ./public
+COPY --chown=node:node server.ts ./
 # Copy config files just in case tsx/vite needs them for resolution
-COPY tsconfig*.json ./
-COPY vite.config.ts ./
+COPY --chown=node:node tsconfig*.json ./
+COPY --chown=node:node vite.config.ts ./
 
 EXPOSE 3000
+
+USER node
 
 CMD ["npx", "tsx", "server.ts"]

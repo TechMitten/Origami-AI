@@ -17,6 +17,7 @@ interface GlobalSettingsModalProps {
   currentSettings: GlobalSettings | null;
   onSave: (settings: GlobalSettings) => Promise<void>;
   initialTab?: 'general' | 'api' | 'tts' | 'interface' | 'webllm';
+  onShowWebGPUModal?: () => void;
 }
 
 export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
@@ -24,7 +25,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   onClose,
   currentSettings,
   onSave,
-  initialTab = 'general'
+  initialTab = 'general',
+  onShowWebGPUModal
 }) => {
   const { showAlert } = useModal();
   const [isEnabled, setIsEnabled] = useState(currentSettings?.isEnabled ?? false);
@@ -978,7 +980,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                               </p> */}
                           </div>
                           <button
-                              onClick={() => setUseWebLLM(!useWebLLM)}
+                              onClick={async () => {
+                                if (!useWebLLM) {
+                                  // User is trying to enable WebLLM - check WebGPU support first
+                                  const support = await checkWebGPUSupport();
+                                  if (!support.supported) {
+                                    onShowWebGPUModal?.();
+                                    return;
+                                  }
+                                }
+                                setUseWebLLM(!useWebLLM);
+                              }}
                               className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-emerald-500' : 'bg-white/10'}`}
                           >
                               <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-7' : 'translate-x-0'}`} />
