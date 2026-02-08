@@ -70,8 +70,8 @@ async function createServer() {
   }
   // --- END MODIFIED SECTION ---
 
-  const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running at http://0.0.0.0:${port}`);
+  const server = app.listen(port, 'localhost', () => {
+    console.log(`Server running at http://localhost:${port}`);
   });
   
   server.timeout = 900000;

@@ -32,7 +32,6 @@ function App() {
   const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm'>('general');
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
@@ -109,7 +108,7 @@ function App() {
       
       // Only init WebLLM if enabled specifically in settings AND cached
       if (cached.webllm && settings?.useWebLLM) {
-          const model = settings.webLlmModel || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+          const model = settings.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
           initWebLLM(model, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
       }
 
@@ -123,7 +122,7 @@ function App() {
             if (pref.downloadTTS) initTTS(settings?.ttsQuantization || 'q4');
             if (pref.downloadFFmpeg) renderer.load().catch(console.error);
             if (pref.enableWebLLM) {
-                const model = settings?.webLlmModel || 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+                const model = settings?.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
                 initWebLLM(model, () => {
                     // console.log('WebLLM Loading:', p);
                 }).catch(console.error);
@@ -148,7 +147,7 @@ function App() {
 
   const handleResourceConfirm = async (selection: ResourceSelection) => {
       setIsResourceModalOpen(false);
-      
+
       if (selection.downloadTTS) {
            initTTS(globalSettings?.ttsQuantization || 'q4');
       }
@@ -156,14 +155,9 @@ function App() {
            renderer.load().catch(console.error);
       }
       if (selection.enableWebLLM) {
-           // We do NOT init webllm here automatically if user just selected "Enable WebLLM".
-           // Instead, we open the settings modal to the WebLLM tab so they can see/choose the model and download it.
-           
-           // However, let's enable the setting flag so when they open it, it's checked (if logic supports that, which it does via props).
+           // Enable WebLLM in settings but don't open modal automatically
+           // User can access Settings when ready to configure WebLLM
            await handlePartialGlobalSettings({ useWebLLM: true });
-           
-           setActiveSettingsTab('webllm');
-           setIsSettingsOpen(true);
       }
   };
 
@@ -656,7 +650,6 @@ function App() {
        {isSettingsOpen && (
          <GlobalSettingsModal
           isOpen={isSettingsOpen}
-          initialTab={activeSettingsTab}
           onClose={() => setIsSettingsOpen(false)}
           currentSettings={globalSettings}
           onSave={handleSaveGlobalSettings}

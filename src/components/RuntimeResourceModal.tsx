@@ -21,8 +21,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
       downloadFFmpeg: true,
       enableWebLLM: true
   });
-  
-  
+
+
   const [isClosing, setIsClosing] = useState(false);
   const [prevOpen, setPrevOpen] = useState(isOpen);
 
@@ -88,10 +88,10 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
         <div className="p-6 border-b border-white/5 bg-linear-to-r from-blue-500/10 to-purple-500/10">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Download className="w-5 h-5 text-blue-400" />
-            Runtime Resources
+            Let's Get You Set Up
           </h2>
           <p className="mt-2 text-sm text-gray-400">
-            Select the components you want to download now.
+            Choose how to power each feature. You can download files to run everything locally, or skip downloads and use your own API keys.
           </p>
         </div>
 
@@ -118,11 +118,11 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <h3 className={`font-bold ${preinstalled.tts ? 'text-green-100' : (selection.downloadTTS ? 'text-blue-100' : 'text-gray-300')}`}>
-                         TTS Model (Kokoro)
-                         {preinstalled.tts && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Installed</span>}
+                         Voice Narration
+                         {preinstalled.tts && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Ready</span>}
                     </h3>
                     {!preinstalled.tts && (
-                        selection.downloadTTS 
+                        selection.downloadTTS
                         ? <CheckSquare className="w-5 h-5 text-blue-400" />
                         : <Square className="w-5 h-5 text-gray-600" />
                     )}
@@ -130,10 +130,13 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               </div>
             </div>
             <p className="text-xs text-gray-400 ml-12 leading-relaxed">
-              {preinstalled.tts 
-                ? "Model is already downloaded and ready to use."
-                : "Required for generating high-quality AI voiceovers. (~80MB)"
+              {preinstalled.tts
+                ? "Already installed and ready to use!"
+                : "Adds natural-sounding voice narration to your tutorials. (~80MB)"
               }
+              {!preinstalled.tts && (
+                <span className="block mt-1 text-white/30">Or skip and use Settings → TTS Model → Use Local TTS Instance</span>
+              )}
             </p>
           </div>
 
@@ -157,11 +160,11 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <h3 className={`font-bold ${preinstalled.ffmpeg ? 'text-green-100' : (selection.downloadFFmpeg ? 'text-purple-100' : 'text-gray-300')}`}>
-                        FFmpeg Core (WASM)
-                        {preinstalled.ffmpeg && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Installed</span>}
+                        Video Creator
+                        {preinstalled.ffmpeg && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Ready</span>}
                     </h3>
                      {!preinstalled.ffmpeg && (
-                        selection.downloadFFmpeg 
+                        selection.downloadFFmpeg
                         ? <CheckSquare className="w-5 h-5 text-purple-400" />
                         : <Square className="w-5 h-5 text-gray-600" />
                      )}
@@ -169,9 +172,9 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               </div>
             </div>
             <p className="text-xs text-gray-400 ml-12 leading-relaxed">
-               {preinstalled.ffmpeg 
-                ? "FFmpeg is available in cache."
-                : "Required for client-side video rendering. (~30MB)"
+               {preinstalled.ffmpeg
+                ? "Already installed and ready to use!"
+                : "Required to create your tutorial video. (~30MB)"
               }
             </p>
           </div>
@@ -196,8 +199,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <h3 className={`font-bold ${preinstalled.webllm ? 'text-green-100' : (selection.enableWebLLM ? 'text-orange-100' : 'text-gray-300')}`}>
-                         Local LLM (WebLLM)
-                         {preinstalled.webllm && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Installed</span>}
+                         Smart Writing Assistant
+                         {preinstalled.webllm && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Ready</span>}
                     </h3>
                      {!preinstalled.webllm && (
                         selection.enableWebLLM
@@ -208,22 +211,28 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               </div>
             </div>
             <p className="text-xs text-gray-400 ml-12 leading-relaxed">
-               {preinstalled.webllm 
-                ? "WebLLM model is ready."
-                : "Enable local AI text refinement. Requires downloading a large model (~1-2GB)."
+               {preinstalled.webllm
+                ? "Already installed and ready to use!"
+                : "AI that improves your script right in your browser. Optional - large download (~1-2GB)."
               }
+              {!preinstalled.webllm && (
+                <span className="block mt-1 text-white/30">Or skip and use Settings → API to connect Gemini, OpenRouter, or Ollama</span>
+              )}
             </p>
           </div>
 
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-2 flex items-center justify-end border-t border-white/5 bg-black/20">
+        <div className="p-6 pt-2 flex items-center justify-end gap-3 border-t border-white/5 bg-black/20">
+          <p className="text-xs text-white/30 hidden sm:block">
+            Uncheck items to skip and configure alternatives in Settings
+          </p>
           <button
             onClick={() => onConfirm(selection)}
             className="w-full sm:w-auto px-8 py-3 bg-white text-black font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-white/20 flex items-center justify-center gap-2"
           >
-            Start Application
+            Continue
           </button>
         </div>
       </div>

@@ -47,7 +47,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   
   // WebLLM State
   const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
-  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? "gemma-2-2b-it-q4f16_1-MLC");
+  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? "gemma-2-2b-it-q4f32_1-MLC");
   const [webLlmDownloadProgress, setWebLlmDownloadProgress] = useState<string>('');
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
   const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
@@ -493,7 +493,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[80vh] sm:h-auto sm:max-h-[90vh] sm:min-h-[600px]">
+      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[80vh] sm:h-auto sm:max-h-[90vh] sm:min-h-150">
         {/* Header */}
         <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
