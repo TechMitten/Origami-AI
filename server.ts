@@ -52,8 +52,8 @@ async function createServer() {
       const distDir = path.resolve(__dirname, 'dist');
       app.use(express.static(distDir));
 
-      // Fixed wildcard route to prevent path-to-regexp crash
-      app.get('*', (req, res) => {
+      // Fixed wildcard route to prevent path-to-regexp crash (Express 5 syntax)
+      app.get('/*', (req, res) => {
           // If the request starts with /api but didn't match any route above, 404 it
           if (req.originalUrl.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
