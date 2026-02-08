@@ -28,7 +28,7 @@ async function createServer() {
         workerSrc: ["'self'", "blob:"], // Explicitly allow blob workers for FFmpeg
       },
     }, 
-    crossOriginEmbedderPolicy: false, // Keeping false for now as true often breaks cross-origin subresources like CDNs without proper headers 
+    // crossOriginEmbedderPolicy: false, // Keeping false for now as true often breaks cross-origin subresources like CDNs without proper headers 
     // Update: To fix "Insecure configuration", we should strive for better defaults, but if it breaks the app, the user will be unhappy.
     // However, the report is explicitly about "Insecure configuration". 
     // Let's enable strict CSP but keep COEP off if we use external resources without CORP headers.

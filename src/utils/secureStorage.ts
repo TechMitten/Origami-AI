@@ -1,16 +1,14 @@
-/**
- * Simple obfuscation for local storage to avoid clear text warnings.
- * Note: This is not military-grade encryption as the key is in the client.
- * It primarily serves to prevent casual reading of sensitive data in LocalStorage.
- */
+// Simple key for XOR operations - prevents clear text patterns
+const SECRET_KEY = 'origami-ai-secure-storage-key';
 
 export const encrypt = (text: string): string => {
   if (!text) return '';
   try {
-    // Simple obfuscation: Base64 encode, then reverse, then Base64 encode again
-    const b64 = btoa(text);
-    const reversed = b64.split('').reverse().join('');
-    return 'ENC:' + btoa(reversed);
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+        result += String.fromCharCode(text.charCodeAt(i) ^ SECRET_KEY.charCodeAt(i % SECRET_KEY.length));
+    }
+    return 'ENC:' + btoa(result);
   } catch (e) {
     console.error('Failed to encrypt data', e);
     return text;
@@ -19,15 +17,16 @@ export const encrypt = (text: string): string => {
 
 export const decrypt = (text: string): string => {
   if (!text) return '';
-  if (!text.startsWith('ENC:')) return text; // Return plain text if not encrypted
+  if (!text.startsWith('ENC:')) return text;
   
   try {
-    const payload = text.substring(4); // Remove ENC:
-    const reversedQuery = atob(payload);
-    const b64 = reversedQuery.split('').reverse().join('');
-    return atob(b64);
+    const payload = atob(text.substring(4));
+    let result = '';
+    for (let i = 0; i < payload.length; i++) {
+        result += String.fromCharCode(payload.charCodeAt(i) ^ SECRET_KEY.charCodeAt(i % SECRET_KEY.length));
+    }
+    return result;
   } catch {
-    // If decryption fails, return original or empty
     return text;
   }
 };

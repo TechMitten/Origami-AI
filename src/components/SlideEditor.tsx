@@ -1146,19 +1146,30 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const getVideoDuration = (url: string): Promise<number> => {
     return new Promise((resolve) => {
       // Validate URL protocol to prevent potential DOM XSS (CodeQL fix)
-      // We generally expect blob: URLs from createObjectURL, or http/https from remote sources
-      if (!url || (!url.startsWith('blob:') && !url.startsWith('http:') && !url.startsWith('https:'))) {
+      try {
+        if (!url) throw new Error("Empty URL");
+        
+        // Allow Blob URLs
+        if (url.startsWith('blob:')) {
+            // Safe to use
+        } else {
+            // Strict parsing for others
+            const parsed = new URL(url);
+            if (!['http:', 'https:'].includes(parsed.protocol)) {
+                throw new Error("Invalid protocol");
+            }
+        }
+        
+        const video = document.createElement('video');
+        video.src = url;
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+           resolve(video.duration);
+        };
+        video.onerror = () => resolve(5); 
+      } catch {
          resolve(5);
-         return;
       }
-
-      const video = document.createElement('video');
-      video.src = url;
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-         resolve(video.duration);
-      };
-      video.onerror = () => resolve(5); 
     });
   };
 
