@@ -25,8 +25,8 @@ ENV PORT=3000
 
 # Copy necessary files from previous stages
 COPY package*.json ./
-# Copying all node_modules to ensure 'vite' and 'tsx' are available
-COPY --from=deps /app/node_modules ./node_modules
+# Install only production dependencies (faster, smaller image)
+RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY public ./public
 COPY server.ts ./

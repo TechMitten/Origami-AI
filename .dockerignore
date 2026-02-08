@@ -8,3 +8,8 @@ LICENSE
 screenshots
 temp_render
 *.log
+.vscode
+.idea
+.DS_Store
+coverage
+npm-debug.log
