@@ -67,7 +67,7 @@ export const unloadWebLLM = async () => {
 };
 
 export const initWebLLM = async (
-    modelId: string, 
+    modelId: string,
     onProgress: InitProgressCallback
 ) => {
     // If engine exists and is loaded with the same model, do nothing
@@ -77,18 +77,37 @@ export const initWebLLM = async (
 
     try {
         if (!engine) {
-            engine = await CreateMLCEngine(modelId, { initProgressCallback: onProgress });
+            // Wrap the progress callback to also dispatch events
+            const wrappedCallback: InitProgressCallback = (report) => {
+                // Call the original callback
+                onProgress(report);
+                // Dispatch event for UI components
+                webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
+            };
+
+            engine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
         } else {
             // Reload/recreate engine if model changed
             // We'll create a new engine instance to ensure clean state and correct callback binding
             await engine.unload();
             engine = null; // Prevent access to unloaded engine
-            engine = await CreateMLCEngine(modelId, { initProgressCallback: onProgress });
+
+            // Wrap the progress callback
+            const wrappedCallback: InitProgressCallback = (report) => {
+                onProgress(report);
+                webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
+            };
+
+            engine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
         }
         currentModelId = modelId;
-        
+
+        // Dispatch final progress event
+        webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', {
+            detail: { progress: 1, text: 'Initialization complete' }
+        }));
         webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-complete', { detail: { modelId } }));
-        
+
         return engine;
     } catch (error) {
         console.error("Failed to initialize WebLLM:", error);

@@ -90,23 +90,28 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
             <Download className="w-5 h-5 text-blue-400" />
             Let's Get You Set Up
           </h2>
-          <p className="mt-2 text-sm text-gray-400">
-            Choose how to power each feature. You can download files to run everything locally, or skip downloads and use your own API keys.
-          </p>
+          <div className="mt-3 space-y-2">
+            <p className="text-base text-white/90 leading-relaxed">
+              Origami uses <span className="font-semibold text-cyan-300">WebLLM technology</span> — small but powerful AI models that run <span className="font-semibold text-cyan-300">directly in your browser</span>. No cloud, no subscriptions, completely private.
+            </p>
+            <p className="text-base text-white/90 leading-relaxed">
+              You'll download these resources once. After that, everything works offline and instantly. Uncheck any option below to skip it and use paid APIs (like OpenAI, Gemini) instead.
+            </p>
+          </div>
         </div>
 
         {/* Body */}
         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
           
           {/* TTS Option */}
-          <div 
+          <div
             onClick={toggleTTS}
             className={`
               group items-start gap-4 p-4 rounded-xl border transition-all relative overflow-hidden
               ${preinstalled.tts
                 ? 'bg-green-500/5 border-green-500/20 cursor-default'
-                : selection.downloadTTS 
-                    ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20 cursor-pointer' 
+                : selection.downloadTTS
+                    ? 'bg-blue-500/10 border-blue-500/50 hover:bg-blue-500/20 cursor-pointer'
                     : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20 cursor-pointer'
               }
             `}
@@ -118,7 +123,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <h3 className={`font-bold ${preinstalled.tts ? 'text-green-100' : (selection.downloadTTS ? 'text-blue-100' : 'text-gray-300')}`}>
-                         Voice Narration
+                         1. Voice Narration
                          {preinstalled.tts && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Ready</span>}
                     </h3>
                     {!preinstalled.tts && (
@@ -129,26 +134,23 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-400 ml-12 leading-relaxed">
+            <p className="text-sm text-gray-300 ml-12 leading-relaxed">
               {preinstalled.tts
                 ? "Already installed and ready to use!"
-                : "Adds natural-sounding voice narration to your tutorials. (~80MB)"
+                : "Generate natural voiceovers for your tutorials entirely offline. Multiple voices included. (~80MB download, runs locally)"
               }
-              {!preinstalled.tts && (
-                <span className="block mt-1 text-white/30">Or skip and use Settings → TTS Model → Use Local TTS Instance</span>
-              )}
             </p>
           </div>
 
           {/* FFmpeg Option */}
-          <div 
+          <div
             onClick={toggleFFmpeg}
             className={`
               group items-start gap-4 p-4 rounded-xl border transition-all relative overflow-hidden
               ${preinstalled.ffmpeg
                 ? 'bg-green-500/5 border-green-500/20 cursor-default'
-                : selection.downloadFFmpeg 
-                    ? 'bg-purple-500/10 border-purple-500/50 hover:bg-purple-500/20 cursor-pointer' 
+                : selection.downloadFFmpeg
+                    ? 'bg-purple-500/10 border-purple-500/50 hover:bg-purple-500/20 cursor-pointer'
                     : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20 cursor-pointer'
               }
             `}
@@ -160,7 +162,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <h3 className={`font-bold ${preinstalled.ffmpeg ? 'text-green-100' : (selection.downloadFFmpeg ? 'text-purple-100' : 'text-gray-300')}`}>
-                        Video Creator
+                        2. Video Creator
                         {preinstalled.ffmpeg && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Ready</span>}
                     </h3>
                      {!preinstalled.ffmpeg && (
@@ -171,23 +173,23 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-400 ml-12 leading-relaxed">
+            <p className="text-sm text-gray-300 ml-12 leading-relaxed">
                {preinstalled.ffmpeg
                 ? "Already installed and ready to use!"
-                : "Required to create your tutorial video. (~30MB)"
+                : "Combines your slides, audio, and music into a final MP4 video right in your browser. (~30MB download, runs locally)"
               }
             </p>
           </div>
 
            {/* WebLLM Option */}
-           <div 
+           <div
             onClick={toggleWebLLM}
             className={`
               group items-start gap-4 p-4 rounded-xl border transition-all relative overflow-hidden
               ${preinstalled.webllm
                 ? 'bg-green-500/5 border-green-500/20 cursor-default'
-                : selection.enableWebLLM 
-                    ? 'bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20 cursor-pointer' 
+                : selection.enableWebLLM
+                    ? 'bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20 cursor-pointer'
                     : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20 cursor-pointer'
               }
             `}
@@ -199,7 +201,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <h3 className={`font-bold ${preinstalled.webllm ? 'text-green-100' : (selection.enableWebLLM ? 'text-orange-100' : 'text-gray-300')}`}>
-                         Smart Writing Assistant
+                         3. Smart Writing Assistant (Optional)
                          {preinstalled.webllm && <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-wider">Ready</span>}
                     </h3>
                      {!preinstalled.webllm && (
@@ -210,14 +212,11 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-400 ml-12 leading-relaxed">
+            <p className="text-sm text-gray-300 ml-12 leading-relaxed">
                {preinstalled.webllm
                 ? "Already installed and ready to use!"
-                : "AI that improves your script right in your browser. Optional - large download (~1-2GB)."
+                : "AI assistant helps improve your tutorial script, suggests improvements, and enhances clarity. Runs entirely locally with no API fees. (~1-2GB download)"
               }
-              {!preinstalled.webllm && (
-                <span className="block mt-1 text-white/30">Or skip and use Settings → API to connect Gemini, OpenRouter, or Ollama</span>
-              )}
             </p>
           </div>
 
@@ -225,8 +224,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
 
         {/* Footer */}
         <div className="p-6 pt-2 flex items-center justify-end gap-3 border-t border-white/5 bg-black/20">
-          <p className="text-xs text-white/30 hidden sm:block">
-            Uncheck items to skip and configure alternatives in Settings
+          <p className="text-sm text-white/60 hidden sm:block">
+            Uncheck any feature to skip local download and use paid APIs in Settings instead
           </p>
           <button
             onClick={() => onConfirm(selection)}

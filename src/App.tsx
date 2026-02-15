@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
 import { SimplePreview } from './components/SimplePreview';
-import { generateTTS, getAudioDuration, ttsEvents, initTTS, type ProgressEventDetail } from './services/ttsService';
+import { generateTTS, getAudioDuration, ttsEvents, initTTS } from './services/ttsService';
 import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
@@ -18,6 +18,7 @@ import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
+import { UnifiedInitModal } from './components/UnifiedInitModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
 
 
@@ -37,6 +38,7 @@ function App() {
   const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
+  const [isWebLLMInitModalOpen, setIsWebLLMInitModalOpen] = useState(false);
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   
@@ -103,15 +105,29 @@ function App() {
       // Check resource cache status
       const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
       setPreinstalledResources(cached);
-      
+
       // Always init preinstalled/cached resources immediately
       if (cached.tts) initTTS(settings?.ttsQuantization || 'q4');
       if (cached.ffmpeg) renderer.load().catch(console.error);
-      
-      // Only init WebLLM if enabled specifically in settings AND cached
-      if (cached.webllm && settings?.useWebLLM) {
+
+      // Check if WebLLM should be pre-initialized
+      const webLLMPreinitialized = localStorage.getItem('webllm_preinitialized') === 'true';
+
+      // Only init WebLLM if enabled specifically in settings AND (cached OR pre-initialized)
+      if (settings?.useWebLLM) {
           const model = settings.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
-          initWebLLM(model, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
+
+          if (cached.webllm) {
+              // Already cached, initialize silently in background
+              initWebLLM(model, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
+          } else if (!webLLMPreinitialized) {
+              // First time using WebLLM - show initialization modal
+              // This ensures users see the progress and understand it's a one-time process
+              setIsWebLLMInitModalOpen(true);
+
+              // Start initialization with progress tracking
+              initWebLLM(model, (progress) => console.log('WebLLM Pre-Init:', progress)).catch(console.error);
+          }
       }
 
       // Check startup preferences
@@ -119,11 +135,34 @@ function App() {
       if (storedPref) { // User said "Remember my choice"
         try {
             const pref = JSON.parse(storedPref);
-            // We only need to init things that were NOT cached but user WANTED. 
+            // We only need to init things that were NOT cached but user WANTED.
             // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
-            if (pref.downloadTTS) initTTS(settings?.ttsQuantization || 'q4');
-            if (pref.downloadFFmpeg) renderer.load().catch(console.error);
-            if (pref.enableWebLLM) {
+
+            // Check if we need to show unified init modal
+            const needsInit = (!cached.tts && pref.downloadTTS) ||
+                              (!cached.ffmpeg && pref.downloadFFmpeg) ||
+                              (!cached.webllm && pref.enableWebLLM);
+
+            if (needsInit) {
+              setIsWebLLMInitModalOpen(true);
+            }
+
+            // Initialize TTS first and wait for completion
+            if (pref.downloadTTS && !cached.tts) {
+                await new Promise<void>((resolve) => {
+                    const handleInitComplete = () => {
+                        ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
+                        resolve();
+                    };
+                    ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
+                    initTTS(settings?.ttsQuantization || 'q4');
+                });
+            }
+
+            if (pref.downloadFFmpeg && !cached.ffmpeg) renderer.load().catch(console.error);
+
+            // Initialize WebLLM after TTS completes
+            if (pref.enableWebLLM && !cached.webllm) {
                 const model = settings?.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
                 initWebLLM(model, () => {
                     // console.log('WebLLM Loading:', p);
@@ -150,13 +189,34 @@ function App() {
   const handleResourceConfirm = async (selection: ResourceSelection) => {
       setIsResourceModalOpen(false);
 
-      if (selection.downloadTTS) {
-           initTTS(globalSettings?.ttsQuantization || 'q4');
+      const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+
+      // Check if we need to show unified init modal
+      const needsInit = (!cached.tts && selection.downloadTTS) ||
+                        (!cached.ffmpeg && selection.downloadFFmpeg) ||
+                        (!cached.webllm && selection.enableWebLLM);
+
+      if (needsInit) {
+        setIsWebLLMInitModalOpen(true);
       }
-      if (selection.downloadFFmpeg) {
+
+      if (selection.downloadTTS && !cached.tts) {
+           // Initialize TTS and wait for it to complete
+           await new Promise<void>((resolve) => {
+               const handleInitComplete = () => {
+                   ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
+                   resolve();
+               };
+               ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
+               initTTS(globalSettings?.ttsQuantization || 'q4');
+           });
+      }
+
+      if (selection.downloadFFmpeg && !cached.ffmpeg) {
            renderer.load().catch(console.error);
       }
-      if (selection.enableWebLLM) {
+
+      if (selection.enableWebLLM && !cached.webllm) {
            // Check WebGPU support first
            const webgpuStatus = await checkWebGPUSupport();
            if (!webgpuStatus.supported) {
@@ -164,9 +224,14 @@ function App() {
                setIsWebGPUModalOpen(true);
                return;
            }
+
            // Enable WebLLM in settings with the default model
            // Use f32 variant for better compatibility
-           await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: 'gemma-2-2b-it-q4f32_1-MLC' });
+           const defaultModel = 'gemma-2-2b-it-q4f32_1-MLC';
+           await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: defaultModel });
+
+           // Start initialization
+           initWebLLM(defaultModel, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
       }
   };
 
@@ -689,154 +754,29 @@ function App() {
           onClose={() => setIsWebGPUModalOpen(false)}
        />
 
+       <UnifiedInitModal
+          isOpen={isWebLLMInitModalOpen}
+          resources={preinstalledResources}
+          onComplete={() => {
+              setIsWebLLMInitModalOpen(false);
+              // Mark WebLLM as pre-initialized so we don't show this again
+              localStorage.setItem('webllm_preinitialized', 'true');
+              // Update the resource cache status
+              const currentStatus = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+              if (!currentStatus.webllm) {
+                  currentStatus.webllm = true;
+                  localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
+                  setPreinstalledResources(currentStatus);
+              }
+          }}
+       />
+
       {/* Background Image */}
-      <img 
-        src={backgroundImage} 
-        alt="" 
-        className="fixed inset-0 -z-50 w-full h-lvh object-cover opacity-40 blur-[2px] brightness-75 scale-105" 
+      <img
+        src={backgroundImage}
+        alt=""
+        className="fixed inset-0 -z-50 w-full h-lvh object-cover opacity-40 blur-[2px] brightness-75 scale-105"
       />
-
-      {/* Notifications Container */}
-      <div className="fixed top-24 left-4 right-4 z-50 flex flex-col gap-3 items-center pointer-events-none sm:top-auto sm:left-auto sm:bottom-8 sm:right-8 sm:items-end">
-        <VideoProgressOverlay />
-        <TTSProgressOverlay />
-      </div>
-    </div>
-  );
-}
-
-// ... TTSProgressOverlay code ...
-
-function VideoProgressOverlay() {
-  const [progress, setProgress] = useState<{ p: number, status: string } | null>(null);
-  const timeoutRef = React.useRef<number | undefined>(undefined);
-
-  React.useEffect(() => {
-    const handleProgress = (e: Event) => {
-        const detail = (e as CustomEvent<{ progress: number; status: string }>).detail;
-        
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = undefined;
-        }
-
-        setProgress({ p: detail.progress, status: detail.status }); 
-        
-        if (detail.progress >= 100) {
-             timeoutRef.current = window.setTimeout(() => {
-                 setProgress(null);
-                 timeoutRef.current = undefined;
-             }, 2000);
-        }
-    };
-    
-    videoEvents.addEventListener('video-progress', handleProgress);
-    return () => {
-         videoEvents.removeEventListener('video-progress', handleProgress);
-         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  if (!progress) return null;
-
-  const isIndeterminate = progress.p < 0;
-  const percent = isIndeterminate ? null : Math.round(progress.p);
-
-  return (
-    <div className="pointer-events-auto bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-purple-500/50 rounded-xl p-4 sm:p-5 shadow-[0_0_40px_-10px_rgba(168,85,247,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-full max-w-sm sm:w-80 flex flex-col gap-3 ring-1 ring-purple-400/30">
-      <div className="flex items-center justify-between gap-3">
-         <div className="flex items-center gap-3">
-             <Loader2 className="w-4 h-4 text-purple-400 animate-spin shrink-0" />
-             <h4 className="text-purple-50 font-bold text-xs uppercase tracking-wider text-shadow-sm">
-               {progress.status}
-             </h4>
-         </div>
-         <span className="text-purple-400 text-xs font-mono font-bold shrink-0">
-            {percent !== null ? `${percent}%` : ''}
-         </span>
-      </div>
-      
-      <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden relative ring-1 ring-white/5">
-        <div 
-          className={`h-full bg-purple-400 shadow-[0_0_10px_rgba(192,132,252,0.6)] transition-all duration-300 ease-out ${isIndeterminate ? 'absolute inset-0 animate-pulse w-full opacity-60' : ''}`}
-          style={{ width: isIndeterminate ? '100%' : `${percent}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function TTSProgressOverlay() {
-  const [progress, setProgress] = useState<{ p: number, status: string, file: string } | null>(null);
-  const timeoutRef = React.useRef<number | undefined>(undefined);
-
-  React.useEffect(() => {
-    const handleProgress = (e: Event) => {
-      const detail = (e as CustomEvent<ProgressEventDetail>).detail;
-      
-      // Clear any pending close timer
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = undefined;
-      }
-
-      setProgress({ p: detail.progress, status: detail.status, file: detail.file });
-      
-      // Auto-hide when complete (check status or progress)
-      if (detail.status === 'done' || detail.progress >= 100) {
-         timeoutRef.current = window.setTimeout(() => {
-             setProgress(null);
-             timeoutRef.current = undefined;
-         }, 1000);
-      }
-    };
-
-    ttsEvents.addEventListener('tts-progress', handleProgress);
-
-    return () => {
-         ttsEvents.removeEventListener('tts-progress', handleProgress);
-         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  if (!progress) return null;
-
-  const isIndeterminate = progress.p < 0;
-  const percent = isIndeterminate ? null : Math.round(progress.p);
-
-  return (
-    <div className="pointer-events-auto bg-linear-to-b from-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-cyan-500/50 rounded-xl p-4 sm:p-5 shadow-[0_0_40px_-10px_rgba(6,182,212,0.5)] animate-in slide-in-from-bottom-4 fade-in duration-300 w-full max-w-sm sm:w-80 flex flex-col gap-3 ring-1 ring-cyan-400/30">
-      <div className="flex items-center justify-between gap-3">
-         <div className="flex items-center gap-3">
-             {isIndeterminate && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />}
-             <h4 className="text-cyan-50 font-bold text-xs uppercase tracking-wider text-shadow-sm">
-               {(() => {
-                 switch (progress.status) {
-                   case 'progress': return 'DOWNLOADING TTS MODEL...';
-                   case 'Processing': 
-                   case 'processing': 
-                   case 'PROCESSING': return 'GENERATING AUDIO...';
-                   case 'done': return 'COMPLETE';
-                   default: return progress.status;
-                 }
-               })()}
-             </h4>
-         </div>
-         <span className="text-cyan-400 text-xs font-mono font-bold shrink-0">
-            {percent !== null ? `${percent}%` : ''}
-         </span>
-      </div>
-      
-      <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden relative ring-1 ring-white/5">
-        <div 
-          className={`h-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-300 ease-out ${isIndeterminate ? 'absolute inset-0 animate-pulse w-full opacity-60' : ''}`}
-          style={{ width: isIndeterminate ? '100%' : `${percent}%` }}
-        />
-      </div>
-      
-      <p className="text-[10px] text-cyan-200/50 truncate font-mono">
-        {progress.file}
-      </p>
     </div>
   );
 }
