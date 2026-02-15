@@ -36,6 +36,49 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getNavigator = () => navigator as any;
 
+// Monkey-patch WebGPU to add maxComputeInvocationsPerWorkgroup for vision models
+// This is required for Phi-3.5 vision model which needs 1024 invocations
+// See: https://github.com/mlc-ai/web-llm/issues/xxx
+let gpuPatched = false;
+const patchWebGPU = () => {
+    if (gpuPatched) return;
+    const nav = getNavigator();
+    if (!nav.gpu) return;
+
+    try {
+        // Patch requestAdapter globally so ALL adapters get the fix
+        const originalRequestAdapter = nav.gpu.requestAdapter.bind(nav.gpu);
+        nav.gpu.requestAdapter = async (options?: any) => {
+            const adapter = await originalRequestAdapter(options);
+            if (!adapter) return adapter;
+
+            // Patch this adapter's requestDevice method
+            const originalRequestDevice = adapter.requestDevice.bind(adapter);
+            adapter.requestDevice = async (descriptor?: any) => {
+                const enhancedDescriptor = descriptor ? { ...descriptor } : {};
+
+                // Ensure requiredLimits exists and includes maxComputeInvocationsPerWorkgroup
+                if (!enhancedDescriptor.requiredLimits) {
+                    enhancedDescriptor.requiredLimits = {};
+                }
+
+                // Only add if not already specified (some adapters may have different limits)
+                if (enhancedDescriptor.requiredLimits.maxComputeInvocationsPerWorkgroup === undefined) {
+                    enhancedDescriptor.requiredLimits.maxComputeInvocationsPerWorkgroup = 1024;
+                }
+
+                return originalRequestDevice(enhancedDescriptor);
+            };
+
+            return adapter;
+        };
+        gpuPatched = true;
+        console.log('[WebGPU] Applied maxComputeInvocationsPerWorkgroup patch (1024)');
+    } catch (e) {
+        console.warn('[WebGPU] Failed to patch GPU:', e);
+    }
+};
+
 export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16: boolean; error?: string }> => {
     const nav = getNavigator();
     if (!nav.gpu) {
@@ -76,6 +119,9 @@ export const initWebLLM = async (
     if (engine && currentModelId === modelId) {
         return engine;
     }
+
+    // Apply WebGPU patch for vision models that require higher workgroup invocations
+    await patchWebGPU();
 
     try {
         if (!engine) {
