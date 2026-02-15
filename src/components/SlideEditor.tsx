@@ -200,7 +200,7 @@ const ScriptEditorModal = ({
 
   return createPortal(
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-[85vh] sm:w-[800px] bg-[#121212] sm:rounded-2xl border-white/10 sm:border flex flex-col shadow-2xl overflow-hidden">
+      <div className="w-full h-full sm:h-[85vh] sm:w-200 bg-[#121212] sm:rounded-2xl border-white/10 sm:border flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-white/5 border-b border-white/5">
            <div className="space-y-1">
@@ -642,7 +642,7 @@ const SortableSlideItem = ({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => setShowScriptEditor(true)}
                 className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-primary hover:text-white transition-colors cursor-pointer"
@@ -662,11 +662,21 @@ const SortableSlideItem = ({
               <button
                 onClick={handleCopyScript}
                 disabled={!slide.script.trim()}
-                className="flex items-center gap-1 text-[10px] uppercase font-bold text-white/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 text-[10px] uppercase font-bold text-white hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Copy script to clipboard"
               >
                 {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
                 {isCopied ? 'Copied!' : 'Copy'}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(index);
+                }}
+                className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2 rounded transition-colors"
+                title="Delete Slide"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
               {slide.originalScript && (
                 <button
@@ -853,16 +863,6 @@ const SortableSlideItem = ({
         )}
       </div>
 
-      <button 
-         onClick={(e) => {
-             e.stopPropagation();
-             onDelete(index);
-         }}
-         className="absolute top-2 right-2 sm:bottom-3 sm:right-auto sm:left-3 p-1.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all z-20"
-         title="Delete Slide"
-      >
-         <Trash2 className="w-4 h-4" />
-      </button>
       <ScriptEditorModal
         isOpen={showScriptEditor}
         onClose={() => setShowScriptEditor(false)}
@@ -1492,7 +1492,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         </div>
 
-        <div className="mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+        <div className="mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-150">
            {/* Left Navigation */}
            <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
               <button
