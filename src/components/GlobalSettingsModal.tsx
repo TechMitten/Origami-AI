@@ -57,7 +57,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
   const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
-  const [webLlmMaxProgress, setWebLlmMaxProgress] = useState(0);
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
@@ -107,7 +106,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   useEffect(() => {
     setWebLlmDownloadProgress('');
     setWebLlmProgressPercent(0);
-    setWebLlmMaxProgress(0);
     setWebLlmPhase('downloading');
   }, [webLlmModel]);
 
@@ -279,7 +277,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     setIsDownloadingWebLlm(true);
     setWebLlmDownloadProgress('Initializing...');
     setWebLlmProgressPercent(0);
-    setWebLlmMaxProgress(0);
     setWebLlmPhase('downloading');
 
     // Listen for progress events
@@ -304,7 +301,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
         // Track max progress to prevent going backward
         if (phase !== 'shader') {
-            setWebLlmMaxProgress(prev => Math.max(prev, progress));
             setWebLlmProgressPercent(prev => Math.max(prev, progress));
         }
     };
@@ -332,7 +328,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
             // Track max progress to prevent going backward
             if (phase !== 'shader') {
-                setWebLlmMaxProgress(prev => Math.max(prev, progressPercent));
                 setWebLlmProgressPercent(prev => Math.max(prev, progressPercent));
             }
         });
@@ -358,7 +353,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         await unloadWebLLM();
         setWebLlmDownloadProgress('Engine reset. Memory cleared.');
         setWebLlmProgressPercent(0);
-        setWebLlmMaxProgress(0);
         setWebLlmPhase('downloading');
         setIsModelLoaded(false);
         setCurrentLoadedModel(null);
