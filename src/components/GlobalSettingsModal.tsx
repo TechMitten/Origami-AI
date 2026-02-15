@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM } from '../services/webLlmService';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, PowerOff, CheckCircle2 } from 'lucide-react';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 import { encrypt, decrypt } from '../utils/secureStorage';
+import type { InitProgressReport } from '@mlc-ai/web-llm';
 
 
 import { reloadTTS } from '../services/ttsService';
@@ -52,9 +53,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
   const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? "gemma-2-2b-it-q4f32_1-MLC");
   const [webLlmDownloadProgress, setWebLlmDownloadProgress] = useState<string>('');
+  const [webLlmProgressPercent, setWebLlmProgressPercent] = useState(0);
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
   const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
+  const [webLlmMaxProgress, setWebLlmMaxProgress] = useState(0);
+  const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -83,7 +89,28 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           }
       });
     }
+
+    // Check if a model is already loaded when switching to WebLLM tab
+    if (activeTab === 'webllm') {
+      setIsModelLoaded(isWebLLMLoaded());
+      const currentModelId = getCurrentWebLLMModel();
+      if (currentModelId) {
+        const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === currentModelId);
+        setCurrentLoadedModel(modelInfo?.name || currentModelId);
+      } else {
+        setCurrentLoadedModel(null);
+      }
+    }
   }, [activeTab, webGpuSupport, webLlmModel, showAlert]);
+
+  // Reset progress when model changes
+  useEffect(() => {
+    setWebLlmDownloadProgress('');
+    setWebLlmProgressPercent(0);
+    setWebLlmMaxProgress(0);
+    setWebLlmPhase('downloading');
+  }, [webLlmModel]);
+
   const [availableVoices, setAvailableVoices] = useState<Voice[]>(AVAILABLE_VOICES);
   const [isHybrid, setIsHybrid] = useState(false);
   const [voiceA, setVoiceA] = useState('');
@@ -250,17 +277,79 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const handleDownloadWebLlm = async () => {
     if (!webLlmModel) return;
     setIsDownloadingWebLlm(true);
-    setWebLlmDownloadProgress('Starting download...');
+    setWebLlmDownloadProgress('Initializing...');
+    setWebLlmProgressPercent(0);
+    setWebLlmMaxProgress(0);
+    setWebLlmPhase('downloading');
+
+    // Listen for progress events
+    const handleProgress = (e: Event) => {
+        const report = (e as CustomEvent<InitProgressReport>).detail;
+        const progress = Math.round(report.progress * 100);
+
+        // Detect phase from text
+        const text = report.text.toLowerCase();
+        let phase: 'downloading' | 'loading' | 'shader' | 'complete' = 'downloading';
+
+        if (text.includes('shader') || text.includes('gpu')) {
+            phase = 'shader';
+        } else if (text.includes('loading') || text.includes('initialize') || text.includes('prefill')) {
+            phase = 'loading';
+        } else if (text.includes('complete') || progress >= 100) {
+            phase = 'complete';
+        }
+
+        setWebLlmPhase(phase);
+        setWebLlmDownloadProgress(report.text);
+
+        // Track max progress to prevent going backward
+        if (phase !== 'shader') {
+            setWebLlmMaxProgress(prev => Math.max(prev, progress));
+            setWebLlmProgressPercent(prev => Math.max(prev, progress));
+        }
+    };
+
+    webLlmEvents.addEventListener('webllm-init-progress', handleProgress);
+
     try {
         await initWebLLM(webLlmModel, (progress) => {
+            const progressPercent = Math.round(progress.progress * 100);
+
+            // Detect phase from text
+            const text = progress.text.toLowerCase();
+            let phase: 'downloading' | 'loading' | 'shader' | 'complete' = 'downloading';
+
+            if (text.includes('shader') || text.includes('gpu')) {
+                phase = 'shader';
+            } else if (text.includes('loading') || text.includes('initialize') || text.includes('prefill')) {
+                phase = 'loading';
+            } else if (text.includes('complete') || progressPercent >= 100) {
+                phase = 'complete';
+            }
+
+            setWebLlmPhase(phase);
             setWebLlmDownloadProgress(progress.text);
+
+            // Track max progress to prevent going backward
+            if (phase !== 'shader') {
+                setWebLlmMaxProgress(prev => Math.max(prev, progressPercent));
+                setWebLlmProgressPercent(prev => Math.max(prev, progressPercent));
+            }
         });
+
         setWebLlmDownloadProgress('Model loaded successfully!');
+        setWebLlmPhase('complete');
+        setWebLlmProgressPercent(100);
+        setIsModelLoaded(true);
+        const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel);
+        setCurrentLoadedModel(modelInfo?.name || webLlmModel);
     } catch (e) {
         console.error(e);
         setWebLlmDownloadProgress('Download failed. Check console.');
+        setWebLlmPhase('downloading');
     } finally {
         setIsDownloadingWebLlm(false);
+        webLlmEvents.removeEventListener('webllm-init-progress', handleProgress);
     }
   };
 
@@ -268,6 +357,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     try {
         await unloadWebLLM();
         setWebLlmDownloadProgress('Engine reset. Memory cleared.');
+        setWebLlmProgressPercent(0);
+        setWebLlmMaxProgress(0);
+        setWebLlmPhase('downloading');
+        setIsModelLoaded(false);
+        setCurrentLoadedModel(null);
         showAlert("WebLLM Engine has been reset.", { type: 'success', title: 'Engine Reset' });
     } catch (e) {
         console.error("Failed to reset WebLLM:", e);
@@ -499,7 +593,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[80vh] sm:h-auto sm:max-h-[90vh] sm:min-h-150">
+      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[78vh] max-h-196">
         {/* Header */}
         <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
@@ -561,7 +655,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           {activeTab === 'general' ? (
             <>
           {/* Master Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-branding-primary/5 border border-branding-primary/20">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
             <div className="space-y-1">
               <div className="text-sm font-bold text-white flex items-center gap-2">
                 Enable Global Defaults
@@ -739,14 +833,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           ) : activeTab === 'tts' ? (
               <div className="space-y-8">
                 <div className="space-y-6">
-                    <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex gap-4">
-                        <div className="p-2 rounded-lg bg-blue-500/20 text-blue-500 h-fit">
+                    <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                        <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
                             <Mic className="w-5 h-5" />
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-sm font-bold text-white">Kokoro TTS Configuration</h3>
                             {/* <p className="text-xs text-white/60 leading-relaxed">
-                                Configure the local Text-to-Speech model. "q8" offers higher quality but is larger (~80MB), 
+                                Configure the local Text-to-Speech model. "q8" offers higher quality but is larger (~80MB),
                                 while "q4" is faster and smaller (~45MB) with slightly reduced quality.
                             </p> */}
                         </div>
@@ -853,7 +947,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     </div>
 
                     <div className="space-y-4">
-                        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-4">
+                        <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -928,8 +1022,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               </div>
            ) : activeTab === 'interface' ? (
                 <div className="space-y-6">
-                    <div className="p-4 rounded-xl bg-branding-primary/10 border border-branding-primary/20 flex gap-4">
-                        <div className="p-2 rounded-lg bg-branding-primary/20 text-branding-primary h-fit">
+                    <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                        <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
                             <Layout className="w-5 h-5" />
                         </div>
                         <div className="space-y-1">
@@ -959,20 +1053,28 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 </div>
            ) : activeTab === 'webllm' ? (
                 <div className="space-y-6">
-                   <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 flex gap-4">
-                     <div className="p-2 rounded-lg bg-purple-500/20 text-purple-500 h-fit">
-                        <Cpu className="w-5 h-5" />
+                   {currentLoadedModel ? (
+                     <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                       <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
+                          <Cpu className="w-5 h-5" />
+                       </div>
+                       <div className="space-y-1">
+                          <h3 className="text-sm font-bold text-white">{currentLoadedModel}</h3>
+                       </div>
                      </div>
-                     <div className="space-y-1">
-                        <h3 className="text-sm font-bold text-white">Browser-Based AI (WebLLM)</h3>
-                        {/* <p className="text-xs text-white/60 leading-relaxed">
-                           Run AI models entirely in your browser using WebGPU. No API key required, free, private, and offline-capable.
-                        </p> */}
-                      </div>
-                    </div>
+                   ) : (
+                     <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                       <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
+                          <Cpu className="w-5 h-5" />
+                       </div>
+                       <div className="space-y-1">
+                          <h3 className="text-sm font-bold text-white">Browser-Based AI (WebLLM)</h3>
+                       </div>
+                     </div>
+                   )}
 
                     {/* WebLLM Toggle */}
-                    <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-4">
+                    <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
                       <div className="flex items-center justify-between">
                           <div className="space-y-1">
                               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -1086,27 +1188,55 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             <div className="flex gap-3">
                                 <button
                                     onClick={handleDownloadWebLlm}
-                                    disabled={isDownloadingWebLlm}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/5 text-white/40 cursor-wait' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'}`}
+                                    disabled={isDownloadingWebLlm || isModelLoaded}
+                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/5 text-white/40 cursor-wait' : isModelLoaded ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'}`}
                                 >
-                                    {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                    {isDownloadingWebLlm ? 'Downloading...' : 'Load Model'}
+                                    {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : isModelLoaded ? <CheckCircle2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                                    {isDownloadingWebLlm ? 'Downloading...' : isModelLoaded ? 'Model Loaded' : 'Load Model'}
                                 </button>
 
                                 <button
                                     onClick={handleResetWebLlm}
-                                    className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-bold text-sm transition-all"
-                                    title="Force unload model and clear GPU memory"
+                                    disabled={!isModelLoaded}
+                                    className={`px-4 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${isModelLoaded ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300' : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'}`}
+                                    title={!isModelLoaded ? 'No model loaded' : 'Unload model and clear GPU memory'}
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    <PowerOff className="w-4 h-4" />
+                                    {isModelLoaded && <span>Unload</span>}
                                 </button>
                             </div>
                             
                             {webLlmDownloadProgress && (
-                                <div className="p-3 rounded-lg bg-black/20 border border-white/10">
-                                    <p className={`font-mono wrap-break-word leading-relaxed whitespace-pre-wrap ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-sm text-emerald-400 font-bold' : 'text-xs text-white/70'}`}>
-                                        {webLlmDownloadProgress}
-                                    </p>
+                                <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className={`font-mono text-xs leading-relaxed ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`}>
+                                            {webLlmDownloadProgress}
+                                        </p>
+                                        {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
+                                            <span className="font-mono text-xs text-white/70">
+                                                {webLlmProgressPercent}%
+                                            </span>
+                                        )}
+                                        {isDownloadingWebLlm && webLlmPhase === 'shader' && (
+                                            <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
+                                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                                Optimizing
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
+                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
+                                                style={{ width: `${webLlmProgressPercent}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                    {isDownloadingWebLlm && webLlmPhase === 'shader' && (
+                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                            <div className="h-full bg-linear-to-r from-purple-500/50 via-blue-500 to-purple-500/50 animate-pulse w-full" />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1116,8 +1246,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 </div>
            ) : (
             <div className="space-y-6">
-               <div className="p-4 rounded-xl bg-branding-accent/10 border border-branding-accent/20 flex gap-4">
-                 <div className="p-2 rounded-lg bg-branding-accent/20 text-branding-accent h-fit">
+               <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                 <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
                     <Sparkles className="w-5 h-5" />
                  </div>
                  <div className="space-y-1">
@@ -1137,8 +1267,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                          <button
                             onClick={handleUseGemini}
                             className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
-                              baseUrl.includes('googleapis') 
-                                ? 'bg-branding-accent/20 border-branding-accent/50 text-branding-accent shadow-lg shadow-branding-accent/10' 
+                              baseUrl.includes('googleapis')
+                                ? 'bg-white/20 border-white/50 text-white shadow-lg'
                                 : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
                             }`}
                          >
@@ -1148,7 +1278,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             onClick={handleUseOpenRouter}
                             className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
                               baseUrl.includes('openrouter')
-                                ? 'bg-branding-primary/20 border-branding-primary/50 text-branding-primary shadow-lg shadow-branding-primary/10'
+                                ? 'bg-white/20 border-white/50 text-white shadow-lg'
                                 : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
                             }`}
                          >
@@ -1158,7 +1288,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             onClick={handleUseOllama}
                             className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${
                               baseUrl.includes('localhost:11434')
-                                ? 'bg-branding-secondary/20 border-branding-secondary/50 text-branding-secondary shadow-lg shadow-branding-secondary/10'
+                                ? 'bg-white/20 border-white/50 text-white shadow-lg'
                                 : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
                             }`}
                          >

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2 } from 'lucide-react';
 import {
@@ -25,7 +25,6 @@ import { useModal } from '../context/ModalContext';
 
 import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
-import { PREDEFINED_MUSIC } from '../config/music';
 
 export interface SlideData extends Partial<RenderedPage> {
   id: string;
@@ -274,23 +273,24 @@ const ScriptEditorModal = ({
   );
 };
 
-const SortableSlideItem = ({ 
-  slide, 
-  index, 
-  onUpdate, 
-  onGenerate, 
+const SortableSlideItem = ({
+  slide,
+  index,
+  onUpdate,
+  onGenerate,
   isGenerating,
   onExpand,
   highlightText,
   onDelete,
   ttsVolume,
   voices, // Add voices to destructuring
-  globalSettings // Add globalSettings to destructuring
-}: { 
-  slide: SlideData, 
-  index: number, 
-  onUpdate: (i: number, d: Partial<SlideData>) => void, 
-  onGenerate: (i: number) => Promise<void>, 
+  globalSettings, // Add globalSettings to destructuring
+  isMobile // Add isMobile to destructuring
+}: {
+  slide: SlideData,
+  index: number,
+  onUpdate: (i: number, d: Partial<SlideData>) => void,
+  onGenerate: (i: number) => Promise<void>,
   isGenerating: boolean,
   onExpand: (i: number) => void,
   highlightText?: string,
@@ -298,6 +298,7 @@ const SortableSlideItem = ({
   ttsVolume?: number;
   voices: Voice[]; // Add voices prop
   globalSettings?: GlobalSettings | null; // Add globalSettings prop
+  isMobile: boolean; // Add isMobile prop
 }) => {
   const {
     attributes,
@@ -643,13 +644,15 @@ const SortableSlideItem = ({
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
             <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={() => setShowScriptEditor(true)}
-                className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-primary hover:text-white transition-colors cursor-pointer"
-                title="Open Focus Mode Editor"
-              >
-                <Maximize2 className="w-3 h-3" /> Focus Mode
-              </button>
+              {isMobile && (
+                <button
+                  onClick={() => setShowScriptEditor(true)}
+                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-primary hover:text-white transition-colors cursor-pointer"
+                  title="Open Focus Mode Editor"
+                >
+                  <Maximize2 className="w-3 h-3" /> Focus Mode
+                </button>
+              )}
               <button
                 onClick={handleTransform}
                 disabled={isTransforming || !slide.script.trim()}
@@ -903,6 +906,18 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [globalVoiceB, setGlobalVoiceB] = React.useState('');
   const [globalMixBalance, setGlobalMixBalance] = React.useState(50);
   const [activeTab, setActiveTab] = React.useState<'voice' | 'mixing' | 'tools' | 'media'>('voice');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Sync global settings changes to parent
 
@@ -1497,9 +1512,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
               <button
                 onClick={() => setActiveTab('voice')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
-                  activeTab === 'voice' 
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
+                  activeTab === 'voice'
+                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
@@ -1507,9 +1522,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               </button>
               <button
                 onClick={() => setActiveTab('mixing')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
-                  activeTab === 'mixing' 
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
+                  activeTab === 'mixing'
+                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
@@ -1517,9 +1532,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               </button>
               <button
                 onClick={() => setActiveTab('tools')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
-                  activeTab === 'tools' 
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
+                  activeTab === 'tools'
+                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
@@ -1527,9 +1542,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               </button>
               <button
                 onClick={() => setActiveTab('media')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-4 sm:py-5 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
-                  activeTab === 'media' 
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary' 
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
+                  activeTab === 'media'
+                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                     : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                 }`}
               >
@@ -1733,20 +1748,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                         <button onClick={() => fileInputRef.current?.click()} className="w-full h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-white text-white/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3">
                                             <Upload className="w-5 h-5" /> Upload Custom Track
                                         </button>
-                                        <div className="relative">
-                                            <Dropdown
-                                                options={PREDEFINED_MUSIC}
-                                                value=""
-                                                onChange={(val) => {
-                                                    if (val) {
-                                                        const track = PREDEFINED_MUSIC.find(m => m.id === val);
-                                                        onUpdateMusicSettings({ ...musicSettings, url: val, volume: musicSettings.volume || 0.03, title: track?.name });
-                                                    }
-                                                }}
-                                                placeholder="Choose from Library..."
-                                                className="h-14 text-sm"
-                                            />
-                                        </div>
                                     </div>
                                 ) : (
                                     <div className="space-y-8">
@@ -1949,6 +1950,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                   ttsVolume={ttsVolume}
                   voices={voices}
                   globalSettings={globalSettings}
+                  isMobile={isMobile}
                />
             ))}
           </div>
