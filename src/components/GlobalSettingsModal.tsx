@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Plus, Cpu, Download, PowerOff, CheckCircle2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Cpu, Download, PowerOff, CheckCircle2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -10,8 +10,6 @@ import type { InitProgressReport } from '@mlc-ai/web-llm';
 
 
 import { reloadTTS } from '../services/ttsService';
-
-import { PREDEFINED_MUSIC } from '../config/music';
 
 interface GlobalSettingsModalProps {
   isOpen: boolean;
@@ -507,21 +505,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   };
 
-  const handlePredefinedMusicSelect = async (url: string, name: string) => {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const file = new File([blob], name + '.mp3', { type: 'audio/mpeg' });
-        
-        setMusicFile(file);
-        setSavedMusicName(name);
-        setExistingMusicBlob(null);
-    } catch (e) {
-        console.error("Failed to load predefined music", e);
-        showAlert("Failed to load music track", { type: 'error', title: 'Load Error' });
-    }
-  };
-
   const handleSave = async () => {
     const musicBlob = musicFile ? musicFile : existingMusicBlob;
     
@@ -774,41 +757,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-4">
-                        <button 
+                        <button
                           onClick={() => fileInputRef.current?.click()}
                           className="w-full py-3 border border-dashed border-white/20 rounded-lg text-white/40 hover:text-white hover:border-white/40 hover:bg-white/5 transition-all text-sm font-medium flex items-center justify-center gap-2"
                         >
                           <Upload className="w-4 h-4" /> Upload Track
                         </button>
-                        
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-white/10"></div>
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-[#1a1a1a] px-2 text-white/30">Or select from library</span>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-2">
-                            {PREDEFINED_MUSIC.map(track => (
-                                <button
-                                    key={track.id}
-                                    onClick={() => handlePredefinedMusicSelect(track.id, track.name)}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all group text-left"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-full bg-branding-primary/10 text-branding-primary group-hover:scale-110 transition-transform">
-                                            <Music className="w-4 h-4" />
-                                        </div>
-                                        <span className="text-sm font-medium text-white/80 group-hover:text-white">{track.name}</span>
-                                    </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Plus className="w-4 h-4 text-white/40" />
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
                     </div>
                   )}
                   <input
@@ -1047,26 +1001,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 </div>
            ) : activeTab === 'webllm' ? (
                 <div className="space-y-6">
-                   {currentLoadedModel ? (
-                     <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
-                       <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
-                          <Cpu className="w-5 h-5" />
-                       </div>
-                       <div className="space-y-1">
-                          <h3 className="text-sm font-bold text-white">{currentLoadedModel}</h3>
-                       </div>
-                     </div>
-                   ) : (
-                     <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
-                       <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
-                          <Cpu className="w-5 h-5" />
-                       </div>
-                       <div className="space-y-1">
-                          <h3 className="text-sm font-bold text-white">Browser-Based AI (WebLLM)</h3>
-                       </div>
-                     </div>
-                   )}
-
                     {/* WebLLM Toggle */}
                     <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
                       <div className="flex items-center justify-between">
@@ -1121,8 +1055,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                     onClick={() => setPrecisionFilter('f16')}
                                     disabled={webGpuSupport?.supported && !webGpuSupport.hasF16}
                                     className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${
-                                        precisionFilter === 'f16' 
-                                            ? 'bg-white text-black border-white shadow-lg' 
+                                        precisionFilter === 'f16'
+                                            ? 'bg-white text-black border-white shadow-lg'
                                             : (webGpuSupport?.supported && !webGpuSupport.hasF16)
                                                 ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'
                                                 : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
@@ -1143,96 +1077,101 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                     </span>
                                 </button>
                             </div>
-                            
+
                             {/* Precision Explanation */}
                             {/* Precision Explanation - Removed per user request */}
                         </div>
 
                         {/* Model Selection */}
-                        <div className="space-y-4">
-                            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
-                                Select Model
-                            </label>
-                            <Dropdown
-                                options={AVAILABLE_WEB_LLM_MODELS
-                                    .filter(m => {
-                                        // Hide f16 models if not supported
-                                        if (webGpuSupport?.supported && !webGpuSupport.hasF16 && m.precision === 'f16') return false;
-                                        return precisionFilter === 'all' || m.precision === precisionFilter;
-                                    })
-                                    .map(m => ({ 
-                                        id: m.id, 
-                                        name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}${m.name.includes('Gemma 2') ? ' ★ (Recommended)' : ''}` 
-                                    }))}
-                                value={webLlmModel}
-                                onChange={setWebLlmModel}
-                                className="bg-black/20"
-                            />
-                            
-                            {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel) && (
-                                <div className="flex items-center gap-2 text-[10px] text-white/40">
-                                    <Activity className="w-3 h-3" />
-                                    Est. VRAM Usage: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Download Button */}
-                        <div className="space-y-3">
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleDownloadWebLlm}
-                                    disabled={isDownloadingWebLlm || isModelLoaded}
-                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/5 text-white/40 cursor-wait' : isModelLoaded ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'}`}
-                                >
-                                    {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : isModelLoaded ? <CheckCircle2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-                                    {isDownloadingWebLlm ? 'Downloading...' : isModelLoaded ? 'Model Loaded' : 'Load Model'}
-                                </button>
-
-                                <button
-                                    onClick={handleResetWebLlm}
-                                    disabled={!isModelLoaded}
-                                    className={`px-4 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${isModelLoaded ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300' : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'}`}
-                                    title={!isModelLoaded ? 'No model loaded' : 'Unload model and clear GPU memory'}
-                                >
-                                    <PowerOff className="w-4 h-4" />
-                                    {isModelLoaded && <span>Unload</span>}
-                                </button>
+                        <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                            <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
+                                <Cpu className="w-5 h-5" />
                             </div>
-                            
-                            {webLlmDownloadProgress && (
-                                <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <p className={`font-mono text-xs leading-relaxed ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`}>
-                                            {webLlmDownloadProgress}
-                                        </p>
-                                        {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
-                                            <span className="font-mono text-xs text-white/70">
-                                                {webLlmProgressPercent}%
-                                            </span>
-                                        )}
-                                        {isDownloadingWebLlm && webLlmPhase === 'shader' && (
-                                            <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
-                                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                                Optimizing
-                                            </span>
-                                        )}
-                                    </div>
-                                    {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
-                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
-                                                style={{ width: `${webLlmProgressPercent}%` }}
-                                            />
+                            <div className="flex-1">
+                                <div className="space-y-4">
+                                    <Dropdown
+                                        options={AVAILABLE_WEB_LLM_MODELS
+                                            .filter(m => {
+                                                // Hide f16 models if not supported
+                                                if (webGpuSupport?.supported && !webGpuSupport.hasF16 && m.precision === 'f16') return false;
+                                                return precisionFilter === 'all' || m.precision === precisionFilter;
+                                            })
+                                            .map(m => ({
+                                                id: m.id,
+                                                name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}${m.name.includes('Gemma 2') ? ' ★ (Recommended)' : ''}`
+                                            }))}
+                                        value={webLlmModel}
+                                        onChange={setWebLlmModel}
+                                        className="bg-black/20"
+                                    />
+
+                                    {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel) && (
+                                        <div className="flex items-center gap-2 text-[10px] text-white/40">
+                                            <Activity className="w-3 h-3" />
+                                            Est. VRAM Usage: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB
                                         </div>
                                     )}
-                                    {isDownloadingWebLlm && webLlmPhase === 'shader' && (
-                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                            <div className="h-full bg-linear-to-r from-purple-500/50 via-blue-500 to-purple-500/50 animate-pulse w-full" />
+
+                                    {currentLoadedModel && (
+                                        <div className="space-y-3">
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={handleDownloadWebLlm}
+                                                    disabled={isDownloadingWebLlm || isModelLoaded}
+                                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/5 text-white/40 cursor-wait' : isModelLoaded ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'}`}
+                                                >
+                                                    {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : isModelLoaded ? <CheckCircle2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                                                    {isDownloadingWebLlm ? 'Downloading...' : isModelLoaded ? currentLoadedModel || 'Model Loaded' : 'Load Model'}
+                                                </button>
+
+                                                <button
+                                                    onClick={handleResetWebLlm}
+                                                    disabled={!isModelLoaded}
+                                                    className={`px-4 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${isModelLoaded ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300' : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'}`}
+                                                    title={!isModelLoaded ? 'No model loaded' : 'Unload model and clear GPU memory'}
+                                                >
+                                                    <PowerOff className="w-4 h-4" />
+                                                    {isModelLoaded && <span>Unload</span>}
+                                                </button>
+                                            </div>
+
+                                            {webLlmDownloadProgress && (
+                                                <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className={`font-mono text-xs leading-relaxed ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`}>
+                                                            {webLlmDownloadProgress}
+                                                        </p>
+                                                        {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
+                                                            <span className="font-mono text-xs text-white/70">
+                                                                {webLlmProgressPercent}%
+                                                            </span>
+                                                        )}
+                                                        {isDownloadingWebLlm && webLlmPhase === 'shader' && (
+                                                            <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
+                                                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                                                Optimizing
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
+                                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
+                                                                style={{ width: `${webLlmProgressPercent}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    {isDownloadingWebLlm && webLlmPhase === 'shader' && (
+                                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-linear-to-r from-purple-500/50 via-blue-500 to-purple-500/50 animate-pulse w-full" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
-                            )}
+                            </div>
                         </div>
 
                       </>
