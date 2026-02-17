@@ -12,7 +12,7 @@ interface UnifiedInitModalProps {
     ffmpeg: boolean;
     webllm: boolean;
   };
-  onComplete: (dontShowAgain?: boolean) => void;
+  onComplete: () => void;
 }
 
 interface ResourceStatus {
@@ -26,7 +26,6 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   resources,
   onComplete,
 }) => {
-  const [dontShowAgain, setDontShowAgain] = useState(false);
   const [status, setStatus] = useState<ResourceStatus>({
     tts: resources.tts ? 'ready' : 'pending',
     ffmpeg: resources.ffmpeg ? 'ready' : 'pending',
@@ -101,11 +100,11 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   useEffect(() => {
     if (allReady && isOpen) {
       const timer = setTimeout(() => {
-        onComplete(dontShowAgain);
+        onComplete();
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [allReady, isOpen, onComplete, dontShowAgain]);
+  }, [allReady, isOpen, onComplete]);
 
   if (!isOpen) return null;
 
@@ -226,7 +225,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                         </div>
                         <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
+                            className="h-full bg-cyan-400 transition-all duration-300"
                             style={{ width: `${getProgressPercent()}%` }}
                           />
                         </div>
@@ -245,21 +244,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 bg-white/5 border-t border-white/5 space-y-3">
-          {/* Don't show again checkbox */}
-          {allReady && (
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={dontShowAgain}
-                onChange={(e) => setDontShowAgain(e.target.checked)}
-                className="w-4 h-4 rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
-              />
-              <span className="text-sm text-white/80 group-hover:text-white transition-colors">
-                Don't show this setup modal again
-              </span>
-            </label>
-          )}
+        <div className="px-8 py-5 bg-white/5 border-t border-white/5">
           <p className="text-sm text-white text-center leading-relaxed">
             {allReady ? (
               <>This window will close automatically...</>

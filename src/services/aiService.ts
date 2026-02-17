@@ -41,11 +41,18 @@ const cleanLLMResponse = (text: string): string => {
   return cleaned.trim();
 };
 
-export const transformText = async (settings: LLMSettings, text: string): Promise<string> => {
+export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
   /* Shared System Prompt for both WebLLM and Remote API */
-  const systemPrompt = `Transform the following slide text into a complete, natural-sounding script suitable for Text-to-Speech.
-The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent sentences.
-Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow well.
+  const defaultSystemPrompt = `You are an expert instructor presenting educational content to a classroom. Transform the following slide text into a complete, conversational presentation script suitable for Text-to-Speech.
+
+Write as if you are speaking directly to students in an engaging, natural classroom setting. Use conversational transitions and instructor phrases like:
+- "Welcome" or "Let's begin" at the start
+- "As you can see" or "Notice" when pointing out visual elements
+- "Let's explore" or "Now we'll look at" when transitioning
+- "This is important because" to highlight key concepts
+- "In other words" or "To put it simply" when clarifying
+
+The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent, conversational sentences. Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow naturally as a spoken presentation.
 
 IMPORTANT TTS INSTRUCTIONS:
 1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
@@ -61,16 +68,18 @@ IMPORTANT TTS INSTRUCTIONS:
    - Example: "$ npm install ." -> "Type npm install space period."
    - Example: "ls -la" -> "Type ls space dash l a."
 3. Punctuation: Use proper punctuation to control pacing.
-4. Clean Output: Return ONLY the raw string of the transformed text. 
-   - Do NOT wrap the output in quotation marks. 
+4. Clean Output: Return ONLY the raw string of the transformed text.
+   - Do NOT wrap the output in quotation marks.
    - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
    - Do NOT use Markdown code blocks.
 
 Example Input:
-" How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
+"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
 
 Example Output:
 How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
+
+  const systemPrompt = customSystemPrompt?.trim() || defaultSystemPrompt;
 
   const userPrompt = `Input Text:
 "${text}"`;
@@ -131,7 +140,7 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
 
     const data = await response.json();
     const textContent = data.choices?.[0]?.message?.content || '';
-    
+
     return cleanLLMResponse(textContent);
   } catch (error) {
     console.error('LLM API Error:', error);

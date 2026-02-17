@@ -466,13 +466,13 @@ const SortableSlideItem = ({
 
     setIsTransforming(true);
     try {
-      const transformed = await transformText({ 
-          apiKey: apiKey || '', 
-          baseUrl, 
+      const transformed = await transformText({
+          apiKey: apiKey || '',
+          baseUrl,
           model,
           useWebLLM,
           webLlmModel
-      }, slide.script);
+      }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
       showAlert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Transformation Failed' });
@@ -910,6 +910,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [isConfigureSlidesExpanded, setIsConfigureSlidesExpanded] = useState(() => {
     const saved = localStorage.getItem('configureSlidesExpanded');
     return saved !== null ? saved === 'true' : true; // Default to expanded
+  });
+
+  // Quick Start Guide collapse state
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({
+    1: false, 2: false, 3: false, 4: false, 5: false
   });
 
   // Detect mobile device
@@ -1392,20 +1397,21 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         if (!slide.script.trim()) continue;
 
         try {
-            const transformed = await transformText({ 
-                apiKey: apiKey || '', 
-                baseUrl, 
+            const transformed = await transformText({
+                apiKey: apiKey || '',
+                baseUrl,
                 model,
                 useWebLLM,
                 webLlmModel
-            }, slide.script);
+            }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
             onUpdateSlide(i, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
         } catch (error) {
             console.error(`Failed to fix slide ${i + 1}`, error);
         }
 
-        // Delay 5s to prevent rate limiting (API imposes 15 RPM ~ 4s/req)
-        if (i < slides.length - 1) {
+        // Delay 5s to prevent rate limiting only when using cloud API (API imposes 15 RPM ~ 4s/req)
+        // Skip delay for WebLLM since it runs locally without rate limits
+        if (!useWebLLM && i < slides.length - 1) {
              await new Promise(resolve => setTimeout(resolve, 5000));
         }
       }
@@ -1521,7 +1527,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </button>
 
         {isConfigureSlidesExpanded && (
-        <div className="mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-175">
+        <div className={`mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row ${activeTab === 'overview' ? '' : 'max-h-175'}`}>
            {/* Left Navigation */}
            <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
               <button
@@ -1577,81 +1583,131 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            </div>
 
            {/* Right Content */}
-           <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col overflow-y-auto">
+           <div className={`flex-1 p-6 sm:p-10 bg-black/10 flex flex-col ${activeTab === 'overview' ? 'overflow-visible' : 'overflow-y-auto'}`}>
              {activeTab === 'overview' && (
                 <div className="max-w-4xl w-full mx-auto flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="space-y-3">
                         <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Info className="w-6 h-6 text-branding-primary" /> Configure Slides Overview
+                            <Sparkles className="w-6 h-6 text-branding-primary" /> Quick Start Guide
                         </h3>
-                        <p className="text-base text-white/60">Learn about the different configuration options available for your slides.</p>
+                        <p className="text-base text-white/60">Create your first video in 5 simple steps</p>
                     </div>
 
                     <div className="space-y-6">
-                        {/* Voice Settings */}
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                        {/* Step 1: Import PDF - Blue theme */}
+                        <button
+                            onClick={() => setExpandedCards(prev => ({ ...prev, 1: !prev[1] }))}
+                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
+                        >
                             <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
-                                    <Mic className="w-6 h-6 text-branding-primary" />
+                                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20">
+                                    <Upload className="w-6 h-6 text-blue-400" />
                                 </div>
                                 <div className="flex-1 space-y-2">
-                                    <h4 className="text-lg font-bold text-white">Voice Settings</h4>
-                                    <p className="text-sm text-white/60 leading-relaxed">
-                                        Choose the narrator voice for your slides. Select from standard voices or enable <strong className="text-white/80">Hybrid Mode</strong> to blend two voices together with custom mixing control. Preview voices before applying them to all slides at once.
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold">1</span>
+                                        <h4 className="text-lg font-bold text-white">Import Your PDF</h4>
+                                        <ChevronDown className={`w-5 h-5 text-blue-400 ml-auto transition-transform ${expandedCards[1] ? 'rotate-180' : ''}`} />
+                                    </div>
+                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[1] ? 'block' : 'hidden'}`}>
+                                        Drag & drop your PDF file to automatically create slides. Each page becomes a slide with extracted text ready for editing.
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </button>
 
-                        {/* Audio Mixing */}
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                        {/* Step 2: Edit Scripts - Purple theme */}
+                        <button
+                            onClick={() => setExpandedCards(prev => ({ ...prev, 2: !prev[2] }))}
+                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
+                        >
                             <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
-                                    <Volume2 className="w-6 h-6 text-branding-primary" />
+                                <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-500/20">
+                                    <Wand2 className="w-6 h-6 text-purple-400" />
                                 </div>
                                 <div className="flex-1 space-y-2">
-                                    <h4 className="text-lg font-bold text-white">Audio Mixing</h4>
-                                    <p className="text-sm text-white/60 leading-relaxed">
-                                        Control the overall audio balance of your presentation. Adjust the <strong className="text-white/80">Narrator Volume</strong> to control voice levels, set <strong className="text-white/80">Slide Pacing</strong> to add pauses between slides, and manage <strong className="text-white/80">Background Music</strong> with custom track uploads.
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold">2</span>
+                                        <h4 className="text-lg font-bold text-white">Edit Scripts with AI</h4>
+                                        <ChevronDown className={`w-5 h-5 text-purple-400 ml-auto transition-transform ${expandedCards[2] ? 'rotate-180' : ''}`} />
+                                    </div>
+                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[2] ? 'block' : 'hidden'}`}>
+                                        Refine slide scripts or use <strong className="text-white/80">AI Fix Script</strong> to transform raw PDF text into natural, spoken sentences. Perfect for fixing fragmented text.
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </button>
 
-                        {/* Batch Tools */}
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                        {/* Step 3: Generate Audio - Emerald theme */}
+                        <button
+                            onClick={() => setExpandedCards(prev => ({ ...prev, 3: !prev[3] }))}
+                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
+                        >
                             <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
-                                    <Wand2 className="w-6 h-6 text-branding-primary" />
+                                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                                    <Mic className="w-6 h-6 text-emerald-400" />
                                 </div>
                                 <div className="flex-1 space-y-2">
-                                    <h4 className="text-lg font-bold text-white">Batch Tools</h4>
-                                    <p className="text-sm text-white/60 leading-relaxed">
-                                        Apply actions to all slides simultaneously. Use <strong className="text-white/80">AI Script Fixer</strong> to automatically rewrite scripts for better engagement, <strong className="text-white/80">Generate All Audio</strong> to create voiceovers for every slide, or <strong className="text-white/80">Find & Replace</strong> to update text across all scripts.
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">3</span>
+                                        <h4 className="text-lg font-bold text-white">Generate Voiceovers</h4>
+                                        <ChevronDown className={`w-5 h-5 text-emerald-400 ml-auto transition-transform ${expandedCards[3] ? 'rotate-180' : ''}`} />
+                                    </div>
+                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[3] ? 'block' : 'hidden'}`}>
+                                        Create TTS audio for each slide using the <strong className="text-white/80">Generate Audio</strong> button. Or use <strong className="text-white/80">Generate All Audio</strong> in Batch Tools to process all slides at once.
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </button>
 
-                        {/* Slide Media */}
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                        {/* Step 4: Customize Settings - Orange theme */}
+                        <button
+                            onClick={() => setExpandedCards(prev => ({ ...prev, 4: !prev[4] }))}
+                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
+                        >
                             <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
-                                    <VideoIcon className="w-6 h-6 text-branding-primary" />
+                                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0 border border-orange-500/20">
+                                    <Volume2 className="w-6 h-6 text-orange-400" />
                                 </div>
                                 <div className="flex-1 space-y-2">
-                                    <h4 className="text-lg font-bold text-white">Slide Media</h4>
-                                    <p className="text-sm text-white/60 leading-relaxed">
-                                        Insert dynamic content into your presentation. Upload <strong className="text-white/80">videos (MP4)</strong> or <strong className="text-white/80">animated GIFs</strong> to create standalone slides—perfect for intros, transitions, demonstrations, or visual breaks between static slides.
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold">4</span>
+                                        <h4 className="text-lg font-bold text-white">Customize Settings</h4>
+                                        <ChevronDown className={`w-5 h-5 text-orange-400 ml-auto transition-transform ${expandedCards[4] ? 'rotate-180' : ''}`} />
+                                    </div>
+                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[4] ? 'block' : 'hidden'}`}>
+                                        <strong className="text-white/80">Optional:</strong> Configure voice selection, audio mixing, background music, and slide transitions using the tabs on the left.
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </button>
+
+                        {/* Step 5: Export Video - Pink theme */}
+                        <button
+                            onClick={() => setExpandedCards(prev => ({ ...prev, 5: !prev[5] }))}
+                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
+                        >
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0 border border-pink-500/20">
+                                    <VideoIcon className="w-6 h-6 text-pink-400" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 text-xs font-bold">5</span>
+                                        <h4 className="text-lg font-bold text-white">Export Your Video</h4>
+                                        <ChevronDown className={`w-5 h-5 text-pink-400 ml-auto transition-transform ${expandedCards[5] ? 'rotate-180' : ''}`} />
+                                    </div>
+                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[5] ? 'block' : 'hidden'}`}>
+                                        Preview your video in the <strong className="text-white/80">Preview tab</strong>, then render your final MP4 with voiceovers or silent for custom audio recording.
+                                    </p>
+                                </div>
+                            </div>
+                        </button>
                     </div>
 
                     <div className="shrink-0 pt-6 border-t border-white/10">
                         <p className="text-xs text-white/40 text-center">
-                            Select a tab from the left navigation to configure your slides
+                            Need help? Check the tutorial or configure settings using the tabs above
                         </p>
                     </div>
                 </div>

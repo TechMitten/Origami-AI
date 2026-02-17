@@ -745,7 +745,7 @@ function MainApp() {
        <UnifiedInitModal
           isOpen={isWebLLMInitModalOpen}
           resources={preinstalledResources}
-          onComplete={(dontShowAgain?: boolean) => {
+          onComplete={() => {
               setIsWebLLMInitModalOpen(false);
               // Mark WebLLM as pre-initialized so we don't show this again
               localStorage.setItem('webllm_preinitialized', 'true');
@@ -755,10 +755,6 @@ function MainApp() {
                   currentStatus.webllm = true;
                   localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
                   setPreinstalledResources(currentStatus);
-              }
-              // Save the "don't show again" preference
-              if (dontShowAgain) {
-                  localStorage.setItem('hide_setup_modal', 'true');
               }
           }}
        />

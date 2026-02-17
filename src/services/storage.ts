@@ -33,10 +33,10 @@ export interface GlobalSettings {
   ttsQuantization?: 'q8' | 'q4';
   useLocalTTS?: boolean;
   localTTSUrl?: string;
-  showVolumeOverlay?: boolean;
   disableAudioNormalization?: boolean;
   useWebLLM?: boolean;
   webLlmModel?: string;
+  aiFixScriptSystemPrompt?: string;
 }
 
 

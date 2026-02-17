@@ -16,7 +16,7 @@ interface GlobalSettingsModalProps {
   onClose: () => void;
   currentSettings: GlobalSettings | null;
   onSave: (settings: GlobalSettings) => Promise<void>;
-  initialTab?: 'general' | 'api' | 'tts' | 'interface' | 'webllm';
+  initialTab?: 'general' | 'api' | 'tts' | 'interface' | 'webllm' | 'ai-prompt';
   onShowWebGPUModal?: () => void;
 }
 
@@ -36,11 +36,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.03);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm' | 'ai-prompt'>(initialTab);
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
   const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
   const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
-  const [showVolumeOverlay, setShowVolumeOverlay] = useState(currentSettings?.showVolumeOverlay ?? true);
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -58,6 +57,43 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
+  const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
+    currentSettings?.aiFixScriptSystemPrompt ?? `You are an expert instructor presenting educational content to a classroom. Transform the following slide text into a complete, conversational presentation script suitable for Text-to-Speech.
+
+Write as if you are speaking directly to students in an engaging, natural classroom setting. Use conversational transitions and instructor phrases like:
+- "Welcome" or "Let's begin" at the start
+- "As you can see" or "Notice" when pointing out visual elements
+- "Let's explore" or "Now we'll look at" when transitioning
+- "This is important because" to highlight key concepts
+- "In other words" or "To put it simply" when clarifying
+
+The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent, conversational sentences. Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow naturally as a spoken presentation.
+
+IMPORTANT TTS INSTRUCTIONS:
+1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
+   - Example: "MiB/s" -> "mebibytes per second"
+   - Example: "GB" -> "gigabytes"
+   - Example: "vs." -> "versus"
+   - Example: "etc." -> "et cetera"
+2. Terminal Commands:
+   - Do NOT read the leading '$' prompt symbol.
+   - Break down complex commands into clear, spoken steps.
+   - Spell out important symbols to ensure the listener knows exactly what to type.
+   - Example: "$ git commit -m 'msg'" -> "First type git commit space dash m, then include your message in quotes."
+   - Example: "$ npm install ." -> "Type npm install space period."
+   - Example: "ls -la" -> "Type ls space dash l a."
+3. Punctuation: Use proper punctuation to control pacing.
+4. Clean Output: Return ONLY the raw string of the transformed text.
+   - Do NOT wrap the output in quotation marks.
+   - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
+   - Do NOT use Markdown code blocks.
+
+Example Input:
+"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
+
+Example Output:
+How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`
+  );
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -524,11 +560,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       ttsQuantization,
       useLocalTTS,
       localTTSUrl,
-      showVolumeOverlay,
       disableAudioNormalization,
 
       useWebLLM,
-      webLlmModel
+      webLlmModel,
+      aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined
     };
 
     
@@ -570,7 +606,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[78vh] max-h-196">
+      <div className="w-full max-w-180 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[78vh] max-h-196">
         {/* Header */}
         <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
@@ -623,6 +659,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
              className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webllm' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Cpu className="w-4 h-4" /> WebLLM
+           </button>
+           <button
+             onClick={() => setActiveTab('ai-prompt')}
+             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ai-prompt' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           >
+             <Sparkles className="w-4 h-4" /> AI Prompt
            </button>
         </div>
 
@@ -982,22 +1024,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
-                            <div className="space-y-1">
-                                <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                                    <Activity className="w-4 h-4" /> Show Audio Meter
-                                </div>
-                                {/* <p className="text-[10px] text-white/30">Display dB meter on video preview</p> */}
-                            </div>
-                            <button
-                                onClick={() => setShowVolumeOverlay(!showVolumeOverlay)}
-                                className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${showVolumeOverlay ? 'bg-emerald-500' : 'bg-white/10'}`}
-                            >
-                                <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${showVolumeOverlay ? 'translate-x-5' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
-                    </div>
                 </div>
            ) : activeTab === 'webllm' ? (
                 <div className="space-y-6">
@@ -1177,7 +1203,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       </>
                     )}
                 </div>
-           ) : (
+           ) : activeTab === 'api' ? (
             <div className="space-y-6">
                <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
                  <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
@@ -1310,7 +1336,81 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   </p>
                 </div>
            </div>
-           )}
+           ) : activeTab === 'ai-prompt' ? (
+                <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                        <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
+                            <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-sm font-bold text-white">AI Fix Script System Prompt</h3>
+                            <p className="text-xs text-white/60 leading-relaxed">
+                                Customize the system prompt used for the AI Fix Script feature. This prompt applies to both WebLLM and remote API options.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
+                                <Sparkles className="w-4 h-4" /> System Prompt
+                            </label>
+                            <button
+                                onClick={() => {
+                                    const defaultPrompt = `You are an expert instructor presenting educational content to a classroom. Transform the following slide text into a complete, conversational presentation script suitable for Text-to-Speech.
+
+Write as if you are speaking directly to students in an engaging, natural classroom setting. Use conversational transitions and instructor phrases like:
+- "Welcome" or "Let's begin" at the start
+- "As you can see" or "Notice" when pointing out visual elements
+- "Let's explore" or "Now we'll look at" when transitioning
+- "This is important because" to highlight key concepts
+- "In other words" or "To put it simply" when clarifying
+
+The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent, conversational sentences. Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow naturally as a spoken presentation.
+
+IMPORTANT TTS INSTRUCTIONS:
+1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
+   - Example: "MiB/s" -> "mebibytes per second"
+   - Example: "GB" -> "gigabytes"
+   - Example: "vs." -> "versus"
+   - Example: "etc." -> "et cetera"
+2. Terminal Commands:
+   - Do NOT read the leading '$' prompt symbol.
+   - Break down complex commands into clear, spoken steps.
+   - Spell out important symbols to ensure the listener knows exactly what to type.
+   - Example: "$ git commit -m 'msg'" -> "First type git commit space dash m, then include your message in quotes."
+   - Example: "$ npm install ." -> "Type npm install space period."
+   - Example: "ls -la" -> "Type ls space dash l a."
+3. Punctuation: Use proper punctuation to control pacing.
+4. Clean Output: Return ONLY the raw string of the transformed text.
+   - Do NOT wrap the output in quotation marks.
+   - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
+   - Do NOT use Markdown code blocks.
+
+Example Input:
+"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
+
+Example Output:
+How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
+                                    setAiFixScriptSystemPrompt(defaultPrompt);
+                                }}
+                                className="text-[10px] text-white/40 hover:text-white underline transition-colors"
+                            >
+                                Reset to Default
+                            </button>
+                        </div>
+                        <textarea
+                            value={aiFixScriptSystemPrompt}
+                            onChange={(e) => setAiFixScriptSystemPrompt(e.target.value)}
+                            className="w-full h-64 px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all text-sm font-mono resize-y focus:border-branding-primary focus:ring-1 focus:ring-branding-primary"
+                            placeholder="Enter the system prompt for AI Fix Script..."
+                        />
+                        <p className="text-[10px] text-white/30">
+                            This system prompt is used for the AI Fix Script feature. It works for both WebLLM and remote API.
+                        </p>
+                    </div>
+                </div>
+           ) : null}
          </div>
 
         {/* Footer */}
