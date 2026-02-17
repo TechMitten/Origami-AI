@@ -914,8 +914,40 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   // Quick Start Guide collapse state
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({
-    1: false, 2: false, 3: false, 4: false, 5: false
+    1: false, 2: false, 3: false, 4: false
   });
+
+  // Quick Start Guide steps data
+  const quickStartSteps = [
+    {
+      id: 1,
+      title: 'Edit Scripts with AI',
+      description: 'Refine slide scripts or use AI Fix Script to transform raw PDF text into natural, spoken sentences. Perfect for fixing fragmented text.',
+      color: 'purple',
+      icon: Wand2
+    },
+    {
+      id: 2,
+      title: 'Generate Voiceovers',
+      description: 'Create TTS audio for each slide using the Generate Audio button. Or use Generate All Audio in Batch Tools to process all slides at once.',
+      color: 'emerald',
+      icon: Mic
+    },
+    {
+      id: 3,
+      title: 'Customize Settings',
+      description: 'Optional: Configure voice selection, audio mixing, background music, and slide transitions using the tabs on the left.',
+      color: 'orange',
+      icon: Volume2
+    },
+    {
+      id: 4,
+      title: 'Export Your Video',
+      description: 'Preview your video in the Preview tab, then render your final MP4 with voiceovers or silent for custom audio recording.',
+      color: 'pink',
+      icon: VideoIcon
+    }
+  ] as const;
 
   // Detect mobile device
   useEffect(() => {
@@ -1585,127 +1617,71 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            {/* Right Content */}
            <div className={`flex-1 p-6 sm:p-10 bg-black/10 flex flex-col ${activeTab === 'overview' ? 'overflow-visible' : 'overflow-y-auto'}`}>
              {activeTab === 'overview' && (
-                <div className="max-w-4xl w-full mx-auto flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="space-y-3">
-                        <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <Sparkles className="w-6 h-6 text-branding-primary" /> Quick Start Guide
+                <div className="max-w-4xl w-full mx-auto flex flex-col space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    {/* Compact Header */}
+                    <div className="space-y-1.5">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                            <Sparkles className="w-5 h-5 text-branding-primary" /> Quick Start Guide
                         </h3>
-                        <p className="text-base text-white/60">Create your first video in 5 simple steps</p>
+                        <p className="text-sm text-white/60">Complete your video in 4 simple steps</p>
                     </div>
 
-                    <div className="space-y-6">
-                        {/* Step 1: Import PDF - Blue theme */}
-                        <button
-                            onClick={() => setExpandedCards(prev => ({ ...prev, 1: !prev[1] }))}
-                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
-                        >
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20">
-                                    <Upload className="w-6 h-6 text-blue-400" />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold">1</span>
-                                        <h4 className="text-lg font-bold text-white">Import Your PDF</h4>
-                                        <ChevronDown className={`w-5 h-5 text-blue-400 ml-auto transition-transform ${expandedCards[1] ? 'rotate-180' : ''}`} />
-                                    </div>
-                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[1] ? 'block' : 'hidden'}`}>
-                                        Drag & drop your PDF file to automatically create slides. Each page becomes a slide with extracted text ready for editing.
-                                    </p>
-                                </div>
-                            </div>
-                        </button>
+                    {/* Timeline Accordion */}
+                    <div className="relative">
+                        {/* Gradient timeline line with 4 color stops */}
+                        <div
+                            className="absolute left-4 sm:left-4 top-8 bottom-6 w-px opacity-30"
+                            style={{
+                                background: 'linear-gradient(to bottom, #a855f7 0%, #10b981 33%, #f97316 66%, #ec4899 100%)'
+                            }}
+                        />
 
-                        {/* Step 2: Edit Scripts - Purple theme */}
-                        <button
-                            onClick={() => setExpandedCards(prev => ({ ...prev, 2: !prev[2] }))}
-                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
-                        >
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-500/20">
-                                    <Wand2 className="w-6 h-6 text-purple-400" />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold">2</span>
-                                        <h4 className="text-lg font-bold text-white">Edit Scripts with AI</h4>
-                                        <ChevronDown className={`w-5 h-5 text-purple-400 ml-auto transition-transform ${expandedCards[2] ? 'rotate-180' : ''}`} />
-                                    </div>
-                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[2] ? 'block' : 'hidden'}`}>
-                                        Refine slide scripts or use <strong className="text-white/80">AI Fix Script</strong> to transform raw PDF text into natural, spoken sentences. Perfect for fixing fragmented text.
-                                    </p>
-                                </div>
-                            </div>
-                        </button>
+                        {/* Step rows */}
+                        <div className="space-y-2">
+                            {quickStartSteps.map((step) => {
+                                // Color mappings for each step
+                                const colorClasses = {
+                                    1: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
+                                    2: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
+                                    3: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400' },
+                                    4: { bg: 'bg-pink-500/10', border: 'border-pink-500/30', text: 'text-pink-400' }
+                                }[step.id];
 
-                        {/* Step 3: Generate Audio - Emerald theme */}
-                        <button
-                            onClick={() => setExpandedCards(prev => ({ ...prev, 3: !prev[3] }))}
-                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
-                        >
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                                    <Mic className="w-6 h-6 text-emerald-400" />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">3</span>
-                                        <h4 className="text-lg font-bold text-white">Generate Voiceovers</h4>
-                                        <ChevronDown className={`w-5 h-5 text-emerald-400 ml-auto transition-transform ${expandedCards[3] ? 'rotate-180' : ''}`} />
-                                    </div>
-                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[3] ? 'block' : 'hidden'}`}>
-                                        Create TTS audio for each slide using the <strong className="text-white/80">Generate Audio</strong> button. Or use <strong className="text-white/80">Generate All Audio</strong> in Batch Tools to process all slides at once.
-                                    </p>
-                                </div>
-                            </div>
-                        </button>
+                                return (
+                                    <div key={step.id} className="relative">
+                                        <button
+                                            onClick={() => setExpandedCards(prev => ({ ...prev, [step.id]: !prev[step.id] }))}
+                                            className="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-all text-left group"
+                                            aria-expanded={expandedCards[step.id]}
+                                            aria-controls={`step-description-${step.id}`}
+                                        >
+                                            {/* Compact number indicator */}
+                                            <div className={`w-8 h-8 rounded-full ${colorClasses.bg} border ${colorClasses.border} flex items-center justify-center shrink-0 z-10`}>
+                                                <span className={`${colorClasses.text} text-sm font-bold`}>{step.id}</span>
+                                            </div>
 
-                        {/* Step 4: Customize Settings - Orange theme */}
-                        <button
-                            onClick={() => setExpandedCards(prev => ({ ...prev, 4: !prev[4] }))}
-                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
-                        >
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0 border border-orange-500/20">
-                                    <Volume2 className="w-6 h-6 text-orange-400" />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold">4</span>
-                                        <h4 className="text-lg font-bold text-white">Customize Settings</h4>
-                                        <ChevronDown className={`w-5 h-5 text-orange-400 ml-auto transition-transform ${expandedCards[4] ? 'rotate-180' : ''}`} />
+                                            {/* Content area */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="text-base font-semibold text-white">{step.title}</h4>
+                                                    <ChevronDown className={`w-4 h-4 ${colorClasses.text} ml-auto transition-transform shrink-0 ${expandedCards[step.id] ? 'rotate-180' : ''}`} />
+                                                </div>
+                                                <p
+                                                    id={`step-description-${step.id}`}
+                                                    className={`text-sm text-white/60 leading-relaxed mt-1 ${expandedCards[step.id] ? 'block' : 'hidden'}`}
+                                                >
+                                                    {step.description}
+                                                </p>
+                                            </div>
+                                        </button>
                                     </div>
-                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[4] ? 'block' : 'hidden'}`}>
-                                        <strong className="text-white/80">Optional:</strong> Configure voice selection, audio mixing, background music, and slide transitions using the tabs on the left.
-                                    </p>
-                                </div>
-                            </div>
-                        </button>
-
-                        {/* Step 5: Export Video - Pink theme */}
-                        <button
-                            onClick={() => setExpandedCards(prev => ({ ...prev, 5: !prev[5] }))}
-                            className="w-full p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all text-left"
-                        >
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0 border border-pink-500/20">
-                                    <VideoIcon className="w-6 h-6 text-pink-400" />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 text-xs font-bold">5</span>
-                                        <h4 className="text-lg font-bold text-white">Export Your Video</h4>
-                                        <ChevronDown className={`w-5 h-5 text-pink-400 ml-auto transition-transform ${expandedCards[5] ? 'rotate-180' : ''}`} />
-                                    </div>
-                                    <p className={`text-sm text-white/60 leading-relaxed ${expandedCards[5] ? 'block' : 'hidden'}`}>
-                                        Preview your video in the <strong className="text-white/80">Preview tab</strong>, then render your final MP4 with voiceovers or silent for custom audio recording.
-                                    </p>
-                                </div>
-                            </div>
-                        </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    <div className="shrink-0 pt-6 border-t border-white/10">
+                    {/* Minimal Footer */}
+                    <div className="shrink-0 pt-4 border-t border-white/5">
                         <p className="text-xs text-white/40 text-center">
                             Need help? Check the tutorial or configure settings using the tabs above
                         </p>
