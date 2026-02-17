@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, Layout, RefreshCw, Globe, Cpu, Download, PowerOff, CheckCircle2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, Download, PowerOff, CheckCircle2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -16,7 +16,7 @@ interface GlobalSettingsModalProps {
   onClose: () => void;
   currentSettings: GlobalSettings | null;
   onSave: (settings: GlobalSettings) => Promise<void>;
-  initialTab?: 'general' | 'api' | 'tts' | 'interface' | 'webllm' | 'ai-prompt';
+  initialTab?: 'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt';
   onShowWebGPUModal?: () => void;
 }
 
@@ -36,7 +36,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.03);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'interface' | 'webllm' | 'ai-prompt'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt'>(initialTab);
   const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
   const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
   const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
@@ -632,37 +632,31 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
         <div className="flex items-center gap-1 p-2 bg-white/5 border-b border-white/5 overflow-x-auto no-scrollbar">
            <button
              onClick={() => setActiveTab('general')}
-             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Settings className="w-4 h-4" /> General
            </button>
            <button
              onClick={() => setActiveTab('api')}
-             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Key className="w-4 h-4" /> API
            </button>
            <button
              onClick={() => setActiveTab('tts')}
-             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tts' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'tts' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Mic className="w-4 h-4" /> TTS Model
            </button>
            <button
-             onClick={() => setActiveTab('interface')}
-             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'interface' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-           >
-             <Layout className="w-4 h-4" /> Interface
-           </button>
-           <button
              onClick={() => setActiveTab('webllm')}
-             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webllm' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webllm' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Cpu className="w-4 h-4" /> WebLLM
            </button>
            <button
              onClick={() => setActiveTab('ai-prompt')}
-             className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ai-prompt' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ai-prompt' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
            >
              <Sparkles className="w-4 h-4" /> AI Prompt
            </button>
@@ -1010,21 +1004,6 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
                     )}
                 </div>
               </div>
-           ) : activeTab === 'interface' ? (
-                <div className="space-y-6">
-                    <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
-                        <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
-                            <Layout className="w-5 h-5" />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="text-sm font-bold text-white">Interface Customization</h3>
-                            {/* <p className="text-xs text-white/60 leading-relaxed">
-                                Customize the application layout and visual elements.
-                            </p> */}
-                        </div>
-                    </div>
-
-                </div>
            ) : activeTab === 'webllm' ? (
                 <div className="space-y-6">
                     {/* WebLLM Toggle */}
