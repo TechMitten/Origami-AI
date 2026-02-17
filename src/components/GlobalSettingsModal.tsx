@@ -7,9 +7,10 @@ import type { GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 import { encrypt, decrypt } from '../utils/secureStorage';
 import type { InitProgressReport } from '@mlc-ai/web-llm';
+import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
 
 
-import { reloadTTS } from '../services/ttsService';
+import { reloadTTS, initTTS, ttsEvents, type ProgressEventDetail } from '../services/ttsService';
 
 interface GlobalSettingsModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.03);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt'>(initialTab);
-  const [ttsQuantization, setTtsQuantization] = useState<GlobalSettings['ttsQuantization']>(currentSettings?.ttsQuantization ?? 'q4');
+  const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q4');
   const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
   const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
@@ -57,42 +58,15 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
+  // TTS Download State
+  const [ttsDownloadProgress, setTtsDownloadProgress] = useState<string>('');
+  const [ttsProgressPercent, setTtsProgressPercent] = useState(0);
+  const [isDownloadingTTS, setIsDownloadingTTS] = useState(false);
+  const [ttsModelDownloaded, setTtsModelDownloaded] = useState(false);
+  const [currentDownloadedQuantization, setCurrentDownloadedQuantization] = useState<'q4' | 'q8' | null>(null);
+
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
-    currentSettings?.aiFixScriptSystemPrompt ?? `You are an expert instructor presenting educational content to a classroom. Transform the following slide text into a complete, conversational presentation script suitable for Text-to-Speech.
-
-Write as if you are speaking directly to students in an engaging, natural classroom setting. Use conversational transitions and instructor phrases like:
-- "Welcome" or "Let's begin" at the start
-- "As you can see" or "Notice" when pointing out visual elements
-- "Let's explore" or "Now we'll look at" when transitioning
-- "This is important because" to highlight key concepts
-- "In other words" or "To put it simply" when clarifying
-
-The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent, conversational sentences. Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow naturally as a spoken presentation.
-
-IMPORTANT TTS INSTRUCTIONS:
-1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
-   - Example: "MiB/s" -> "mebibytes per second"
-   - Example: "GB" -> "gigabytes"
-   - Example: "vs." -> "versus"
-   - Example: "etc." -> "et cetera"
-2. Terminal Commands:
-   - Do NOT read the leading '$' prompt symbol.
-   - Break down complex commands into clear, spoken steps.
-   - Spell out important symbols to ensure the listener knows exactly what to type.
-   - Example: "$ git commit -m 'msg'" -> "First type git commit space dash m, then include your message in quotes."
-   - Example: "$ npm install ." -> "Type npm install space period."
-   - Example: "ls -la" -> "Type ls space dash l a."
-3. Punctuation: Use proper punctuation to control pacing.
-4. Clean Output: Return ONLY the raw string of the transformed text.
-   - Do NOT wrap the output in quotation marks.
-   - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
-   - Do NOT use Markdown code blocks.
-
-Example Input:
-"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
-
-Example Output:
-How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`
+    currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
   );
 
   // Prevent background scrolling when modal is open
@@ -142,6 +116,42 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
     setWebLlmProgressPercent(0);
     setWebLlmPhase('downloading');
   }, [webLlmModel]);
+
+  // Reset TTS download state when quantization changes
+  useEffect(() => {
+    setTtsDownloadProgress('');
+    setTtsProgressPercent(0);
+    setIsDownloadingTTS(false);
+    // Check if model is already downloaded for this quantization
+    setTtsModelDownloaded(currentDownloadedQuantization === ttsQuantization);
+  }, [ttsQuantization, currentDownloadedQuantization]);
+
+  // Listen for TTS progress events
+  useEffect(() => {
+    const handleTTSProgress = (e: Event) => {
+      const event = e as CustomEvent<ProgressEventDetail>;
+      const { progress, file, status } = event.detail;
+
+      if (status === 'done') {
+        setTtsProgressPercent(100);
+        setTtsDownloadProgress('Model downloaded successfully!');
+        setIsDownloadingTTS(false);
+        setTtsModelDownloaded(true);
+        setCurrentDownloadedQuantization(ttsQuantization);
+      } else if (progress >= 0) {
+        setTtsProgressPercent(Math.round(progress));
+        setTtsDownloadProgress(file || 'Downloading...');
+      } else {
+        setTtsDownloadProgress(status || 'Initializing...');
+      }
+    };
+
+    ttsEvents.addEventListener('tts-progress', handleTTSProgress);
+
+    return () => {
+      ttsEvents.removeEventListener('tts-progress', handleTTSProgress);
+    };
+  }, [ttsQuantization]);
 
   const [availableVoices, setAvailableVoices] = useState<Voice[]>(AVAILABLE_VOICES);
   const [isHybrid, setIsHybrid] = useState(false);
@@ -303,6 +313,25 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
       showAlert("Failed to fetch models. Please check your Base URL and API Key.", { type: 'error', title: 'Details Incorrect' });
     } finally {
       setIsFetchingModels(false);
+    }
+  };
+
+  const handleDownloadTTSModel = async () => {
+    if (isDownloadingTTS || ttsModelDownloaded) return;
+
+    setIsDownloadingTTS(true);
+    setTtsDownloadProgress('Initializing...');
+    setTtsProgressPercent(0);
+
+    try {
+      // Initialize TTS with the selected quantization (this will download the model)
+      await initTTS(ttsQuantization);
+      setTtsModelDownloaded(true);
+      setCurrentDownloadedQuantization(ttsQuantization);
+    } catch (error) {
+      console.error('Failed to download TTS model:', error);
+      setTtsDownloadProgress('Download failed. Check console.');
+      setIsDownloadingTTS(false);
     }
   };
 
@@ -543,7 +572,7 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
 
   const handleSave = async () => {
     const musicBlob = musicFile ? musicFile : existingMusicBlob;
-    
+
     // If enabled, validations could be added here if needed
 
     const settings: GlobalSettings = {
@@ -567,10 +596,21 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
       aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined
     };
 
-    
+
     // Check if quantization changed to reload model
     if (currentSettings?.ttsQuantization !== ttsQuantization) {
-         if (ttsQuantization) reloadTTS(ttsQuantization);
+         if (ttsQuantization) {
+           // Load the model (should be quick if already downloaded)
+           setTtsDownloadProgress('Loading model...');
+           try {
+             reloadTTS(ttsQuantization);
+             setTtsDownloadProgress('');
+             setCurrentDownloadedQuantization(ttsQuantization);
+           } catch (error) {
+             console.error('Failed to reload TTS model:', error);
+             setTtsDownloadProgress('Failed to load model');
+           }
+         }
     }
 
     localStorage.setItem('llm_api_key', encrypt(apiKey));
@@ -1000,6 +1040,75 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
                                 </span>
                             </button>
                         </div>
+
+                        {/* Download Button and Progress */}
+                        {ttsQuantization !== currentSettings?.ttsQuantization && (
+                          <div className="space-y-3 animate-fade-in">
+                            <button
+                              onClick={handleDownloadTTSModel}
+                              disabled={isDownloadingTTS || ttsModelDownloaded}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${
+                                isDownloadingTTS
+                                  ? 'bg-white/5 text-white/40 cursor-wait'
+                                  : ttsModelDownloaded
+                                    ? 'bg-emerald-500/10 text-emerald-400 cursor-default'
+                                    : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
+                              }`}
+                            >
+                              {isDownloadingTTS ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                  Downloading... {ttsProgressPercent > 0 && `${ttsProgressPercent}%`}
+                                </>
+                              ) : ttsModelDownloaded ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  Model Downloaded ({ttsQuantization.toUpperCase()})
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4" />
+                                  Download {ttsQuantization.toUpperCase()} Model
+                                </>
+                              )}
+                            </button>
+
+                            {ttsDownloadProgress && (
+                              <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <p className={`font-mono text-xs leading-relaxed ${
+                                    ttsDownloadProgress === 'Model downloaded successfully!' || ttsDownloadProgress.includes('successfully')
+                                      ? 'text-emerald-400 font-bold'
+                                      : 'text-white/70'
+                                  }`}>
+                                    {ttsDownloadProgress}
+                                  </p>
+                                  {isDownloadingTTS && (
+                                    <span className="font-mono text-xs text-white/70">
+                                      {ttsProgressPercent}%
+                                    </span>
+                                  )}
+                                </div>
+                                {isDownloadingTTS && ttsProgressPercent > 0 && ttsProgressPercent < 100 && (
+                                  <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-linear-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                                      style={{ width: `${ttsProgressPercent}%` }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {ttsModelDownloaded && (
+                              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                <p className="text-[10px] text-emerald-200">
+                                  <strong>Ready:</strong> Click "Save Settings" to load the {ttsQuantization.toUpperCase()} model.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                     </div>
                     )}
                 </div>
@@ -1336,42 +1445,7 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
                             </label>
                             <button
                                 onClick={() => {
-                                    const defaultPrompt = `You are an expert instructor presenting educational content to a classroom. Transform the following slide text into a complete, conversational presentation script suitable for Text-to-Speech.
-
-Write as if you are speaking directly to students in an engaging, natural classroom setting. Use conversational transitions and instructor phrases like:
-- "Welcome" or "Let's begin" at the start
-- "As you can see" or "Notice" when pointing out visual elements
-- "Let's explore" or "Now we'll look at" when transitioning
-- "This is important because" to highlight key concepts
-- "In other words" or "To put it simply" when clarifying
-
-The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent, conversational sentences. Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow naturally as a spoken presentation.
-
-IMPORTANT TTS INSTRUCTIONS:
-1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
-   - Example: "MiB/s" -> "mebibytes per second"
-   - Example: "GB" -> "gigabytes"
-   - Example: "vs." -> "versus"
-   - Example: "etc." -> "et cetera"
-2. Terminal Commands:
-   - Do NOT read the leading '$' prompt symbol.
-   - Break down complex commands into clear, spoken steps.
-   - Spell out important symbols to ensure the listener knows exactly what to type.
-   - Example: "$ git commit -m 'msg'" -> "First type git commit space dash m, then include your message in quotes."
-   - Example: "$ npm install ." -> "Type npm install space period."
-   - Example: "ls -la" -> "Type ls space dash l a."
-3. Punctuation: Use proper punctuation to control pacing.
-4. Clean Output: Return ONLY the raw string of the transformed text.
-   - Do NOT wrap the output in quotation marks.
-   - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
-   - Do NOT use Markdown code blocks.
-
-Example Input:
-"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
-
-Example Output:
-How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
-                                    setAiFixScriptSystemPrompt(defaultPrompt);
+                                    setAiFixScriptSystemPrompt(DEFAULT_SYSTEM_PROMPT);
                                 }}
                                 className="text-[10px] text-white/40 hover:text-white underline transition-colors"
                             >

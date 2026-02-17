@@ -1,4 +1,4 @@
-import { generateWebLLMResponse, initWebLLM } from './webLlmService';
+import { generateWebLLMResponse, isWebLLMLoaded } from './webLlmService';
 
 interface LLMSettings {
   apiKey: string;
@@ -26,14 +26,30 @@ const cleanLLMResponse = (text: string): string => {
     cleaned = cleaned.replace(prefix, '');
   }
 
-  // Remove markdown code blocks if present
-  cleaned = cleaned.replace(/^```(markdown|text)?\n/, '').replace(/\n```$/, '');
+  // Remove markdown code blocks if present (handle both with and without language specifiers)
+  cleaned = cleaned.replace(/^```[\w]*\n/, '').replace(/\n```$/, '');
+
+  // Remove other markdown formatting
+  cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1'); // Bold **text**
+  cleaned = cleaned.replace(/\*(.+?)\*/g, '$1'); // Italic *text*
+  cleaned = cleaned.replace(/`(.+?)`/g, '$1'); // Inline code `text`
+  cleaned = cleaned.replace(/__(.+?)__/g, '$1'); // Bold __text__
+  cleaned = cleaned.replace(/_(.+?)_/g, '$1'); // Italic _text_
+  cleaned = cleaned.replace(/~~(.+?)~~/g, '$1'); // Strikethrough
+  cleaned = cleaned.replace(/^#{1,6}\s+/gm, ''); // Headers ###
+
+  // Remove markdown links but keep the text [text](url) -> text
+  cleaned = cleaned.replace(/\[(.+?)\]\(.+?\)/g, '$1');
+
+  // Remove list markers but keep content
+  cleaned = cleaned.replace(/^[\s]*[-*+]\s+/gm, '');
+  cleaned = cleaned.replace(/^[\s]*\d+\.\s+/gm, '');
 
   // Re-trim after prefix removal
   cleaned = cleaned.trim();
 
   // Remove wrapping quotes if they appear on both ends
-  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
       (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
       cleaned = cleaned.substring(1, cleaned.length - 1);
   }
@@ -41,11 +57,10 @@ const cleanLLMResponse = (text: string): string => {
   return cleaned.trim();
 };
 
-export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
-  /* Shared System Prompt for both WebLLM and Remote API */
-  const defaultSystemPrompt = `You are an expert instructor presenting educational content to a classroom. Transform the following slide text into a complete, conversational presentation script suitable for Text-to-Speech.
+/* Shared System Prompt for both WebLLM and Remote API */
+export const DEFAULT_SYSTEM_PROMPT = `You are creating a conversational script for Text-to-Speech presentation. Transform the following slide text into a complete, natural spoken presentation.
 
-Write as if you are speaking directly to students in an engaging, natural classroom setting. Use conversational transitions and instructor phrases like:
+Write in a conversational, engaging style. Use natural transitions and phrases like:
 - "Welcome" or "Let's begin" at the start
 - "As you can see" or "Notice" when pointing out visual elements
 - "Let's explore" or "Now we'll look at" when transitioning
@@ -60,26 +75,38 @@ IMPORTANT TTS INSTRUCTIONS:
    - Example: "GB" -> "gigabytes"
    - Example: "vs." -> "versus"
    - Example: "etc." -> "et cetera"
-2. Terminal Commands:
+2. URLs and Web Addresses: ALWAYS expand URLs into their spoken form.
+   - Replace "://" with "colon slash slash" or simply spell out each part.
+   - Replace "/" with "slash" or "forward slash".
+   - Replace "." with "dot" or "period".
+   - Example: "https://example.com" -> "https colon slash slash example dot com" or "h t t p s colon slash slash example dot com"
+   - Example: "github.com/user/repo" -> "github dot com slash user slash repo"
+   - Example: "www.website.com" -> "double-u double-u double-u dot website dot com"
+   - NEVER read URLs as continuous words. Always spell them out clearly for TTS.
+3. Terminal Commands:
    - Do NOT read the leading '$' prompt symbol.
    - Break down complex commands into clear, spoken steps.
    - Spell out important symbols to ensure the listener knows exactly what to type.
    - Example: "$ git commit -m 'msg'" -> "First type git commit space dash m, then include your message in quotes."
    - Example: "$ npm install ." -> "Type npm install space period."
    - Example: "ls -la" -> "Type ls space dash l a."
-3. Punctuation: Use proper punctuation to control pacing.
-4. Clean Output: Return ONLY the raw string of the transformed text.
+4. Email Addresses: Spell out the @ symbol and dots.
+   - Example: "user@example.com" -> "user at example dot com"
+5. Punctuation: Use proper punctuation to control pacing.
+6. Clean Output: Return ONLY the raw string of the transformed text.
    - Do NOT wrap the output in quotation marks.
    - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
-   - Do NOT use Markdown code blocks.
+   - Do NOT use ANY Markdown formatting (no code blocks, no bold with **, no italic with *, no headers with #).
+   - Output plain text only.
 
 Example Input:
-"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download size: 85 MiB $ npm install ."
+"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download: https://code.visualstudio.com Download size: 85 MiB $ npm install ."
 
 Example Output:
-How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software, with a download size of approximately 85 mebibytes. To install dependencies, type npm install space period.`;
+How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software. You can download it from https colon slash slash code dot visualstudio dot com. The download size is approximately 85 mebibytes. To install dependencies, type npm install space period.`;
 
-  const systemPrompt = customSystemPrompt?.trim() || defaultSystemPrompt;
+export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
+  const systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
 
   const userPrompt = `Input Text:
 "${text}"`;
@@ -89,11 +116,10 @@ How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guid
         throw new Error("WebLLM is enabled but no model is selected.");
     }
     try {
-        // Ensure initialized. If not already loaded, this might take time.
-        // We pass a simple console logger for this implicit init.
-        await initWebLLM(settings.webLlmModel, (progress) => {
-            console.log(`[WebLLM Auto-Init] ${progress.text}`);
-        });
+        // Check if WebLLM is already initialized (it should be from the setup modal)
+        if (!isWebLLMLoaded()) {
+            throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
+        }
 
         const messages = [
             { role: "system" as const, content: systemPrompt },

@@ -895,6 +895,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [isBatchFixing, setIsBatchFixing] = React.useState(false);
+  const [isWarmingUp, setIsWarmingUp] = React.useState(false);
   const [batchProgress, setBatchProgress] = React.useState<{ current: number; total: number } | null>(null);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
   const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
@@ -1415,13 +1416,40 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         return;
     }
 
+    // Check if WebLLM is actually loaded (not just configured)
+    if (useWebLLM && webLlmModel) {
+        const { isWebLLMLoaded } = await import('../services/webLlmService');
+        if (!isWebLLMLoaded()) {
+            showAlert('WebLLM model is not loaded. Please initialize it in Settings (WebLLM tab) first.', { type: 'warning', title: 'WebLLM Not Ready' });
+            return;
+        }
+    }
+
     if (!await showConfirm("This will sequentially update ALL slide scripts using AI. This process runs individually for each slide to respect API limits. Continue?", { title: 'Batch AI Fix', confirmText: 'Start Processing' })) {
       return;
     }
 
     setIsBatchFixing(true);
+    setIsWarmingUp(true);
     setBatchProgress({ current: 0, total: slides.length });
-    
+
+    // Warmup WebLLM before starting batch processing to avoid delay on first slide
+    if (useWebLLM) {
+      try {
+        const { generateWebLLMResponse } = await import('../services/webLlmService');
+        // Do a minimal warmup call
+        await generateWebLLMResponse([
+          { role: "system" as const, content: "You are a helpful assistant." },
+          { role: "user" as const, content: "OK" }
+        ]);
+      } catch (error) {
+        console.error('WebLLM warmup failed:', error);
+        // Continue anyway - the actual processing will show the real error
+      }
+    }
+
+    setIsWarmingUp(false);
+
     try {
       for (let i = 0; i < slides.length; i++) {
         setBatchProgress({ current: i + 1, total: slides.length });
@@ -1450,7 +1478,35 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       showAlert('Batch script fixing completed successfully!', { type: 'success', title: 'Batch Complete' });
     } finally {
       setIsBatchFixing(false);
+      setIsWarmingUp(false);
       setBatchProgress(null);
+    }
+  };
+
+  const handleRevertAllScripts = async () => {
+    const slidesWithOriginals = slides.filter(slide => slide.originalScript);
+
+    if (slidesWithOriginals.length === 0) {
+      showAlert('No slides with original scripts found to revert.', { type: 'info', title: 'Nothing to Revert' });
+      return;
+    }
+
+    if (!await showConfirm(`This will revert ${slidesWithOriginals.length} slide(s) to their original scripts, discarding all current changes. Continue?`, { title: 'Bulk Revert', confirmText: 'Revert All', type: 'warning' })) {
+      return;
+    }
+
+    try {
+      let revertedCount = 0;
+      for (let i = 0; i < slides.length; i++) {
+        const slide = slides[i];
+        if (slide.originalScript) {
+          onUpdateSlide(i, { script: slide.originalScript, originalScript: undefined, selectionRanges: undefined });
+          revertedCount++;
+        }
+      }
+      showAlert(`Successfully reverted ${revertedCount} slide(s) to original scripts!`, { type: 'success', title: 'Bulk Revert Complete' });
+    } catch (error) {
+      showAlert('Failed to revert some scripts: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Revert Failed' });
     }
   };
 
@@ -1941,26 +1997,27 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <p className="text-base text-white/50">Apply specific actions to all slides at once.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* AI Fix */}
                         <button
                             onClick={handleFixAllScripts}
                             disabled={isBatchFixing || isBatchGenerating || slides.length === 0}
-                            className="group relative h-48 p-8 rounded-3xl bg-linear-to-br from-branding-accent/10 to-transparent border border-branding-accent/20 hover:border-branding-accent/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-accent/5 overflow-hidden flex flex-col justify-end"
+                            className="group relative h-52 p-6 rounded-3xl bg-linear-to-br from-branding-accent/10 to-transparent border border-branding-accent/20 hover:border-branding-accent/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-accent/5 overflow-hidden"
                         >
-                            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Sparkles className="w-32 h-32" />
+                            <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Sparkles className="w-24 h-24" />
                             </div>
-                            <div className="relative z-10 space-y-4">
+                            <div className="relative z-10 flex flex-col h-full space-y-3">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-lg bg-branding-accent/20 flex items-center justify-center">
                                         {isBatchFixing ? <Loader2 className="w-5 h-5 text-branding-accent animate-spin" /> : <Sparkles className="w-5 h-5 text-branding-accent" />}
                                     </div>
                                     <h4 className="text-lg font-bold text-white">AI Script Fixer</h4>
                                 </div>
-                                <p className="text-sm text-white/60 max-w-xs">Automatically rewrite all slide scripts to be more natural and engaging.</p>
+                                <p className="text-sm text-white/60 flex-1">Automatically rewrite all slide scripts to be more natural and engaging.</p>
                                 <div className="text-xs font-bold text-branding-accent uppercase tracking-widest pt-2">
-                                    {isBatchFixing ? `Processing ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
+                                    {isWarmingUp ? 'WARMING UP...' :
+                                    isBatchFixing ? `Processing ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
                                 </div>
                             </div>
                         </button>
@@ -1969,21 +2026,44 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <button
                             onClick={handleGenerateAll}
                             disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
-                            className="group relative h-48 p-8 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden flex flex-col justify-end"
+                            className="group relative h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
                         >
-                             <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Wand2 className="w-32 h-32" />
+                             <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Wand2 className="w-24 h-24" />
                             </div>
-                             <div className="relative z-10 space-y-4">
+                             <div className="relative z-10 flex flex-col h-full space-y-3">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-lg bg-branding-primary/20 flex items-center justify-center">
                                         {isBatchGenerating ? <Loader2 className="w-5 h-5 text-branding-primary animate-spin" /> : <Wand2 className="w-5 h-5 text-branding-primary" />}
                                     </div>
                                     <h4 className="text-lg font-bold text-white">Generate All Audio</h4>
                                 </div>
-                                <p className="text-sm text-white/60 max-w-xs">Generate or regenerate TTS audio for all slides sequentially.</p>
+                                <p className="text-sm text-white/60 flex-1">Generate or regenerate TTS audio for all slides sequentially.</p>
                                 <div className="text-xs font-bold text-branding-primary uppercase tracking-widest pt-2">
                                     {isBatchGenerating ? `Generating ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
+                                </div>
+                            </div>
+                        </button>
+
+                        {/* Bulk Revert */}
+                        <button
+                            onClick={handleRevertAllScripts}
+                            disabled={slides.filter(s => s.originalScript).length === 0}
+                            className="group relative h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
+                        >
+                            <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Undo2 className="w-24 h-24" />
+                            </div>
+                            <div className="relative z-10 flex flex-col h-full space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-branding-primary/20 flex items-center justify-center">
+                                        <Undo2 className="w-5 h-5 text-branding-primary" />
+                                    </div>
+                                    <h4 className="text-lg font-bold text-white">Bulk Revert Scripts</h4>
+                                </div>
+                                <p className="text-sm text-white/60 flex-1">Revert all modified scripts back to their original state at once.</p>
+                                <div className="text-xs font-bold text-branding-primary uppercase tracking-widest pt-2">
+                                    {slides.filter(s => s.originalScript).length} Slide(s) Available
                                 </div>
                             </div>
                         </button>
