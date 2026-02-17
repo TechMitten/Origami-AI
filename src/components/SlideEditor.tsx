@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2 } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -905,8 +905,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [globalVoiceA, setGlobalVoiceA] = React.useState('');
   const [globalVoiceB, setGlobalVoiceB] = React.useState('');
   const [globalMixBalance, setGlobalMixBalance] = React.useState(50);
-  const [activeTab, setActiveTab] = React.useState<'voice' | 'mixing' | 'tools' | 'media'>('voice');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>('overview');
   const [isMobile, setIsMobile] = useState(false);
+  const [isConfigureSlidesExpanded, setIsConfigureSlidesExpanded] = useState(() => {
+    const saved = localStorage.getItem('configureSlidesExpanded');
+    return saved !== null ? saved === 'true' : true; // Default to expanded
+  });
 
   // Detect mobile device
   useEffect(() => {
@@ -918,6 +922,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Persist configure slides expanded state
+  useEffect(() => {
+    localStorage.setItem('configureSlidesExpanded', String(isConfigureSlidesExpanded));
+  }, [isConfigureSlidesExpanded]);
 
   // Sync global settings changes to parent
 
@@ -1493,8 +1502,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       )}
 
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1">
+        <button
+          onClick={() => setIsConfigureSlidesExpanded(prev => !prev)}
+          className="flex flex-col md:flex-row md:items-center justify-between gap-6 w-full text-left"
+        >
+          <div className="space-y-1 flex-1">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
               <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
               Configure Slides
@@ -1503,13 +1515,25 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               Manage {slides.length} slides, voice settings, and audio generation
             </p>
           </div>
+          <div className="flex items-center text-branding-primary">
+            {isConfigureSlidesExpanded ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+          </div>
+        </button>
 
-
-        </div>
-
-        <div className="mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row min-h-150">
+        {isConfigureSlidesExpanded && (
+        <div className="mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-175">
            {/* Left Navigation */}
            <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
+                  activeTab === 'overview'
+                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                    : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                }`}
+              >
+                <Info className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Overview
+              </button>
               <button
                 onClick={() => setActiveTab('voice')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${
@@ -1553,7 +1577,86 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
            </div>
 
            {/* Right Content */}
-           <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col">
+           <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col overflow-y-auto">
+             {activeTab === 'overview' && (
+                <div className="max-w-4xl w-full mx-auto flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="space-y-3">
+                        <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                            <Info className="w-6 h-6 text-branding-primary" /> Configure Slides Overview
+                        </h3>
+                        <p className="text-base text-white/60">Learn about the different configuration options available for your slides.</p>
+                    </div>
+
+                    <div className="space-y-6">
+                        {/* Voice Settings */}
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
+                                    <Mic className="w-6 h-6 text-branding-primary" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <h4 className="text-lg font-bold text-white">Voice Settings</h4>
+                                    <p className="text-sm text-white/60 leading-relaxed">
+                                        Choose the narrator voice for your slides. Select from standard voices or enable <strong className="text-white/80">Hybrid Mode</strong> to blend two voices together with custom mixing control. Preview voices before applying them to all slides at once.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Audio Mixing */}
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
+                                    <Volume2 className="w-6 h-6 text-branding-primary" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <h4 className="text-lg font-bold text-white">Audio Mixing</h4>
+                                    <p className="text-sm text-white/60 leading-relaxed">
+                                        Control the overall audio balance of your presentation. Adjust the <strong className="text-white/80">Narrator Volume</strong> to control voice levels, set <strong className="text-white/80">Slide Pacing</strong> to add pauses between slides, and manage <strong className="text-white/80">Background Music</strong> with custom track uploads.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Batch Tools */}
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
+                                    <Wand2 className="w-6 h-6 text-branding-primary" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <h4 className="text-lg font-bold text-white">Batch Tools</h4>
+                                    <p className="text-sm text-white/60 leading-relaxed">
+                                        Apply actions to all slides simultaneously. Use <strong className="text-white/80">AI Script Fixer</strong> to automatically rewrite scripts for better engagement, <strong className="text-white/80">Generate All Audio</strong> to create voiceovers for every slide, or <strong className="text-white/80">Find & Replace</strong> to update text across all scripts.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Slide Media */}
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-branding-primary/30 transition-all">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-branding-primary/10 flex items-center justify-center shrink-0">
+                                    <VideoIcon className="w-6 h-6 text-branding-primary" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <h4 className="text-lg font-bold text-white">Slide Media</h4>
+                                    <p className="text-sm text-white/60 leading-relaxed">
+                                        Insert dynamic content into your presentation. Upload <strong className="text-white/80">videos (MP4)</strong> or <strong className="text-white/80">animated GIFs</strong> to create standalone slides—perfect for intros, transitions, demonstrations, or visual breaks between static slides.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="shrink-0 pt-6 border-t border-white/10">
+                        <p className="text-xs text-white/40 text-center">
+                            Select a tab from the left navigation to configure your slides
+                        </p>
+                    </div>
+                </div>
+             )}
+
              {activeTab === 'voice' && (
                 <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 shrink-0">
@@ -1680,7 +1783,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 </label>
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-end">
-                                        <span className="text-4xl font-light text-white">{Math.round((ttsVolume ?? 1) * 100)}%</span>
+                                        <span className="text-4xl font-light text-white">{Math.round((ttsVolume ?? 1) * 50)}%</span>
                                         {ttsVolume !== 1 && (
                                             <button onClick={() => onUpdateTtsVolume?.(1)} className="text-xs text-branding-primary hover:underline font-bold uppercase tracking-wider">Reset</button>
                                         )}
@@ -1688,12 +1791,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                     <input
                                         type="range"
                                         min="0"
-                                        max="1"
+                                        max="2"
                                         step="0.05"
                                         value={ttsVolume ?? 1}
                                         onChange={(e) => onUpdateTtsVolume?.(parseFloat(e.target.value))}
                                         className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-black/20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-110"
-                                        style={{ background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${(ttsVolume ?? 1) * 100}%, rgba(0, 0, 0, 0.2) ${(ttsVolume ?? 1) * 100}%)` }}
+                                        style={{ background: `linear-gradient(to right, var(--branding-primary-hex, #00f0ff) ${((ttsVolume ?? 1) / 2) * 100}%, rgba(0, 0, 0, 0.2) ${((ttsVolume ?? 1) / 2) * 100}%)` }}
                                     />
                                 </div>
                             </div>
@@ -1918,6 +2021,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
              )}
            </div>
         </div>
+        )}
 
       </div>
 

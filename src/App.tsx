@@ -110,6 +110,7 @@ function App() {
 
       // Check if WebLLM should be pre-initialized
       const webLLMPreinitialized = localStorage.getItem('webllm_preinitialized') === 'true';
+      const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
 
       // Only init WebLLM if enabled specifically in settings AND (cached OR pre-initialized)
       if (settings?.useWebLLM) {
@@ -118,7 +119,7 @@ function App() {
           if (cached.webllm) {
               // Already cached, initialize silently in background
               initWebLLM(model, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
-          } else if (!webLLMPreinitialized) {
+          } else if (!webLLMPreinitialized && !hideSetupModal) {
               // First time using WebLLM - show initialization modal
               // This ensures users see the progress and understand it's a one-time process
               setIsWebLLMInitModalOpen(true);
@@ -141,7 +142,7 @@ function App() {
                               (!cached.ffmpeg && pref.downloadFFmpeg) ||
                               (!cached.webllm && pref.enableWebLLM);
 
-            if (needsInit) {
+            if (needsInit && !hideSetupModal) {
               setIsWebLLMInitModalOpen(true);
             }
 
@@ -170,31 +171,41 @@ function App() {
             console.error("Invalid startup pref", e);
             // If error, fall back to modal logic, considering cache
              if (!cached.tts || !cached.ffmpeg) {
-                setIsResourceModalOpen(true);
+                if (!hideSetupModal) {
+                    setIsResourceModalOpen(true);
+                }
              }
         }
       } else {
-        // No "Never show again".
+        // No "Never show again" preference stored.
         // Show modal ONLY if something is missing
         if (!cached.tts || !cached.ffmpeg) {
-            setIsResourceModalOpen(true);
+            if (!hideSetupModal) {
+                setIsResourceModalOpen(true);
+            }
         }
       }
     };
     load();
   }, [renderer]);
 
-  const handleResourceConfirm = async (selection: ResourceSelection) => {
+  const handleResourceConfirm = async (selection: ResourceSelection, dontShowAgain?: boolean) => {
       setIsResourceModalOpen(false);
 
       const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+      const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
+
+      // Save the "don't show again" preference
+      if (dontShowAgain) {
+          localStorage.setItem('hide_setup_modal', 'true');
+      }
 
       // Check if we need to show unified init modal
       const needsInit = (!cached.tts && selection.downloadTTS) ||
                         (!cached.ffmpeg && selection.downloadFFmpeg) ||
                         (!cached.webllm && selection.enableWebLLM);
 
-      if (needsInit) {
+      if (needsInit && !hideSetupModal) {
         setIsWebLLMInitModalOpen(true);
       }
 
@@ -731,7 +742,7 @@ function App() {
        <UnifiedInitModal
           isOpen={isWebLLMInitModalOpen}
           resources={preinstalledResources}
-          onComplete={() => {
+          onComplete={(dontShowAgain?: boolean) => {
               setIsWebLLMInitModalOpen(false);
               // Mark WebLLM as pre-initialized so we don't show this again
               localStorage.setItem('webllm_preinitialized', 'true');
@@ -741,6 +752,10 @@ function App() {
                   currentStatus.webllm = true;
                   localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
                   setPreinstalledResources(currentStatus);
+              }
+              // Save the "don't show again" preference
+              if (dontShowAgain) {
+                  localStorage.setItem('hide_setup_modal', 'true');
               }
           }}
        />

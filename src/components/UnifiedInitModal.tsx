@@ -5,12 +5,6 @@ import { ttsEvents, type ProgressEventDetail } from '../services/ttsService';
 import { videoEvents } from '../services/BrowserVideoRenderer';
 import type { InitProgressReport } from '@mlc-ai/web-llm';
 
-interface ResourceStatus {
-  tts: 'pending' | 'downloading' | 'ready';
-  ffmpeg: 'pending' | 'loading' | 'ready';
-  webllm: 'pending' | 'initializing' | 'ready';
-}
-
 interface UnifiedInitModalProps {
   isOpen: boolean;
   resources: {
@@ -18,7 +12,13 @@ interface UnifiedInitModalProps {
     ffmpeg: boolean;
     webllm: boolean;
   };
-  onComplete: () => void;
+  onComplete: (dontShowAgain?: boolean) => void;
+}
+
+interface ResourceStatus {
+  tts: 'pending' | 'downloading' | 'ready';
+  ffmpeg: 'pending' | 'loading' | 'ready';
+  webllm: 'pending' | 'initializing' | 'ready';
 }
 
 export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
@@ -26,6 +26,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   resources,
   onComplete,
 }) => {
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const [status, setStatus] = useState<ResourceStatus>({
     tts: resources.tts ? 'ready' : 'pending',
     ffmpeg: resources.ffmpeg ? 'ready' : 'pending',
@@ -100,11 +101,11 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   useEffect(() => {
     if (allReady && isOpen) {
       const timer = setTimeout(() => {
-        onComplete();
+        onComplete(dontShowAgain);
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [allReady, isOpen, onComplete]);
+  }, [allReady, isOpen, onComplete, dontShowAgain]);
 
   if (!isOpen) return null;
 
@@ -244,7 +245,21 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 bg-white/5 border-t border-white/5">
+        <div className="px-8 py-5 bg-white/5 border-t border-white/5 space-y-3">
+          {/* Don't show again checkbox */}
+          {allReady && (
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
+              />
+              <span className="text-sm text-white/80 group-hover:text-white transition-colors">
+                Don't show this setup modal again
+              </span>
+            </label>
+          )}
           <p className="text-sm text-white text-center leading-relaxed">
             {allReady ? (
               <>This window will close automatically...</>
