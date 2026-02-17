@@ -1,9 +1,5 @@
 # Origami
 
-![License](https://img.shields.io/github/license/IslandApps/Origami-AI?style=flat-square)
-![Issues](https://img.shields.io/github/issues/IslandApps/Origami-AI?style=flat-square)
-![Stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=flat-square)
-![Forks](https://img.shields.io/github/forks/IslandApps/Origami-AI?style=flat-square)
 
 **Origami** is a high-fidelity automated video generation platform that transforms PDF slides into cinematic narrated content. By leveraging advanced AI for script synthesis, professional Text-to-Speech (TTS), and programmatic video rendering, Origami streamlines the creation of engaging presentations, tutorials, and educational media directly from your static documents.
 
@@ -23,7 +19,7 @@
 
 - **PDF to Presentation**: Upload PDF slides and automatically extract them into a sequence of video scenes.
 - **AI-Powered Scripting**: Integrated with [WebLLM](https://webllm.mlc-ai.org/) (Local Browser Inference) to transform fragmented slide notes into coherent, professional scripts.
-- **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using [Kokoro-js](https://github.com/m-bain/kokoro-js).
+- **High-Quality TTS**: Supports local and cloud-based Text-to-Speech using Kokoro-js.
   - **Local Inference**: Run TTS entirely locally via Dockerized Kokoro FastAPI.
   - **Hybrid Voices**: Create custom voice blends by mixing two models with adjustable weights.
 - **Rich Media Support**: Insert MP4 videos and GIFs seamlessly between slides.
@@ -43,14 +39,7 @@
 
 ### Installation
 
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/IslandApps/Origami-AI.git
-   cd Origami-AI
-   ```
-
-2. Install dependencies:
+1. Install dependencies:
 
    ```bash
    npm install
@@ -65,13 +54,7 @@ The application will be available at `http://localhost:3000`.
 
 ### Deployment (Docker)
 
-To deploy this application using Docker, you **must first clone the repository**, as the image is built locally from the source.
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/IslandApps/Origami-AI.git
-   cd Origami-AI
-   ```
+To deploy this application using Docker, build the image locally from the source.
 
 #### Using Docker CLI
 
@@ -85,10 +68,6 @@ To deploy this application using Docker, you **must first clone the repository**
    ```bash
    docker run -d -p 3000:3000 --name origami-ai origami-ai
    ```
-
-### Self-Hosting with Dokploy
-
-This project is designed to be easily self-hosted using [Dokploy](https://dokploy.com/). Simply point Dokploy to this repository, and it will automatically detect the `Dockerfile` and `docker-compose.yml` to orchestrate the deployment.
 
 The application will be available at `http://localhost:3000`.
 
@@ -179,7 +158,7 @@ This project is made possible by the following incredible open-source libraries 
 
 - **[FFmpeg.wasm](https://ffmpegwasm.netlify.app/)**: Enabling frame-perfect video assembly directly in the browser.
 - **[WebLLM](https://webllm.mlc-ai.org/)**: Bringing high-performance local LLM inference to the web.
-- **[Kokoro-js](https://github.com/m-bain/kokoro-js)**: Providing high-quality, local Text-to-Speech capabilities.
+- **Kokoro-js**: Providing high-quality, local Text-to-Speech capabilities.
 - **[Hugging Face Transformers](https://huggingface.co/docs/transformers.js)**: Powering state-of-the-art machine learning in the browser.
 - **[PDF.js](https://mozilla.github.io/pdf.js/)**: The standard for parsing and rendering PDF documents.
 - **[Lucide React](https://lucide.dev/)**: Beautifully crafted open-source icons.
@@ -188,4 +167,4 @@ This project is made possible by the following incredible open-source libraries 
 
 ## License
 
-[MIT](https://github.com/IslandApps/Origami-AI/blob/main/LICENSE)
+MIT

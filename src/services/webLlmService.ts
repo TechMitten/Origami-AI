@@ -38,7 +38,6 @@ const getNavigator = () => navigator as any;
 
 // Monkey-patch WebGPU to add maxComputeInvocationsPerWorkgroup for vision models
 // This is required for Phi-3.5 vision model which needs 1024 invocations
-// See: https://github.com/mlc-ai/web-llm/issues/xxx
 let gpuPatched = false;
 const patchWebGPU = () => {
     if (gpuPatched) return;
