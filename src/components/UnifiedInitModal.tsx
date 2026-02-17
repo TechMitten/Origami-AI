@@ -216,17 +216,26 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider">Ready</span>
                   )}
                 </div>
-                {webllmProgress && status.webllm === 'initializing' && (
+                {status.webllm === 'initializing' && (
                   <div className="mt-2">
-                    <div className="flex items-center justify-end text-xs text-white/70 mb-1">
-                      <span className="font-mono">{getProgressPercent()}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
-                        style={{ width: `${getProgressPercent()}%` }}
-                      />
-                    </div>
+                    {webllmProgress ? (
+                      <>
+                        <div className="flex items-center justify-end text-xs text-white/70 mb-1">
+                          <span className="font-mono">{getProgressPercent()}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
+                            style={{ width: `${getProgressPercent()}%` }}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-white/70">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span className="font-mono">Initializing...</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
