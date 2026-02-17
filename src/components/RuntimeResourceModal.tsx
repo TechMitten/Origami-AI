@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Download, HardDrive, Cpu, CheckSquare, Square, Sparkles, Zap } from 'lucide-react';
+import { Download, HardDrive, Cpu, CheckSquare, Square, Zap } from 'lucide-react';
 
 export interface ResourceSelection {
   downloadTTS: boolean;
@@ -95,8 +95,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
           <div className="flex justify-center mb-6">
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-2xl blur-xl animate-pulse" />
-              <div className="relative bg-linear-to-br from-blue-500/20 to-purple-500/20 p-4 rounded-2xl border border-white/10">
-                <Sparkles className="w-8 h-8 text-blue-400" />
+              <div className="relative bg-linear-to-br from-blue-500/20 to-purple-500/20 p-3 rounded-2xl border border-white/10">
+                <img src="/favicon-32x32.png" alt="Origami" className="w-8 h-8" />
               </div>
             </div>
           </div>

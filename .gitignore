@@ -35,5 +35,12 @@ public/uploads/*
 !public/uploads/.gitkeep
 !public/app-logo.png
 !public/_headers
+!public/favicon.ico
+!public/favicon-16x16.png
+!public/favicon-32x32.png
+!public/apple-touch-icon.png
+!public/android-chrome-192x192.png
+!public/android-chrome-512x512.png
+!public/site.webmanifest
 .env
 RAILWAY_DEPLOY.md
