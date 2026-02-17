@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
@@ -8,6 +9,7 @@ import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 import { Footer } from './components/Footer';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
 import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, XCircle, Trash2 } from 'lucide-react';
@@ -23,7 +25,7 @@ import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmS
 
 
 
-function App() {
+function MainApp() {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
@@ -767,6 +769,17 @@ function App() {
         className="fixed inset-0 -z-50 w-full h-lvh object-cover opacity-40 blur-[2px] brightness-75 scale-105"
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainApp />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-
+import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
   return (
@@ -13,6 +13,14 @@ export const Footer: React.FC = () => {
         >
           &copy; {new Date().getFullYear()} Island Applications
         </a>
+        <div className="flex items-center gap-4">
+          <Link
+            to="/privacy"
+            className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </footer>
   );
