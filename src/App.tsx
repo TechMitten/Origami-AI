@@ -10,6 +10,7 @@ import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 import { Footer } from './components/Footer';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
 import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, XCircle, Trash2 } from 'lucide-react';
@@ -778,6 +779,7 @@ function App() {
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
       </Routes>
     </BrowserRouter>
   );
