@@ -8,10 +8,9 @@ import type { RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 import { Footer } from './components/Footer';
-import { ThumbnailGeneratorModal } from './components/ThumbnailGeneratorModal';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle, Trash2, Image } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, Github, XCircle, Trash2 } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -35,7 +34,6 @@ function App() {
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
-  const [isThumbnailModalOpen, setIsThumbnailModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMInitModalOpen, setIsWebLLMInitModalOpen] = useState(false);
@@ -524,15 +522,6 @@ function App() {
             >
                <Github className="w-5 h-5" />
             </a>
-            {slides.length > 0 && (
-               <button
-                onClick={() => setIsThumbnailModalOpen(true)}
-                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
-                title="Generate Thumbnail"
-              >
-                 <Image className="w-5 h-5" />
-              </button>
-            )}
             <button
               onClick={() => setIsTutorialOpen(true)}
               className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
@@ -742,12 +731,6 @@ function App() {
           preinstalled={preinstalledResources}
        />
 
-       <ThumbnailGeneratorModal
-          isOpen={isThumbnailModalOpen}
-          onClose={() => setIsThumbnailModalOpen(false)}
-          slides={slides}
-          globalSettings={globalSettings}
-       />
 
        <WebGPUInstructionsModal
           isOpen={isWebGPUModalOpen}

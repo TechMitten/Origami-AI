@@ -170,7 +170,6 @@ You can build your own library of background music tracks that will be available
 ## Roadmap & TODO
 
 - [ ] **YouTube Metadata Generator**: Automatically generate optimized titles and descriptions.
-- [x] **Thumbnail Generator**: Create custom YouTube thumbnails based on slide content.
 - [ ] **Voiceover Recording**: Support for recording custom voiceovers directly within the app using a microphone.
 - [ ] **Header Layout Optimization**: Refactor and organize the application header for better aesthetics and usability.
 
