@@ -476,6 +476,7 @@ const SortableSlideItem = ({
       }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
+      console.error("[SlideEditor] Transformation Error:", error);
       showAlert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Transformation Failed' });
     } finally {
       setIsTransforming(false);

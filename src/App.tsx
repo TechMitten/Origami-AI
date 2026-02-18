@@ -21,6 +21,7 @@ import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRender
 import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { UnifiedInitModal } from './components/UnifiedInitModal';
+import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
 
 
@@ -39,7 +40,8 @@ function MainApp() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
-  const [isWebLLMInitModalOpen, setIsWebLLMInitModalOpen] = useState(false);
+  const [isWebLLMInitModalOpen, setIsWebLLMInitModalOpen] = useState(false); // For first-time download/setup
+  const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false); // For subsequent cached loading
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
@@ -141,8 +143,14 @@ function MainApp() {
           const model = settings.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
 
           if (cached.webllm) {
-              // Already cached, initialize silently in background
-              initWebLLM(model, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
+              // Already cached, initialize with loading modal
+              setIsWebLLMLoadingOpen(true);
+              initWebLLM(model, (progress) => console.log('WebLLM Init:', progress))
+                  .then(() => setIsWebLLMLoadingOpen(false))
+                  .catch((e) => {
+                      console.error(e);
+                      setIsWebLLMLoadingOpen(false);
+                  });
           } else if (!webLLMPreinitialized && !hideSetupModal) {
               // First time using WebLLM - show initialization modal
               // This ensures users see the progress and understand it's a one-time process
@@ -801,6 +809,11 @@ function MainApp() {
           isOpen={isWebGPUModalOpen}
           onClose={() => setIsWebGPUModalOpen(false)}
        />
+
+        <WebLLMLoadingModal 
+           isOpen={isWebLLMLoadingOpen}
+           onComplete={() => setIsWebLLMLoadingOpen(false)}
+        />
 
        {isWebLLMInitModalOpen && (
         <UnifiedInitModal

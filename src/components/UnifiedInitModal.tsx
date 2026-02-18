@@ -163,7 +163,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
               ) : (
                 <>
                   We're downloading some resources to your browser. This <strong className="text-white">one-time setup</strong> enables
-                  everything to work offline and privately. Future visits will be instant.
+                  everything to work offline and privately. Future visits will be much faster.
                 </>
               )}
             </p>

@@ -98,6 +98,7 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
 
 let engine: MLCEngine | null = null;
 let currentModelId: string | null = null;
+let pendingInitPromise: Promise<MLCEngine> | null = null;
 
 
 export const webLlmEvents = new EventTarget();
@@ -113,32 +114,28 @@ export const unloadWebLLM = async () => {
 export const initWebLLM = async (
     modelId: string,
     onProgress: InitProgressCallback
-) => {
+): Promise<MLCEngine> => {
     // If engine exists and is loaded with the same model, do nothing
     if (engine && currentModelId === modelId) {
         return engine;
     }
 
+    // If an initialization is already in progress for the same model, return that promise
+    if (pendingInitPromise && currentModelId === modelId) {
+        return pendingInitPromise;
+    }
+
     // Apply WebGPU patch for vision models that require higher workgroup invocations
     await patchWebGPU();
 
-    try {
-        if (!engine) {
-            // Wrap the progress callback to also dispatch events
-            const wrappedCallback: InitProgressCallback = (report) => {
-                // Call the original callback
-                onProgress(report);
-                // Dispatch event for UI components
-                webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
-            };
-
-            const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-            engine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
-        } else {
-            // Reload/recreate engine if model changed
-            // We'll create a new engine instance to ensure clean state and correct callback binding
-            await engine.unload();
-            engine = null; // Prevent access to unloaded engine
+    // Start a new initialization
+    pendingInitPromise = (async () => {
+        try {
+            if (engine) {
+                // If switching models, unload first
+                await engine.unload();
+                engine = null;
+            }
 
             // Wrap the progress callback
             const wrappedCallback: InitProgressCallback = (report) => {
@@ -147,25 +144,30 @@ export const initWebLLM = async (
             };
 
             const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-            engine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
+            const newEngine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
+            
+            engine = newEngine;
+            currentModelId = modelId;
+
+            // Dispatch final progress events
+            webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', {
+                detail: { progress: 1, text: 'Initialization complete' }
+            }));
+            webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-complete', { detail: { modelId } }));
+
+            return engine;
+        } catch (error) {
+            console.error("Failed to initialize WebLLM:", error);
+            engine = null;
+            currentModelId = null;
+            throw error;
+        } finally {
+            // Clear the pending promise so future calls can start fresh if needed
+            pendingInitPromise = null;
         }
-        currentModelId = modelId;
+    })();
 
-        // Dispatch final progress event
-        webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', {
-            detail: { progress: 1, text: 'Initialization complete' }
-        }));
-        webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-complete', { detail: { modelId } }));
-
-        return engine;
-    } catch (error) {
-        console.error("Failed to initialize WebLLM:", error);
-        // CRITICAL: Clear the engine reference if initialization fails
-        // This prevents the "Cannot pass deleted object" error on retry
-        engine = null;
-        currentModelId = null;
-        throw error;
-    }
+    return pendingInitPromise;
 };
 
 export const getWebLLMEngine = () => engine;
@@ -179,15 +181,25 @@ export const generateWebLLMResponse = async (
     }
 
     try {
+        // Ensure engine is ready (sometimes it might be in a weird state)
+        if (!engine) {
+             throw new Error("WebLLM Engine lost connection. Please try again.");
+        }
+        console.log("[WebLLM] Generating response with engine:", engine, "Model:", currentModelId);
         const reply = await engine.chat.completions.create({
             messages,
             temperature,
             stream: false, // For now, no streaming to keep it simple with existing architecture
         });
+        console.log("[WebLLM] Raw Reply Object:", reply);
         
         return reply.choices[0].message.content || "";
     } catch (error) {
         console.error("WebLLM Generation Error:", error);
+        // Force reload next time if something critical failed
+        // engine = null; 
+        // Actually, let's not force null immediately unless it's a specific error, 
+        // but the parent service (aiService) handles the retry logic now.
         throw error;
     }
 };

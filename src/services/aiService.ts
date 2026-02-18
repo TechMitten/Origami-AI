@@ -68,13 +68,13 @@ Before writing anything, read the ENTIRE slide content carefully. Identify:
 
 STEP 2 — WRITE THE NARRATION:
 Using your understanding of the slide's title and topic from Step 1, write a complete, natural spoken narration. The narration MUST:
-- Open by clearly stating the slide's title or subject so the listener immediately knows what the slide is about
-- Flow naturally from the title into the supporting content
-- Connect all fragmented text (titles, bullets, metadata) into coherent, conversational sentences
-- NOT hallucinate new facts — only "connect the dots" between what is already on the slide
+- ALWAYS begin with the exact title of the slide (or a concise subject summary if no title exists), followed immediately by a period.
+- Continue with complete sentences of the original slide data (transformed from broken up fragments) as if presenting the slide to a viewer.
+- Connect all fragmented text (titles, bullets, metadata) into coherent, conversational sentences.
+- NOT hallucinate new facts — only "connect the dots" between what is already on the slide.
 
 Write in a conversational, engaging style. Use natural transitions such as:
-- "This slide covers..." or "In this section, we'll look at..." to open with the topic
+- After the title, start the next sentence with "This slide covers..." or "In this section, we'll look at..."
 - "As you can see" or "Notice that" when pointing out visual elements
 - "Let's explore" or "Moving on to" when transitioning between points
 - "This is important because" to highlight key concepts
@@ -115,7 +115,7 @@ Example Input:
 "How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download: https://code.visualstudio.com Download size: 85 MiB $ npm install ."
 
 Example Output:
-This slide covers how to install Visual Studio Code on Windows. This is a complete beginner's guide with step-by-step instructions designed for first-time users. The guide is compatible with Windows 10 and Windows 11, and should take around 5 minutes to complete. Visual Studio Code is free and open-source software. You can download it from https colon slash slash code dot visualstudio dot com. The download size is approximately 85 mebibytes. To install dependencies, type npm install space period.`;
+How to Install Visual Studio Code on Windows. This slide covers installing Visual Studio Code on Windows. This is a complete beginner's guide with step-by-step instructions designed for first-time users. The guide is compatible with Windows 10 and Windows 11, and should take around 5 minutes to complete. Visual Studio Code is free and open-source software. You can download it from https colon slash slash code dot visualstudio dot com. The download size is approximately 85 mebibytes. To install dependencies, type npm install space period.`;
 
 export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
   const systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
@@ -123,27 +123,33 @@ export const transformText = async (settings: LLMSettings, text: string, customS
   const userPrompt = `Slide Content (full text extracted from the slide):
 "${text}"
 
-Read all of the above content, identify the slide's title and topic, then write the spoken narration.`;
+Read all of the above content. Start the narration with the slide's title/topic, then present the rest as complete sentences.`;
 
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {
         throw new Error("WebLLM is enabled but no model is selected.");
     }
-    try {
-        // Check if WebLLM is already initialized (it should be from the setup modal)
-        if (!isWebLLMLoaded()) {
-            throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
-        }
+    
+    // Check if WebLLM is already initialized (it should be from the setup modal)
+    if (!isWebLLMLoaded()) {
+        throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
+    }
 
+    try {
         const messages = [
             { role: "system" as const, content: systemPrompt },
             { role: "user" as const, content: userPrompt }
         ];
 
+        console.log("[AI Service] Sending request to WebLLM...", { model: settings.webLlmModel, promptLength: userPrompt.length });
         const response = await generateWebLLMResponse(messages);
-        return cleanLLMResponse(response);
+        console.log("[AI Service] Raw WebLLM Response:", response);
+        
+        const cleaned = cleanLLMResponse(response);
+        console.log("[AI Service] Cleaned Response:", cleaned);
+        return cleaned;
     } catch (error) {
-        console.error("WebLLM Error:", error);
+        console.error("WebLLM Error in aiService:", error);
         throw error;
     }
   }
