@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, Download, PowerOff, CheckCircle2 } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, unloadWebLLM, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, Download, CheckCircle2 } from 'lucide-react';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -103,7 +103,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       const currentModelId = getCurrentWebLLMModel();
       if (currentModelId) {
         const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === currentModelId);
-        setCurrentLoadedModel(modelInfo?.name || currentModelId);
+        setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : currentModelId);
       } else {
         setCurrentLoadedModel(null);
       }
@@ -400,7 +400,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         setWebLlmProgressPercent(100);
         setIsModelLoaded(true);
         const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel);
-        setCurrentLoadedModel(modelInfo?.name || webLlmModel);
+        setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : webLlmModel);
     } catch (e) {
         console.error(e);
         setWebLlmDownloadProgress('Download failed. Check console.');
@@ -411,20 +411,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   };
 
-  const handleResetWebLlm = async () => {
-    try {
-        await unloadWebLLM();
-        setWebLlmDownloadProgress('Engine reset. Memory cleared.');
-        setWebLlmProgressPercent(0);
-        setWebLlmPhase('downloading');
-        setIsModelLoaded(false);
-        setCurrentLoadedModel(null);
-        showAlert("WebLLM Engine has been reset.", { type: 'success', title: 'Engine Reset' });
-    } catch (e) {
-        console.error("Failed to reset WebLLM:", e);
-        showAlert("Failed to reset engine.", { type: 'error', title: 'Reset Error' });
-    }
-  };
+
 
   const handlePlayPreview = async () => {
        if (isPreviewPlaying && previewAudio) {
@@ -611,6 +598,22 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
              setTtsDownloadProgress('Failed to load model');
            }
          }
+    }
+
+    // Automatically load WebLLM model if switched/enabled
+    if (useWebLLM && webLlmModel && webLlmModel !== getCurrentWebLLMModel()) {
+        if (isDownloadingWebLlm) {
+             showAlert("Model is currently loading. Please wait.", { type: 'info', title: 'Loading in progress' });
+             return;
+        }
+
+        await handleDownloadWebLlm();
+
+        // If after attempting load, the model is still not the current one, it failed.
+        // Don't close the modal so the user sees the error.
+        if (webLlmModel !== getCurrentWebLLMModel()) {
+             return;
+        }
     }
 
     localStorage.setItem('llm_api_key', encrypt(apiKey));
@@ -1226,64 +1229,55 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                         </div>
                                     )}
 
-                                    {currentLoadedModel && (
-                                        <div className="space-y-3">
-                                            <div className="flex gap-3">
-                                                <button
-                                                    onClick={handleDownloadWebLlm}
-                                                    disabled={isDownloadingWebLlm || isModelLoaded}
-                                                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${isDownloadingWebLlm ? 'bg-white/5 text-white/40 cursor-wait' : isModelLoaded ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'}`}
-                                                >
-                                                    {isDownloadingWebLlm ? <RefreshCw className="w-4 h-4 animate-spin" /> : isModelLoaded ? <CheckCircle2 className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-                                                    {isDownloadingWebLlm ? 'Downloading...' : isModelLoaded ? currentLoadedModel || 'Model Loaded' : 'Load Model'}
-                                                </button>
+                                    {/* Status / Loaded Model Info */}
+                                    <div className="space-y-3">
+                                        {/* Always show loaded status if loaded */}
+                                        {isModelLoaded && currentLoadedModel && (
+                                             <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
+                                                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                                                 <div>
+                                                     <p className="text-xs font-bold text-emerald-200 uppercase tracking-wide">Currently Loaded</p>
+                                                     <p className="text-sm font-medium text-white">{currentLoadedModel}</p>
+                                                 </div>
+                                             </div>
+                                        )}
 
-                                                <button
-                                                    onClick={handleResetWebLlm}
-                                                    disabled={!isModelLoaded}
-                                                    className={`px-4 py-3 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${isModelLoaded ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300' : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'}`}
-                                                    title={!isModelLoaded ? 'No model loaded' : 'Unload model and clear GPU memory'}
-                                                >
-                                                    <PowerOff className="w-4 h-4" />
-                                                    {isModelLoaded && <span>Unload</span>}
-                                                </button>
-                                            </div>
-
-                                            {webLlmDownloadProgress && (
-                                                <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <p className={`font-mono text-xs leading-relaxed ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`}>
-                                                            {webLlmDownloadProgress}
-                                                        </p>
-                                                        {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
-                                                            <span className="font-mono text-xs text-white/70">
-                                                                {webLlmProgressPercent}%
-                                                            </span>
-                                                        )}
-                                                        {isDownloadingWebLlm && webLlmPhase === 'shader' && (
-                                                            <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
-                                                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                                                Optimizing
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                        {/* Progress Bar (Visible during automatic load) */}
+                                        {webLlmDownloadProgress && (
+                                            <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <p className={`font-mono text-xs leading-relaxed ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`}>
+                                                        {webLlmDownloadProgress}
+                                                    </p>
                                                     {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
-                                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
-                                                                style={{ width: `${webLlmProgressPercent}%` }}
-                                                            />
-                                                        </div>
+                                                        <span className="font-mono text-xs text-white/70">
+                                                            {webLlmProgressPercent}%
+                                                        </span>
                                                     )}
                                                     {isDownloadingWebLlm && webLlmPhase === 'shader' && (
-                                                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-linear-to-r from-purple-500/50 via-blue-500 to-purple-500/50 animate-pulse w-full" />
-                                                        </div>
+                                                        <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
+                                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                                            Optimizing
+                                                        </span>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    )}
+                                                {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
+                                                    <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
+                                                            style={{ width: `${webLlmProgressPercent}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {isDownloadingWebLlm && webLlmPhase === 'shader' && (
+                                                    <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-linear-to-r from-purple-500/50 via-blue-500 to-purple-500/50 animate-pulse w-full" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
