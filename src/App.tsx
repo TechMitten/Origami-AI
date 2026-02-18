@@ -41,6 +41,7 @@ function MainApp() {
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMInitModalOpen, setIsWebLLMInitModalOpen] = useState(false);
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
+  const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   
 
@@ -146,6 +147,11 @@ function MainApp() {
                               (!cached.webllm && pref.enableWebLLM);
 
             if (needsInit && !hideSetupModal) {
+              setActiveDownloads({
+                tts: !cached.tts && !!pref.downloadTTS,
+                ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
+                webllm: !cached.webllm && !!pref.enableWebLLM,
+              });
               setIsWebLLMInitModalOpen(true);
             }
 
@@ -209,6 +215,11 @@ function MainApp() {
                         (!cached.webllm && selection.enableWebLLM);
 
       if (needsInit && !hideSetupModal) {
+        setActiveDownloads({
+          tts: !cached.tts && !!selection.downloadTTS,
+          ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
+          webllm: !cached.webllm && !!selection.enableWebLLM,
+        });
         setIsWebLLMInitModalOpen(true);
       }
 
@@ -745,6 +756,7 @@ function MainApp() {
        <UnifiedInitModal
           isOpen={isWebLLMInitModalOpen}
           resources={preinstalledResources}
+          activeResources={activeDownloads}
           onComplete={() => {
               setIsWebLLMInitModalOpen(false);
               // Mark WebLLM as pre-initialized so we don't show this again

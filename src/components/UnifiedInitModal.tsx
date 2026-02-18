@@ -12,6 +12,12 @@ interface UnifiedInitModalProps {
     ffmpeg: boolean;
     webllm: boolean;
   };
+  /** Which resources are actually being initialized (not skipped). Defaults to all. */
+  activeResources?: {
+    tts: boolean;
+    ffmpeg: boolean;
+    webllm: boolean;
+  };
   onComplete: () => void;
 }
 
@@ -24,12 +30,14 @@ interface ResourceStatus {
 export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   isOpen,
   resources,
+  activeResources,
   onComplete,
 }) => {
   const [status, setStatus] = useState<ResourceStatus>({
-    tts: resources.tts ? 'ready' : 'pending',
-    ffmpeg: resources.ffmpeg ? 'ready' : 'pending',
-    webllm: resources.webllm ? 'ready' : 'pending',
+    // Pre-installed OR not being actively downloaded → already 'ready'
+    tts: (resources.tts || !(activeResources?.tts ?? true)) ? 'ready' : 'pending',
+    ffmpeg: (resources.ffmpeg || !(activeResources?.ffmpeg ?? true)) ? 'ready' : 'pending',
+    webllm: (resources.webllm || !(activeResources?.webllm ?? true)) ? 'ready' : 'pending',
   });
 
   const [ttsProgress, setTTSProgress] = useState<{ percent: number; file: string } | null>(null);
@@ -94,7 +102,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
     };
   }, [isOpen]);
 
-  // Check if all resources are ready
+  // Check if all *active* resources are ready (inactive/skipped ones are already 'ready' from init)
   const allReady = status.tts === 'ready' && status.ffmpeg === 'ready' && status.webllm === 'ready';
 
   useEffect(() => {

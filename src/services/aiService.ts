@@ -58,16 +58,27 @@ const cleanLLMResponse = (text: string): string => {
 };
 
 /* Shared System Prompt for both WebLLM and Remote API */
-export const DEFAULT_SYSTEM_PROMPT = `You are creating a conversational script for Text-to-Speech presentation. Transform the following slide text into a complete, natural spoken presentation.
+export const DEFAULT_SYSTEM_PROMPT = `You are a presentation narrator creating a Text-to-Speech script for a single slide.
 
-Write in a conversational, engaging style. Use natural transitions and phrases like:
-- "Welcome" or "Let's begin" at the start
-- "As you can see" or "Notice" when pointing out visual elements
-- "Let's explore" or "Now we'll look at" when transitioning
+STEP 1 — IDENTIFY THE SLIDE TOPIC:
+Before writing anything, read the ENTIRE slide content carefully. Identify:
+- The main title or subject of the slide (usually the first prominent phrase or heading)
+- The key theme or purpose of the slide
+- Any supporting details, bullet points, or data
+
+STEP 2 — WRITE THE NARRATION:
+Using your understanding of the slide's title and topic from Step 1, write a complete, natural spoken narration. The narration MUST:
+- Open by clearly stating the slide's title or subject so the listener immediately knows what the slide is about
+- Flow naturally from the title into the supporting content
+- Connect all fragmented text (titles, bullets, metadata) into coherent, conversational sentences
+- NOT hallucinate new facts — only "connect the dots" between what is already on the slide
+
+Write in a conversational, engaging style. Use natural transitions such as:
+- "This slide covers..." or "In this section, we'll look at..." to open with the topic
+- "As you can see" or "Notice that" when pointing out visual elements
+- "Let's explore" or "Moving on to" when transitioning between points
 - "This is important because" to highlight key concepts
 - "In other words" or "To put it simply" when clarifying
-
-The original text is often fragmented (titles, bullets, metadata) and needs to be connected into coherent, conversational sentences. Do not hallucinate new facts, but strictly "connect the dots" or "fill in the blanks" to make it flow naturally as a spoken presentation.
 
 IMPORTANT TTS INSTRUCTIONS:
 1. Expansion: Expand all technical abbreviations into their full spoken form to ensure correct pronunciation.
@@ -79,7 +90,7 @@ IMPORTANT TTS INSTRUCTIONS:
    - Replace "://" with "colon slash slash" or simply spell out each part.
    - Replace "/" with "slash" or "forward slash".
    - Replace "." with "dot" or "period".
-   - Example: "https://example.com" -> "https colon slash slash example dot com" or "h t t p s colon slash slash example dot com"
+   - Example: "https://example.com" -> "https colon slash slash example dot com"
    - Example: "github.com/user/repo" -> "github dot com slash user slash repo"
    - Example: "www.website.com" -> "double-u double-u double-u dot website dot com"
    - NEVER read URLs as continuous words. Always spell them out clearly for TTS.
@@ -93,23 +104,26 @@ IMPORTANT TTS INSTRUCTIONS:
 4. Email Addresses: Spell out the @ symbol and dots.
    - Example: "user@example.com" -> "user at example dot com"
 5. Punctuation: Use proper punctuation to control pacing.
-6. Clean Output: Return ONLY the raw string of the transformed text.
+6. Clean Output: Return ONLY the final narration as a plain text string.
+   - Do NOT include your Step 1 analysis or any internal reasoning.
    - Do NOT wrap the output in quotation marks.
    - Do NOT include any prefixes like "Here is the transformed text:" or "Output:".
    - Do NOT use ANY Markdown formatting (no code blocks, no bold with **, no italic with *, no headers with #).
-   - Output plain text only.
+   - Output the narration text only.
 
 Example Input:
 "How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users  Windows 10/11  ~5 Minutes  Free & Open Source Download: https://code.visualstudio.com Download size: 85 MiB $ npm install ."
 
 Example Output:
-How to Install Visual Studio Code on Windows. This is a Complete Beginner's Guide including step-by-Step Instructions designed for First-Time Users. This guide is compatible with Windows 10 or Windows 11 operating systems. It will take around 5 minutes to complete. Visual Studio Code is free and open-source software. You can download it from https colon slash slash code dot visualstudio dot com. The download size is approximately 85 mebibytes. To install dependencies, type npm install space period.`;
+This slide covers how to install Visual Studio Code on Windows. This is a complete beginner's guide with step-by-step instructions designed for first-time users. The guide is compatible with Windows 10 and Windows 11, and should take around 5 minutes to complete. Visual Studio Code is free and open-source software. You can download it from https colon slash slash code dot visualstudio dot com. The download size is approximately 85 mebibytes. To install dependencies, type npm install space period.`;
 
 export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
   const systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
 
-  const userPrompt = `Input Text:
-"${text}"`;
+  const userPrompt = `Slide Content (full text extracted from the slide):
+"${text}"
+
+Read all of the above content, identify the slide's title and topic, then write the spoken narration.`;
 
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {

@@ -38,26 +38,29 @@ async function getModel(quantization: 'q8' | 'q4' = 'q4'): Promise<KokoroTTS> {
   
   if (!initPromise) {
       initPromise = (async () => {
-          console.log(`Worker: Initializing KokoroTTS with ${quantization}...`);
+          const progressCallback = (p: unknown) => {
+              const pObj = p as { progress?: number; file?: string; status?: string };
+              let safeProgress = (typeof pObj.progress === 'number' && isFinite(pObj.progress)) ? pObj.progress : -1;
+              if (pObj.status === 'done') safeProgress = 100;
+              ctx.postMessage({ 
+                  type: 'progress', 
+                  progress: safeProgress, 
+                  file: pObj.file || '', 
+                  status: pObj.status || ''
+              });
+          };
+
+          // Use CPU (WASM) for inference — WebGPU causes distorted/static audio
+          // due to a known upstream bug in kokoro-js where GPU tensor output is not
+          // properly synced back to CPU memory before WAV encoding.
+          console.log(`Worker: Initializing KokoroTTS with ${quantization} on CPU (WASM)...`);
           ctx.postMessage({ type: 'status', message: `Loading model (${quantization})...` });
           ttsModel = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-ONNX', {
-            dtype: quantization, // Quantized for speed/size
-            progress_callback: (p: unknown) => {
-                const pObj = p as { progress?: number; file?: string; status?: string };
-                // If progress is missing or NaN, treat as indeterminate (-1)
-                let safeProgress = (typeof pObj.progress === 'number' && isFinite(pObj.progress)) ? pObj.progress : -1;
-                // If status is done, force 100
-                if (pObj.status === 'done') safeProgress = 100;
-
-                ctx.postMessage({ 
-                    type: 'progress', 
-                    progress: safeProgress, 
-                    file: pObj.file || '', 
-                    status: pObj.status || ''
-                });
-            }
+              dtype: quantization,
+              progress_callback: progressCallback,
           });
-          console.log("Worker: KokoroTTS initialized");
+          console.log("Worker: KokoroTTS initialized on CPU (WASM)");
+
           ctx.postMessage({ type: 'init-complete' });
       })();
   }
