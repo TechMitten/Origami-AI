@@ -142,12 +142,26 @@ export function initTTS(quantization: 'q8' | 'q4' = 'q4') {
     getWorker(quantization);
 }
 
-export function reloadTTS(quantization: 'q8' | 'q4') {
+export function reloadTTS(quantization: 'q8' | 'q4'): Promise<void> {
     if (worker) {
         worker.terminate();
         worker = null;
     }
-    initTTS(quantization);
+    // Create a fresh worker and return a promise that resolves on init-complete
+    return new Promise<void>((resolve, reject) => {
+        const w = getWorker(quantization);
+        const onMessage = (e: MessageEvent) => {
+            if (e.data.type === 'init-complete') {
+                w.removeEventListener('message', onMessage);
+                resolve();
+            } else if (e.data.type === 'error' && !e.data.id) {
+                // top-level init error (no request id)
+                w.removeEventListener('message', onMessage);
+                reject(new Error(e.data.error));
+            }
+        };
+        w.addEventListener('message', onMessage);
+    });
 }
 
 

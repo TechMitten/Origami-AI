@@ -10,7 +10,7 @@ import type { InitProgressReport } from '@mlc-ai/web-llm';
 import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
 
 
-import { reloadTTS } from '../services/ttsService';
+import { reloadTTS, ttsEvents, type ProgressEventDetail } from '../services/ttsService';
 
 interface GlobalSettingsModalProps {
   isOpen: boolean;
@@ -58,7 +58,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
-  // TTS Download State
+  // TTS Loading State
+  const [isLoadingTTS, setIsLoadingTTS] = useState(false);
+  const [ttsLoadProgress, setTtsLoadProgress] = useState('');
+  const [ttsProgressPercent, setTtsProgressPercent] = useState(0);
+  const [ttsLoadPhase, setTtsLoadPhase] = useState<'downloading' | 'loading' | 'complete'>('downloading');
 
 
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
@@ -477,14 +481,69 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
     // Check if quantization changed to reload model
     if (currentSettings?.ttsQuantization !== ttsQuantization) {
-         if (ttsQuantization) {
-           try {
-             // Reload happens in background, no need to await specific progress here as modal closes
-             reloadTTS(ttsQuantization);
-           } catch (error) {
-             console.error('Failed to reload TTS model:', error);
-           }
-         }
+      if (ttsQuantization) {
+        setIsLoadingTTS(true);
+        setTtsLoadProgress('Initializing...');
+        setTtsProgressPercent(0);
+        setTtsLoadPhase('downloading');
+
+        // Listen to real-time progress from the worker
+        const handleTtsProgress = (e: Event) => {
+          const detail = (e as CustomEvent<ProgressEventDetail>).detail;
+          const pct = detail.progress >= 0 ? Math.round(detail.progress) : -1;
+          const status = detail.status?.toLowerCase() ?? '';
+
+          let phase: 'downloading' | 'loading' | 'complete' = 'downloading';
+          if (status === 'done' || pct >= 100) phase = 'complete';
+          else if (status === 'initiate' || status === 'progress') phase = 'downloading';
+          else if (status === 'ready') phase = 'loading';
+
+          setTtsLoadPhase(phase);
+          setTtsLoadProgress(detail.file ? `${detail.file}` : (detail.status || 'Loading...'));
+          if (pct >= 0) setTtsProgressPercent(prev => Math.max(prev, pct));
+        };
+
+        const handleTtsComplete = () => {
+          setTtsLoadProgress('Model loaded successfully!');
+          setTtsLoadPhase('complete');
+          setTtsProgressPercent(100);
+        };
+
+        ttsEvents.addEventListener('tts-progress', handleTtsProgress);
+        ttsEvents.addEventListener('tts-init-complete', handleTtsComplete);
+
+        try {
+          await reloadTTS(ttsQuantization);
+          setTtsLoadProgress('Model loaded successfully!');
+          setTtsLoadPhase('complete');
+          setTtsProgressPercent(100);
+        } catch (error) {
+          console.error('Failed to reload TTS model:', error);
+          setTtsLoadProgress('Failed to load model. Check console.');
+        } finally {
+          ttsEvents.removeEventListener('tts-progress', handleTtsProgress);
+          ttsEvents.removeEventListener('tts-init-complete', handleTtsComplete);
+          setIsLoadingTTS(false);
+        }
+
+        // Save settings and close after TTS reload
+        localStorage.setItem('llm_api_key', encrypt(apiKey));
+        localStorage.setItem('llm_base_url', baseUrl);
+        localStorage.setItem('llm_model', model);
+        if (baseUrl.includes('googleapis')) {
+          localStorage.setItem('google_api_key_backup', encrypt(apiKey));
+          if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
+        } else if (baseUrl.includes('openrouter')) {
+          localStorage.setItem('openrouter_api_key_backup', encrypt(apiKey));
+          if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
+        } else {
+          if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
+          if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
+        }
+        await onSave(settings);
+        onClose();
+        return;
+      }
     }
 
     // Automatically load WebLLM model if switched/enabled
@@ -873,6 +932,36 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         </div>
                     </div>
                     )}
+
+                    {/* TTS Loading Progress (shown when reloading model on save) */}
+                    {isLoadingTTS && (
+                      <div className="space-y-2 p-3 rounded-lg bg-black/20 border border-white/10">
+                        <div className="flex items-center justify-between">
+                          <p className={`font-mono text-xs leading-relaxed truncate max-w-[80%] ${
+                            ttsLoadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'
+                          }`}>
+                            {ttsLoadProgress}
+                          </p>
+                          {ttsLoadPhase !== 'complete' && (
+                            <span className="font-mono text-xs text-white/70">
+                              {ttsProgressPercent >= 0 ? `${ttsProgressPercent}%` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                          {ttsLoadPhase === 'complete' ? (
+                            <div className="h-full bg-emerald-500 w-full transition-all duration-500" />
+                          ) : ttsProgressPercent >= 0 ? (
+                            <div
+                              className="h-full bg-linear-to-r from-branding-primary to-purple-500 transition-all duration-300"
+                              style={{ width: `${ttsProgressPercent}%` }}
+                            />
+                          ) : (
+                            <div className="h-full bg-linear-to-r from-branding-primary/50 via-purple-500 to-branding-primary/50 animate-pulse w-full" />
+                          )}
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
            ) : activeTab === 'webllm' ? (
@@ -1229,9 +1318,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20"
+            disabled={isLoadingTTS || isDownloadingWebLlm}
+            className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            Save Settings
+            {isLoadingTTS ? 'Loading TTS...' : isDownloadingWebLlm ? 'Loading Model...' : 'Save Settings'}
           </button>
         </div>
       </div>
