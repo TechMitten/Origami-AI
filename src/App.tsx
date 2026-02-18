@@ -43,7 +43,8 @@ function MainApp() {
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
-  
+  const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
+
 
   const [isRestoring, setIsRestoring] = useState(true);
   const { showAlert, showConfirm } = useModal();
@@ -51,6 +52,25 @@ function MainApp() {
   const [renderProgress, setRenderProgress] = useState<number>(0);
 
   const renderer = useMemo(() => new BrowserVideoRenderer(), []);
+
+  // Prevent accidental navigation during rendering
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRenderingWithAudio || isRenderingSilent) {
+        // Show a confirmation dialog
+        const message = 'Video rendering is in progress. Are you sure you want to leave? This will cancel the rendering process.';
+        e.preventDefault();
+        e.returnValue = message; // Required for Chrome
+        return message;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isRenderingWithAudio, isRenderingSilent]);
 
   const handleCancelRender = async () => {
     if (renderAbortController) {
@@ -414,6 +434,7 @@ function MainApp() {
         })),
         musicSettings,
         ttsVolume,
+        resolution: renderResolution,
         signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
       });
@@ -465,6 +486,7 @@ function MainApp() {
         slides: silentSlides,
         musicSettings,
         ttsVolume,
+        resolution: renderResolution,
         signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
       });
@@ -644,11 +666,38 @@ function MainApp() {
                     ttsVolume={ttsVolume}
                   />
                 </div>
-                
+
+                {/* Resolution Selector */}
+                <div className="flex justify-center">
+                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                    <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Quality</span>
+                    <div className="flex gap-1">
+                      {(['1080p', '720p'] as const).map((res) => (
+                        <button
+                          key={res}
+                          onClick={() => setRenderResolution(res)}
+                          disabled={isRenderingWithAudio || isRenderingSilent}
+                          className={`
+                            px-4 py-1.5 rounded-lg text-xs font-bold transition-all
+                            ${renderResolution === res
+                              ? 'bg-white text-black'
+                              : 'bg-white/10 text-white/60 hover:bg-white/20'
+                            }
+                            ${(isRenderingWithAudio || isRenderingSilent) ? 'opacity-50 cursor-not-allowed' : ''}
+                          `}
+                        >
+                          {res}
+                          {res === '720p' && <span className="ml-1 text-[10px] opacity-70">(Faster)</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-center flex-col items-center gap-6">
                   <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
                     <div className="flex flex-col gap-2">
-                      <button 
+                      <button
                         onClick={handleDownloadMP4}
                         className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
                         disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}

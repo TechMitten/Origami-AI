@@ -19,10 +19,13 @@ interface MusicSettings {
   loop?: boolean;
 }
 
+export type RenderResolution = '1080p' | '720p';
+
 export interface RenderOptions {
   slides: Slide[];
   musicSettings?: MusicSettings;
   ttsVolume?: number;
+  resolution?: RenderResolution;
   onProgress?: (progress: number) => void;
   onLog?: (message: string) => void;
   signal?: AbortSignal;
@@ -97,6 +100,7 @@ export class BrowserVideoRenderer {
     slides,
     musicSettings,
     ttsVolume = 1,
+    resolution = '720p',
     onProgress,
     onLog,
     signal
@@ -174,8 +178,8 @@ export class BrowserVideoRenderer {
     try {
       // Input Arguments Construction
       const inputArgs: string[] = [];
-      const VIDEO_WIDTH = 1920;
-      const VIDEO_HEIGHT = 1080;
+      const VIDEO_WIDTH = resolution === '720p' ? 1280 : 1920;
+      const VIDEO_HEIGHT = resolution === '720p' ? 720 : 1080;
 
       for (let i = 0; i < slides.length; i++) {
          const slide = slides[i];
@@ -327,7 +331,7 @@ export class BrowserVideoRenderer {
          videoFilterParts.push(`[${lastV}]format=yuv420p[vout_raw]`);
          audioFilterParts.push(`[${lastA}]volume=1.0[aout_speech]`);
       } else {
-         videoFilterParts.push(`color=black:1920x1080:d=1[vout_raw]`);
+         videoFilterParts.push(`color=black:${VIDEO_WIDTH}x${VIDEO_HEIGHT}:d=1[vout_raw]`);
          audioFilterParts.push(`anullsrc[aout_speech]`);
       }
 
@@ -363,6 +367,8 @@ export class BrowserVideoRenderer {
         '-map', finalAudioMap,
         '-c:v', 'libx264',
         '-preset', 'ultrafast',
+        '-threads', '0',
+        '-tune', 'fastdecode',
         '-c:a', 'aac',
         '-b:a', '192k',
         'output.mp4'
