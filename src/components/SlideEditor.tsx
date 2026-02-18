@@ -24,6 +24,7 @@ import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 
 import { transformText } from '../services/aiService';
+import { isWebLLMLoaded, generateWebLLMResponse } from '../services/webLlmService';
 import { Dropdown } from './Dropdown';
 
 export interface SlideData extends Partial<RenderedPage> {
@@ -1418,7 +1419,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
     // Check if WebLLM is actually loaded (not just configured)
     if (useWebLLM && webLlmModel) {
-        const { isWebLLMLoaded } = await import('../services/webLlmService');
         if (!isWebLLMLoaded()) {
             showAlert('WebLLM model is not loaded. Please initialize it in Settings (WebLLM tab) first.', { type: 'warning', title: 'WebLLM Not Ready' });
             return;
@@ -1436,7 +1436,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     // Warmup WebLLM before starting batch processing to avoid delay on first slide
     if (useWebLLM) {
       try {
-        const { generateWebLLMResponse } = await import('../services/webLlmService');
         // Do a minimal warmup call
         await generateWebLLMResponse([
           { role: "system" as const, content: "You are a helpful assistant." },

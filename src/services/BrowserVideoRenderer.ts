@@ -1,5 +1,4 @@
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import type { FFmpeg } from '@ffmpeg/ffmpeg';
 
 interface Slide {
   dataUrl?: string;
@@ -38,18 +37,24 @@ export interface VideoProgressEventDetail {
 }
 
 export class BrowserVideoRenderer {
-  private ffmpeg: FFmpeg;
+  private ffmpeg: FFmpeg | null = null;
   private loaded: boolean = false;
 
   constructor() {
-    this.ffmpeg = new FFmpeg();
+    // Lazy init
   }
 
   async load() {
-    if (this.loaded) return;
+    if (this.loaded && this.ffmpeg) return;
 
     console.log('[FFmpeg] Loading core from CDN...');
     
+    // Dynamic import
+    const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+    const { toBlobURL } = await import('@ffmpeg/util');
+
+    this.ffmpeg = new FFmpeg();
+
     // Use unpkg ESM build
     const cdnBase = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
     
@@ -96,11 +101,14 @@ export class BrowserVideoRenderer {
     onLog,
     signal
   }: RenderOptions): Promise<Blob> {
-    if (!this.loaded) {
+    if (!this.loaded || !this.ffmpeg) {
       await this.load();
     }
 
-    const { ffmpeg } = this;
+    // Ensure ffmpeg is available
+    if (!this.ffmpeg) throw new Error("FFmpeg failed to initialize");
+    const ffmpeg = this.ffmpeg;
+    const { fetchFile } = await import('@ffmpeg/util');
 
     // Attach listeners
     ffmpeg.on('log', ({ message }) => {
@@ -142,7 +150,7 @@ export class BrowserVideoRenderer {
         signal.addEventListener('abort', () => {
              console.log('[FFmpeg] Render aborted by user. Terminating worker...');
              try {
-                this.ffmpeg.terminate(); 
+                this.ffmpeg?.terminate(); 
              } catch (e) {
                 console.error("Error terminating ffmpeg:", e);
              }

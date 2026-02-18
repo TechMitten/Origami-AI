@@ -1,5 +1,5 @@
 
-import { CreateMLCEngine, MLCEngine, type InitProgressCallback } from "@mlc-ai/web-llm";
+import type { InitProgressCallback, MLCEngine } from "@mlc-ai/web-llm";
 
 export interface ModelInfo {
     id: string;
@@ -132,6 +132,7 @@ export const initWebLLM = async (
                 webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
             };
 
+            const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
             engine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
         } else {
             // Reload/recreate engine if model changed
@@ -145,6 +146,7 @@ export const initWebLLM = async (
                 webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
             };
 
+            const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
             engine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
         }
         currentModelId = modelId;

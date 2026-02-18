@@ -5,11 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 4000,
+    chunkSizeWarningLimit: 10000, // 10MB
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'web-llm': ['@mlc-ai/web-llm'],
+          'ffmpeg': ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
           'pdfjs': ['pdfjs-dist'],
         },
       },
