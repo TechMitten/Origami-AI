@@ -902,11 +902,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [globalVoice, setGlobalVoice] = React.useState(AVAILABLE_VOICES[0].id);
   const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
 
-  // Hybrid Voice State for Global Settings Sidebar
-  const [isGlobalHybrid, setIsGlobalHybrid] = React.useState(false);
-  const [globalVoiceA, setGlobalVoiceA] = React.useState('');
-  const [globalVoiceB, setGlobalVoiceB] = React.useState('');
-  const [globalMixBalance, setGlobalMixBalance] = React.useState(50);
+
   const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>('overview');
   const [isMobile, setIsMobile] = useState(false);
   const [isConfigureSlidesExpanded, setIsConfigureSlidesExpanded] = useState(() => {
@@ -970,43 +966,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   // Sync global settings changes to parent
 
   
-  // Parse globalVoice into hybrid state components when it changes (e.g. loaded from settings)
-  React.useEffect(() => {
-    if (globalVoice && globalVoice.includes('+')) {
-      setIsGlobalHybrid(true);
-      const match = globalVoice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
-      if (match) {
-          const [, idA, weightA, idB] = match;
-          setGlobalVoiceA(idA);
-          setGlobalVoiceB(idB);
-          if (weightA) setGlobalMixBalance(parseInt(weightA, 10));
-          else setGlobalMixBalance(50);
-      } else {
-          const [a, b] = globalVoice.split('+');
-          setGlobalVoiceA(a);
-          setGlobalVoiceB(b);
-          setGlobalMixBalance(50);
-      }
-    } else if (globalVoice) {
-      setIsGlobalHybrid(false);
-      setGlobalVoiceA(globalVoice);
-    }
-  }, [globalVoice]);
 
-  const updateGlobalHybrid = (a: string, b: string, balance: number) => {
-      setGlobalVoiceA(a);
-      setGlobalVoiceB(b);
-      setGlobalMixBalance(balance);
-      
-      let newVoice = '';
-      if (balance === 50) {
-          newVoice = `${a}+${b}`;
-      } else {
-          newVoice = `${a}(${balance})+${b}(${100 - balance})`;
-      }
-      setGlobalVoice(newVoice);
-      onUpdateGlobalSettings?.({ voice: newVoice });
-  };
 
   // Global Preview for Sidebar
   const [isGlobalPreviewPlaying, setIsGlobalPreviewPlaying] = React.useState(false);
@@ -1140,46 +1100,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         fetchPromise.then(fetchedVoices => {
             let finalVoices = [...fetchedVoices];
 
-            // Check if we have a custom hybrid voice in settings
-            if (settings?.voice && settings.voice.includes('+')) {
-               // Try to parse names from IDs if possible, otherwise use IDs
-               const match = settings.voice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
-               let name = "Custom Hybrid Voice";
-               
-               if (match) {
-                   const [, idA, weightA, idB, weightB] = match;
-                   // Try to find names in fetchedVoices
-                   const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
-                   const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
-                   // If B weight is missing but A is present, calculate B. If both missing, 50.
-                   const wA = weightA || "50";
-                   let wB = weightB;
 
-                   if (!wB) {
-                        if (weightA) wB = String(100 - parseInt(weightA));
-                        else wB = "50";
-                   }
-                   
-                   name = `Hybrid: ${nameA} (${wA}%) + ${nameB} (${wB}%)`;
-               } else {
-                   // Fallback for simple A+B
-                   const [idA, idB] = settings.voice.split('+');
-                    const nameA = fetchedVoices.find(v => v.id === idA)?.name || idA;
-                    const nameB = fetchedVoices.find(v => v.id === idB)?.name || idB;
-                    name = `Hybrid: ${nameA} + ${nameB}`;
-               }
-
-               const hybridVoice: Voice = {
-                   id: settings.voice,
-                   name: name
-               };
-
-               // Prepend to list so user can see/select it
-               // Check if it already exists to avoid dupes if re-running
-               if (!finalVoices.find(v => v.id === hybridVoice.id)) {
-                   finalVoices = [hybridVoice, ...finalVoices];
-               }
-            }
 
             setVoices(finalVoices);
             
@@ -1343,34 +1264,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const handleApplyGlobalVoice = async () => {
     let currentVoices = voices;
     
-    // If using a hybrid voice not in the list, add it
-    if (globalVoice && globalVoice.includes('+') && !voices.find(v => v.id === globalVoice)) {
-        const match = globalVoice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
-        let name = "Custom Hybrid Voice";
-        
-        if (match) {
-            const [, idA, weightA, idB, weightB] = match;
-            const nameA = voices.find(v => v.id === idA)?.name || idA;
-            const nameB = voices.find(v => v.id === idB)?.name || idB;
-            
-            const wA = weightA || "50";
-            let wB = weightB;
-            if (!wB) {
-                 if (weightA) wB = String(100 - parseInt(weightA));
-                 else wB = "50";
-            }
-            name = `Hybrid: ${nameA} (${wA}%) + ${nameB} (${wB}%)`;
-        } else {
-             const [idA, idB] = globalVoice.split('+');
-             const nameA = voices.find(v => v.id === idA)?.name || idA;
-             const nameB = voices.find(v => v.id === idB)?.name || idB;
-             name = `Hybrid: ${nameA} + ${nameB}`;
-        }
-        
-        const newHybridVoice: Voice = { id: globalVoice, name };
-        currentVoices = [newHybridVoice, ...voices];
-        setVoices(currentVoices);
-    }
+
 
     const voiceName = currentVoices.find(v => v.id === globalVoice)?.name || globalVoice;
     if (await showConfirm(`Apply "${voiceName}" voice to all ${slides.length} slides?`, { title: 'Apply Voice', confirmText: 'Apply' })) {
@@ -1754,81 +1648,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             <p className="text-base text-white/50 leading-relaxed">Choose the narrator voice for all slides.</p>
                         </div>
                         {/* Hybrid Toggle */}
-                         <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-4 px-5 py-3 rounded-xl bg-white/5 border border-white/10">
-                            <span className={`text-xs font-bold uppercase transition-colors ${isGlobalHybrid ? 'text-branding-primary' : 'text-white/40'}`}>Hybrid Mode</span>
 
-                            <button
-                                onClick={() => {
-                                    const newHybridState = !isGlobalHybrid;
-                                    setIsGlobalHybrid(newHybridState);
-                                    if (newHybridState) {
-                                        const a = globalVoiceA || voices[0]?.id || 'af_heart';
-                                        const b = globalVoiceB || voices[1]?.id || 'am_adam';
-                                        setGlobalVoiceA(a);
-                                        setGlobalVoiceB(b);
-                                        updateGlobalHybrid(a, b, globalMixBalance);
-                                    } else {
-                                        const newVoice = globalVoiceA || voices[0]?.id;
-                                        setGlobalVoice(newVoice);
-                                        onUpdateGlobalSettings?.({ voice: newVoice });
-                                    }
-                                }}
-                                className={`relative w-8 h-4 rounded-full transition-all duration-300 border ${isGlobalHybrid ? 'bg-branding-primary border-branding-primary' : 'bg-white/5 border-white/20'}`}
-                            >
-                                <div className={`absolute top-px left-px w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isGlobalHybrid ? 'translate-x-4' : 'translate-x-0'}`} />
-                            </button>
-                         </div>
                     </div>
 
-                    {isGlobalHybrid ? (
-                        <div className="flex-1 space-y-8 p-6 sm:p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
-                                <div className="space-y-3">
-                                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Voice A (Primary)</label>
-                                    <Dropdown
-                                        options={voices}
-                                        value={globalVoiceA}
-                                        onChange={(val) => updateGlobalHybrid(val, globalVoiceB, globalMixBalance)}
-                                        className="h-12 text-sm"
-                                    />
-                                </div>
-                                <div className="space-y-3">
-                                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Voice B (Secondary)</label>
-                                    <Dropdown
-                                        options={voices}
-                                        value={globalVoiceB}
-                                        onChange={(val) => updateGlobalHybrid(globalVoiceA, val, globalMixBalance)}
-                                        className="h-12 text-sm"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-4 pt-4">
-                                <div className="flex justify-between text-xs font-bold text-white/50 uppercase tracking-wider">
-                                    <span>Mix Balance</span>
-                                    <span>{globalMixBalance}% A / {100 - globalMixBalance}% B</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    step="5"
-                                    value={100 - globalMixBalance}
-                                    onChange={(e) => updateGlobalHybrid(globalVoiceA, globalVoiceB, 100 - parseInt(e.target.value))}
-                                    className="w-full h-3 bg-white/10 rounded-xl appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:hover:scale-110 shadow-lg"
-                                />
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-6 border-t border-white/5">
-                                <button onClick={handleGlobalPreview} className={`flex-1 h-12 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
-                                    {isGlobalPreviewPlaying ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />} Test Mix
-                                </button>
-                                <button onClick={handleApplyGlobalVoice} className="flex-1 h-12 rounded-xl bg-branding-primary/20 border border-branding-primary/30 hover:bg-branding-primary/30 text-white font-bold text-sm uppercase tracking-wider transition-all">
-                                    Apply to All Slides
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
                         <div className="flex-1 space-y-6 sm:space-y-8 p-6 sm:p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Select Voice</label>
@@ -1848,7 +1670,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 </button>
                             </div>
                         </div>
-                    )}
                 </div>
              )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, Download, CheckCircle2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -10,7 +10,7 @@ import type { InitProgressReport } from '@mlc-ai/web-llm';
 import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
 
 
-import { reloadTTS, initTTS, ttsEvents, type ProgressEventDetail } from '../services/ttsService';
+import { reloadTTS } from '../services/ttsService';
 
 interface GlobalSettingsModalProps {
   isOpen: boolean;
@@ -59,11 +59,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
   // TTS Download State
-  const [ttsDownloadProgress, setTtsDownloadProgress] = useState<string>('');
-  const [ttsProgressPercent, setTtsProgressPercent] = useState(0);
-  const [isDownloadingTTS, setIsDownloadingTTS] = useState(false);
-  const [ttsModelDownloaded, setTtsModelDownloaded] = useState(false);
-  const [currentDownloadedQuantization, setCurrentDownloadedQuantization] = useState<'q4' | 'q8' | null>(null);
+
 
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
@@ -118,46 +114,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   }, [webLlmModel]);
 
   // Reset TTS download state when quantization changes
-  useEffect(() => {
-    setTtsDownloadProgress('');
-    setTtsProgressPercent(0);
-    setIsDownloadingTTS(false);
-    // Check if model is already downloaded for this quantization
-    setTtsModelDownloaded(currentDownloadedQuantization === ttsQuantization);
-  }, [ttsQuantization, currentDownloadedQuantization]);
 
-  // Listen for TTS progress events
-  useEffect(() => {
-    const handleTTSProgress = (e: Event) => {
-      const event = e as CustomEvent<ProgressEventDetail>;
-      const { progress, file, status } = event.detail;
-
-      if (status === 'done') {
-        setTtsProgressPercent(100);
-        setTtsDownloadProgress('Model downloaded successfully!');
-        setIsDownloadingTTS(false);
-        setTtsModelDownloaded(true);
-        setCurrentDownloadedQuantization(ttsQuantization);
-      } else if (progress >= 0) {
-        setTtsProgressPercent(Math.round(progress));
-        setTtsDownloadProgress(file || 'Downloading...');
-      } else {
-        setTtsDownloadProgress(status || 'Initializing...');
-      }
-    };
-
-    ttsEvents.addEventListener('tts-progress', handleTTSProgress);
-
-    return () => {
-      ttsEvents.removeEventListener('tts-progress', handleTTSProgress);
-    };
-  }, [ttsQuantization]);
 
   const [availableVoices, setAvailableVoices] = useState<Voice[]>(AVAILABLE_VOICES);
-  const [isHybrid, setIsHybrid] = useState(false);
-  const [voiceA, setVoiceA] = useState('');
-  const [voiceB, setVoiceB] = useState('');
-  const [mixBalance, setMixBalance] = useState(50); // 0-100, favoring Voice A
+
+
   const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
@@ -316,24 +277,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   };
 
-  const handleDownloadTTSModel = async () => {
-    if (isDownloadingTTS || ttsModelDownloaded) return;
 
-    setIsDownloadingTTS(true);
-    setTtsDownloadProgress('Initializing...');
-    setTtsProgressPercent(0);
-
-    try {
-      // Initialize TTS with the selected quantization (this will download the model)
-      await initTTS(ttsQuantization);
-      setTtsModelDownloaded(true);
-      setCurrentDownloadedQuantization(ttsQuantization);
-    } catch (error) {
-      console.error('Failed to download TTS model:', error);
-      setTtsDownloadProgress('Download failed. Check console.');
-      setIsDownloadingTTS(false);
-    }
-  };
 
   const handleDownloadWebLlm = async () => {
     if (!webLlmModel) return;
@@ -424,17 +368,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
            setIsPreviewPlaying(true);
            const text = "Hi there! This is a sample of how I sound. I hope you like it!";
            
-           let previewVoice = voice;
-           if (isHybrid) {
-               if (mixBalance === 50) {
-                   previewVoice = `${voiceA}+${voiceB}`;
-               } else {
-                   previewVoice = `${voiceA}(${mixBalance})+${voiceB}(${100 - mixBalance})`;
-               }
-           }
-
            const audioUrl = await generateTTS(text, {
-               voice: previewVoice,
+               voice: voice,
                speed: 1.0,
                pitch: 1.0
            });
@@ -490,51 +425,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   }, [useLocalTTS, localTTSUrl, loadVoices]);
 
-  // Parse initial voice for hybrid mode
-  React.useEffect(() => {
-    if (currentSettings?.voice && currentSettings.voice.includes('+')) {
-      setIsHybrid(true);
-      
-      // Parse format: idA(weight)+idB(weight) or idA+idB
-      const match = currentSettings.voice.match(/^([^(]+)(?:\((\d+)\))?\+([^(]+)(?:\((\d+)\))?$/);
-      
-      if (match) {
-          const [, idA, weightA, idB] = match;
-          setVoiceA(idA);
-          setVoiceB(idB);
-          
-          if (weightA) {
-              setMixBalance(parseInt(weightA, 10));
-          } else {
-              setMixBalance(50);
-          }
-      } else {
-          // Fallback split
-          const [a, b] = currentSettings.voice.split('+');
-          setVoiceA(a);
-          setVoiceB(b);
-          setMixBalance(50);
-      }
-    } else {
-      setIsHybrid(false);
-      if (currentSettings?.voice) {
-          setVoiceA(currentSettings.voice);
-      }
-    }
-  }, [currentSettings, isOpen]);
 
-  // Sync hybrid voice to main voice state
-  React.useEffect(() => {
-      if (isHybrid && voiceA && voiceB) {
-          if (mixBalance === 50) {
-            setVoice(`${voiceA}+${voiceB}`);
-          } else {
-            setVoice(`${voiceA}(${mixBalance})+${voiceB}(${100 - mixBalance})`);
-          }
-      } else if (!isHybrid && voiceA) {
-          setVoice(voiceA);
-      }
-  }, [isHybrid, voiceA, voiceB, mixBalance]);
   React.useEffect(() => {
     if (isOpen) {
       const key = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
@@ -587,15 +478,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     // Check if quantization changed to reload model
     if (currentSettings?.ttsQuantization !== ttsQuantization) {
          if (ttsQuantization) {
-           // Load the model (should be quick if already downloaded)
-           setTtsDownloadProgress('Loading model...');
            try {
+             // Reload happens in background, no need to await specific progress here as modal closes
              reloadTTS(ttsQuantization);
-             setTtsDownloadProgress('');
-             setCurrentDownloadedQuantization(ttsQuantization);
            } catch (error) {
              console.error('Failed to reload TTS model:', error);
-             setTtsDownloadProgress('Failed to load model');
            }
          }
     }
@@ -893,15 +780,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                         <RotateCcw className="w-3 h-3" />
                                      </button>
 
-                                    <div className="w-px h-3 bg-white/10 mx-1" />
-
-                                    <span className="text-xs text-white/60">Hybrid Mode</span>
-                                    <button
-                                        onClick={() => setIsHybrid(!isHybrid)}
-                                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isHybrid ? 'bg-emerald-500' : 'bg-white/10'}`}
-                                    >
-                                        <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isHybrid ? 'translate-x-5' : 'translate-x-0'}`} />
-                                    </button>
                                 </div>
                             )}
 
@@ -915,63 +793,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             </button>
                         </div>
 
-                        {isHybrid ? (
-                             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-                                <div className="space-y-2">
-                                     <label className="text-[10px] font-bold text-white/40 uppercase">Voice A</label>
-                                     <Dropdown
-                                        options={availableVoices}
-                                        value={voiceA}
-                                        onChange={setVoiceA}
-                                        className="bg-black/20"
-                                    />
-                                </div>
-                                <div className="flex items-center justify-center pt-6 text-white/20">
-                                    <span className="text-xl font-bold">+</span>
-                                </div>
-                                <div className="space-y-2">
-                                     <label className="text-[10px] font-bold text-white/40 uppercase">Voice B</label>
-                                     <Dropdown
-                                        options={availableVoices}
-                                        value={voiceB}
-                                        onChange={setVoiceB}
-                                        className="bg-black/20"
-                                    />
-                                </div>
-                                <div className="col-span-2 pt-4 px-2 space-y-3 border-t border-white/5">
-                                    <div className="flex justify-between items-center text-[10px] uppercase font-bold text-white/40">
-                                        <span>Use More {voiceA || 'Voice A'}</span>
-                                        <span>Use More {voiceB || 'Voice B'}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="100"
-                                        step="5"
-                                        value={100 - mixBalance}
-                                        onChange={(e) => setMixBalance(100 - parseInt(e.target.value))}
-                                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform"
-                                    />
-                                    <p className="text-[10px] text-white/40 text-center">
-                                        Mix Ratio: <span className="font-mono text-white">{mixBalance}%</span> A / <span className="font-mono text-white">{100 - mixBalance}%</span> B
-                                    </p>
-                                    <p className="text-[10px] text-white/20 text-center truncate">
-                                        ID: <span className="font-mono">{mixBalance === 50 ? `${voiceA}+${voiceB}` : `${voiceA}(${mixBalance})+${voiceB}(${100 - mixBalance})`}</span>
-                                    </p>
-                                </div>
-                             </div>
-                        ) : (
                             <Dropdown
                                 options={availableVoices}
                                 value={voice}
-                                onChange={(v) => {
-                                    setVoice(v);
-                                    setVoiceA(v); // Keep sync
-                                }}
+                                onChange={setVoice}
                                 className="bg-black/20"
                             />
-                        )}
-                    </div>
+                        </div>
 
                     <div className="space-y-4">
                         <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
@@ -1043,75 +871,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                 </span>
                             </button>
                         </div>
-
-                        {/* Download Button and Progress */}
-                        {ttsQuantization !== currentSettings?.ttsQuantization && (
-                          <div className="space-y-3 animate-fade-in">
-                            <button
-                              onClick={handleDownloadTTSModel}
-                              disabled={isDownloadingTTS || ttsModelDownloaded}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${
-                                isDownloadingTTS
-                                  ? 'bg-white/5 text-white/40 cursor-wait'
-                                  : ttsModelDownloaded
-                                    ? 'bg-emerald-500/10 text-emerald-400 cursor-default'
-                                    : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
-                              }`}
-                            >
-                              {isDownloadingTTS ? (
-                                <>
-                                  <RefreshCw className="w-4 h-4 animate-spin" />
-                                  Downloading... {ttsProgressPercent > 0 && `${ttsProgressPercent}%`}
-                                </>
-                              ) : ttsModelDownloaded ? (
-                                <>
-                                  <CheckCircle2 className="w-4 h-4" />
-                                  Model Downloaded ({ttsQuantization.toUpperCase()})
-                                </>
-                              ) : (
-                                <>
-                                  <Download className="w-4 h-4" />
-                                  Download {ttsQuantization.toUpperCase()} Model
-                                </>
-                              )}
-                            </button>
-
-                            {ttsDownloadProgress && (
-                              <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <p className={`font-mono text-xs leading-relaxed ${
-                                    ttsDownloadProgress === 'Model downloaded successfully!' || ttsDownloadProgress.includes('successfully')
-                                      ? 'text-emerald-400 font-bold'
-                                      : 'text-white/70'
-                                  }`}>
-                                    {ttsDownloadProgress}
-                                  </p>
-                                  {isDownloadingTTS && (
-                                    <span className="font-mono text-xs text-white/70">
-                                      {ttsProgressPercent}%
-                                    </span>
-                                  )}
-                                </div>
-                                {isDownloadingTTS && ttsProgressPercent > 0 && ttsProgressPercent < 100 && (
-                                  <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-linear-to-r from-blue-500 to-purple-500 transition-all duration-300"
-                                      style={{ width: `${ttsProgressPercent}%` }}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {ttsModelDownloaded && (
-                              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                <p className="text-[10px] text-emerald-200">
-                                  <strong>Ready:</strong> Click "Save Settings" to load the {ttsQuantization.toUpperCase()} model.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
                     </div>
                     )}
                 </div>
