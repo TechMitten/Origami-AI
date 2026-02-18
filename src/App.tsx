@@ -802,23 +802,25 @@ function MainApp() {
           onClose={() => setIsWebGPUModalOpen(false)}
        />
 
-       <UnifiedInitModal
-          isOpen={isWebLLMInitModalOpen}
-          resources={preinstalledResources}
-          activeResources={activeDownloads}
-          onComplete={() => {
-              setIsWebLLMInitModalOpen(false);
-              // Mark WebLLM as pre-initialized so we don't show this again
-              localStorage.setItem('webllm_preinitialized', 'true');
-              // Update the resource cache status
-              const currentStatus = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-              if (!currentStatus.webllm) {
-                  currentStatus.webllm = true;
-                  localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
-                  setPreinstalledResources(currentStatus);
-              }
-          }}
-       />
+       {isWebLLMInitModalOpen && (
+        <UnifiedInitModal
+           isOpen={isWebLLMInitModalOpen}
+           resources={preinstalledResources}
+           activeResources={activeDownloads}
+           onComplete={() => {
+               setIsWebLLMInitModalOpen(false);
+               // Mark WebLLM as pre-initialized so we don't show this again
+               localStorage.setItem('webllm_preinitialized', 'true');
+               // Update the resource cache status
+               const currentStatus = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+               if (!currentStatus.webllm) {
+                   currentStatus.webllm = true;
+                   localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
+                   setPreinstalledResources(currentStatus);
+               }
+           }}
+        />
+       )}
 
       {/* Background Image */}
       <img
