@@ -47,6 +47,7 @@ public/uploads/*
 !public/sitemap.xml
 .env
 RAILWAY_DEPLOY.md
+.claude
 
 # Test scripts
 test_ai.mjs
