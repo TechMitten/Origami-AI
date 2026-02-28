@@ -227,25 +227,27 @@ export const generateWebLLMResponse = async (
     }
 
     try {
-        // Ensure engine is ready (sometimes it might be in a weird state)
-        if (!engine) {
-            throw new Error("WebLLM Engine lost connection. Please try again.");
-        }
+        // Reset chat/KV cache before each independent request.
+        // WebLLM detects multi-round chat by comparing the system prompt of the new request
+        // to the cached conversation. Since every slide uses the same system prompt, WebLLM
+        // incorrectly treats successive slide requests as continuations of the same chat,
+        // accumulating tokens in the KV cache across all slides. This causes the context
+        // window to fill up and subsequent requests to hang indefinitely.
+        // Calling resetChat() before each request forces a fresh context every time.
+        await engine.resetChat();
+
         console.log("[WebLLM] Generating response with engine:", engine, "Model:", currentModelId);
         const reply = await engine.chat.completions.create({
             messages,
             temperature,
-            stream: false, // For now, no streaming to keep it simple with existing architecture
+            max_tokens: 1024, // Cap output to prevent runaway generation and context overflow
+            stream: false,
         });
         console.log("[WebLLM] Raw Reply Object:", reply);
 
         return reply.choices[0].message.content || "";
     } catch (error) {
         console.error("WebLLM Generation Error:", error);
-        // Force reload next time if something critical failed
-        // engine = null;
-        // Actually, let's not force null immediately unless it's a specific error,
-        // but the parent service (aiService) handles the retry logic now.
         throw error;
     }
 };
