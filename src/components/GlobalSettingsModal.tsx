@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2 } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, isVisionModel } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -58,6 +58,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
+  const [useVisionForScripts, setUseVisionForScripts] = useState(currentSettings?.useVisionForScripts ?? false);
   // TTS Loading State
   const [isLoadingTTS, setIsLoadingTTS] = useState(false);
   const [ttsLoadProgress, setTtsLoadProgress] = useState('');
@@ -475,7 +476,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
       useWebLLM,
       webLlmModel,
-      aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined
+      aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined,
+      useVisionForScripts
     };
 
 
@@ -559,6 +561,89 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         // Don't close the modal so the user sees the error.
         if (webLlmModel !== getCurrentWebLLMModel()) {
              return;
+        }
+    }
+
+    // Auto-load vision model if vision-based generation is enabled
+    const currentLoadedModelId = getCurrentWebLLMModel();
+    if (useVisionForScripts && useWebLLM && !isVisionModel(currentLoadedModelId)) {
+        const visionModel = "Phi-3.5-vision-instruct-q4f32_1-MLC"; // Use q4f32 for better compatibility
+        console.log("[Settings] Auto-switching to vision model:", visionModel);
+
+        // Update the model selection
+        setWebLlmModel(visionModel);
+
+        if (isDownloadingWebLlm) {
+             showAlert("Model is currently loading. Please wait.", { type: 'info', title: 'Loading in progress' });
+             return;
+        }
+
+        // Trigger model load
+        setIsDownloadingWebLlm(true);
+        setWebLlmDownloadProgress('Initializing...');
+        setWebLlmProgressPercent(0);
+        setWebLlmPhase('downloading');
+
+        // Listen for progress events
+        const handleProgress = (e: Event) => {
+            const report = (e as CustomEvent<InitProgressReport>).detail;
+            const progress = Math.round(report.progress * 100);
+            setWebLlmProgressPercent(progress);
+            setWebLlmDownloadProgress(report.text);
+
+            // Update phase based on progress
+            if (report.text.includes('preloading') || report.text.includes('Loading')) {
+                setWebLlmPhase('loading');
+            }
+        };
+
+        const handleComplete = () => {
+            setWebLlmDownloadProgress('Model loaded successfully!');
+            setWebLlmPhase('complete');
+            setWebLlmProgressPercent(100);
+            setIsDownloadingWebLlm(false);
+        };
+
+        const handleError = () => {
+            setWebLlmDownloadProgress('Failed to load model');
+            setIsDownloadingWebLlm(false);
+        };
+
+        webLlmEvents.addEventListener('webllm-init-progress', handleProgress);
+        webLlmEvents.addEventListener('webllm-init-complete', handleComplete);
+        webLlmEvents.addEventListener('webllm-init-error', handleError);
+
+        try {
+            await initWebLLM(visionModel, (report) => {
+                const progress = Math.round(report.progress * 100);
+                setWebLlmProgressPercent(progress);
+                setWebLlmDownloadProgress(report.text);
+
+                if (report.text.includes('preloading') || report.text.includes('Loading')) {
+                    setWebLlmPhase('loading');
+                }
+            });
+
+            // Update settings with vision model
+            settings.webLlmModel = visionModel;
+            setWebLlmDownloadProgress('Model loaded successfully!');
+            setWebLlmPhase('complete');
+            setWebLlmProgressPercent(100);
+
+            // Check if loaded successfully
+            if (visionModel !== getCurrentWebLLMModel()) {
+                showAlert("Failed to load vision model. Please try again.", { type: 'error', title: 'Model Load Failed' });
+                return;
+            }
+        } catch (error) {
+            console.error("Failed to load vision model:", error);
+            showAlert("Failed to load vision model: " + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Model Load Failed' });
+            return;
+        } finally {
+            webLlmEvents.removeEventListener('webllm-init-progress', handleProgress);
+            webLlmEvents.removeEventListener('webllm-init-complete', handleComplete);
+            webLlmEvents.removeEventListener('webllm-init-error', handleError);
+            setIsDownloadingWebLlm(false);
         }
     }
 
@@ -937,7 +1022,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     {isLoadingTTS && (
                       <div className="space-y-2 p-3 rounded-lg bg-black/20 border border-white/10">
                         <div className="flex items-center justify-between">
-                          <p className={`font-mono text-xs leading-relaxed truncate max-w-[80%] ${
+                          <p className={`font-mono text-xs leading-relaxed truncate max-w-full overflow-x-auto ${
                             ttsLoadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'
                           }`}>
                             {ttsLoadProgress}
@@ -1006,7 +1091,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                     Model Precision
                                 </label>
                             </div>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <button
                                     onClick={() => setPrecisionFilter('all')}
                                     className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
@@ -1128,6 +1213,43 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Vision-Based Script Generation */}
+                        <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
+                          <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                            <Activity className="w-4 h-4" />
+                            Vision-Based Script Generation
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-sm font-bold text-white">Enable Vision Analysis</div>
+                              <div className="text-xs text-white/60 mt-1">
+                                Use Phi-3.5 Vision model to visually analyze slides for more accurate script generation. Requires the vision model to be loaded.
+                              </div>
+                            </div>
+                            <button
+                                onClick={() => setUseVisionForScripts(!useVisionForScripts)}
+                                className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${!useVisionForScripts ? 'bg-white/10' : 'bg-emerald-500'}`}
+                            >
+                                <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${!useVisionForScripts ? 'translate-x-0' : 'translate-x-7'}`} />
+                            </button>
+                          </div>
+
+                          {useVisionForScripts && !isVisionModel(currentLoadedModel) && (
+                            <div className="text-xs text-amber-400 bg-amber-400/10 p-3 rounded-lg border border-amber-400/20 flex items-start gap-2">
+                              <Activity className="w-4 h-4 mt-0.5 shrink-0" />
+                              <span>Vision model required. Click "Load Model" to download Phi-3.5 Vision when you save settings, or manually select it above.</span>
+                            </div>
+                          )}
+
+                          {useVisionForScripts && isVisionModel(currentLoadedModel) && (
+                            <div className="text-xs text-emerald-400 bg-emerald-400/10 p-3 rounded-lg border border-emerald-400/20 flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Vision model loaded and ready</span>
+                            </div>
+                          )}
                         </div>
 
                       </>

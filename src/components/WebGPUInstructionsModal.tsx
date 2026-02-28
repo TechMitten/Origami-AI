@@ -212,7 +212,7 @@ export function WebGPUInstructionsModal({ isOpen, onClose }: WebGPUInstructionsM
   if (!isRendered) return null;
 
   return (
-    <div className={`fixed inset-0 z-60 flex items-center justify-center p-4 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`fixed inset-0 z-60 flex sm:items-center items-start justify-center p-4 sm:p-4 transition-all duration-300 overflow-y-auto ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-300"
@@ -220,7 +220,7 @@ export function WebGPUInstructionsModal({ isOpen, onClose }: WebGPUInstructionsM
       />
 
       {/* Modal Content */}
-      <div className={`relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border-4 border-gray-200 transform transition-all duration-300 ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'}`}>
+      <div className={`relative w-full max-w-lg my-4 sm:my-0 bg-white rounded-3xl shadow-2xl border-4 border-gray-200 transform transition-all duration-300 ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'}`}>
         {/* Header */}
         <div className="px-8 py-6 flex items-start gap-4 rounded-t-3xl border-b-2 border-gray-100 bg-linear-to-r from-orange-50 to-red-50">
           <div className="p-3 rounded-xl bg-linear-to-br from-orange-500 to-red-500 text-white shrink-0 shadow-lg">
@@ -243,7 +243,7 @@ export function WebGPUInstructionsModal({ isOpen, onClose }: WebGPUInstructionsM
         </div>
 
         {/* Body */}
-        <div className="p-8 bg-gray-50">
+        <div className="p-8 bg-gray-50 max-h-[60vh] overflow-y-auto">
           <div className="mb-5 flex items-center gap-3">
             {instructions.icon}
             <h4 className="font-bold text-gray-900 text-lg">{instructions.title}</h4>

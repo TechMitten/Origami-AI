@@ -542,9 +542,9 @@ function MainApp() {
             <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
               <button
                 onClick={() => setActiveTab('edit')}
-                className={`px-4 sm:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                  activeTab === 'edit' 
-                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm' 
+                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                  activeTab === 'edit'
+                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
                     : 'text-white/40 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -552,9 +552,9 @@ function MainApp() {
               </button>
               <button
                 onClick={() => setActiveTab('preview')}
-                className={`px-4 sm:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                  activeTab === 'preview' 
-                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm' 
+                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                  activeTab === 'preview'
+                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
                     : 'text-white/40 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -611,7 +611,7 @@ function MainApp() {
 
                 {/* Dropdown Menu */}
                 {isActionsMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-48 py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-60">
+                  <div className="absolute left-0 right-0 sm:left-auto sm:right-0 sm:w-48 top-full mt-2 w-full py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-60">
                     <button
                       onClick={() => { handleStartOver(); setIsActionsMenuOpen(false); }}
                       className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
@@ -702,12 +702,12 @@ function MainApp() {
                   </div>
                 </div>
 
-                <div className="flex justify-center flex-col items-center gap-6">
-                  <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-                    <div className="flex flex-col gap-2">
+                <div className="flex justify-center flex-col items-center gap-6 w-full">
+                  <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start w-full sm:w-auto">
+                    <div className="flex flex-col gap-2 w-full sm:w-auto">
                       <button
                         onClick={handleDownloadMP4}
-                        className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                        className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale w-full sm:w-auto"
                         disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingWithAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
@@ -728,10 +728,10 @@ function MainApp() {
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <button 
+                    <div className="flex flex-col gap-2 w-full sm:w-auto">
+                      <button
                         onClick={handleDownloadSilent}
-                        className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 border border-white/10"
+                        className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 border border-white/10 w-full sm:w-auto"
                         disabled={isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingSilent ? <Loader2 className="w-5 h-5 animate-spin" /> : <VolumeX className="w-5 h-5" />}

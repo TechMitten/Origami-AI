@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm run lint:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "mcp__zread__get_repo_structure"
     ]
   }
 }

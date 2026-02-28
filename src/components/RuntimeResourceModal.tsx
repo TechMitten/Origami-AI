@@ -73,7 +73,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+    <div className={`fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-4 transition-all duration-300 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       {/* Backdrop with animated gradient */}
       <div
         className="absolute inset-0 bg-linear-to-br from-black/80 via-black/70 to-black/80 backdrop-blur-md transition-opacity"
@@ -81,7 +81,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
 
       {/* Modal Content */}
       <div className={`
-        relative w-full max-w-lg bg-linear-to-br from-[#0F1115] via-[#12151A] to-[#0A0C0F]
+        relative w-full max-w-lg my-4 sm:my-0 bg-linear-to-br from-[#0F1115] via-[#12151A] to-[#0A0C0F]
         border border-white/8 rounded-3xl shadow-2xl overflow-hidden
         transform transition-all duration-300 ease-out
         ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'}
@@ -120,7 +120,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
         </div>
 
         {/* Body */}
-        <div className="relative p-8 space-y-3 max-h-[60vh] overflow-y-auto">
+        <div className="relative p-8 space-y-3">
           {/* TTS Option */}
           <div
             onClick={toggleTTS}

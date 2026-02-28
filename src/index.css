@@ -21,6 +21,34 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Mobile: prevent horizontal scroll */
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Mobile: Prevent iOS auto-zoom on inputs */
+input[type="text"], input[type="number"], input[type="url"], textarea, select {
+  font-size: 16px;
+}
+
+/* Mobile: Improve touch scrolling */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile: Better scrollbar visibility */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Glassmorphism utility */

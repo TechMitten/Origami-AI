@@ -6,71 +6,45 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import hpp from 'hpp'; 
+import hpp from 'hpp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function createServer() {
   const app = express();
 
-  // Security Middleware
-  // Security Middleware
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "blob:"], // unsafe-eval needed for some dev tools/libraries
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "blob:"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         mediaSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "https://unpkg.com"], // ws: for Vite HMR, blob: for FFmpeg workers
-        workerSrc: ["'self'", "blob:"], // Explicitly allow blob workers for FFmpeg
+        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "data:", "https://unpkg.com"],
+        workerSrc: ["'self'", "blob:"],
       },
-    }, 
-    // crossOriginEmbedderPolicy: false, // Keeping false for now as true often breaks cross-origin subresources like CDNs without proper headers 
-    // Update: To fix "Insecure configuration", we should strive for better defaults, but if it breaks the app, the user will be unhappy.
-    // However, the report is explicitly about "Insecure configuration". 
-    // Let's enable strict CSP but keep COEP off if we use external resources without CORP headers.
-    // Actually, let's try to enable it but allow credentialless if possible, or just remove the explicit 'false' to use default (which is require-corp).
-    // The user's code had:
-    // app.use((_req, res, next) => {
-    //  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-    // ...
-    // So we might conflict if we set it in Helmet too. 
-    // Let's set it to false in Helmet and let the manual middleware handle it, or configure it here.
-    // The manual middleware uses 'credentialless', which Helmet might not support directly in older versions?
-    // Let's trust the manual middleware for COEP/COOP tokens and focus on CSP here.
+    },
+
   }));
   app.use(compression());
   app.use(hpp());
 
-  // Rate Limiting
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
-    standardHeaders: 'draft-7', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers.
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
   });
-  
-  // Apply rate limiting to all requests that fall through static files (e.g. API/SPA)
-  // We place it AFTER static files middleware if we want to exclude static assets,
-  // BUT to be safe against DoS on static assets, we can place it here with a higher limit.
-  // Given the user wants "No broken functions", safely placing it for API/App logic is safer.
-  // However, I will apply it globally but with a high limit OR just apply it to the SPA fallback later.
-  // Let's stick to applying it only to non-static or catch-all routes by placing it later.
-  // But wait, the previous plan was to place it later. I will do that.
-  
-  
-  // In production, restrict this to your Cloudflare Pages URL
+
+
   app.use(cors({
-    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : false, // Default to no access if not configured
+    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : false,
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
   }));
 
-  // Add CORP header for COOP/COEP compatibility
-  // Using 'credentialless' instead of 'require-corp' allows CDN resources
   app.use((_req, res, next) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
@@ -80,16 +54,11 @@ async function createServer() {
 
   app.use(express.json({ limit: '200mb' }));
 
-  // Serve static files from public directory
   app.use('/music', express.static(path.resolve(__dirname, 'public/music')));
 
   app.use(express.static(path.resolve(__dirname, 'public')));
 
-  // Updated to default to 8080 for your VPS setup
-  const port = Number(process.env.PORT) || 3000; 
-
-  // Server-side endpoints removed as rendering is now client-side.
-  // Files are no longer stored on the server.
+  const port = Number(process.env.PORT) || 3000;
 
   let vite;
   if (process.env.NODE_ENV !== 'production') {
@@ -100,30 +69,22 @@ async function createServer() {
   }
 
 
-  // --- START MODIFIED SECTION ---
   if (process.env.NODE_ENV === 'production') {
       const distDir = path.resolve(__dirname, 'dist');
       app.use(express.static(distDir));
 
-      // Apply rate limiting to the main application routes (SPA fallback)
       app.use(limiter);
 
-      // Catch-all route for SPA - must be last
-      // Use middleware style to avoid Express 5 path-to-regexp issues
       app.use((req, res, next) => {
-          // If the request starts with /api but didn't match any route above, 404 it
           if (req.originalUrl.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
           }
-          // Otherwise, serve the SPA index.html for all non-file routes
           if (!req.path.includes('.')) {
             return res.sendFile(path.resolve(distDir, 'index.html'));
           }
           next();
       });
 
-      // Global Error Handler
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
         console.error(err);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -131,12 +92,11 @@ async function createServer() {
   } else {
       if (vite) app.use(vite.middlewares);
   }
-  // --- END MODIFIED SECTION ---
 
   const server = app.listen(port, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${port}`);
   });
-  
+
   server.timeout = 900000;
 }
 

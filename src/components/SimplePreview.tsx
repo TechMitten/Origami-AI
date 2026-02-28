@@ -377,7 +377,7 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
             }}
         >
           {/* Background */}
-          <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden group-hover/timeline:h-2 transition-all">
+          <div className="w-full h-2 sm:h-1 bg-white/20 rounded-full overflow-hidden group-hover/timeline:h-3 sm:group-hover/timeline:h-2 transition-all">
             <div 
               className="h-full bg-cyan-400 relative"
               style={{ width: `${progressPercent}%` }}

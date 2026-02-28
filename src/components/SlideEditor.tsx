@@ -23,7 +23,7 @@ import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, genera
 import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 
-import { transformText } from '../services/aiService';
+import { transformText, transformTextWithVision } from '../services/aiService';
 import { isWebLLMLoaded } from '../services/webLlmService';
 import { Dropdown } from './Dropdown';
 
@@ -462,18 +462,21 @@ const SortableSlideItem = ({
     if (!slide.script.trim()) return;
 
     if (!await showConfirm("This will replace the current script with an AI-enhanced version. Continue?", { title: 'AI Enhancement', confirmText: 'Enhance' })) {
-        return; 
+        return;
     }
+
+    const useVision = globalSettings?.useVisionForScripts ?? false;
 
     setIsTransforming(true);
     try {
-      const transformed = await transformText({
+      const transformed = await transformTextWithVision({
           apiKey: apiKey || '',
           baseUrl,
           model,
           useWebLLM,
-          webLlmModel
-      }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+          webLlmModel,
+          useVision
+      }, slide.script, useVision ? slide.dataUrl : undefined, globalSettings?.aiFixScriptSystemPrompt);
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
       console.error("[SlideEditor] Transformation Error:", error);
@@ -801,7 +804,7 @@ const SortableSlideItem = ({
           </div>
 
           {/* Actions Toolbar */}
-          <div className="flex flex-wrap items-center gap-3 p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm overflow-x-auto">
              {/* Generate Button */}
              <button
               onClick={() => onGenerate(index)}
@@ -1706,7 +1709,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <p className="text-base text-white/50">Control global volume levels and background music.</p>
                     </div>
 
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="flex flex-col gap-8 h-full">
                             {/* TTS Volume */}
                             <div className="flex-1 space-y-4 p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
@@ -1841,7 +1844,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <p className="text-base text-white/50">Apply specific actions to all slides at once.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {/* AI Fix */}
                         <div className="relative">
                             <button

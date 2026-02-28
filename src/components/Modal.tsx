@@ -74,7 +74,7 @@ export const Modal: React.FC<ModalProps> = ({
       />
       
       {/* Modal Content */}
-      <div className={`relative w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl transform transition-all duration-300 ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}>
+      <div className={`relative w-full max-w-md my-4 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl transform transition-all duration-300 ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}>
         
         {/* Header */}
         <div className={`px-6 py-4 flex items-center gap-3 rounded-t-2xl border-b ${getHeaderColor()}`}>
@@ -82,34 +82,34 @@ export const Modal: React.FC<ModalProps> = ({
           <h3 className="text-lg font-bold text-white tracking-tight">
             {title || (type.charAt(0).toUpperCase() + type.slice(1))}
           </h3>
-          <button 
+          <button
             onClick={type === 'confirm' ? onCancel : onConfirm}
-            className="ml-auto p-1 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="ml-auto p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors min-w-11 min-h-11 flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6">
+        <div className="p-6 max-h-[60vh] overflow-y-auto">
           <div className="text-white/80 leading-relaxed text-sm">
             {message}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white/5 rounded-b-2xl border-t border-white/5 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 bg-white/5 rounded-b-2xl border-t border-white/5 flex flex-col-reverse sm:flex-row items-center justify-end gap-2 sm:gap-3">
           {(type === 'confirm' || onCancel) && (
             <button
               onClick={onCancel}
-              className="px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
             >
               {cancelText}
             </button>
           )}
           <button
             onClick={onConfirm}
-            className={`px-6 py-2 rounded-lg text-sm font-bold text-white transition-all shadow-lg ${
+            className={`w-full sm:w-auto px-6 py-2 rounded-lg text-sm font-bold text-white transition-all shadow-lg ${
                 type === 'error' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' :
                 type === 'warning' ? 'bg-amber-500 hover:bg-amber-600 text-black shadow-amber-500/20' :
                 'bg-branding-primary hover:bg-cyan-400 text-black shadow-cyan-500/20'

@@ -17,29 +17,29 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-8 border-b border-white/5 flex items-center justify-between bg-linear-to-r from-white/5 to-transparent">
+        <div className="p-4 sm:p-8 border-b border-white/5 flex items-center justify-between bg-linear-to-r from-white/5 to-transparent gap-4">
           <div className="space-y-1">
-             <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-               <Lightbulb className="w-8 h-8 text-branding-primary" />
+             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2 sm:gap-3">
+               <Lightbulb className="w-6 h-6 sm:w-8 sm:h-8 text-branding-primary" />
                How to Use
              </h2>
-             <p className="text-white/40 font-medium">Master the art of creating tutorials in minutes</p>
+             <p className="text-sm sm:text-base text-white/40 font-medium">Master the art of creating tutorials in minutes</p>
           </div>
-          <button 
+          <button
             onClick={onClose}
-            className="p-2 -mr-2 text-white/40 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            className="p-2 -mr-2 text-white/40 hover:text-white rounded-full hover:bg-white/10 transition-colors min-w-11 min-h-11 flex items-center justify-center"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-12 scroller">
+        <div className="flex-1 overflow-y-auto max-h-[60vh] sm:max-h-[70vh] p-4 sm:p-8 space-y-8 sm:space-y-12 scroller">
           
           {/* Step 1: Upload */}
-          <section className="flex gap-6">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20">
-              <FileText className="w-6 h-6 text-blue-400" />
+          <section className="flex gap-4 sm:gap-6">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
             </div>
             <div className="space-y-4 flex-1">
               <h3 className="text-xl font-bold text-white">1. Import Your Content</h3>
@@ -56,7 +56,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
             </div>
             <div className="space-y-4 flex-1">
               <h3 className="text-xl font-bold text-white">2. Create Your Script & Audio</h3>
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                    <h4 className="font-bold text-white mb-2 flex items-center gap-2">
                      <Wand2 className="w-4 h-4 text-branding-primary" /> AI Enhancement

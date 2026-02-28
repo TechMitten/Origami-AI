@@ -1,4 +1,4 @@
-import { generateWebLLMResponse, isWebLLMLoaded } from './webLlmService';
+import { generateWebLLMResponse, isWebLLMLoaded, getCurrentWebLLMModel, isVisionModel } from './webLlmService';
 
 interface LLMSettings {
   apiKey: string;
@@ -6,6 +6,15 @@ interface LLMSettings {
   model: string;
   useWebLLM?: boolean;
   webLlmModel?: string;
+  useVision?: boolean;
+}
+
+// Type for multimodal content (text + images)
+type MultimodalContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+
+interface LLMMessage {
+  role: "system" | "user" | "assistant";
+  content: MultimodalContent;
 }
 
 
@@ -192,5 +201,125 @@ Read all of the above content. Start the narration with the slide's title/topic,
     console.error('LLM API Error:', error);
     throw error;
   }
+};
+
+/**
+ * Helper function to convert a blob URL to a base64 data URL
+ * @param blobUrl The blob URL to convert
+ * @returns Promise resolving to a base64 data URL
+ */
+const convertBlobUrlToBase64 = async (blobUrl: string): Promise<string> => {
+    try {
+        const response = await fetch(blobUrl);
+        const blob = await response.blob();
+
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                resolve(reader.result as string);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error("[AI Service] Failed to convert blob URL to base64:", error);
+        throw new Error("Failed to convert image to base64 format for vision model");
+    }
+};
+
+/**
+ * Transform text with vision-based script generation
+ * Uses the Phi-3.5-vision model to analyze slide images along with extracted text
+ * @param settings LLM settings including vision enablement
+ * @param text Extracted text from the slide
+ * @param imageUrl Optional dataUrl of the slide image for vision analysis
+ * @param customSystemPrompt Optional custom system prompt
+ * @returns Generated script text
+ */
+export const transformTextWithVision = async (
+    settings: LLMSettings,
+    text: string,
+    imageUrl?: string,
+    customSystemPrompt?: string
+): Promise<string> => {
+    // Vision-optimized system prompt that combines visual analysis with text extraction
+    const visionSystemPrompt = customSystemPrompt?.trim() || `You are a presentation narrator creating a Text-to-Speech script for a single slide.
+
+STEP 1 — VISUAL ANALYSIS:
+You will see an image of the slide. Examine it carefully to understand:
+- The slide title and main topic (usually at the top)
+- Visual elements: diagrams, charts, icons, images
+- Layout structure: sections, columns, groupings
+- Text hierarchy: headings, bullet points, labels
+- Relationships between elements (arrows, flow, grouping)
+
+STEP 2 — COMBINE WITH EXTRACTED TEXT:
+You will also receive extracted text from the slide (which may be fragmented or incomplete). Use this to:
+- Clarify any text that's hard to read in the image
+- Catch details that might be visually small
+- Ensure accuracy of technical terms, URLs, commands
+
+STEP 3 — WRITE THE NARRATION:
+Create a complete, natural spoken narration that:
+- ALWAYS begins with the exact slide title from your visual analysis
+- Describes visual elements that are important for understanding
+- Presents information in complete, conversational sentences
+- Connects visual elements with their meanings
+- Uses natural transitions
+
+EXAMPLE FOR A DIAGRAM:
+"How to Deploy a Kubernetes Cluster. This slide shows a deployment architecture diagram. On the left, you can see the developer's laptop with the application code. An arrow points to a Docker container registry in the center. From there, another arrow flows to the Kubernetes cluster on the right, which has three nodes labeled worker 1, worker 2, and worker 3. The diagram illustrates the continuous deployment pipeline from development to production."
+
+${DEFAULT_SYSTEM_PROMPT.split('IMPORTANT TTS INSTRUCTIONS:')[1]}`;
+
+    if (settings.useVision && imageUrl && settings.useWebLLM) {
+        // Check if loaded model is a vision model
+        const currentModel = getCurrentWebLLMModel();
+
+        if (!isVisionModel(currentModel)) {
+            throw new Error("Vision-based generation is enabled, but the loaded model is not a vision model. Please load 'Phi 3.5 Vision' in settings.");
+        }
+
+        // Check if WebLLM is already initialized (it should be from the setup modal)
+        if (!isWebLLMLoaded()) {
+            throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
+        }
+
+        try {
+            // Convert blob URL to base64 if needed (WebLLM vision model requires base64 or http URLs)
+            let processedImageUrl = imageUrl;
+            if (imageUrl.startsWith('blob:')) {
+                console.log("[AI Service] Converting blob URL to base64 for vision model");
+                processedImageUrl = await convertBlobUrlToBase64(imageUrl);
+                console.log("[AI Service] Converted to base64, length:", processedImageUrl.length);
+            }
+
+            // Use vision model with image
+            const messages: LLMMessage[] = [
+                { role: "system", content: visionSystemPrompt },
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: `Analyze this slide image and generate a narration script.\n\nExtracted text (for reference, may be incomplete):\n${text}` },
+                        { type: "image_url", image_url: { url: processedImageUrl } }
+                    ]
+                }
+            ];
+
+            console.log("[AI Service] Using vision-based generation", { model: currentModel, hasImage: !!imageUrl });
+            const response = await generateWebLLMResponse(messages);
+            console.log("[AI Service] Raw Vision Response:", response);
+
+            const cleaned = cleanLLMResponse(response);
+            console.log("[AI Service] Cleaned Vision Response:", cleaned);
+            return cleaned;
+        } catch (error) {
+            console.error("[AI Service] Vision Generation Error:", error);
+            throw error;
+        }
+    }
+
+    // Fall back to text-only
+    return await transformText(settings, text, customSystemPrompt);
 };
 

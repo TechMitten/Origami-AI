@@ -62,10 +62,11 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
   const toggleOpen = () => {
     if (!isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
+      const isMobile = window.innerWidth < 640; // sm breakpoint
       setCoords({
         top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
-        width: rect.width
+        left: isMobile ? 0 : rect.left + window.scrollX,
+        width: isMobile ? window.innerWidth : rect.width
       });
       setIsOpen(true);
     } else {
@@ -100,7 +101,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
             zIndex: 9999
           }}
         >
-          <div className="max-h-60 overflow-y-auto custom-scrollbar">
+          <div className="max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar">
             {options.map((option) => (
               <button
                 key={option.id}
@@ -110,7 +111,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full text-left px-4 py-2 text-sm transition-colors hover:bg-white/5",
+                  "w-full text-left px-4 py-3 min-h-11 text-sm transition-colors hover:bg-white/5",
                   option.id === value ? "text-branding-primary font-bold bg-branding-primary/5" : "text-white/80 hover:text-white"
                 )}
               >

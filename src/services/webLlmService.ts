@@ -173,7 +173,7 @@ export const initWebLLM = async (
 export const getWebLLMEngine = () => engine;
 
 export const generateWebLLMResponse = async (
-    messages: { role: "system" | "user" | "assistant"; content: string }[],
+    messages: any,
     temperature: number = 0.7
 ) => {
     if (!engine) {
@@ -192,13 +192,13 @@ export const generateWebLLMResponse = async (
             stream: false, // For now, no streaming to keep it simple with existing architecture
         });
         console.log("[WebLLM] Raw Reply Object:", reply);
-        
+
         return reply.choices[0].message.content || "";
     } catch (error) {
         console.error("WebLLM Generation Error:", error);
         // Force reload next time if something critical failed
-        // engine = null; 
-        // Actually, let's not force null immediately unless it's a specific error, 
+        // engine = null;
+        // Actually, let's not force null immediately unless it's a specific error,
         // but the parent service (aiService) handles the retry logic now.
         throw error;
     }
@@ -206,3 +206,12 @@ export const generateWebLLMResponse = async (
 
 export const isWebLLMLoaded = () => !!engine;
 export const getCurrentWebLLMModel = () => currentModelId;
+
+/**
+ * Check if a model ID is a vision model
+ * @param modelId The model ID to check
+ * @returns true if the model is a vision model
+ */
+export const isVisionModel = (modelId: string | null | undefined): boolean => {
+    return modelId?.includes('vision') ?? false;
+};

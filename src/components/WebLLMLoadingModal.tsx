@@ -61,8 +61,8 @@ export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, 
   else if (text.includes("Fetching param")) userMessage = "Verifying model parameters...";
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="w-full max-w-md mx-4 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl p-6 flex flex-col items-center text-center">
+    <div className="fixed inset-0 z-60 flex sm:items-center items-start justify-center p-4 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+      <div className="w-full max-w-md my-4 sm:my-0 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl p-6 flex flex-col items-center text-center">
         
         <div className="relative mb-6">
           <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse" />
