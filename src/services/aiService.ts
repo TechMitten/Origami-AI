@@ -59,8 +59,8 @@ const cleanLLMResponse = (text: string): string => {
 
   // Remove wrapping quotes if they appear on both ends
   if ((cleaned.startsWith('"') && cleaned.endsWith('"')) ||
-      (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
-      cleaned = cleaned.substring(1, cleaned.length - 1);
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
   }
 
   return cleaned.trim();
@@ -133,39 +133,39 @@ Read all of the above content. Start the narration with the slide's title/topic,
 
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {
-        throw new Error("WebLLM is enabled but no model is selected.");
+      throw new Error("WebLLM is enabled but no model is selected.");
     }
-    
+
     // Check if WebLLM is already initialized (it should be from the setup modal)
     if (!isWebLLMLoaded()) {
-        throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
+      throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
     }
 
     try {
-        const messages = [
-            { role: "system" as const, content: systemPrompt },
-            { role: "user" as const, content: userPrompt }
-        ];
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        { role: "user" as const, content: userPrompt }
+      ];
 
-        console.log("[AI Service] Sending request to WebLLM...", { model: settings.webLlmModel, promptLength: userPrompt.length });
-        const response = await generateWebLLMResponse(messages);
-        console.log("[AI Service] Raw WebLLM Response:", response);
-        
-        const cleaned = cleanLLMResponse(response);
-        console.log("[AI Service] Cleaned Response:", cleaned);
-        return cleaned;
+      console.log("[AI Service] Sending request to WebLLM...", { model: settings.webLlmModel, promptLength: userPrompt.length });
+      const response = await generateWebLLMResponse(messages);
+      console.log("[AI Service] Raw WebLLM Response:", response);
+
+      const cleaned = cleanLLMResponse(response);
+      console.log("[AI Service] Cleaned Response:", cleaned);
+      return cleaned;
     } catch (error) {
-        console.error("WebLLM Error in aiService:", error);
-        throw error;
+      console.error("WebLLM Error in aiService:", error);
+      throw error;
     }
   }
 
   let endpoint = settings.baseUrl;
   // Ensure we hit the chat completions endpoint if not provided
   if (!endpoint.endsWith('/chat/completions')) {
-     // Remove trailing slash if present
-     endpoint = endpoint.replace(/\/+$/, '');
-     endpoint = `${endpoint}/chat/completions`;
+    // Remove trailing slash if present
+    endpoint = endpoint.replace(/\/+$/, '');
+    endpoint = `${endpoint}/chat/completions`;
   }
 
   try {
@@ -178,8 +178,8 @@ Read all of the above content. Start the narration with the slide's title/topic,
       body: JSON.stringify({
         model: settings.model,
         messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
         ],
         temperature: 0.7
       }),
@@ -201,27 +201,67 @@ Read all of the above content. Start the narration with the slide's title/topic,
 };
 
 /**
- * Helper function to convert a blob URL to a base64 data URL
- * @param blobUrl The blob URL to convert
- * @returns Promise resolving to a base64 data URL
+ * Helper function to optimize an image URL (blob or data string) into a resized base64 data URL
+ * This reduces memory usage for WebLLM vision operations
+ * @param imageUrl The blob URL or data URL to convert and optimize
+ * @returns Promise resolving to an optimized base64 data URL (JPEG format)
  */
-const convertBlobUrlToBase64 = async (blobUrl: string): Promise<string> => {
-    try {
-        const response = await fetch(blobUrl);
-        const blob = await response.blob();
+const getOptimizedBase64Image = async (imageUrl: string): Promise<string> => {
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
 
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                resolve(reader.result as string);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    } catch (error) {
-        console.error("[AI Service] Failed to convert blob URL to base64:", error);
-        throw new Error("Failed to convert image to base64 format for vision model");
-    }
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        // Reduce to 224x224 (WebLLM minimum typical stable vision size without blowing the 29MB buffer)
+        // Phi-3.5-vision patches are 336x336. If we give it an image SMALLER than 336x336, it only requires exactly 1 patch.
+        // Let's use 224x224 to fit squarely inside 1 patch token size
+        const MAX_DIMENSION = 224;
+        let width = img.width;
+        let height = img.height;
+
+        // Force scale down proportionally
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+          return;
+        }
+
+        // Fill background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Export at 0.5 quality to brutally compress the payload data
+        resolve(canvas.toDataURL('image/jpeg', 0.5));
+      };
+
+      img.onerror = () => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      };
+      img.src = URL.createObjectURL(blob);
+    });
+  } catch (error) {
+    console.error("[AI Service] Failed to optimize image:", error);
+    throw new Error("Failed to optimize image for vision model");
+  }
 };
 
 /**
@@ -234,89 +274,67 @@ const convertBlobUrlToBase64 = async (blobUrl: string): Promise<string> => {
  * @returns Generated script text
  */
 export const transformTextWithVision = async (
-    settings: LLMSettings,
-    text: string,
-    imageUrl?: string,
-    customSystemPrompt?: string
+  settings: LLMSettings,
+  text: string,
+  imageUrl?: string,
+  customSystemPrompt?: string
 ): Promise<string> => {
-    // Vision-optimized system prompt that combines visual analysis with text extraction
-    const visionSystemPrompt = customSystemPrompt?.trim() || `You are a presentation narrator creating a Text-to-Speech script for a single slide.
+  const visionSystemPrompt = customSystemPrompt?.trim() || `You are an expert presentation narrator.
+Examine this slide image.
+Create a natural, spoken Text-to-Speech narration script.
 
-STEP 1 — VISUAL ANALYSIS:
-You will see an image of the slide. Examine it carefully to understand:
-- The slide title and main topic (usually at the top)
-- Visual elements: diagrams, charts, icons, images
-- Layout structure: sections, columns, groupings
-- Text hierarchy: headings, bullet points, labels
-- Relationships between elements (arrows, flow, grouping)
+RULES:
+1. ALWAYS start with the slide title.
+2. Form complete sentences with hard periods (.). No breathless lists.
+3. Describe important charts/diagrams clearly.
+4. Expand abbreviations ("GB" -> "gigabytes") and URLs fully ("https://" -> "h t t p s colon slash slash").
+5. Output plain narrative text ONLY. No formatting, no markdown, no filler intros.`;
 
-STEP 2 — COMBINE WITH EXTRACTED TEXT:
-You will also receive extracted text from the slide (which may be fragmented or incomplete). Use this to:
-- Clarify any text that's hard to read in the image
-- Catch details that might be visually small
-- Ensure accuracy of technical terms, URLs, commands
-
-STEP 3 — WRITE THE NARRATION:
-Create a complete, natural spoken narration that:
-- ALWAYS begins with the exact slide title from your visual analysis
-- Describes visual elements that are important for understanding
-- Presents information in complete, conversational sentences
-- Connects visual elements with their meanings
-- Uses natural transitions
-
-EXAMPLE FOR A DIAGRAM:
-"How to Deploy a Kubernetes Cluster. This slide shows a deployment architecture diagram. On the left, you can see the developer's laptop with the application code. An arrow points to a Docker container registry in the center. From there, another arrow flows to the Kubernetes cluster on the right, which has three nodes labeled worker 1, worker 2, and worker 3. The diagram illustrates the continuous deployment pipeline from development to production."
-
-${DEFAULT_SYSTEM_PROMPT.split('IMPORTANT TTS INSTRUCTIONS:')[1]}`;
-
-    if (settings.useVision && imageUrl && settings.useWebLLM) {
-        // Check if loaded model is a vision model
-        const currentModel = getCurrentWebLLMModel();
-
-        if (!isVisionModel(currentModel)) {
-            throw new Error("Vision-based generation is enabled, but the loaded model is not a vision model. Please load 'Phi 3.5 Vision' in settings.");
-        }
-
-        // Check if WebLLM is already initialized (it should be from the setup modal)
-        if (!isWebLLMLoaded()) {
-            throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
-        }
-
-        try {
-            // Convert blob URL to base64 if needed (WebLLM vision model requires base64 or http URLs)
-            let processedImageUrl = imageUrl;
-            if (imageUrl.startsWith('blob:')) {
-                console.log("[AI Service] Converting blob URL to base64 for vision model");
-                processedImageUrl = await convertBlobUrlToBase64(imageUrl);
-                console.log("[AI Service] Converted to base64, length:", processedImageUrl.length);
-            }
-
-            // Use vision model with image
-            const messages: LLMMessage[] = [
-                { role: "system", content: visionSystemPrompt },
-                {
-                    role: "user",
-                    content: [
-                        { type: "text", text: `Analyze this slide image and generate a narration script.\n\nExtracted text (for reference, may be incomplete):\n${text}` },
-                        { type: "image_url", image_url: { url: processedImageUrl } }
-                    ]
-                }
-            ];
-
-            console.log("[AI Service] Using vision-based generation", { model: currentModel, hasImage: !!imageUrl });
-            const response = await generateWebLLMResponse(messages);
-            console.log("[AI Service] Raw Vision Response:", response);
-
-            const cleaned = cleanLLMResponse(response);
-            console.log("[AI Service] Cleaned Vision Response:", cleaned);
-            return cleaned;
-        } catch (error) {
-            console.error("[AI Service] Vision Generation Error:", error);
-            throw error;
-        }
+  if (settings.useVision && imageUrl && settings.useWebLLM) {
+    // Check if WebLLM is already initialized (it should be from the setup modal)
+    if (!isWebLLMLoaded()) {
+      throw new Error("WebLLM is not initialized. Please wait for it to load, or select a model in Settings (WebLLM tab).");
     }
 
-    // Fall back to text-only
-    return await transformText(settings, text, customSystemPrompt);
+    // Check if loaded model is a vision model
+    const currentModel = getCurrentWebLLMModel();
+
+    if (!isVisionModel(currentModel)) {
+      throw new Error(`Vision-based generation is enabled, but the loaded model (${currentModel}) is not a vision model. Please load 'Phi 3.5 Vision' in settings.`);
+    }
+
+    try {
+      // Always optimize the image to prevent WebLLM out-of-memory errors
+      console.log("[AI Service] Optimizing image for vision model");
+      const processedImageUrl = await getOptimizedBase64Image(imageUrl);
+      console.log("[AI Service] Image optimized, base64 length:", processedImageUrl.length);
+
+      // Use vision model with image only, avoiding extracted text insertion
+      const messages: LLMMessage[] = [
+        { role: "system", content: visionSystemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: `Analyze this slide image and generate a narration script.` },
+            { type: "image_url", image_url: { url: processedImageUrl } }
+          ]
+        }
+      ];
+
+      console.log("[AI Service] Using vision-based generation", { model: currentModel, hasImage: !!imageUrl });
+      const response = await generateWebLLMResponse(messages);
+      console.log("[AI Service] Raw Vision Response:", response);
+
+      const cleaned = cleanLLMResponse(response);
+      console.log("[AI Service] Cleaned Vision Response:", cleaned);
+      return cleaned;
+    } catch (error) {
+      console.error("[AI Service] Vision Generation Error:", error);
+      throw error;
+    }
+  }
+
+  // Fall back to text-only
+  return await transformText(settings, text, customSystemPrompt);
 };
 

@@ -66,6 +66,24 @@ const patchWebGPU = () => {
                     enhancedDescriptor.requiredLimits.maxComputeInvocationsPerWorkgroup = 1024;
                 }
 
+                // Monkey-patch max storage bound to prevent FATAL memory allocation crashes.
+                // TVM requests ~37.7MB allocations for f32 KV caching, exceeding the default 28MB buffer limits.
+                const targetMemoryLimit = 256 * 1024 * 1024; // Request 256MB buffer allowance
+
+                if (adapter.limits?.maxStorageBufferBindingSize) {
+                    enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize = Math.max(
+                        enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize || 0,
+                        Math.min(adapter.limits.maxStorageBufferBindingSize, targetMemoryLimit)
+                    );
+                }
+
+                if (adapter.limits?.maxBufferSize) {
+                    enhancedDescriptor.requiredLimits.maxBufferSize = Math.max(
+                        enhancedDescriptor.requiredLimits.maxBufferSize || 0,
+                        Math.min(adapter.limits.maxBufferSize, targetMemoryLimit)
+                    );
+                }
+
                 return originalRequestDevice(enhancedDescriptor);
             };
 
@@ -143,9 +161,37 @@ export const initWebLLM = async (
                 webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
             };
 
-            const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-            const newEngine = await CreateMLCEngine(modelId, { initProgressCallback: wrappedCallback });
-            
+            const { CreateMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
+
+            let customAppConfig = prebuiltAppConfig;
+
+            if (modelId === "Phi-3.5-vision-instruct-q4f32_1-MLC" || modelId === "Phi-3.5-vision-instruct-q4f16_1-MLC") {
+                const modelRecord = prebuiltAppConfig.model_list.find(m => m.model_id === modelId);
+                if (modelRecord) {
+                    customAppConfig = {
+                        ...prebuiltAppConfig,
+                        model_list: prebuiltAppConfig.model_list.map(m => {
+                            if (m.model_id === modelId) {
+                                return {
+                                    ...m,
+                                    overrides: {
+                                        ...(m.overrides || {}),
+                                        context_window_size: 3584,
+                                        sliding_window_size: -1
+                                    }
+                                };
+                            }
+                            return m;
+                        })
+                    };
+                }
+            }
+
+            const newEngine = await CreateMLCEngine(modelId, {
+                initProgressCallback: wrappedCallback,
+                appConfig: customAppConfig
+            });
+
             engine = newEngine;
             currentModelId = modelId;
 
@@ -183,7 +229,7 @@ export const generateWebLLMResponse = async (
     try {
         // Ensure engine is ready (sometimes it might be in a weird state)
         if (!engine) {
-             throw new Error("WebLLM Engine lost connection. Please try again.");
+            throw new Error("WebLLM Engine lost connection. Please try again.");
         }
         console.log("[WebLLM] Generating response with engine:", engine, "Model:", currentModelId);
         const reply = await engine.chat.completions.create({
@@ -213,5 +259,5 @@ export const getCurrentWebLLMModel = () => currentModelId;
  * @returns true if the model is a vision model
  */
 export const isVisionModel = (modelId: string | null | undefined): boolean => {
-    return modelId?.includes('vision') ?? false;
+    return modelId?.toLowerCase().includes('vision') ?? false;
 };

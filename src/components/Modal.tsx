@@ -68,14 +68,14 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={type === 'confirm' ? onCancel : onConfirm}
       />
-      
+
       {/* Modal Content */}
       <div className={`relative w-full max-w-md my-4 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl transform transition-all duration-300 ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}>
-        
+
         {/* Header */}
         <div className={`px-6 py-4 flex items-center gap-3 rounded-t-2xl border-b ${getHeaderColor()}`}>
           {getIcon()}
@@ -109,11 +109,10 @@ export const Modal: React.FC<ModalProps> = ({
           )}
           <button
             onClick={onConfirm}
-            className={`w-full sm:w-auto px-6 py-2 rounded-lg text-sm font-bold text-white transition-all shadow-lg ${
-                type === 'error' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' :
+            className={`w-full sm:w-auto px-6 py-2 rounded-lg text-sm font-bold text-white transition-all shadow-lg ${type === 'error' ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' :
                 type === 'warning' ? 'bg-amber-500 hover:bg-amber-600 text-black shadow-amber-500/20' :
-                'bg-branding-primary hover:bg-cyan-400 text-black shadow-cyan-500/20'
-            }`}
+                  'bg-branding-primary hover:bg-cyan-400 text-black shadow-cyan-500/20'
+              }`}
           >
             {confirmText}
           </button>
