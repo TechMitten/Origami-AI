@@ -23,6 +23,7 @@ import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { UnifiedInitModal } from './components/UnifiedInitModal';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
+import { MobileWarningModal } from './components/MobileWarningModal';
 
 
 
@@ -77,8 +78,8 @@ function MainApp() {
   const handleCancelRender = async () => {
     if (renderAbortController) {
       if (await showConfirm("Are you sure you want to cancel the rendering process?", { type: 'warning', title: 'Cancel Rendering', confirmText: 'Yes, Cancel' })) {
-         renderAbortController.abort();
-         setRenderAbortController(null);
+        renderAbortController.abort();
+        setRenderAbortController(null);
       }
     }
   };
@@ -86,31 +87,31 @@ function MainApp() {
   // Listen for successful resource loading to update cache status
   useEffect(() => {
     const updateCacheStatus = (key: 'tts' | 'ffmpeg' | 'webllm') => {
-        const current = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-        if (!current[key]) {
-            current[key] = true;
-            localStorage.setItem('resource_cache_status', JSON.stringify(current));
-            console.log(`[Resources] Marked ${key} as cached/installed.`);
-        }
+      const current = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+      if (!current[key]) {
+        current[key] = true;
+        localStorage.setItem('resource_cache_status', JSON.stringify(current));
+        console.log(`[Resources] Marked ${key} as cached/installed.`);
+      }
     };
 
     const handleTTSInit = () => updateCacheStatus('tts');
     const handleVideoProgress = (e: Event) => {
-        const detail = (e as CustomEvent).detail;
-        if (detail.status === 'FFmpeg ready') {
-            updateCacheStatus('ffmpeg');
-        }
+      const detail = (e as CustomEvent).detail;
+      if (detail.status === 'FFmpeg ready') {
+        updateCacheStatus('ffmpeg');
+      }
     };
     const handleWebLLMInit = () => updateCacheStatus('webllm');
 
     ttsEvents.addEventListener('tts-init-complete', handleTTSInit);
     videoEvents.addEventListener('video-progress', handleVideoProgress);
     webLlmEvents.addEventListener('webllm-init-complete', handleWebLLMInit);
-    
+
     return () => {
-        ttsEvents.removeEventListener('tts-init-complete', handleTTSInit);
-        videoEvents.removeEventListener('video-progress', handleVideoProgress);
-        webLlmEvents.removeEventListener('webllm-init-complete', handleWebLLMInit);
+      ttsEvents.removeEventListener('tts-init-complete', handleTTSInit);
+      videoEvents.removeEventListener('video-progress', handleVideoProgress);
+      webLlmEvents.removeEventListener('webllm-init-complete', handleWebLLMInit);
     };
   }, []);
 
@@ -120,12 +121,12 @@ function MainApp() {
       const state = await loadState();
       const settings = await loadGlobalSettings();
       setGlobalSettings(settings);
-      
+
       if (state && state.slides.length > 0) {
         setSlides(state.slides);
       }
       setIsRestoring(false);
-      
+
       // Check resource cache status
       const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
       setPreinstalledResources(cached);
@@ -140,86 +141,86 @@ function MainApp() {
 
       // Only init WebLLM if enabled specifically in settings AND (cached OR pre-initialized)
       if (settings?.useWebLLM) {
-          const model = settings.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
+        const model = settings.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
 
-          if (cached.webllm) {
-              // Already cached, initialize with loading modal
-              setIsWebLLMLoadingOpen(true);
-              initWebLLM(model, (progress) => console.log('WebLLM Init:', progress))
-                  .then(() => setIsWebLLMLoadingOpen(false))
-                  .catch((e) => {
-                      console.error(e);
-                      setIsWebLLMLoadingOpen(false);
-                  });
-          } else if (!webLLMPreinitialized && !hideSetupModal) {
-              // First time using WebLLM - show initialization modal
-              // This ensures users see the progress and understand it's a one-time process
-              setIsWebLLMInitModalOpen(true);
+        if (cached.webllm) {
+          // Already cached, initialize with loading modal
+          setIsWebLLMLoadingOpen(true);
+          initWebLLM(model, (progress) => console.log('WebLLM Init:', progress))
+            .then(() => setIsWebLLMLoadingOpen(false))
+            .catch((e) => {
+              console.error(e);
+              setIsWebLLMLoadingOpen(false);
+            });
+        } else if (!webLLMPreinitialized && !hideSetupModal) {
+          // First time using WebLLM - show initialization modal
+          // This ensures users see the progress and understand it's a one-time process
+          setIsWebLLMInitModalOpen(true);
 
-              // Start initialization with progress tracking
-              initWebLLM(model, (progress) => console.log('WebLLM Pre-Init:', progress)).catch(console.error);
-          }
+          // Start initialization with progress tracking
+          initWebLLM(model, (progress) => console.log('WebLLM Pre-Init:', progress)).catch(console.error);
+        }
       }
 
       // Check startup preferences
       const storedPref = localStorage.getItem('startup_resource_pref');
       if (storedPref) { // User said "Remember my choice"
         try {
-            const pref = JSON.parse(storedPref);
-            // We only need to init things that were NOT cached but user WANTED.
-            // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
+          const pref = JSON.parse(storedPref);
+          // We only need to init things that were NOT cached but user WANTED.
+          // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
 
-            // Check if we need to show unified init modal
-            const needsInit = (!cached.tts && pref.downloadTTS) ||
-                              (!cached.ffmpeg && pref.downloadFFmpeg) ||
-                              (!cached.webllm && pref.enableWebLLM);
+          // Check if we need to show unified init modal
+          const needsInit = (!cached.tts && pref.downloadTTS) ||
+            (!cached.ffmpeg && pref.downloadFFmpeg) ||
+            (!cached.webllm && pref.enableWebLLM);
 
-            if (needsInit && !hideSetupModal) {
-              setActiveDownloads({
-                tts: !cached.tts && !!pref.downloadTTS,
-                ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
-                webllm: !cached.webllm && !!pref.enableWebLLM,
-              });
-              setIsWebLLMInitModalOpen(true);
-            }
+          if (needsInit && !hideSetupModal) {
+            setActiveDownloads({
+              tts: !cached.tts && !!pref.downloadTTS,
+              ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
+              webllm: !cached.webllm && !!pref.enableWebLLM,
+            });
+            setIsWebLLMInitModalOpen(true);
+          }
 
-            // Initialize TTS first and wait for completion
-            if (pref.downloadTTS && !cached.tts) {
-                await new Promise<void>((resolve) => {
-                    const handleInitComplete = () => {
-                        ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
-                        resolve();
-                    };
-                    ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
-                    initTTS(settings?.ttsQuantization || 'q4');
-                });
-            }
+          // Initialize TTS first and wait for completion
+          if (pref.downloadTTS && !cached.tts) {
+            await new Promise<void>((resolve) => {
+              const handleInitComplete = () => {
+                ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
+                resolve();
+              };
+              ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
+              initTTS(settings?.ttsQuantization || 'q4');
+            });
+          }
 
-            if (pref.downloadFFmpeg && !cached.ffmpeg) renderer.load().catch(console.error);
+          if (pref.downloadFFmpeg && !cached.ffmpeg) renderer.load().catch(console.error);
 
-            // Initialize WebLLM after TTS completes
-            if (pref.enableWebLLM && !cached.webllm) {
-                const model = settings?.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
-                initWebLLM(model, () => {
-                    // console.log('WebLLM Loading:', p);
-                }).catch(console.error);
-            }
+          // Initialize WebLLM after TTS completes
+          if (pref.enableWebLLM && !cached.webllm) {
+            const model = settings?.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
+            initWebLLM(model, () => {
+              // console.log('WebLLM Loading:', p);
+            }).catch(console.error);
+          }
         } catch (e) {
-            console.error("Invalid startup pref", e);
-            // If error, fall back to modal logic, considering cache
-             if (!cached.tts || !cached.ffmpeg) {
-                if (!hideSetupModal) {
-                    setIsResourceModalOpen(true);
-                }
-             }
+          console.error("Invalid startup pref", e);
+          // If error, fall back to modal logic, considering cache
+          if (!cached.tts || !cached.ffmpeg) {
+            if (!hideSetupModal) {
+              setIsResourceModalOpen(true);
+            }
+          }
         }
       } else {
         // No "Never show again" preference stored.
         // Show modal ONLY if something is missing
         if (!cached.tts || !cached.ffmpeg) {
-            if (!hideSetupModal) {
-                setIsResourceModalOpen(true);
-            }
+          if (!hideSetupModal) {
+            setIsResourceModalOpen(true);
+          }
         }
       }
     };
@@ -227,75 +228,75 @@ function MainApp() {
   }, [renderer]);
 
   const handleResourceConfirm = async (selection: ResourceSelection, dontShowAgain?: boolean) => {
-      setIsResourceModalOpen(false);
+    setIsResourceModalOpen(false);
 
-      const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-      const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
+    const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+    const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
 
-      // Save the "don't show again" preference
-      if (dontShowAgain) {
-          localStorage.setItem('hide_setup_modal', 'true');
+    // Save the "don't show again" preference
+    if (dontShowAgain) {
+      localStorage.setItem('hide_setup_modal', 'true');
+    }
+
+    // Check if we need to show unified init modal
+    const needsInit = (!cached.tts && selection.downloadTTS) ||
+      (!cached.ffmpeg && selection.downloadFFmpeg) ||
+      (!cached.webllm && selection.enableWebLLM);
+
+    if (needsInit && !hideSetupModal) {
+      setActiveDownloads({
+        tts: !cached.tts && !!selection.downloadTTS,
+        ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
+        webllm: !cached.webllm && !!selection.enableWebLLM,
+      });
+      setIsWebLLMInitModalOpen(true);
+    }
+
+    if (selection.downloadTTS && !cached.tts) {
+      // Initialize TTS and wait for it to complete
+      await new Promise<void>((resolve) => {
+        const handleInitComplete = () => {
+          ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
+          resolve();
+        };
+        ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
+        initTTS(globalSettings?.ttsQuantization || 'q4');
+      });
+    }
+
+    if (selection.downloadFFmpeg && !cached.ffmpeg) {
+      renderer.load().catch(console.error);
+    }
+
+    if (selection.enableWebLLM && !cached.webllm) {
+      // Check WebGPU support first
+      const webgpuStatus = await checkWebGPUSupport();
+      if (!webgpuStatus.supported) {
+        // Show WebGPU instructions modal
+        setIsWebGPUModalOpen(true);
+        return;
       }
 
-      // Check if we need to show unified init modal
-      const needsInit = (!cached.tts && selection.downloadTTS) ||
-                        (!cached.ffmpeg && selection.downloadFFmpeg) ||
-                        (!cached.webllm && selection.enableWebLLM);
+      // Enable WebLLM in settings with the default model
+      // Use f32 variant for better compatibility
+      const defaultModel = 'gemma-2-2b-it-q4f32_1-MLC';
+      await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: defaultModel });
 
-      if (needsInit && !hideSetupModal) {
-        setActiveDownloads({
-          tts: !cached.tts && !!selection.downloadTTS,
-          ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
-          webllm: !cached.webllm && !!selection.enableWebLLM,
-        });
-        setIsWebLLMInitModalOpen(true);
-      }
-
-      if (selection.downloadTTS && !cached.tts) {
-           // Initialize TTS and wait for it to complete
-           await new Promise<void>((resolve) => {
-               const handleInitComplete = () => {
-                   ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
-                   resolve();
-               };
-               ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
-               initTTS(globalSettings?.ttsQuantization || 'q4');
-           });
-      }
-
-      if (selection.downloadFFmpeg && !cached.ffmpeg) {
-           renderer.load().catch(console.error);
-      }
-
-      if (selection.enableWebLLM && !cached.webllm) {
-           // Check WebGPU support first
-           const webgpuStatus = await checkWebGPUSupport();
-           if (!webgpuStatus.supported) {
-               // Show WebGPU instructions modal
-               setIsWebGPUModalOpen(true);
-               return;
-           }
-
-           // Enable WebLLM in settings with the default model
-           // Use f32 variant for better compatibility
-           const defaultModel = 'gemma-2-2b-it-q4f32_1-MLC';
-           await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: defaultModel });
-
-           // Start initialization
-           initWebLLM(defaultModel, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
-      }
+      // Start initialization
+      initWebLLM(defaultModel, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
+    }
   };
 
   // Save state on changes
   React.useEffect(() => {
     if (slides.length === 0 && !isRestoring) {
-        // If we just cleared slides, we might want to ensure storage is cleared too, 
-        // though handleStartOver does it explicitly. 
-        // We do nothing here to avoid re-saving empty array if not necessary,
-        // but saving empty array is also fine (effectively clear).
-        return;
+      // If we just cleared slides, we might want to ensure storage is cleared too, 
+      // though handleStartOver does it explicitly. 
+      // We do nothing here to avoid re-saving empty array if not necessary,
+      // but saving empty array is also fine (effectively clear).
+      return;
     }
-    
+
     if (isRestoring || slides.length === 0) return;
 
     const timeoutId = setTimeout(() => {
@@ -325,7 +326,7 @@ function MainApp() {
     if (selectedCount === 0) return;
 
     if (await showConfirm(`Are you sure you want to delete the ${selectedCount} selected slides?`, { type: 'error', title: 'Delete Selected', confirmText: 'Delete' })) {
-        setSlides(prev => prev.filter(s => !s.isSelected));
+      setSlides(prev => prev.filter(s => !s.isSelected));
     }
   };
 
@@ -335,17 +336,17 @@ function MainApp() {
   };
 
   const handlePartialGlobalSettings = async (updates: Partial<GlobalSettings>) => {
-      const defaults: GlobalSettings = {
-          isEnabled: true, // If interacting with settings, we assume enabled or effectively so for these values
-          voice: 'af_heart',
-          delay: 0.5,
-          transition: 'fade',
-      };
-      
-      const current = globalSettings || defaults;
-      const newSettings = { ...current, ...updates };
-      
-      await handleSaveGlobalSettings(newSettings);
+    const defaults: GlobalSettings = {
+      isEnabled: true, // If interacting with settings, we assume enabled or effectively so for these values
+      voice: 'af_heart',
+      delay: 0.5,
+      transition: 'fade',
+    };
+
+    const current = globalSettings || defaults;
+    const newSettings = { ...current, ...updates };
+
+    await handleSaveGlobalSettings(newSettings);
   };
 
   const onUploadComplete = async (pages: RenderedPage[]) => {
@@ -353,7 +354,7 @@ function MainApp() {
     let voice = 'af_heart';
     let transition: SlideData['transition'] = 'fade';
     let postAudioDelay: number | undefined = undefined;
-    
+
     if (globalSettings?.isEnabled) {
       voice = globalSettings.voice;
       transition = globalSettings.transition;
@@ -361,22 +362,22 @@ function MainApp() {
 
       // Handle Music
       if (globalSettings.music) {
-         try {
-           const url = URL.createObjectURL(globalSettings.music.blob);
-           setMusicSettings({
-             url,
-             volume: globalSettings.music.volume,
-             title: globalSettings.music.fileName
-           });
-         } catch (e) {
-           console.error("Failed to create object URL for default music", e);
-         }
+        try {
+          const url = URL.createObjectURL(globalSettings.music.blob);
+          setMusicSettings({
+            url,
+            volume: globalSettings.music.volume,
+            title: globalSettings.music.fileName
+          });
+        } catch (e) {
+          console.error("Failed to create object URL for default music", e);
+        }
       } else {
         setMusicSettings({ volume: 0.03 });
       }
     } else {
-       // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
-       setMusicSettings({ volume: 0.03 });
+      // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
+      setMusicSettings({ volume: 0.03 });
     }
 
     const initialSlides: SlideData[] = pages.map(page => ({
@@ -402,9 +403,9 @@ function MainApp() {
       const slide = slides[index];
       const textToSpeak = slide.selectionRanges && slide.selectionRanges.length > 0
         ? [...slide.selectionRanges]
-            .sort((a, b) => a.start - b.start)
-            .map(r => slide.script.slice(r.start, r.end))
-            .join(' ')
+          .sort((a, b) => a.start - b.start)
+          .map(r => slide.script.slice(r.start, r.end))
+          .join(' ')
         : slide.script;
 
       if (!textToSpeak.trim()) return;
@@ -432,13 +433,13 @@ function MainApp() {
     setRenderAbortController(controller);
     setIsRenderingWithAudio(true);
     setRenderProgress(0);
-    
+
     try {
       const blob = await renderer.render({
         slides: slides.map(s => ({
-            ...s,
-            // Ensure we use the raw blob/data URLs directly
-            // No need to upload
+          ...s,
+          // Ensure we use the raw blob/data URLs directly
+          // No need to upload
         })),
         musicSettings,
         ttsVolume,
@@ -456,12 +457,12 @@ function MainApp() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-       console.error(error);
-       if ((error as Error).message === 'Render aborted') {
-           showAlert('Rendering cancelled.', { type: 'info' });
-       } else {
-           showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
-       }
+      console.error(error);
+      if ((error as Error).message === 'Render aborted') {
+        showAlert('Rendering cancelled.', { type: 'info' });
+      } else {
+        showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
+      }
     } finally {
       setIsRenderingWithAudio(false);
       setRenderProgress(0);
@@ -481,13 +482,13 @@ function MainApp() {
     setRenderProgress(0);
     try {
       const silentSlides = slides.map(s => ({
-          ...s,
-          audioUrl: undefined,
-          duration: s.duration, // Keep duration? Or undefined? original code set undefined.
-          // In browser renderer, if duration is undefined, it defaults to 5.
-          // But 's.duration' from state is usually the AUDIO duration. 
-          // If we remove audio, we might want to default to 5 or keep strict silence if video.
-          // Let's pass undefined to force default behavior, OR keep loop video duration.
+        ...s,
+        audioUrl: undefined,
+        duration: s.duration, // Keep duration? Or undefined? original code set undefined.
+        // In browser renderer, if duration is undefined, it defaults to 5.
+        // But 's.duration' from state is usually the AUDIO duration. 
+        // If we remove audio, we might want to default to 5 or keep strict silence if video.
+        // Let's pass undefined to force default behavior, OR keep loop video duration.
       }));
 
       const blob = await renderer.render({
@@ -510,9 +511,9 @@ function MainApp() {
     } catch (error) {
       console.error(error);
       if ((error as Error).message === 'Render aborted') {
-          showAlert('Rendering cancelled.', { type: 'info' });
+        showAlert('Rendering cancelled.', { type: 'info' });
       } else {
-          showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
+        showAlert(`Failed to render video: ${(error as Error).message}`, { type: 'error', title: 'Render Failed' });
       }
     } finally {
       setIsRenderingSilent(false);
@@ -542,21 +543,19 @@ function MainApp() {
             <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
               <button
                 onClick={() => setActiveTab('edit')}
-                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                  activeTab === 'edit'
+                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
                     ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
                     : 'text-white/40 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 Edit
               </button>
               <button
                 onClick={() => setActiveTab('preview')}
-                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                  activeTab === 'preview'
+                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
                     ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
                     : 'text-white/40 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 Preview
               </button>
@@ -573,14 +572,14 @@ function MainApp() {
               className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
               title="How to Use"
             >
-               <CircleHelp className="w-5 h-5" />
+              <CircleHelp className="w-5 h-5" />
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
               title="Settings"
             >
-               <Settings2 className="w-5 h-5" />
+              <Settings2 className="w-5 h-5" />
             </button>
           </div>
 
@@ -588,25 +587,25 @@ function MainApp() {
           {slides.length > 0 && (
             <>
               <div className="w-px h-6 bg-white/10 mx-1 sm:mx-2" />
-              
+
               <div className="relative z-60">
                 <button
                   onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all border ${isActionsMenuOpen ? 'bg-white/10 text-white border-white/20' : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10'}`}
                 >
                   <span className="hidden sm:inline">Actions</span>
-                  <Settings2 className="w-4 h-4 sm:hidden" /> 
+                  <Settings2 className="w-4 h-4 sm:hidden" />
                   <svg className={`w-4 h-4 transition-transform duration-200 hidden sm:block ${isActionsMenuOpen ? 'rotate-180 text-white' : 'opacity-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
                 {/* Backdrop to close menu when clicking outside */}
                 {isActionsMenuOpen && (
-                   <div 
-                     className="fixed inset-0 z-[-1] cursor-default" 
-                     onClick={() => setIsActionsMenuOpen(false)}
-                   />
+                  <div
+                    className="fixed inset-0 z-[-1] cursor-default"
+                    onClick={() => setIsActionsMenuOpen(false)}
+                  />
                 )}
 
                 {/* Dropdown Menu */}
@@ -738,8 +737,8 @@ function MainApp() {
                         {isRenderingSilent ? `Processing... ${Math.round(renderProgress)}%` : 'Render Silent Video'}
                       </button>
                       {!isRenderingWithAudio && !isRenderingSilent && (
-                         <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">
-                           No TTS • 5s / slide
+                        <div className="text-[10px] text-center text-white/40 font-bold uppercase tracking-wider">
+                          No TTS • 5s / slide
                         </div>
                       )}
                       {isRenderingSilent && (
@@ -761,8 +760,8 @@ function MainApp() {
                 )}
               </div>
             ) : (
-              <SlideEditor 
-                slides={slides} 
+              <SlideEditor
+                slides={slides}
                 onUpdateSlide={updateSlide}
                 onGenerateAudio={generateAudioForSlide}
                 isGeneratingAudio={isGenerating}
@@ -782,58 +781,61 @@ function MainApp() {
 
       <Footer />
 
-       {/* Global Settings Modal */}
-       {isSettingsOpen && (
-         <GlobalSettingsModal
+      {/* Mobile device warning */}
+      <MobileWarningModal />
+
+      {/* Global Settings Modal */}
+      {isSettingsOpen && (
+        <GlobalSettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           currentSettings={globalSettings}
           onSave={handleSaveGlobalSettings}
           onShowWebGPUModal={() => setIsWebGPUModalOpen(true)}
         />
-       )}
+      )}
 
-       <TutorialModal 
-          isOpen={isTutorialOpen} 
-          onClose={() => setIsTutorialOpen(false)} 
-       />
+      <TutorialModal
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+      />
 
-       <RuntimeResourceModal
-          isOpen={isResourceModalOpen}
-          onConfirm={handleResourceConfirm}
-          preinstalled={preinstalledResources}
-       />
+      <RuntimeResourceModal
+        isOpen={isResourceModalOpen}
+        onConfirm={handleResourceConfirm}
+        preinstalled={preinstalledResources}
+      />
 
 
-       <WebGPUInstructionsModal
-          isOpen={isWebGPUModalOpen}
-          onClose={() => setIsWebGPUModalOpen(false)}
-       />
+      <WebGPUInstructionsModal
+        isOpen={isWebGPUModalOpen}
+        onClose={() => setIsWebGPUModalOpen(false)}
+      />
 
-        <WebLLMLoadingModal 
-           isOpen={isWebLLMLoadingOpen}
-           onComplete={() => setIsWebLLMLoadingOpen(false)}
-        />
+      <WebLLMLoadingModal
+        isOpen={isWebLLMLoadingOpen}
+        onComplete={() => setIsWebLLMLoadingOpen(false)}
+      />
 
-       {isWebLLMInitModalOpen && (
+      {isWebLLMInitModalOpen && (
         <UnifiedInitModal
-           isOpen={isWebLLMInitModalOpen}
-           resources={preinstalledResources}
-           activeResources={activeDownloads}
-           onComplete={() => {
-               setIsWebLLMInitModalOpen(false);
-               // Mark WebLLM as pre-initialized so we don't show this again
-               localStorage.setItem('webllm_preinitialized', 'true');
-               // Update the resource cache status
-               const currentStatus = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-               if (!currentStatus.webllm) {
-                   currentStatus.webllm = true;
-                   localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
-                   setPreinstalledResources(currentStatus);
-               }
-           }}
+          isOpen={isWebLLMInitModalOpen}
+          resources={preinstalledResources}
+          activeResources={activeDownloads}
+          onComplete={() => {
+            setIsWebLLMInitModalOpen(false);
+            // Mark WebLLM as pre-initialized so we don't show this again
+            localStorage.setItem('webllm_preinitialized', 'true');
+            // Update the resource cache status
+            const currentStatus = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
+            if (!currentStatus.webllm) {
+              currentStatus.webllm = true;
+              localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
+              setPreinstalledResources(currentStatus);
+            }
+          }}
         />
-       )}
+      )}
 
       {/* Background Image */}
       <img
