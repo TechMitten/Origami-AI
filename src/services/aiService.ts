@@ -63,6 +63,23 @@ const cleanLLMResponse = (text: string): string => {
     cleaned = cleaned.substring(1, cleaned.length - 1);
   }
 
+  // Enforce terminal punctuation on every sentence.
+  // Split on sentence boundaries (. ! ?), keeping the delimiter, then re-join.
+  // Any non-empty chunk that doesn't end with .  !  ? gets a period appended.
+  // This catches titles, short bullet-point sentences, and other cases where
+  // the AI (especially smaller WebLLM models) forgets the terminal period.
+  cleaned = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map(sentence => {
+      const s = sentence.trim();
+      if (!s) return '';
+      // If the sentence already ends with terminal punctuation, leave it alone
+      if (/[.!?]$/.test(s)) return s;
+      return s + '.';
+    })
+    .filter(Boolean)
+    .join(' ');
+
   return cleaned.trim();
 };
 
@@ -71,6 +88,7 @@ export const DEFAULT_SYSTEM_PROMPT = `You are an expert scriptwriter specializin
 
 CRITICAL RULE: STRICT SENTENCE BOUNDARIES
 Slide text, headers, and bullet points almost never have ending punctuation. You MUST add periods (.) at the end of every single complete thought.
+- THE VERY FIRST SENTENCE (the title sentence) MUST end with a period. Never omit this.
 - If you do not add periods, the TTS engine will not pause and will read the entire slide as one breathless, run-on sentence.
 - Keep your sentences short and digestible.
 - Break long lists or complex ideas into multiple short sentences, each ending with a hard period (.).
@@ -129,7 +147,7 @@ export const transformText = async (settings: LLMSettings, text: string, customS
   const userPrompt = `Slide Content (full text extracted from the slide):
 "${text}"
 
-Read all of the above content. Start the narration with the slide's title/topic, then present the rest as complete sentences.`;
+Read all of the above content. Start the narration with the slide's title/topic. End EVERY sentence — including the very first title sentence — with a period. Then present the rest of the content as complete sentences, each ending with a period.`;
 
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {
@@ -284,9 +302,9 @@ Examine this slide image.
 Create a natural, spoken Text-to-Speech narration script.
 
 RULES:
-1. ALWAYS start with the slide title.
-2. Form complete sentences with hard periods (.). No breathless lists.
-3. Describe important charts/diagrams clearly.
+1. ALWAYS start with the slide title. The title sentence MUST end with a period (.).
+2. Every sentence MUST end with a period (.). No exceptions — not the title, not short phrases, not any sentence.
+3. Describe important charts/diagrams clearly in complete sentences.
 4. Expand abbreviations ("GB" -> "gigabytes") and URLs fully ("https://" -> "h t t p s colon slash slash").
 5. Output plain narrative text ONLY. No formatting, no markdown, no filler intros.`;
 

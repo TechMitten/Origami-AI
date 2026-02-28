@@ -30,7 +30,7 @@ import { MobileWarningModal } from './components/MobileWarningModal';
 
 function MainApp() {
   const [slides, setSlides] = useState<SlideData[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingSlides, setGeneratingSlides] = useState<Set<number>>(new Set());
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
@@ -397,8 +397,7 @@ function MainApp() {
   };
 
   const generateAudioForSlide = async (index: number) => {
-
-    setIsGenerating(true);
+    setGeneratingSlides(prev => { const next = new Set(prev); next.add(index); return next; });
     try {
       const slide = slides[index];
       const textToSpeak = slide.selectionRanges && slide.selectionRanges.length > 0
@@ -420,7 +419,7 @@ function MainApp() {
     } catch (error) {
       showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {
-      setIsGenerating(false);
+      setGeneratingSlides(prev => { const next = new Set(prev); next.delete(index); return next; });
     }
   };
 
@@ -544,8 +543,8 @@ function MainApp() {
               <button
                 onClick={() => setActiveTab('edit')}
                 className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
-                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
                   }`}
               >
                 Edit
@@ -553,8 +552,8 @@ function MainApp() {
               <button
                 onClick={() => setActiveTab('preview')}
                 className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
-                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
                   }`}
               >
                 Preview
@@ -764,7 +763,7 @@ function MainApp() {
                 slides={slides}
                 onUpdateSlide={updateSlide}
                 onGenerateAudio={generateAudioForSlide}
-                isGeneratingAudio={isGenerating}
+                generatingSlides={generatingSlides}
 
                 onReorderSlides={setSlides}
                 musicSettings={musicSettings}

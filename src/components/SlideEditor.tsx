@@ -75,7 +75,7 @@ interface SlideEditorProps {
   slides: SlideData[];
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
   onGenerateAudio: (index: number) => Promise<void>;
-  isGeneratingAudio: boolean;
+  generatingSlides: Set<number>;
   onReorderSlides: (slides: SlideData[]) => void;
   musicSettings: MusicSettings;
   onUpdateMusicSettings: (settings: MusicSettings) => void;
@@ -280,6 +280,7 @@ const SortableSlideItem = ({
   onUpdate,
   onGenerate,
   isGenerating,
+  isAnyGenerating,
   onExpand,
   highlightText,
   onDelete,
@@ -293,6 +294,7 @@ const SortableSlideItem = ({
   onUpdate: (i: number, d: Partial<SlideData>) => void,
   onGenerate: (i: number) => Promise<void>,
   isGenerating: boolean,
+  isAnyGenerating: boolean,
   onExpand: (i: number) => void,
   highlightText?: string,
   onDelete: (index: number) => void;
@@ -818,12 +820,23 @@ const SortableSlideItem = ({
             {slide.audioUrl && (
               <button
                 onClick={togglePlayback}
-                disabled={isGenerating}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider h-9 ${isPlaying ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40'}`}
               >
                 {isPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                 {isPlaying ? 'Stop' : 'Preview'}
               </button>
+            )}
+
+            {/* Show a subtle indicator when this slide is queued/generating */}
+            {isGenerating && (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-branding-primary/80 uppercase tracking-wider animate-pulse ml-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Generating...
+              </span>
+            )}
+            {!isGenerating && isAnyGenerating && !slide.audioUrl && (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-white/30 uppercase tracking-wider ml-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Queued
+              </span>
             )}
 
             <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
@@ -887,7 +900,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   slides,
   onUpdateSlide,
   onGenerateAudio,
-  isGeneratingAudio,
+  generatingSlides,
   onReorderSlides,
   musicSettings,
   onUpdateMusicSettings,
@@ -1541,8 +1554,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <button
                 onClick={() => setActiveTab('overview')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'overview'
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
               >
                 <Info className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Overview
@@ -1550,8 +1563,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <button
                 onClick={() => setActiveTab('voice')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'voice'
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
               >
                 <Mic className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Voice Settings
@@ -1559,8 +1572,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <button
                 onClick={() => setActiveTab('mixing')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'mixing'
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
               >
                 <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Audio Mixing
@@ -1568,8 +1581,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <button
                 onClick={() => setActiveTab('tools')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'tools'
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
               >
                 <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Batch Tools
@@ -1577,8 +1590,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               <button
                 onClick={() => setActiveTab('media')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'media'
-                    ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                    : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
               >
                 <VideoIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Slide Media
@@ -1881,7 +1894,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <div className="relative">
                       <button
                         onClick={handleGenerateAll}
-                        disabled={isGeneratingAudio || isBatchGenerating || slides.length === 0}
+                        disabled={generatingSlides.size > 0 || isBatchGenerating || slides.length === 0}
                         className="group relative w-full h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
                       >
                         <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -2023,7 +2036,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 index={index}
                 onUpdate={onUpdateSlide}
                 onGenerate={onGenerateAudio}
-                isGenerating={isGeneratingAudio || isBatchGenerating}
+                isGenerating={generatingSlides.has(index) || isBatchGenerating}
+                isAnyGenerating={generatingSlides.size > 0 || isBatchGenerating}
                 onExpand={(i) => {
                   setPreviewIndex(prev => prev === i ? null : i);
                   if (previewIndex !== i) {

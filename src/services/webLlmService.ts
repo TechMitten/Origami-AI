@@ -220,8 +220,9 @@ export const getWebLLMEngine = () => engine;
 
 export const generateWebLLMResponse = async (
     messages: any,
-    temperature: number = 0.7
-) => {
+    temperature: number = 0.7,
+    _isRetry = false
+): Promise<string> => {
     if (!engine) {
         throw new Error("WebLLM Engine not initialized. Please load a model first.");
     }
@@ -248,6 +249,37 @@ export const generateWebLLMResponse = async (
         return reply.choices[0].message.content || "";
     } catch (error) {
         console.error("WebLLM Generation Error:", error);
+
+        // BindingError: "Expected null or instance of VectorInt, got an instance of VectorInt"
+        // This is a WASM cross-realm memory corruption that happens when the engine's internal
+        // tokenizer state becomes inconsistent. resetChat() is not sufficient to recover from
+        // this state. The only reliable fix is to tear down the engine entirely and recreate it.
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const isBindingError = errorMsg.includes('BindingError') || errorMsg.includes('VectorInt');
+
+        if (isBindingError && !_isRetry && currentModelId) {
+            console.warn("[WebLLM] Detected WASM BindingError — tearing down engine and retrying once...");
+            const modelToReload = currentModelId;
+            try {
+                await engine!.unload();
+            } catch {
+                // Ignore unload errors — engine is already in a bad state
+            }
+            engine = null;
+            currentModelId = null;
+
+            // Re-initialize with a no-op progress callback (model is already cached)
+            const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
+            const newEngine = await CreateMLCEngine(modelToReload, {
+                initProgressCallback: () => { },
+            });
+            engine = newEngine;
+            currentModelId = modelToReload;
+
+            console.log("[WebLLM] Engine rebuilt successfully. Retrying generation...");
+            return generateWebLLMResponse(messages, temperature, true);
+        }
+
         throw error;
     }
 };
