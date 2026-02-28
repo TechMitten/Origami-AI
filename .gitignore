@@ -42,5 +42,6 @@ public/uploads/*
 !public/android-chrome-192x192.png
 !public/android-chrome-512x512.png
 !public/site.webmanifest
+!public/og.webp
 .env
 RAILWAY_DEPLOY.md
