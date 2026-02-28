@@ -24,6 +24,7 @@ import { UnifiedInitModal } from './components/UnifiedInitModal';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
+import { DuplicateTabModal } from './components/DuplicateTabModal';
 
 
 
@@ -779,6 +780,9 @@ function MainApp() {
       </main>
 
       <Footer />
+
+      {/* Duplicate tab warning */}
+      <DuplicateTabModal />
 
       {/* Mobile device warning */}
       <MobileWarningModal />
