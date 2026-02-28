@@ -66,9 +66,81 @@ Origami AI is a web application that converts static PDF presentations into enga
 
 ## Getting Started
 
-Visit **[https://origami.islandapps.dev](https://origami.islandapps.dev)** to start using Origami AI.
+### Option A — Hosted (No Setup)
 
-No installation required - everything runs directly in your browser.
+Visit **[https://origami.islandapps.dev](https://origami.islandapps.dev)** — no installation required, everything runs directly in your browser.
+
+---
+
+### Option B — Run Locally
+
+#### 1. Clone the Repository
+
+```bash
+git clone https://github.com/IslandApps/Origami-AI.git
+cd Origami-AI
+```
+
+#### 2. Install Dependencies
+
+Requires **Node.js >= 20.19.0** ([download](https://nodejs.org/)).
+
+```bash
+npm install
+```
+
+#### 3. Start the Development Server
+
+```bash
+npm run dev
+```
+
+This starts an Express + Vite dev server with hot module replacement. Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+> **Note:** The development server sets the required `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers needed for FFmpeg.wasm and SharedArrayBuffer to work correctly. Opening `index.html` directly in the browser **will not work**.
+
+#### 4. Build for Production
+
+```bash
+npm run build
+```
+
+Output is written to the `dist/` directory.
+
+#### 5. Preview the Production Build
+
+```bash
+npm run preview
+```
+
+Serves the production build locally via Vite's preview server for a final sanity check before deploying.
+
+---
+
+### Option C — Docker
+
+A `Dockerfile` and `docker-compose.yml` are included for containerized deployment.
+
+```bash
+docker compose up --build
+```
+
+The app will be available at **[http://localhost:3000](http://localhost:3000)**.
+
+---
+
+### Browser Requirements
+
+Origami AI requires a **WebGPU-enabled browser** for local AI inference:
+
+| Browser | Minimum Version |
+|---|---|
+| Chrome / Chromium | 113+ |
+| Microsoft Edge | 113+ |
+| Firefox | Nightly (enable `dom.webgpu.enabled` in `about:config`) |
+| Safari | 18+ (macOS Sonoma) |
+
+> **Tip:** If WebGPU is unavailable, you can still use Origami AI by configuring a remote OpenAI-compatible API in the Settings panel — no local GPU required.
 
 ## How It Works
 

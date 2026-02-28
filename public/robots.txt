@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://origami.islandapps.dev/sitemap.xml
+
+# Block access to source maps and dev assets
+Disallow: /*.map$

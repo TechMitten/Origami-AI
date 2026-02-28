@@ -43,5 +43,14 @@ public/uploads/*
 !public/android-chrome-512x512.png
 !public/site.webmanifest
 !public/og.webp
+!public/robots.txt
+!public/sitemap.xml
 .env
 RAILWAY_DEPLOY.md
+
+# Test scripts
+test_ai.mjs
+test_ai.ts
+test_ai2.ts
+test_bug.mjs
+test_regex.mjs
