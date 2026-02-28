@@ -131,8 +131,9 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-full max-w-2xl my-4 sm:my-0 bg-linear-to-b from-gray-900 to-gray-950 rounded-2xl border border-purple-500/30 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+      <div className="my-4 sm:my-0 bg-linear-to-b from-gray-900 to-gray-950 rounded-2xl border border-purple-500/30 shadow-2xl max-h-[90dvh] overflow-y-auto"
+        style={{ width: 'min(100%, clamp(320px, 90vw, 42rem))' }}>
         {/* Header */}
         <div className="relative px-8 py-7 bg-linear-to-r from-purple-500/10 to-blue-500/10 border-b border-white/5">
           <div className="flex items-center gap-4">

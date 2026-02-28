@@ -17,9 +17,9 @@ export interface RuntimeResourceModalProps {
 export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: RuntimeResourceModalProps) {
   // Use a combined state for selection
   const [selection, setSelection] = useState<ResourceSelection>({
-      downloadTTS: true,
-      downloadFFmpeg: true,
-      enableWebLLM: true
+    downloadTTS: true,
+    downloadFFmpeg: true,
+    enableWebLLM: true
   });
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
@@ -69,11 +69,11 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
   };
 
   const toggleWebLLM = () => {
-     setSelection(prev => ({ ...prev, enableWebLLM: !prev.enableWebLLM }));
+    setSelection(prev => ({ ...prev, enableWebLLM: !prev.enableWebLLM }));
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-4 transition-all duration-300 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+    <div className={`fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-6 transition-all duration-300 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       {/* Backdrop with animated gradient */}
       <div
         className="absolute inset-0 bg-linear-to-br from-black/80 via-black/70 to-black/80 backdrop-blur-md transition-opacity"
@@ -81,11 +81,12 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
 
       {/* Modal Content */}
       <div className={`
-        relative w-full max-w-lg my-4 sm:my-0 bg-linear-to-br from-[#0F1115] via-[#12151A] to-[#0A0C0F]
-        border border-white/8 rounded-3xl shadow-2xl overflow-hidden
+        relative w-full max-h-[90dvh] overflow-y-auto my-4 sm:my-0 bg-linear-to-br from-[#0F1115] via-[#12151A] to-[#0A0C0F]
+        border border-white/8 rounded-3xl shadow-2xl
         transform transition-all duration-300 ease-out
         ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'}
-      `}>
+      `}
+        style={{ width: 'min(100%, clamp(320px, 90vw, 32rem))' }}>
         {/* Decorative gradient border */}
         <div className="absolute inset-0 rounded-3xl bg-linear-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-0 blur-xl transition-opacity duration-500" />
         <div className={`absolute inset-0 rounded-3xl bg-linear-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 transition-opacity duration-700 ${isOpen ? 'opacity-100' : 'opacity-0'}`} />
@@ -129,8 +130,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               ${preinstalled.tts
                 ? 'bg-linear-to-br from-green-500/10 to-green-500/5 border-green-500/20 cursor-default'
                 : selection.downloadTTS
-                    ? 'bg-linear-to-br from-blue-500/15 to-blue-500/5 border-blue-500/30 hover:border-blue-500/50 cursor-pointer shadow-lg shadow-blue-500/5'
-                    : 'bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10 cursor-pointer'
+                  ? 'bg-linear-to-br from-blue-500/15 to-blue-500/5 border-blue-500/30 hover:border-blue-500/50 cursor-pointer shadow-lg shadow-blue-500/5'
+                  : 'bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10 cursor-pointer'
               }
             `}
           >
@@ -191,8 +192,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               ${preinstalled.ffmpeg
                 ? 'bg-linear-to-br from-green-500/10 to-green-500/5 border-green-500/20 cursor-default'
                 : selection.downloadFFmpeg
-                    ? 'bg-linear-to-br from-purple-500/15 to-purple-500/5 border-purple-500/30 hover:border-purple-500/50 cursor-pointer shadow-lg shadow-purple-500/5'
-                    : 'bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10 cursor-pointer'
+                  ? 'bg-linear-to-br from-purple-500/15 to-purple-500/5 border-purple-500/30 hover:border-purple-500/50 cursor-pointer shadow-lg shadow-purple-500/5'
+                  : 'bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10 cursor-pointer'
               }
             `}
           >
@@ -253,8 +254,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               ${preinstalled.webllm
                 ? 'bg-linear-to-br from-green-500/10 to-green-500/5 border-green-500/20 cursor-default'
                 : selection.enableWebLLM
-                    ? 'bg-linear-to-br from-orange-500/15 to-amber-500/5 border-orange-500/30 hover:border-orange-500/50 cursor-pointer shadow-lg shadow-orange-500/5'
-                    : 'bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10 cursor-pointer'
+                  ? 'bg-linear-to-br from-orange-500/15 to-amber-500/5 border-orange-500/30 hover:border-orange-500/50 cursor-pointer shadow-lg shadow-orange-500/5'
+                  : 'bg-white/3 border-white/5 hover:bg-white/5 hover:border-white/10 cursor-pointer'
               }
             `}
           >

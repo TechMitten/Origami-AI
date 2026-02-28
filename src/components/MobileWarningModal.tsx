@@ -58,8 +58,9 @@ export const MobileWarningModal: React.FC = () => {
 
             {/* Modal card */}
             <div
-                className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+                className="relative rounded-2xl overflow-hidden shadow-2xl"
                 style={{
+                    width: 'min(100%, clamp(280px, 85vw, 24rem))',
                     background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
                     border: '1px solid rgba(255,255,255,0.12)',
                     transform: isAnimating ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.96)',
