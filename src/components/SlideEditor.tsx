@@ -1098,15 +1098,15 @@ const SortableSlideItem = ({
 
       {/* Recording Countdown Modal */}
       {isCountingDown && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[100] isolation:isolate flex items-center justify-center p-4 animate-fade-in">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm"
             onClick={cancelCountdown}
           />
 
           {/* Modal Content */}
-          <div className="relative w-full max-w-sm bg-[#1a1a1a] border border-branding-primary/30 rounded-2xl shadow-2xl shadow-branding-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="relative z-10 w-full max-w-sm bg-[#1a1a1a] border border-branding-primary/30 rounded-2xl shadow-2xl shadow-branding-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300 opacity-100">
             {/* Header */}
             <div className="px-6 py-4 flex items-center gap-3 rounded-t-2xl border-b border-branding-primary/10 bg-branding-primary/5">
               <Mic className="w-6 h-6 text-branding-primary" />
