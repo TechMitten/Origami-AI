@@ -1156,6 +1156,13 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
 
+  // Audio Visualizer State
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const visualizerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationRef = useRef<number | null>(null);
+
   // Music Picker State
   const [showMusicPicker, setShowMusicPicker] = React.useState(false);
   const [incompetechTrack, setIncompetechTrack] = React.useState<IncompetechCachedTrack | null>(null);
@@ -1251,19 +1258,160 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (isMusicPlaying && musicAudioRef.current) {
       musicAudioRef.current.pause();
       setIsMusicPlaying(false);
+      stopVisualizer();
     } else if (musicSettings.url) {
       const audio = new Audio(musicSettings.url);
       audio.volume = musicSettings.volume;
       audio.loop = musicSettings.loop ?? true;
-      audio.onended = () => setIsMusicPlaying(false);
-      audio.play().catch(e => {
+      audio.crossOrigin = "anonymous";
+      audio.onended = () => {
+        setIsMusicPlaying(false);
+        stopVisualizer();
+      };
+      audio.play().then(() => {
+        setIsMusicPlaying(true);
+        // Setup visualizer after audio starts playing
+        setTimeout(() => setupAudioVisualizer(audio), 100);
+      }).catch(e => {
         console.error("Music playback failed", e);
         setIsMusicPlaying(false);
+        stopVisualizer();
       });
       musicAudioRef.current = audio;
-      setIsMusicPlaying(true);
     }
   };
+
+  const setupAudioVisualizer = (audio: HTMLAudioElement) => {
+    if (!visualizerCanvasRef.current) {
+      console.log('[Visualizer] Canvas not ready');
+      return;
+    }
+
+    // Clean up any existing audio context
+    stopVisualizer();
+
+    // Set canvas size to match display size
+    const canvas = visualizerCanvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+
+    try {
+      // Create Audio Context
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 128; // Fewer bars for background effect (64 bars)
+
+      console.log('[Visualizer] Setting up audio context and analyser...');
+
+      // Connect audio element to analyser
+      const source = audioContext.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      sourceRef.current = source;
+
+      console.log('[Visualizer] Connected, starting visualization...');
+
+      // Start visualization
+      drawVisualizer();
+    } catch (e) {
+      console.error('[Visualizer] Failed to setup audio visualizer:', e);
+    }
+  };
+
+  const stopVisualizer = () => {
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+    if (analyserRef.current) {
+      analyserRef.current.disconnect();
+      analyserRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+  };
+
+  const drawVisualizer = () => {
+    if (!analyserRef.current || !visualizerCanvasRef.current) return;
+
+    const canvas = visualizerCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const analyser = analyserRef.current;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const renderFrame = () => {
+      if (!analyserRef.current || !canvas) return;
+
+      animationRef.current = requestAnimationFrame(renderFrame);
+
+      analyserRef.current.getByteFrequencyData(dataArray);
+
+      // Clear canvas with transparent background
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = canvas.width / bufferLength;
+      let barHeight;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        barHeight = (dataArray[i] / 255) * canvas.height;
+
+        // Vibrant gradient for visibility
+        const gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+        gradient.addColorStop(0, 'rgba(0, 240, 255, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(0, 240, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(0, 240, 255, 0.2)');
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+
+        x += barWidth;
+      }
+    };
+
+    renderFrame();
+  };
+
+  // Cleanup visualizer on unmount
+  React.useEffect(() => {
+    return () => {
+      stopVisualizer();
+    };
+  }, []);
+
+  // Handle window resize for canvas
+  React.useEffect(() => {
+    if (!visualizerCanvasRef.current) return;
+
+    const resizeCanvas = () => {
+      if (visualizerCanvasRef.current) {
+        const canvas = visualizerCanvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(resizeCanvas);
+    resizeObserver.observe(visualizerCanvasRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -1285,6 +1433,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (isMusicPlaying && musicAudioRef.current) {
       musicAudioRef.current.pause();
       setIsMusicPlaying(false);
+      stopVisualizer();
     }
   };
 
@@ -1592,7 +1741,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       audio.onended = () => setIsPreviewTTSPlaying(false);
       audio.onplay = () => setIsPreviewTTSPlaying(true);
       audio.onpause = () => {
-        if (!audio.ended) setIsPreviewTTSPlaying(false);
+        if (!audio!.ended) setIsPreviewTTSPlaying(false);
       };
       previewAudioRef.current = audio;
     }
@@ -2067,9 +2216,22 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                           </div>
                         ) : (
                           <div className="space-y-6">
-                            <div className="p-8 rounded-2xl bg-black/20 border border-white/5 text-center">
-                              <Music className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                              <p className="text-lg font-medium text-white/90 truncate">{musicSettings.title || 'Unknown Track'}</p>
+                            <div className="relative p-8 rounded-2xl bg-black/20 border border-white/5 text-center overflow-hidden">
+                              {/* Audio Visualizer Background */}
+                              {isMusicPlaying && (
+                                <canvas
+                                  ref={visualizerCanvasRef}
+                                  width={800}
+                                  height={96}
+                                  className="absolute inset-0 w-full h-full"
+                                />
+                              )}
+
+                              {/* Track Info Overlay */}
+                              <div className="relative z-10">
+                                <Music className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                                <p className="text-lg font-medium text-white/90 truncate">{musicSettings.title || 'Unknown Track'}</p>
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-6">
