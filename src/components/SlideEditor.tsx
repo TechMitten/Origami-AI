@@ -1915,13 +1915,25 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         if (!slide.script.trim()) continue;
 
         try {
-          const transformed = await transformText({
+          let transformed = await transformText({
             apiKey: apiKey || '',
             baseUrl,
             model,
             useWebLLM,
             webLlmModel
           }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+
+          const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          if (normalize(transformed) === normalize(slide.script)) {
+            console.log(`[AI Fix Batch] Output was identical to input for slide ${i + 1}, retrying once automatically...`);
+            transformed = await transformText({
+              apiKey: apiKey || '',
+              baseUrl,
+              model,
+              useWebLLM,
+              webLlmModel
+            }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+          }
           onUpdateSlide(i, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
           processedCount++;
         } catch (error) {
