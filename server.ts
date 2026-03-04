@@ -147,6 +147,12 @@ async function createServer() {
 
   if (process.env.NODE_ENV === 'production') {
       const distDir = path.resolve(__dirname, 'dist');
+      const publicDir = path.resolve(__dirname, 'public');
+
+      // Serve public assets first (music-library.json, etc.)
+      app.use(express.static(publicDir));
+
+      // Serve built app files
       app.use(express.static(distDir));
 
       app.use(limiter);
