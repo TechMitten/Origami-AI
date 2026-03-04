@@ -1369,11 +1369,17 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       // Clear canvas with transparent background
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const barWidth = canvas.width / bufferLength;
+      // Use only the lower 2/3 of frequency spectrum (where most music energy is)
+      // and scale it to fill the entire canvas width
+      const usableBins = Math.floor(bufferLength * 0.6); // Use first 60% of bins
+      const barCount = usableBins;
+      const totalGapWidth = barCount * 1;
+      const barWidth = (canvas.width - totalGapWidth) / barCount;
+
       let barHeight;
       let x = 0;
 
-      for (let i = 0; i < bufferLength; i++) {
+      for (let i = 0; i < usableBins; i++) {
         barHeight = (dataArray[i] / 255) * canvas.height;
 
         // Vibrant gradient for visibility
@@ -1383,9 +1389,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         gradient.addColorStop(1, 'rgba(0, 240, 255, 0.2)');
 
         ctx.fillStyle = gradient;
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
 
-        x += barWidth;
+        x += barWidth + 1;
       }
     };
 
@@ -2358,13 +2364,13 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <p className="text-base text-white/50">Apply specific actions to all slides at once.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* AI Fix */}
                     <div className="relative">
                       <button
                         onClick={handleFixAllScripts}
                         disabled={isBatchFixing || isBatchGenerating || slides.length === 0}
-                        className="group relative w-full h-52 p-6 rounded-3xl bg-linear-to-br from-branding-accent/10 to-transparent border border-branding-accent/20 hover:border-branding-accent/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-accent/5 overflow-hidden"
+                        className="group relative w-full min-h-52 sm:h-52 p-6 rounded-3xl bg-linear-to-br from-branding-accent/10 to-transparent border border-branding-accent/20 hover:border-branding-accent/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-accent/5 overflow-hidden"
                       >
                         <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                           <Sparkles className="w-24 h-24" />
@@ -2401,7 +2407,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       <button
                         onClick={handleGenerateAll}
                         disabled={generatingSlides.size > 0 || isBatchGenerating || slides.length === 0}
-                        className="group relative w-full h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
+                        className="group relative w-full min-h-52 sm:h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
                       >
                         <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                           <Wand2 className="w-24 h-24" />
@@ -2437,7 +2443,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <button
                       onClick={handleRevertAllScripts}
                       disabled={slides.filter(s => s.originalScript).length === 0}
-                      className="group relative h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
+                      className="group relative min-h-52 sm:h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
                     >
                       <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Undo2 className="w-24 h-24" />
