@@ -27,9 +27,7 @@ export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, 
       setMaxPercent(prev => Math.max(prev, newPercent));
 
       if (report.progress === 1) {
-         // Determine if we should wait or close immediately
-         // We'll let the parent close it via the Promise resolution in App.tsx for speed,
-         // but keep a fallback here just in case.
+         
          setTimeout(onComplete, 500);
       }
     };
