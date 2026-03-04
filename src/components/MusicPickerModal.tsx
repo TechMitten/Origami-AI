@@ -423,6 +423,22 @@ export const MusicPickerModal: React.FC<MusicPickerModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* Attribution Notice */}
+        <div className="px-6 py-3 border-t border-white/10 bg-amber-500/5">
+          <p className="text-sm text-amber-200/80 text-center">
+            Music by <span className="font-medium">Kevin MacLeod</span> (incompetech.com).
+            Licensed under Creative Commons: By Attribution 4.0.{' '}
+            <a
+              href="https://incompetech.com/music/royalty-free/faq.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-branding-primary hover:text-branding-primary/80 underline underline-offset-2"
+            >
+              See attribution steps
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
