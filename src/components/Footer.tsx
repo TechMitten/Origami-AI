@@ -1,18 +1,31 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Github } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
     <footer className="max-w-7xl mx-auto mt-auto py-6 border-t border-white/5">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
-        <a
-          href="https://islandapps.dev"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
-        >
-          &copy; {new Date().getFullYear()} Island Applications
-        </a>
+        <div className="flex items-center gap-4">
+          <a
+            href="https://islandapps.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
+          >
+            &copy; {new Date().getFullYear()} Island Applications
+          </a>
+          <a
+            href="https://github.com/IslandApps/Origami-AI"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/40 hover:text-white transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
+            title="View on GitHub"
+          >
+            <Github className="w-3.5 h-3.5" />
+            GitHub
+          </a>
+        </div>
         <div className="flex items-center gap-4">
           <Link
             to="/privacy"

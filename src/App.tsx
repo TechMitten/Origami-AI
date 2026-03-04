@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings, Eraser, CircleHelp, XCircle, Trash2 } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings, Eraser, CircleHelp, XCircle, Trash2, Github } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -579,6 +579,15 @@ function MainApp() {
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Global Tools */}
           <div className="flex items-center gap-1">
+            <a
+              href="https://github.com/IslandApps/Origami-AI"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+              title="View on GitHub"
+            >
+              <Github className="w-5 h-5" />
+            </a>
             <button
               onClick={() => setIsTutorialOpen(true)}
               className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
