@@ -428,7 +428,7 @@ function MainApp() {
         pitch: 1.0
       });
       const duration = await getAudioDuration(audioUrl);
-      updateSlide(index, { audioUrl, duration, lastGeneratedSelection: slide.selectionRanges });
+      updateSlide(index, { audioUrl, duration, lastGeneratedSelection: slide.selectionRanges, audioSourceType: 'tts' });
     } catch (error) {
       showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {

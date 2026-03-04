@@ -46,6 +46,7 @@ export interface SlideData extends Partial<RenderedPage> {
   lastGeneratedSelection?: { start: number; end: number }[];
   originalScript?: string;
   isSelected?: boolean;
+  audioSourceType?: 'tts' | 'recorded';
 }
 
 function mergeRanges(ranges: { start: number; end: number }[]) {
@@ -336,6 +337,17 @@ const SortableSlideItem = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
 
+  // Recording State
+  const [isRecording, setIsRecording] = React.useState(false);
+  const [recordingDuration, setRecordingDuration] = React.useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const [isCountingDown, setIsCountingDown] = React.useState(false);
+  const [countdownValue, setCountdownValue] = React.useState(5);
+  const countdownTimerRef = useRef<number | null>(null);
+
   // Cleanup audio on unmount or if slide changes
   React.useEffect(() => {
     return () => {
@@ -348,6 +360,16 @@ const SortableSlideItem = ({
         audioContextRef.current = null;
       }
       gainNodeRef.current = null;
+
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+
+      // Stop media stream tracks to release microphone
+      cleanupMediaStream();
     };
   }, [slide.audioUrl]);
 
@@ -447,6 +469,138 @@ const SortableSlideItem = ({
     }
   }, [ttsVolume, isPlaying]);
 
+  const cleanupMediaStream = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.warn('Error stopping media track:', e);
+        }
+      });
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+  };
+
+  const doStartRecording = async () => {
+    try {
+      // Ensure any existing stream is cleaned up before starting a new one
+      cleanupMediaStream();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        // IMMEDIATE cleanup first - stop tracks to release microphone
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => {
+            track.stop();
+          });
+          mediaStreamRef.current = null;
+        }
+
+        // Then process the recorded audio
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(audioBlob);
+
+        // Find duration
+        const tempAudio = new Audio(url);
+        tempAudio.onloadedmetadata = () => {
+          onUpdate(index, { audioUrl: url, duration: tempAudio.duration, audioSourceType: 'recorded' });
+        };
+        // fallback if loadedmetadata doesn't fire nicely
+        setTimeout(() => {
+          if (!tempAudio.duration || tempAudio.duration === Infinity) {
+            onUpdate(index, { audioUrl: url, duration: recordingDuration, audioSourceType: 'recorded' });
+          }
+        }, 500);
+
+        // Clear the media recorder ref
+        mediaRecorderRef.current = null;
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      // Clear any existing recording interval before starting a new one
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      showAlert("Microphone access denied or unavailable.", { type: 'error', title: 'Microphone Error' });
+    }
+  };
+
+  const startRecording = async () => {
+    // Check if there's existing recorded audio
+    if (slide.audioSourceType === 'recorded' && slide.audioUrl) {
+      const confirmed = await showConfirm(
+        "This slide already has a recorded voice. Do you want to overwrite it with a new recording?",
+        { type: 'warning', title: 'Overwrite Recording?', confirmText: 'Overwrite' }
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setIsCountingDown(true);
+    setCountdownValue(5);
+    // Clear any existing countdown interval before starting a new one
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+    }
+    countdownTimerRef.current = window.setInterval(() => {
+      setCountdownValue(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownTimerRef.current!);
+          countdownTimerRef.current = null;
+          setIsCountingDown(false);
+          doStartRecording();
+          return 5;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const cancelCountdown = () => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setIsCountingDown(false);
+    setCountdownValue(5);
+    cleanupMediaStream();
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+
+    // ALWAYS attempt cleanup, regardless of MediaRecorder state
+    cleanupMediaStream();
+
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
 
   const handleTransform = async () => {
     const useWebLLM = globalSettings?.useWebLLM;
@@ -820,14 +974,28 @@ const SortableSlideItem = ({
 
           {/* Actions Toolbar */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm overflow-x-auto">
-            {/* Generate Button */}
+            {/* Generate Button - hide if audio was recorded */}
+            {slide.audioSourceType !== 'recorded' && (
+              <button
+                onClick={() => onGenerate(index)}
+                disabled={isGenerating || !slide.script.trim() || isRecording}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
+              >
+                {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
+                {slide.audioUrl ? 'Regenerate' : 'Generate TTS Audio'}
+              </button>
+            )}
+
+            {/* Record Button */}
             <button
-              onClick={() => onGenerate(index)}
-              disabled={isGenerating || !slide.script.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
+              onClick={() => isRecording ? stopRecording() : startRecording()}
+              disabled={isGenerating}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer h-9 whitespace-nowrap ${isRecording
+                ? 'bg-red-500/20 border-red-500/40 text-red-500'
+                : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-40 disabled:grayscale'}`}
             >
-              {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
-              {slide.audioUrl ? 'Regenerate' : 'Generate TTS Audio'}
+              <Mic className="w-3.5 h-3.5" />
+              {isRecording ? `Stop Recording (${Math.floor(recordingDuration / 60)}:${(recordingDuration % 60).toString().padStart(2, '0')})` : 'Record Voice'}
             </button>
 
             {slide.audioUrl && (
@@ -876,7 +1044,7 @@ const SortableSlideItem = ({
                 className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isTtsDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
               >
                 {!slide.isTtsDisabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">TTS</span>
+                <span className="hidden sm:inline">{slide.audioSourceType === 'recorded' ? 'REC' : 'TTS'}</span>
               </button>
 
               <button
@@ -905,6 +1073,80 @@ const SortableSlideItem = ({
         onUpdate={(data) => onUpdate(index, data)}
         highlightText={highlightText}
       />
+
+      {/* Recording Countdown Modal */}
+      {isCountingDown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={cancelCountdown}
+          />
+
+          {/* Modal Content */}
+          <div className="relative w-full max-w-sm bg-[#1a1a1a] border border-branding-primary/30 rounded-2xl shadow-2xl shadow-branding-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Header */}
+            <div className="px-6 py-4 flex items-center gap-3 rounded-t-2xl border-b border-branding-primary/10 bg-branding-primary/5">
+              <Mic className="w-6 h-6 text-branding-primary" />
+              <h3 className="text-lg font-bold text-white tracking-tight">
+                Get Ready to Record
+              </h3>
+              <button
+                onClick={cancelCountdown}
+                className="ml-auto p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors min-w-11 min-h-11 flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-8 flex flex-col items-center justify-center">
+              <div className="relative w-32 h-32 flex items-center justify-center mb-4">
+                {/* Circular progress indicator */}
+                <svg className="absolute inset-0 w-full h-full -rotate-90">
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    className="text-white/10"
+                  />
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 56}`}
+                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - countdownValue / 5)}`}
+                    className="text-branding-primary transition-all duration-300 ease-out"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span className="text-5xl font-bold text-white">
+                  {countdownValue}
+                </span>
+              </div>
+              <p className="text-white/60 text-sm text-center">
+                Recording will start in {countdownValue} second{countdownValue !== 1 ? 's' : ''}
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-white/5 rounded-b-2xl border-t border-white/5">
+              <button
+                onClick={cancelCountdown}
+                className="w-full px-4 py-2 rounded-lg text-sm font-bold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
