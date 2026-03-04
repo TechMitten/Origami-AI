@@ -45,6 +45,8 @@ public/uploads/*
 !public/og.webp
 !public/robots.txt
 !public/sitemap.xml
+!public/music-library.json
+!public/outro-slide.jpg
 .env
 RAILWAY_DEPLOY.md
 .claude
