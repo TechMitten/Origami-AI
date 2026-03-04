@@ -48,6 +48,7 @@ public/uploads/*
 .env
 RAILWAY_DEPLOY.md
 .claude
+CLAUDE.md
 
 # Test scripts
 test_ai.mjs

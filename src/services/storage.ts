@@ -37,6 +37,7 @@ export interface GlobalSettings {
   useWebLLM?: boolean;
   webLlmModel?: string;
   aiFixScriptSystemPrompt?: string;
+  previewMode?: 'inline' | 'modal';
 }
 
 

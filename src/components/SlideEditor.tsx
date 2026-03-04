@@ -287,7 +287,8 @@ const SortableSlideItem = ({
   ttsVolume,
   voices, // Add voices to destructuring
   globalSettings, // Add globalSettings to destructuring
-  isMobile // Add isMobile to destructuring
+  isMobile, // Add isMobile to destructuring
+  slidesLength // Add slidesLength to destructuring
 }: {
   slide: SlideData,
   index: number,
@@ -302,6 +303,7 @@ const SortableSlideItem = ({
   voices: Voice[]; // Add voices prop
   globalSettings?: GlobalSettings | null; // Add globalSettings prop
   isMobile: boolean; // Add isMobile prop
+  slidesLength: number; // Add slidesLength prop
 }) => {
   const {
     attributes,
@@ -604,21 +606,29 @@ const SortableSlideItem = ({
 
       {/* Slide Preview */}
       {/* Slide Preview Column */}
-      <div className="w-full sm:w-1/3 sm:ml-6 flex flex-col gap-2 mt-4 sm:mt-0">
-        <div className="flex items-center gap-3 mb-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onUpdate(index, { isSelected: !slide.isSelected });
-            }}
-            className={`p-1 rounded-md transition-all ${slide.isSelected ? 'text-branding-primary' : 'text-white/40 hover:text-white/70'}`}
-            title={slide.isSelected ? "Deselect Slide" : "Select Slide"}
-          >
-            {slide.isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-          </button>
-          <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
-            Slide {index + 1} {slide.type === 'video' && '(Media)'}
-          </span>
+      <div className="w-full sm:w-1/3 sm:ml-6 flex flex-col gap-3 mt-4 sm:mt-0 justify-center">
+        {/* Enhanced slide number header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdate(index, { isSelected: !slide.isSelected });
+              }}
+              className={`p-1 rounded-md transition-all ${slide.isSelected ? 'text-branding-primary' : 'text-white/40 hover:text-white/70'}`}
+              title={slide.isSelected ? "Deselect Slide" : "Select Slide"}
+            >
+              {slide.isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+            </button>
+            <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
+              {slide.type === 'video' ? 'Media' : 'Slide'}
+            </span>
+          </div>
+          {/* Prominent slide number display */}
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-branding-primary">{index + 1}</span>
+            <span className="text-sm font-medium text-white/30">/ {slidesLength}</span>
+          </div>
         </div>
 
         <div
@@ -638,8 +648,6 @@ const SortableSlideItem = ({
               className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105"
             />
           )}
-
-
 
           <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100 pointer-events-none">
             <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
@@ -1487,8 +1495,62 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   return (
     <div className="space-y-8 animate-fade-in relative">
-      {/* Expanded Slide Modal */}
-      {previewIndex !== null && (
+      {/* Expanded Slide Preview */}
+      {previewIndex !== null && globalSettings?.previewMode === 'modal' ? (
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md p-4 sm:p-8 flex items-center justify-center animate-fade-in"
+            onClick={() => setPreviewIndex(null)}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewIndex(null);
+              }}
+              className="absolute top-4 right-4 z-50 p-2 text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
+              title="Close Preview"
+            >
+              <span className="uppercase text-xs font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Close</span>
+              <div className="transition-colors">
+                <X className="w-8 h-8 drop-shadow-md" />
+              </div>
+            </button>
+
+            <div className="relative flex flex-col items-center justify-center max-w-full max-h-full gap-4" onClick={(e) => e.stopPropagation()}>
+              {/* Slide title and number display */}
+              <div className="text-center space-y-2">
+                <div className="flex items-baseline justify-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
+                  <span className="text-3xl font-bold text-branding-primary">{previewIndex + 1}</span>
+                  <span className="text-sm font-medium text-white/40">/ {slides.length}</span>
+                </div>
+                {slides[previewIndex].script.trim() && (
+                  <div className="text-sm text-white/70 w-full max-w-3xl mx-auto max-h-32 overflow-y-auto px-6 py-3 bg-white/5 rounded-lg border border-white/10">
+                    <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                {slides[previewIndex].type === 'video' ? (
+                  <video
+                    src={slides[previewIndex].mediaUrl}
+                    className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <img
+                    src={slides[previewIndex].dataUrl}
+                    alt={`Slide ${previewIndex + 1}`}
+                    className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                  />
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      ) : previewIndex !== null ? (
         <div
           className="relative w-full mb-8 bg-black/40 p-8 rounded-3xl border border-white/10 flex flex-col items-center animate-fade-in"
           onClick={() => setPreviewIndex(null)}
@@ -1507,28 +1569,39 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             </div>
           </button>
 
-          <div className="relative flex flex-col items-center justify-center max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
-            {slides[previewIndex].type === 'video' ? (
-              <video
-                src={slides[previewIndex].mediaUrl}
-                className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
-                controls
-                autoPlay
-              />
-            ) : (
-              <img
-                src={slides[previewIndex].dataUrl}
-                alt={`Slide ${previewIndex + 1}`}
-                className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
-              />
-            )}
+          <div className="relative flex flex-col items-center justify-center max-w-full max-h-full gap-4" onClick={(e) => e.stopPropagation()}>
+            {/* Slide title and number display */}
+            <div className="text-center space-y-2">
+              <div className="flex items-baseline justify-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
+                <span className="text-3xl font-bold text-branding-primary">{previewIndex + 1}</span>
+                <span className="text-sm font-medium text-white/40">/ {slides.length}</span>
+              </div>
+              {slides[previewIndex].script.trim() && (
+                <div className="text-sm text-white/70 w-full max-w-3xl mx-auto max-h-32 overflow-y-auto px-6 py-3 bg-white/5 rounded-lg border border-white/10">
+                  <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
+                </div>
+              )}
+            </div>
 
-            <div className="mt-4 px-4 py-2 rounded-full bg-white/10 backdrop-blur border border-white/5 text-white/80 font-medium text-sm">
-              Slide {previewIndex + 1} of {slides.length}
+            <div className="relative">
+              {slides[previewIndex].type === 'video' ? (
+                <video
+                  src={slides[previewIndex].mediaUrl}
+                  className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                  controls
+                  autoPlay
+                />
+              ) : (
+                <img
+                  src={slides[previewIndex].dataUrl}
+                  alt={`Slide ${previewIndex + 1}`}
+                  className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                />
+              )}
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-xl shadow-black/20">
         <button
@@ -2042,7 +2115,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 isAnyGenerating={generatingSlides.size > 0 || isBatchGenerating}
                 onExpand={(i) => {
                   setPreviewIndex(prev => prev === i ? null : i);
-                  if (previewIndex !== i) {
+                  if (previewIndex !== i && globalSettings?.previewMode !== 'modal') {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
@@ -2052,6 +2125,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 voices={voices}
                 globalSettings={globalSettings}
                 isMobile={isMobile}
+                slidesLength={slides.length}
               />
             ))}
           </div>
