@@ -16,7 +16,6 @@ Origami AI is a web application that converts static PDF presentations into enga
 ### AI-Powered Narration
 - **Local AI Processing**: Runs language models directly in your browser using MLC-WebLLM
 - **Remote API Support**: Compatible with OpenAI-style APIs
-- **Vision Capabilities**: Analyzes slide images alongside text for better script generation
 - **Customizable Prompts**: Modify AI behavior through system prompts
 
 ### Text-to-Speech

@@ -21,7 +21,6 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     { id: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC", name: "DeepSeek R1 Distill 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16' },
     { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 1.5B", size: "1GB", vram_required_MB: 2000, precision: 'f16' },
     { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", name: "Phi 3.5 Mini", size: "2.5GB", vram_required_MB: 3000, precision: 'f16' },
-    { id: "Phi-3.5-vision-instruct-q4f16_1-MLC", name: "Phi 3.5 Vision", size: "3.0GB", vram_required_MB: 3500, precision: 'f16' },
 
     // f32 models (better compatibility, slower, more memory)
     { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 3B", size: "2.0GB", vram_required_MB: 3000, precision: 'f32' },
@@ -29,15 +28,13 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     { id: "gemma-2-2b-it-q4f32_1-MLC", name: "Gemma 2 2B", size: "1.7GB", vram_required_MB: 2500, precision: 'f32' },
     { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", name: "Qwen 2.5 1.5B", size: "1.2GB", vram_required_MB: 2300, precision: 'f32' },
     { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", name: "Phi 3.5 Mini", size: "3.0GB", vram_required_MB: 3500, precision: 'f32' },
-    { id: "Phi-3.5-vision-instruct-q4f32_1-MLC", name: "Phi 3.5 Vision", size: "3.5GB", vram_required_MB: 4000, precision: 'f32' },
 ];
 
 // WebGPU types are often not included by default in standard lib yet
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getNavigator = () => navigator as any;
 
-// Monkey-patch WebGPU to add maxComputeInvocationsPerWorkgroup for vision models
-// This is required for Phi-3.5 vision model which needs 1024 invocations
+// Monkey-patch WebGPU to add maxComputeInvocationsPerWorkgroup
 let gpuPatched = false;
 const patchWebGPU = () => {
     if (gpuPatched) return;
@@ -144,7 +141,7 @@ export const initWebLLM = async (
         return pendingInitPromise;
     }
 
-    // Apply WebGPU patch for vision models that require higher workgroup invocations
+    // Apply WebGPU patch
     await patchWebGPU();
 
     // Start a new initialization
@@ -164,33 +161,9 @@ export const initWebLLM = async (
 
             const { CreateMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
 
-            let customAppConfig = prebuiltAppConfig;
-
-            if (modelId === "Phi-3.5-vision-instruct-q4f32_1-MLC" || modelId === "Phi-3.5-vision-instruct-q4f16_1-MLC") {
-                const modelRecord = prebuiltAppConfig.model_list.find(m => m.model_id === modelId);
-                if (modelRecord) {
-                    customAppConfig = {
-                        ...prebuiltAppConfig,
-                        model_list: prebuiltAppConfig.model_list.map(m => {
-                            if (m.model_id === modelId) {
-                                return {
-                                    ...m,
-                                    overrides: {
-                                        ...(m.overrides || {}),
-                                        context_window_size: 3584,
-                                        sliding_window_size: -1
-                                    }
-                                };
-                            }
-                            return m;
-                        })
-                    };
-                }
-            }
-
             const newEngine = await CreateMLCEngine(modelId, {
                 initProgressCallback: wrappedCallback,
-                appConfig: customAppConfig
+                appConfig: prebuiltAppConfig
             });
 
             engine = newEngine;
@@ -287,12 +260,3 @@ export const generateWebLLMResponse = async (
 
 export const isWebLLMLoaded = () => !!engine;
 export const getCurrentWebLLMModel = () => currentModelId;
-
-/**
- * Check if a model ID is a vision model
- * @param modelId The model ID to check
- * @returns true if the model is a vision model
- */
-export const isVisionModel = (modelId: string | null | undefined): boolean => {
-    return modelId?.toLowerCase().includes('vision') ?? false;
-};

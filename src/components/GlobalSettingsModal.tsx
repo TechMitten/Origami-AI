@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2 } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, isVisionModel, unloadWebLLM } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -58,13 +58,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
-  const [useVisionForScripts, setUseVisionForScripts] = useState(currentSettings?.useVisionForScripts ?? false);
   // Reload modal state — shown when the user switches WebLLM models
   const [showReloadModal, setShowReloadModal] = useState(false);
-  // Vision experimental warning modal state
-  const [showVisionWarningModal, setShowVisionWarningModal] = useState(false);
-  // Holds the vision model ID selected from the dropdown, pending confirmation
-  const [pendingWebLlmModel, setPendingWebLlmModel] = useState<string | null>(null);
   // TTS Loading State
   const [isLoadingTTS, setIsLoadingTTS] = useState(false);
   const [ttsLoadProgress, setTtsLoadProgress] = useState('');
@@ -482,8 +477,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
       useWebLLM,
       webLlmModel,
-      aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined,
-      useVisionForScripts
+      aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined
     };
 
 
@@ -567,92 +561,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       // Don't close the modal so the user sees the error.
       if (webLlmModel !== getCurrentWebLLMModel()) {
         return;
-      }
-    }
-
-    // Auto-load vision model if vision-based generation is enabled
-    const currentLoadedModelId = getCurrentWebLLMModel();
-    if (useVisionForScripts && useWebLLM && !isVisionModel(currentLoadedModelId)) {
-      // Use f16 if the device supports it, which heavily reduces TVM memory fragmentation avoiding 29MB limits, else fallback to f32
-      const visionModel = webGpuSupport?.hasF16
-        ? "Phi-3.5-vision-instruct-q4f16_1-MLC"
-        : "Phi-3.5-vision-instruct-q4f32_1-MLC";
-      console.log("[Settings] Auto-switching to vision model:", visionModel);
-
-      // Update the model selection
-      setWebLlmModel(visionModel);
-
-      if (isDownloadingWebLlm) {
-        showAlert("Model is currently loading. Please wait.", { type: 'info', title: 'Loading in progress' });
-        return;
-      }
-
-      // Trigger model load
-      setIsDownloadingWebLlm(true);
-      setWebLlmDownloadProgress('Initializing...');
-      setWebLlmProgressPercent(0);
-      setWebLlmPhase('downloading');
-
-      // Listen for progress events
-      const handleProgress = (e: Event) => {
-        const report = (e as CustomEvent<InitProgressReport>).detail;
-        const progress = Math.round(report.progress * 100);
-        setWebLlmProgressPercent(progress);
-        setWebLlmDownloadProgress(report.text);
-
-        // Update phase based on progress
-        if (report.text.includes('preloading') || report.text.includes('Loading')) {
-          setWebLlmPhase('loading');
-        }
-      };
-
-      const handleComplete = () => {
-        setWebLlmDownloadProgress('Model loaded successfully!');
-        setWebLlmPhase('complete');
-        setWebLlmProgressPercent(100);
-        setIsDownloadingWebLlm(false);
-      };
-
-      const handleError = () => {
-        setWebLlmDownloadProgress('Failed to load model');
-        setIsDownloadingWebLlm(false);
-      };
-
-      webLlmEvents.addEventListener('webllm-init-progress', handleProgress);
-      webLlmEvents.addEventListener('webllm-init-complete', handleComplete);
-      webLlmEvents.addEventListener('webllm-init-error', handleError);
-
-      try {
-        await initWebLLM(visionModel, (report) => {
-          const progress = Math.round(report.progress * 100);
-          setWebLlmProgressPercent(progress);
-          setWebLlmDownloadProgress(report.text);
-
-          if (report.text.includes('preloading') || report.text.includes('Loading')) {
-            setWebLlmPhase('loading');
-          }
-        });
-
-        // Update settings with vision model
-        settings.webLlmModel = visionModel;
-        setWebLlmDownloadProgress('Model loaded successfully!');
-        setWebLlmPhase('complete');
-        setWebLlmProgressPercent(100);
-
-        // Check if loaded successfully
-        if (visionModel !== getCurrentWebLLMModel()) {
-          showAlert("Failed to load vision model. Please try again.", { type: 'error', title: 'Model Load Failed' });
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to load vision model:", error);
-        showAlert("Failed to load vision model: " + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Model Load Failed' });
-        return;
-      } finally {
-        webLlmEvents.removeEventListener('webllm-init-progress', handleProgress);
-        webLlmEvents.removeEventListener('webllm-init-complete', handleComplete);
-        webLlmEvents.removeEventListener('webllm-init-error', handleError);
-        setIsDownloadingWebLlm(false);
       }
     }
 
@@ -1170,13 +1078,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             }))}
                           value={webLlmModel}
                           onChange={(val) => {
-                            if (isVisionModel(val)) {
-                              // Hold the selection and show the experimental warning first
-                              setPendingWebLlmModel(val);
-                              setShowVisionWarningModal(true);
-                            } else {
-                              setWebLlmModel(val);
-                            }
+                            setWebLlmModel(val);
                           }}
                           className="bg-black/20"
                         />
@@ -1253,53 +1155,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
                       </div>
                     </div>
-                  </div>
-
-                  {/* Vision-Based Script Generation */}
-                  <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
-                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                      <Activity className="w-4 h-4" />
-                      Vision-Based Script Generation
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="text-sm font-bold text-white flex items-center gap-2">
-                          Enable Vision Analysis
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/25 text-[9px] font-extrabold text-purple-400 uppercase tracking-widest">Experimental</span>
-                        </div>
-                        <div className="text-xs text-white/60 mt-1">
-                          Use Phi-3.5 Vision model to visually analyze slides for more accurate script generation. Requires the vision model to be loaded.
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (!useVisionForScripts) {
-                            // Show experimental warning before enabling
-                            setShowVisionWarningModal(true);
-                          } else {
-                            setUseVisionForScripts(false);
-                          }
-                        }}
-                        className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${!useVisionForScripts ? 'bg-white/10' : 'bg-emerald-500'}`}
-                      >
-                        <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${!useVisionForScripts ? 'translate-x-0' : 'translate-x-7'}`} />
-                      </button>
-                    </div>
-
-                    {useVisionForScripts && !isVisionModel(currentLoadedModel) && (
-                      <div className="text-xs text-amber-400 bg-amber-400/10 p-3 rounded-lg border border-amber-400/20 flex items-start gap-2">
-                        <Activity className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>Vision model required. Click "Load Model" to download Phi-3.5 Vision when you save settings, or manually select it above.</span>
-                      </div>
-                    )}
-
-                    {useVisionForScripts && isVisionModel(currentLoadedModel) && (
-                      <div className="text-xs text-emerald-400 bg-emerald-400/10 p-3 rounded-lg border border-emerald-400/20 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Vision model loaded and ready</span>
-                      </div>
-                    )}
                   </div>
 
                 </>
@@ -1493,56 +1348,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Vision Experimental Warning Modal */}
-      {showVisionWarningModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-sm bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
-            {/* Icon + Title */}
-            <div className="px-6 pt-7 pb-4 flex flex-col items-center gap-3 text-center">
-              <div className="w-12 h-12 rounded-full bg-purple-500/15 border border-purple-500/25 flex items-center justify-center">
-                <Activity className="w-6 h-6 text-purple-400" />
-              </div>
-              <div>
-                <div className="inline-flex items-center gap-1.5 mb-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/20">
-                  <span className="text-[10px] font-extrabold text-purple-400 uppercase tracking-widest">Experimental</span>
-                </div>
-                <h3 className="text-base font-extrabold text-white tracking-tight">Vision Analysis</h3>
-                <p className="text-xs text-white/50 mt-1.5 leading-relaxed">
-                  This feature is experimental and may not work reliably across all slides. Results can be inconsistent and the model may occasionally fail or crash.
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="px-6 pb-6 flex flex-col gap-2 mt-1">
-              <button
-                onClick={() => {
-                  setUseVisionForScripts(true);
-                  // Also apply any pending vision model selected from the dropdown
-                  if (pendingWebLlmModel) {
-                    setWebLlmModel(pendingWebLlmModel);
-                    setPendingWebLlmModel(null);
-                  }
-                  setShowVisionWarningModal(false);
-                }}
-                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-purple-500/20"
-              >
-                Enable Anyway
-              </button>
-              <button
-                onClick={() => {
-                  setPendingWebLlmModel(null);
-                  setShowVisionWarningModal(false);
-                }}
-                className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-sm transition-all border border-white/10"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Reload Browser Confirmation Modal */}
       {showReloadModal && (

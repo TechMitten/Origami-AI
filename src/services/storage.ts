@@ -37,8 +37,6 @@ export interface GlobalSettings {
   useWebLLM?: boolean;
   webLlmModel?: string;
   aiFixScriptSystemPrompt?: string;
-  useVisionForScripts?: boolean;
-  visionScriptModel?: string;
 }
 
 

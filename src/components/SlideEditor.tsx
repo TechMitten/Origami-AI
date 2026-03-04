@@ -23,7 +23,7 @@ import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, genera
 import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 
-import { transformText, transformTextWithVision } from '../services/aiService';
+import { transformText } from '../services/aiService';
 import { isWebLLMLoaded } from '../services/webLlmService';
 import { Dropdown } from './Dropdown';
 
@@ -467,8 +467,6 @@ const SortableSlideItem = ({
       return;
     }
 
-    const useVision = globalSettings?.useVisionForScripts ?? false;
-
     setIsTransforming(true);
 
     // Yield to event loop to prevent React state batching from blocking WebLLM
@@ -476,14 +474,13 @@ const SortableSlideItem = ({
 
     try {
       console.log('[AI Fix] Starting transformation for slide', index);
-      const transformed = await transformTextWithVision({
+      const transformed = await transformText({
         apiKey: apiKey || '',
         baseUrl,
         model,
         useWebLLM,
-        webLlmModel,
-        useVision
-      }, slide.script, useVision ? slide.dataUrl : undefined, globalSettings?.aiFixScriptSystemPrompt);
+        webLlmModel
+      }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
       console.error("[SlideEditor] Transformation Error:", error);
