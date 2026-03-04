@@ -52,6 +52,7 @@ export interface GlobalSettings {
   webLlmModel?: string;
   aiFixScriptSystemPrompt?: string;
   previewMode?: 'inline' | 'modal';
+  recordingCountdownEnabled?: boolean;
 }
 
 

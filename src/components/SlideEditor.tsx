@@ -557,24 +557,31 @@ const SortableSlideItem = ({
       }
     }
 
-    setIsCountingDown(true);
-    setCountdownValue(5);
-    // Clear any existing countdown interval before starting a new one
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
+    // Check if countdown is disabled in settings
+    if (globalSettings?.recordingCountdownEnabled === false) {
+      // Start recording immediately without countdown
+      doStartRecording();
+    } else {
+      // Start the countdown
+      setIsCountingDown(true);
+      setCountdownValue(5);
+      // Clear any existing countdown interval before starting a new one
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+      countdownTimerRef.current = window.setInterval(() => {
+        setCountdownValue(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownTimerRef.current!);
+            countdownTimerRef.current = null;
+            setIsCountingDown(false);
+            doStartRecording();
+            return 5;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
-    countdownTimerRef.current = window.setInterval(() => {
-      setCountdownValue(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownTimerRef.current!);
-          countdownTimerRef.current = null;
-          setIsCountingDown(false);
-          doStartRecording();
-          return 5;
-        }
-        return prev - 1;
-      });
-    }, 1000);
   };
 
   const cancelCountdown = () => {

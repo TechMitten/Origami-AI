@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Maximize2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Maximize2, Timer } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -71,6 +71,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
   );
   const [previewMode, setPreviewMode] = useState<'inline' | 'modal'>(currentSettings?.previewMode ?? 'inline');
+  const [recordingCountdownEnabled, setRecordingCountdownEnabled] = useState(currentSettings?.recordingCountdownEnabled ?? true);
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -479,7 +480,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useWebLLM,
       webLlmModel,
       aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined,
-      previewMode
+      previewMode,
+      recordingCountdownEnabled
     };
 
 
@@ -726,6 +728,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${!disableAudioNormalization ? 'bg-emerald-500' : 'bg-white/10'}`}
                     >
                       <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${!disableAudioNormalization ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      <Timer className="w-4 h-4" /> Recording Countdown
+                    </div>
+                    {/* <p className="text-[10px] text-white/30">5-second countdown before recording starts</p> */}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{recordingCountdownEnabled ? 'On' : 'Off'}</span>
+                    <button
+                      onClick={() => setRecordingCountdownEnabled(!recordingCountdownEnabled)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${recordingCountdownEnabled ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${recordingCountdownEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>

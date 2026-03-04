@@ -127,6 +127,11 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
   animation: slideInRight 0.5s ease-out forwards;
 }
 
+/* Tab transition - fade only, no scale/size changes */
+.fade-transition {
+  animation: fadeIn 0.3s ease-out;
+}
+
 .dropdown-solid {
   background-color: #09090b !important;
   background: #09090b !important;

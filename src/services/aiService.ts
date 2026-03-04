@@ -1,4 +1,4 @@
-import { generateWebLLMResponse, isWebLLMLoaded, getCurrentWebLLMModel } from './webLlmService';
+import { generateWebLLMResponse, isWebLLMLoaded } from './webLlmService';
 
 interface LLMSettings {
   apiKey: string;
@@ -32,34 +32,33 @@ const expandTTSSymbols = (text: string): string => {
  * Splits text into sentences, handling fragments without punctuation
  */
 const splitIntoSentences = (text: string): string[] => {
-  // Common abbreviations that should NOT end a sentence
-  const abbreviations = /\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|Ave|Blvd|Rd|U\.S\.A|U\.S|U\.K|E\.U|etc|vs|e\.g|i\.e)\.?$/i;
+  const sentences: string[] = [];
 
-  // First, try to split on existing punctuation
-  const withPunctuation: string[] = [];
-  const withoutPunctuation: string[] = [];
+  // First split by newlines to respect structural breaks
+  const lines = text.split(/\n+/);
 
-  text.split(/(?<=[.!?])\s+/).forEach(chunk => {
-    if (/[.!?]$/.test(chunk)) {
-      withPunctuation.push(chunk);
-    } else if (chunk.trim()) {
-      withoutPunctuation.push(chunk);
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue;
+
+    // Split line by sentence-ending punctuation followed by space
+    const chunks = trimmedLine.split(/(?<=[.!?])\s+/);
+
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+
+      // Apply heuristic if there's no terminal punctuation in the chunk
+      if (!/[.!?]$/.test(chunk.trim())) {
+        // Split on capital letters that might indicate new sentences
+        const parts = chunk.split(/(?<=[a-z])\s+(?=[A-Z])/);
+        sentences.push(...parts.map(p => p.trim()).filter(Boolean));
+      } else {
+        sentences.push(chunk.trim());
+      }
     }
-  });
+  }
 
-  // For chunks without punctuation, apply heuristics
-  const processed = withoutPunctuation.flatMap(chunk => {
-    // Split on capital letters that might indicate new sentences
-    // (e.g., "Title Here Subtitle Here" → "Title Here", "Subtitle Here")
-    const parts = chunk.split(/(?<=[a-z])\s+(?=[A-Z])/);
-
-    // If that didn't split anything, keep the chunk as-is
-    if (parts.length === 1) return [chunk];
-
-    return parts.map(p => p.trim()).filter(Boolean);
-  });
-
-  return [...withPunctuation, ...processed].filter(Boolean);
+  return sentences;
 };
 
 const cleanLLMResponse = (text: string): string => {
@@ -135,70 +134,60 @@ const cleanLLMResponse = (text: string): string => {
 };
 
 /* Shared System Prompt for both WebLLM and Remote API */
-export const DEFAULT_SYSTEM_PROMPT = `You are an expert scriptwriter specializing in creating conversational scripts for Text-to-Speech (TTS) presentations. Your task is to transform fragmented text extracted from PDF slides—including titles, bullet points, and metadata—into a complete, natural-sounding spoken presentation.
+export const DEFAULT_SYSTEM_PROMPT = `You are a professional voice-over scriptwriter. Your job is to transform fragmented, messy slide text (bullet points, short titles, isolated metrics) into a flowing, continuous narrative script intended to be read aloud by a Text-to-Speech (TTS) engine.
+
+DO NOT JUST OUTPUT A LIST OF REFORMATTED BULLET POINTS OR FRAGMENTS. You must combine the ideas into a conversational paragraph that tells a story. Combine fragments into smooth sentences with connecting words ("Additionally,", "Next, we see that...", "Furthermore,").
 
 CRITICAL RULE: STRICT SENTENCE BOUNDARIES
-Slide text, headers, and bullet points almost never have ending punctuation. You MUST add periods (.) at the end of every single complete thought.
-- THE VERY FIRST SENTENCE (the title sentence) MUST end with a period. Never omit this.
-- If you do not add periods, the TTS engine will not pause and will read the entire slide as one breathless, run-on sentence.
-- Keep your sentences short and digestible.
-- Break long lists or complex ideas into multiple short sentences, each ending with a hard period (.).
-- Use commas (,) frequently within sentences to force natural mid-sentence breathing pauses.
+- EVERY SINGLE SENTENCE MUST end with a period (.). If you do not add periods, the TTS engine will not pause.
+- THE VERY FIRST SENTENCE (the title or intro) MUST end with a period.
+- Keep your sentences short, conversational, and digestible.
+- Break long lists or complex ideas into multiple short, standalone sentences, each ending with a hard period (.).
+- Use commas (,) within sentences to force natural mid-sentence breathing pauses.
 
 Style and Tone Guidelines:
-- Write in a conversational, engaging, and professional style.
-- Use natural transitions and signposting phrases. Start new sentences with phrases like:
-  - "Welcome..." or "Let's begin by..."
-  - "As you can see..." or "Notice how..."
-  - "Let's explore..." or "Now we'll look at..."
-  - "This is important because..."
-  - "In other words..." or "To put it simply..."
-- Connect fragmented text into coherent, flowing sentences. Add connecting words to "fill in the blanks" and create a smooth narrative arc.
-- Never hallucinate new facts. Stick strictly to the information provided in the input text.
+- Write exactly what the TTS should speak. Write as a continuous speech or narrative, like a podcast or a video voice-over.
+- Start with a strong introductory phrase. e.g., "Welcome to this slide on [Topic]." or "Let's discuss [Topic]."
+- Tie the fragmented concepts together. Instead of saying "Feature A. Feature B." say "First, we have Feature A. This is followed by Feature B."
+- Never hallucinate facts. Stick to the provided input.
 
 Mandatory TTS Formatting Rules:
 
-1. Abbreviation Expansion: Spell out all technical abbreviations and symbols into their full spoken forms.
-   - "MiB/s" -> "mebibytes per second"
-   - "GB" -> "gigabytes"
-   - "vs." -> "versus"
-   - "etc." -> "et cetera"
-   - "&" -> "and"
+1. Phonetics and Acronyms: Write for the EAR, not the EYE.
+   - Separate acronyms with spaces: "A P I", "U S A", "A W S", "C E O".
+   - Spell out large numbers if clarity is needed ("one thousand two hundred").
 
-2. URLs and Web Addresses: Always expand URLs into their exact spoken equivalents, spelling out punctuation.
-   - Replace "://" with "colon slash slash".
-   - Replace "/" with "slash" or "forward slash".
-   - Replace "." with "dot".
-   - "https://example.com" -> "h t t p s colon slash slash example dot com"
-   - "github.com/user/repo" -> "github dot com slash user slash repo"
+2. Abbreviation Expansion: Spell out all technical abbreviations.
+   - "MiB/s" -> "mebibytes per second", "GB" -> "gigabytes", "vs." -> "versus", "etc." -> "et cetera", "&" -> "and".
 
-3. Terminal Commands: Explain commands clearly as instructions in their own separate sentences.
-   - Ignore leading prompt symbols like "$", ">", or "%".
-   - Spell out spaces and punctuation marks so the listener knows exactly what to type.
-   - "$ git commit -m 'msg'" -> "Type git commit space dash m, then include your message in quotes."
-   - "$ npm install ." -> "Type npm install space period."
+3. URLs and Web Addresses: Expand URLs into spoken words, ignoring the https part if it's too long, or spell it out.
+   - "example.com" -> "example dot com"
+   - "github.com/user" -> "github dot com slash user"
 
-4. Email Addresses: Spell out the at sign and dots.
-   - "user@example.com" -> "user at example dot com"
+4. Terminal Commands:
+   - Spell out spaces and punctuation: "$ npm install ." -> "Type npm install space period."
+
+5. Punctuation for TTS:
+   - YOU MUST USE PERIODS. A TTS reads text literally. Every thought must end in a '.'.
 
 Output Constraints:
-- Raw Text Only: Output the final script as plain text.
-- No Conversational Filler: Do not include introductory or concluding remarks like "Here is the script" or "Let me know if you need anything else."
-- No Markdown: Do not use code blocks, bold text (**), italic text (*), headers (#), or quotation marks around the final output.
+- Output only the final voice-over script transcript.
+- No Markdown (no **, no code blocks, no # headers, no bullet points).
+- No conversational filler ("Here is the script:"). 
 
 Example Input:
-"How to Install Visual Studio Code on Windows A Complete Beginner's Guide Step-by-Step Instructions for First-Time Users Windows 10/11 ~5 Minutes Free & Open Source Download: [https://code.visualstudio.com](https://code.visualstudio.com) Download size: 85 MiB $ npm install ."
+"Install VS Code Windows 10/11 ~5 Mins Free Download: code.visualstudio.com"
 
 Example Output:
-Welcome to this guide on How to Install Visual Studio Code on Windows. This is a complete beginner's guide. It provides step-by-step instructions designed especially for first-time users. As we will see, this process works for both Windows 10 and Windows 11 operating systems. It should only take about 5 minutes of your time. Visual Studio Code is a free and open-source tool. You can download it by visiting h t t p s colon slash slash code dot visualstudio dot com. The download size is approximately 85 mebibytes. Once you have it set up, you can install dependencies. To do this, open your terminal and type npm install space period. Let's begin.`;
+Welcome to this guide on how to install Visual Studio Code. This process works on both Windows 10 and Windows 11. It should take you approximately 5 minutes. The software works as a free download. You can get it by navigating to code dot visualstudio dot com.`;
 
 export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
   const systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
 
-  const userPrompt = `Slide Content (full text extracted from the slide):
+  const userPrompt = `Slide Content:
 "${text}"
 
-Read all of the above content. Start the narration with the slide's title/topic. End EVERY sentence — including the very first title sentence — with a period. Then present the rest of the content as complete sentences, each ending with a period.`;
+Write a continuous, flowing narration script for the above content. Ensure every sentence ends with a period. Do not output a list of bullet points.`;
 
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {
