@@ -797,7 +797,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                                   const val = parseFloat(e.target.value);
                                   setMusicVolume(val * val);
                                 }}
-                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary relative z-10"
+                                style={{
+                                  background: `linear-gradient(to right, hsl(var(--branding-primary)) 0%, hsl(var(--branding-primary)) ${Math.round(Math.sqrt(musicVolume) * 100)}%, rgba(255,255,255,0.1) ${Math.round(Math.sqrt(musicVolume) * 100)}%, rgba(255,255,255,0.1) 100%)`
+                                }}
+                                className="w-full h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-branding-primary relative z-10"
                               />
                               {/* Ideal Level Marker (5% Volume -> ~22.4% Position) */}
                               <button

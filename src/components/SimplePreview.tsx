@@ -453,17 +453,20 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
                     {isMuted || masterVolume === 0 ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </button>
                 <div className="w-16 sm:w-0 overflow-hidden sm:group-hover/volume:w-24 transition-all duration-300">
-                    <input 
-                        type="range" 
-                        min="0" 
-                        max="1" 
+                    <input
+                        type="range"
+                        min="0"
+                        max="1"
                         step="0.05"
                         value={masterVolume}
                         onChange={(e) => {
                             setMasterVolume(parseFloat(e.target.value));
                             if (isMuted && parseFloat(e.target.value) > 0) setIsMuted(false);
                         }}
-                        className="w-16 sm:w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                        style={{
+                          background: `linear-gradient(to right, white 0%, white ${masterVolume * 100}%, rgba(255,255,255,0.2) ${masterVolume * 100}%, rgba(255,255,255,0.2) 100%)`
+                        }}
+                        className="w-16 sm:w-20 h-1 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                     />
                 </div>
              </div>

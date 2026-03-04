@@ -2048,7 +2048,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                               onUpdateMusicSettings({ ...musicSettings, volume: squaredVol });
                               if (musicAudioRef.current) musicAudioRef.current.volume = squaredVol;
                             }}
-                            className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary"
+                            style={{
+                              background: `linear-gradient(to right, hsl(var(--branding-primary)) 0%, hsl(var(--branding-primary)) ${Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%, rgba(255,255,255,0.1) ${Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%, rgba(255,255,255,0.1) 100%)`
+                            }}
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-branding-primary [&::-webkit-slider-thumb]:shadow-lg"
                           />
                         </div>
 
