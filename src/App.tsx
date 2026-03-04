@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings2, Eraser, CircleHelp, XCircle, Trash2 } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings, Eraser, CircleHelp, XCircle, Trash2 } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -591,7 +591,7 @@ function MainApp() {
               className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
               title="Settings"
             >
-              <Settings2 className="w-5 h-5" />
+              <Settings className="w-5 h-5" />
             </button>
           </div>
 
@@ -606,7 +606,7 @@ function MainApp() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all border ${isActionsMenuOpen ? 'bg-white/10 text-white border-white/20' : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10'}`}
                 >
                   <span className="hidden sm:inline">Actions</span>
-                  <Settings2 className="w-4 h-4 sm:hidden" />
+                  <Settings className="w-4 h-4 sm:hidden" />
                   <svg className={`w-4 h-4 transition-transform duration-200 hidden sm:block ${isActionsMenuOpen ? 'rotate-180 text-white' : 'opacity-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>

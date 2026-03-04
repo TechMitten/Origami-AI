@@ -867,6 +867,15 @@ const SortableSlideItem = ({
                 {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
                 {isCopied ? 'Copied!' : 'Copy'}
               </button>
+              {slide.originalScript && (
+                <button
+                  onClick={handleRevertScript}
+                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                  title="Revert to original script"
+                >
+                  <Undo2 className="w-3 h-3" /> Revert
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -877,15 +886,6 @@ const SortableSlideItem = ({
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
-              {slide.originalScript && (
-                <button
-                  onClick={handleRevertScript}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
-                  title="Revert to original script"
-                >
-                  <Undo2 className="w-3 h-3" /> Revert
-                </button>
-              )}
               {slide.selectionRanges && slide.selectionRanges.length > 0 && (
                 <button
                   onClick={handleClearHighlight}
