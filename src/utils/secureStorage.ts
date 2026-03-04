@@ -1,7 +1,7 @@
 // Replace this with a unique random string. 
 // Note: In client-side storage, this serves as obfuscation to prevent plain-text snooping.
 // For true cryptographic security, a backend or a user-provided master password is required.
-const SECRET_KEY = 'u8xsljugv6vbopxy8ade8smdk0oon3qb5aodi1raoo4r6pvcg44yt62mja0ecf0s';
+const SECRET_KEY = '';
 
 /**
  * Encrypts a string using XOR and Base64.
