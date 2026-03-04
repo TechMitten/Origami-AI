@@ -1348,6 +1348,18 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
   };
 
+  // Stop background music when switching away from the mixing tab
+  React.useEffect(() => {
+    if (activeTab !== 'mixing' && isMusicPlaying) {
+      if (musicAudioRef.current) {
+        musicAudioRef.current.pause();
+        musicAudioRef.current.currentTime = 0;
+      }
+      setIsMusicPlaying(false);
+      stopVisualizer();
+    }
+  }, [activeTab]);
+
   const drawVisualizer = () => {
     if (!analyserRef.current || !visualizerCanvasRef.current) return;
 
