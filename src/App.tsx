@@ -35,7 +35,7 @@ function MainApp() {
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.03 });
+  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.36 });
   const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -126,6 +126,12 @@ function MainApp() {
       if (state && state.slides.length > 0) {
         setSlides(state.slides);
       }
+
+      // Restore music settings
+      if (state?.musicSettings) {
+        setMusicSettings(state.musicSettings);
+      }
+
       setIsRestoring(false);
 
       // Check resource cache status
@@ -301,18 +307,18 @@ function MainApp() {
     if (isRestoring || slides.length === 0) return;
 
     const timeoutId = setTimeout(() => {
-      saveState(slides);
+      saveState(slides, musicSettings);
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [slides, isRestoring]);
+  }, [slides, isRestoring, musicSettings]);
 
   const handleStartOver = async () => {
     if (await showConfirm("Are you sure you want to start over? This will delete all current slides and progress.", { type: 'warning', title: 'Start Over', confirmText: 'Yes, Start Over' })) {
       await clearState();
       setSlides([]);
       setActiveTab('edit');
-      setMusicSettings({ volume: 0.03 }); // Reset music settings on start over
+      setMusicSettings({ volume: 0.36 }); // Reset music settings on start over
     }
   };
 
@@ -364,21 +370,27 @@ function MainApp() {
       // Handle Music
       if (globalSettings.music) {
         try {
-          const url = URL.createObjectURL(globalSettings.music.blob);
-          setMusicSettings({
-            url,
-            volume: globalSettings.music.volume,
-            title: globalSettings.music.fileName
-          });
+          const musicBlob = globalSettings.music.blob;
+          const musicTitle = globalSettings.music.fileName;
+
+          if (musicBlob) {
+            const url = URL.createObjectURL(musicBlob);
+            setMusicSettings({
+              url,
+              blob: musicBlob,
+              volume: globalSettings.music.volume,
+              title: musicTitle
+            });
+          }
         } catch (e) {
           console.error("Failed to create object URL for default music", e);
         }
       } else {
-        setMusicSettings({ volume: 0.03 });
+        setMusicSettings({ volume: 0.36 });
       }
     } else {
       // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
-      setMusicSettings({ volume: 0.03 });
+      setMusicSettings({ volume: 0.36 });
     }
 
     const initialSlides: SlideData[] = pages.map(page => ({
@@ -669,7 +681,7 @@ function MainApp() {
                       isTtsDisabled: s.isTtsDisabled,
                     }))}
                     musicUrl={musicSettings?.url}
-                    musicVolume={musicSettings?.volume || 0.03}
+                    musicVolume={musicSettings?.volume || 0.36}
                     ttsVolume={ttsVolume}
                   />
                 </div>

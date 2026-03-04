@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -26,6 +26,8 @@ import { useModal } from '../context/ModalContext';
 import { transformText } from '../services/aiService';
 import { isWebLLMLoaded } from '../services/webLlmService';
 import { Dropdown } from './Dropdown';
+import { MusicPickerModal } from './MusicPickerModal';
+import type { IncompetechCachedTrack } from '../types/music';
 
 export interface SlideData extends Partial<RenderedPage> {
   id: string;
@@ -66,6 +68,7 @@ function mergeRanges(ranges: { start: number; end: number }[]) {
 
 export interface MusicSettings {
   url?: string;
+  blob?: Blob;
   volume: number;
   loop?: boolean;
   title?: string;
@@ -921,6 +924,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
+  const [isPreviewTTSPlaying, setIsPreviewTTSPlaying] = React.useState(false);
+  const previewAudioRef = React.useRef<HTMLAudioElement | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [isBatchFixing, setIsBatchFixing] = React.useState(false);
   const batchGeneratingCancelledRef = React.useRef(false);
@@ -1151,6 +1156,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
 
+  // Music Picker State
+  const [showMusicPicker, setShowMusicPicker] = React.useState(false);
+  const [incompetechTrack, setIncompetechTrack] = React.useState<IncompetechCachedTrack | null>(null);
+
   const [findText, setFindText] = React.useState('');
   const [replaceText, setReplaceText] = React.useState('');
 
@@ -1220,8 +1229,22 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      onUpdateMusicSettings({ ...musicSettings, url, volume: musicSettings.volume || 0.03, title: file.name });
+      setIncompetechTrack(null); // Clear incompetech track when uploading
+      onUpdateMusicSettings({ ...musicSettings, url, blob: undefined, volume: musicSettings.volume || 0.36, title: file.name });
     }
+  };
+
+  const handleSelectIncompetechTrack = (track: IncompetechCachedTrack) => {
+    const url = URL.createObjectURL(track.blob);
+    setIncompetechTrack(track);
+    onUpdateMusicSettings({
+      ...musicSettings,
+      url,
+      blob: track.blob,
+      volume: musicSettings.volume || 0.36,
+      title: track.title
+    });
+    setShowMusicPicker(false);
   };
 
   const toggleMusicPlayback = () => {
@@ -1257,7 +1280,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   }, [musicSettings.loop]);
 
   const handleRemoveMusic = () => {
-    onUpdateMusicSettings({ ...musicSettings, url: undefined, title: undefined });
+    setIncompetechTrack(null); // Clear incompetech track
+    onUpdateMusicSettings({ ...musicSettings, url: undefined, blob: undefined, title: undefined });
     if (isMusicPlaying && musicAudioRef.current) {
       musicAudioRef.current.pause();
       setIsMusicPlaying(false);
@@ -1492,6 +1516,94 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   // Effect to sync local global settings changes back to parent/storage
 
+  // Effect to handle preview audio playback
+  React.useEffect(() => {
+    // Cleanup when preview closes
+    if (previewIndex === null) {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.currentTime = 0;
+        previewAudioRef.current = null;
+      }
+      setIsPreviewTTSPlaying(false);
+      return;
+    }
+
+    const slide = slides[previewIndex];
+    if (!slide?.audioUrl) {
+      setIsPreviewTTSPlaying(false);
+      return;
+    }
+
+    // Create or update audio element
+    if (!previewAudioRef.current) {
+      const audio = new Audio(slide.audioUrl);
+      audio.volume = ttsVolume || 1.0;
+      audio.onended = () => setIsPreviewTTSPlaying(false);
+      audio.onplay = () => setIsPreviewTTSPlaying(true);
+      audio.onpause = () => {
+        // Only update state if we didn't just finish playing
+        if (!audio.ended) setIsPreviewTTSPlaying(false);
+      };
+      previewAudioRef.current = audio;
+    } else if (previewAudioRef.current.src !== slide.audioUrl && !previewAudioRef.current.src.endsWith(slide.audioUrl)) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+      previewAudioRef.current.src = slide.audioUrl;
+      previewAudioRef.current.volume = ttsVolume || 1.0;
+    }
+
+    // Cleanup
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.currentTime = 0;
+      }
+    };
+  }, [previewIndex, slides]); // Remove ttsVolume and isPreviewTTSPlaying from dependencies
+
+  // Update volume when ttsVolume changes
+  React.useEffect(() => {
+    if (previewAudioRef.current && ttsVolume !== undefined) {
+      previewAudioRef.current.volume = ttsVolume;
+    }
+  }, [ttsVolume]);
+
+  // Cleanup audio on unmount
+  React.useEffect(() => {
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  const togglePreviewTTS = () => {
+    if (previewIndex === null || !slides[previewIndex]?.audioUrl) return;
+
+    const slide = slides[previewIndex];
+    let audio = previewAudioRef.current;
+
+    // Create audio element if it doesn't exist
+    if (!audio) {
+      audio = new Audio(slide.audioUrl);
+      audio.volume = ttsVolume || 1.0;
+      audio.onended = () => setIsPreviewTTSPlaying(false);
+      audio.onplay = () => setIsPreviewTTSPlaying(true);
+      audio.onpause = () => {
+        if (!audio.ended) setIsPreviewTTSPlaying(false);
+      };
+      previewAudioRef.current = audio;
+    }
+
+    // Toggle playback
+    if (audio.paused) {
+      audio.play().catch(console.error);
+    } else {
+      audio.pause();
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in relative">
@@ -1528,6 +1640,33 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
                   </div>
                 )}
+                {/* TTS Controls */}
+                <div className="flex items-center justify-center gap-3 mt-2">
+                  {slides[previewIndex].audioUrl ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePreviewTTS();
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-primary/20 hover:bg-branding-primary/30 border border-branding-primary/30 text-branding-primary font-bold text-xs transition-all hover:scale-105 active:scale-95"
+                    >
+                      {isPreviewTTSPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+                      {isPreviewTTSPlaying ? 'Pause TTS' : 'Play TTS'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onGenerateAudio(previewIndex);
+                      }}
+                      disabled={generatingSlides.has(previewIndex)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-accent/20 hover:bg-branding-accent/30 border border-branding-accent/30 text-branding-accent font-bold text-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {generatingSlides.has(previewIndex) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Speech className="w-3.5 h-3.5" />}
+                      {generatingSlides.has(previewIndex) ? 'Generating...' : 'Generate TTS'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="relative">
@@ -1581,6 +1720,33 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                   <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
                 </div>
               )}
+              {/* TTS Controls */}
+              <div className="flex items-center justify-center gap-3 mt-2">
+                {slides[previewIndex].audioUrl ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePreviewTTS();
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-primary/20 hover:bg-branding-primary/30 border border-branding-primary/30 text-branding-primary font-bold text-xs transition-all hover:scale-105 active:scale-95"
+                  >
+                    {isPreviewTTSPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+                    {isPreviewTTSPlaying ? 'Pause TTS' : 'Play TTS'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGenerateAudio(previewIndex);
+                    }}
+                    disabled={generatingSlides.has(previewIndex)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-accent/20 hover:bg-branding-accent/30 border border-branding-accent/30 text-branding-accent font-bold text-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {generatingSlides.has(previewIndex) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Speech className="w-3.5 h-3.5" />}
+                    {generatingSlides.has(previewIndex) ? 'Generating...' : 'Generate TTS'}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="relative">
@@ -1861,53 +2027,57 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         )}
                       </div>
 
-                      <div className="flex-1 flex flex-col justify-center">
+                      <div className="flex-1 flex flex-col justify-center space-y-6">
                         <input type="file" ref={fileInputRef} className="hidden" accept="audio/*" onChange={handleMusicUpload} />
 
+                        {/* Volume Control - ALWAYS VISIBLE */}
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center text-xs font-bold text-white/40 uppercase">
+                            <span>Music Volume</span>
+                            <span>{Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.001"
+                            value={Math.sqrt(musicSettings.volume || 0.36)}
+                            onChange={(e) => {
+                              const newVol = parseFloat(e.target.value);
+                              const squaredVol = newVol * newVol;
+                              onUpdateMusicSettings({ ...musicSettings, volume: squaredVol });
+                              if (musicAudioRef.current) musicAudioRef.current.volume = squaredVol;
+                            }}
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary"
+                          />
+                        </div>
+
+                        {/* Music Selection or Track Info */}
                         {!musicSettings.url ? (
-                          <div className="space-y-6">
-                            <button onClick={() => fileInputRef.current?.click()} className="w-full h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-branding-primary/10 hover:border-branding-primary/30 hover:text-white text-white/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3">
+                          <div className="space-y-4">
+                            <button onClick={() => setShowMusicPicker(true)} className="w-full h-16 rounded-2xl bg-branding-primary/10 border border-branding-primary/30 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3">
+                              <Library className="w-5 h-5" /> Browse Music Library
+                            </button>
+                            <button onClick={() => fileInputRef.current?.click()} className="w-full h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white text-white/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3">
                               <Upload className="w-5 h-5" /> Upload Custom Track
                             </button>
                           </div>
                         ) : (
-                          <div className="space-y-8">
+                          <div className="space-y-6">
                             <div className="p-8 rounded-2xl bg-black/20 border border-white/5 text-center">
                               <Music className="w-12 h-12 text-white/20 mx-auto mb-4" />
                               <p className="text-lg font-medium text-white/90 truncate">{musicSettings.title || 'Unknown Track'}</p>
                             </div>
 
-                            <div className="space-y-6">
-                              <div className="flex items-center gap-6">
-                                <button onClick={toggleMusicPlayback} className="w-14 h-14 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0">
-                                  {isMusicPlaying ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
-                                </button>
-                                <div className="flex-1 space-y-3">
-                                  <div className="flex justify-between items-center text-xs font-bold text-white/40 uppercase">
-                                    <span>Volume</span>
-                                    <span>{Math.round(Math.sqrt(musicSettings.volume) * 100)}%</span>
-                                  </div>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.001"
-                                    value={Math.sqrt(musicSettings.volume)}
-                                    onChange={(e) => {
-                                      const newVol = parseFloat(e.target.value);
-                                      const squaredVol = newVol * newVol;
-                                      onUpdateMusicSettings({ ...musicSettings, volume: squaredVol });
-                                      if (musicAudioRef.current) musicAudioRef.current.volume = squaredVol;
-                                    }}
-                                    className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-branding-primary"
-                                  />
-                                </div>
-                              </div>
+                            <div className="flex items-center gap-6">
+                              <button onClick={toggleMusicPlayback} className="w-14 h-14 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0">
+                                {isMusicPlaying ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                              </button>
                               <button
                                 onClick={() => onUpdateMusicSettings({ ...musicSettings, loop: !(musicSettings.loop ?? true) })}
-                                className={`w-full py-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${(musicSettings.loop ?? true) ? 'bg-branding-primary/10 text-branding-primary' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                                className={`flex-1 py-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${(musicSettings.loop ?? true) ? 'bg-branding-primary/10 text-branding-primary' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
                               >
-                                <Repeat className="w-4 h-4" /> Loop Track
+                                <Repeat className="w-4 h-4" /> {(musicSettings.loop ?? true) ? 'Looping' : 'Not Looping'}
                               </button>
                             </div>
                           </div>
@@ -2131,6 +2301,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           </div>
         </SortableContext>
       </DndContext>
+
+      {/* Music Picker Modal */}
+      <MusicPickerModal
+        isOpen={showMusicPicker}
+        onClose={() => setShowMusicPicker(false)}
+        onSelectTrack={handleSelectIncompetechTrack}
+        currentTrack={incompetechTrack}
+      />
     </div>
   );
 };

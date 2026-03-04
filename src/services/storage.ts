@@ -7,6 +7,12 @@ const DB_VERSION = 1;
 export interface AppState {
   slides: SlideData[];
   lastSaved: number;
+  musicSettings?: {
+    url?: string;
+    blob?: Blob;
+    volume: number;
+    title?: string;
+  };
 }
 
 interface StoredSlideData extends Omit<SlideData, 'dataUrl' | 'mediaUrl' | 'audioUrl'> {
@@ -15,9 +21,17 @@ interface StoredSlideData extends Omit<SlideData, 'dataUrl' | 'mediaUrl' | 'audi
   audioUrl?: string | Blob;
 }
 
+interface StoredMusicSettings {
+  url?: string | Blob;
+  blob?: Blob;
+  volume: number;
+  title?: string;
+}
+
 interface StoredAppState {
   slides: StoredSlideData[];
   lastSaved: number;
+  musicSettings?: StoredMusicSettings;
 }
 
 export interface GlobalSettings {
@@ -26,9 +40,9 @@ export interface GlobalSettings {
   delay: number;
   transition: 'fade' | 'slide' | 'zoom' | 'none';
   music?: {
-    blob: Blob;
+    blob?: Blob;
     volume: number;
-    fileName: string;
+    fileName?: string;
   };
   ttsQuantization?: 'q8' | 'q4';
   useLocalTTS?: boolean;
@@ -73,7 +87,7 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
-export const saveState = async (slides: SlideData[]): Promise<void> => {
+export const saveState = async (slides: SlideData[], musicSettings?: { url?: string; blob?: Blob; volume: number; title?: string }): Promise<void> => {
   console.log(`[Storage] Saving state with ${slides.length} slides...`);
   try {
     // Process slides to convert Blob URLs to Blobs BEFORE opening transaction
@@ -100,22 +114,47 @@ export const saveState = async (slides: SlideData[]): Promise<void> => {
       newSlide.dataUrl = await processUrl(slide.dataUrl, 'dataUrl');
       newSlide.mediaUrl = await processUrl(slide.mediaUrl, 'mediaUrl');
       newSlide.audioUrl = await processUrl(slide.audioUrl, 'audioUrl');
-      
+
       return newSlide;
     }));
+
+    // Process musicSettings blob URL to Blob
+    let processedMusicSettings: StoredMusicSettings | undefined = undefined;
+    if (musicSettings) {
+      processedMusicSettings = {
+        volume: musicSettings.volume,
+        title: musicSettings.title,
+      };
+
+      // Convert blob URL to Blob for storage
+      if (musicSettings.url && musicSettings.url.startsWith('blob:')) {
+        try {
+          const resp = await fetch(musicSettings.url);
+          if (resp.ok) {
+            processedMusicSettings.blob = await resp.blob();
+            console.log("[Storage] Background music blob saved");
+          }
+        } catch (e) {
+          console.error("[Storage] Failed to fetch music blob for storage:", e);
+        }
+      } else if (musicSettings.blob) {
+        processedMusicSettings.blob = musicSettings.blob;
+      }
+    }
 
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      
+
       const state: StoredAppState = {
           slides: processedSlides,
           lastSaved: Date.now(),
+          musicSettings: processedMusicSettings,
       };
-      
+
       const request = store.put(state, 'current');
-  
+
       request.onerror = () => {
         console.error("[Storage] Failed to put state:", request.error);
         reject(request.error);
@@ -138,7 +177,7 @@ export const loadState = async (): Promise<AppState | null> => {
       const transaction = db.transaction(STORE_NAME, 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get('current');
-  
+
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
           if (!request.result) {
@@ -146,13 +185,13 @@ export const loadState = async (): Promise<AppState | null> => {
               resolve(null);
               return;
           }
-          
+
           const state = request.result as StoredAppState;
           console.log(`[Storage] Loaded state with ${state.slides.length} slides from ${new Date(state.lastSaved).toISOString()}`);
-          
+
           // Hydrate blobs back to URLs
           const hydratedSlides = state.slides.map((slide) => {
-              const newSlide: SlideData = { 
+              const newSlide: SlideData = {
                   ...slide,
                   dataUrl: slide.dataUrl instanceof Blob ? URL.createObjectURL(slide.dataUrl) : slide.dataUrl,
                   mediaUrl: slide.mediaUrl instanceof Blob ? URL.createObjectURL(slide.mediaUrl) : slide.mediaUrl,
@@ -161,8 +200,23 @@ export const loadState = async (): Promise<AppState | null> => {
 
               return newSlide;
           });
-          
-          resolve({ ...state, slides: hydratedSlides });
+
+          // Hydrate music settings
+          let hydratedMusicSettings: { url?: string; blob?: Blob; volume: number; title?: string } | undefined = undefined;
+          if (state.musicSettings) {
+            hydratedMusicSettings = {
+              volume: state.musicSettings.volume,
+              title: state.musicSettings.title,
+            };
+
+            if (state.musicSettings.blob) {
+              hydratedMusicSettings.url = URL.createObjectURL(state.musicSettings.blob);
+              hydratedMusicSettings.blob = state.musicSettings.blob;
+              console.log("[Storage] Background music restored");
+            }
+          }
+
+          resolve({ ...state, slides: hydratedSlides, musicSettings: hydratedMusicSettings });
       };
     });
   } catch (err) {

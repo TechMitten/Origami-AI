@@ -15,6 +15,7 @@ interface Slide {
 
 interface MusicSettings {
   url?: string;
+  blob?: Blob;
   volume: number;
   loop?: boolean;
 }
@@ -337,15 +338,25 @@ export class BrowserVideoRenderer {
 
       // Background Music
       let finalAudioMap = '[aout_speech]';
-      if (musicSettings?.url) {
+      if (musicSettings?.url || musicSettings?.blob) {
           const musicFname = 'bg_music.mp3';
-          await ffmpeg.writeFile(musicFname, await fetchFile(musicSettings.url));
+
+          // Fetch music from URL or Blob
+          if (musicSettings.blob) {
+            // Write blob directly to FFmpeg
+            const arrayBuffer = await musicSettings.blob.arrayBuffer();
+            await ffmpeg.writeFile(musicFname, new Uint8Array(arrayBuffer));
+          } else if (musicSettings.url) {
+            // Fetch from URL
+            await ffmpeg.writeFile(musicFname, await fetchFile(musicSettings.url));
+          }
+
           cleanupFiles.push(musicFname);
 
           // Add music input
           inputArgs.push('-stream_loop', '-1', '-i', musicFname);
           const musicIdx = currentInputIdx++;
-          
+
           audioFilterParts.push(`[aout_speech]volume=${ttsVolume}[speech_vol]`);
           audioFilterParts.push(`[${musicIdx}:a]volume=${musicSettings.volume}[music_vol]`);
           audioFilterParts.push(`[speech_vol][music_vol]amix=inputs=2:duration=first:dropout_transition=0.5[aout_mixed]`);
