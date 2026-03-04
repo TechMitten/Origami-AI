@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search, Music, Play, Pause, Download, Check, Filter } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -13,7 +14,6 @@ import {
   getMusicStreamUrl,
   downloadTrack,
   formatDuration,
-  type DownloadProgress,
 } from '../services/incompetechService';
 import type {
   IncompetechTrackWithDuration,
@@ -199,8 +199,8 @@ export const MusicPickerModal: React.FC<MusicPickerModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -208,7 +208,7 @@ export const MusicPickerModal: React.FC<MusicPickerModalProps> = ({
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -440,6 +440,7 @@ export const MusicPickerModal: React.FC<MusicPickerModalProps> = ({
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
