@@ -1155,6 +1155,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
+  const [musicCurrentTime, setMusicCurrentTime] = React.useState(0);
+  const [musicDuration, setMusicDuration] = React.useState(0);
+  const [isMusicDragging, setIsMusicDragging] = React.useState(false);
 
   // Audio Visualizer State
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -1264,6 +1267,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       audio.volume = musicSettings.volume;
       audio.loop = musicSettings.loop ?? true;
       audio.crossOrigin = "anonymous";
+      audio.onloadedmetadata = () => {
+        setMusicDuration(audio.duration);
+        setMusicCurrentTime(audio.currentTime);
+      };
       audio.onended = () => {
         setIsMusicPlaying(false);
         stopVisualizer();
@@ -1418,6 +1425,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       if (musicAudioRef.current) {
         musicAudioRef.current.pause();
       }
+      // Reset playback state when URL changes
+      setMusicCurrentTime(0);
+      setMusicDuration(0);
+      setIsMusicPlaying(false);
     }
   }, [musicSettings.url]);
 
@@ -1426,6 +1437,65 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       musicAudioRef.current.loop = musicSettings.loop ?? true;
     }
   }, [musicSettings.loop]);
+
+  // Format time for display (seconds to mm:ss)
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Music seek handler
+  const handleMusicSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    setMusicCurrentTime(newTime);
+    if (musicAudioRef.current) {
+      musicAudioRef.current.currentTime = newTime;
+    }
+  };
+
+  const handleMusicSeekStart = () => {
+    setIsMusicDragging(true);
+  };
+
+  const handleMusicSeekEnd = () => {
+    setIsMusicDragging(false);
+  };
+
+  // Update music playback time
+  React.useEffect(() => {
+    if (!musicAudioRef.current || !isMusicPlaying) {
+      return;
+    }
+
+    const audio = musicAudioRef.current;
+
+    // Set up timeupdate listener
+    const handleTimeUpdate = () => {
+      if (!isMusicDragging) {
+        setMusicCurrentTime(audio.currentTime);
+      }
+    };
+
+    // Set up loadedmetadata listener to get duration
+    const handleLoadedMetadata = () => {
+      setMusicDuration(audio.duration);
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+    // Set initial duration if already loaded
+    if (audio.readyState >= 1) {
+      setMusicDuration(audio.duration);
+      setMusicCurrentTime(audio.currentTime);
+    }
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [isMusicPlaying, isMusicDragging]);
 
   const handleRemoveMusic = () => {
     setIncompetechTrack(null); // Clear incompetech track
@@ -2200,7 +2270,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             style={{
                               background: `linear-gradient(to right, hsl(var(--branding-primary)) 0%, hsl(var(--branding-primary)) ${Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%, rgba(255,255,255,0.1) ${Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%, rgba(255,255,255,0.1) 100%)`
                             }}
-                            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-branding-primary [&::-webkit-slider-thumb]:shadow-lg"
+                            className="w-full h-2 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-branding-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-runnable-track]:w-full [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:border [&::-webkit-slider-runnable-track]:border-white/20 [&::-moz-range-track]:w-full [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:border [&::-moz-range-track]:border-white/20"
                           />
                         </div>
 
@@ -2233,6 +2303,32 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                                 <p className="text-lg font-medium text-white/90 truncate">{musicSettings.title || 'Unknown Track'}</p>
                               </div>
                             </div>
+
+                            {/* Seek Slider */}
+                            {musicDuration > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center text-xs font-bold text-white/40 uppercase">
+                                  <span>Progress</span>
+                                  <span>{formatTime(musicCurrentTime)} / {formatTime(musicDuration)}</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max={musicDuration || 1}
+                                  step="0.1"
+                                  value={musicCurrentTime}
+                                  onChange={handleMusicSeek}
+                                  onMouseDown={handleMusicSeekStart}
+                                  onMouseUp={handleMusicSeekEnd}
+                                  onTouchStart={handleMusicSeekStart}
+                                  onTouchEnd={handleMusicSeekEnd}
+                                  style={{
+                                    background: `linear-gradient(to right, hsl(var(--branding-primary)) 0%, hsl(var(--branding-primary)) ${((musicCurrentTime / (musicDuration || 1)) * 100)}%, rgba(255,255,255,0.1) ${((musicCurrentTime / (musicDuration || 1)) * 100)}%, rgba(255,255,255,0.1) 100%)`
+                                  }}
+                                  className="w-full h-2 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-branding-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-runnable-track]:w-full [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:border [&::-webkit-slider-runnable-track]:border-white/20 [&::-moz-range-track]:w-full [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:border [&::-moz-range-track]:border-white/20"
+                                />
+                              </div>
+                            )}
 
                             <div className="flex items-center gap-6">
                               <button onClick={toggleMusicPlayback} className="w-14 h-14 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0">
