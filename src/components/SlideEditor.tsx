@@ -757,11 +757,11 @@ const SortableSlideItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300"
+      className="group relative flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-5 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300"
     >
       {/* Drag Handle */}
       <div
-        className="absolute left-1/2 -top-3 sm:left-2 sm:top-1/2 -translate-x-1/2 sm:translate-x-0 sm:-translate-y-1/2 p-1.5 sm:p-2 cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none bg-[#18181b] sm:bg-transparent rounded-full border border-white/10 sm:border-transparent"
+        className="absolute left-1/2 -top-3 sm:left-0 sm:top-1/2 -translate-x-1/2 sm:translate-x-0 sm:-translate-y-1/2 p-1.5 sm:p-1 cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none bg-[#18181b] sm:bg-transparent rounded-full border border-white/10 sm:border-transparent"
         {...attributes}
         {...listeners}
       >
@@ -770,7 +770,7 @@ const SortableSlideItem = ({
 
       {/* Slide Preview */}
       {/* Slide Preview Column */}
-      <div className="w-full sm:w-1/3 sm:ml-6 flex flex-col gap-3 mt-4 sm:mt-0 justify-center">
+      <div className="w-full sm:w-[45%] sm:ml-2 flex flex-col gap-3 mt-4 sm:mt-0 justify-center">
         {/* Enhanced slide number header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -2114,52 +2114,56 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               </div>
             </button>
 
-            <div className="relative flex flex-col items-center justify-center max-w-full max-h-full gap-4" onClick={(e) => e.stopPropagation()}>
-              {/* Slide title and number display */}
-              <div className="text-center space-y-2">
-                <div className="flex items-baseline justify-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
-                  <span className="text-3xl font-bold text-branding-primary">{previewIndex + 1}</span>
-                  <span className="text-sm font-medium text-white/40">/ {slides.length}</span>
+            <div className="relative flex flex-col w-full h-[calc(100dvh-2rem)] sm:h-[calc(100dvh-4rem)] gap-4 pt-10 pb-2" onClick={(e) => e.stopPropagation()}>
+              {/* Unified Slide Panel */}
+              <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 shrink-0 z-10 bg-[#121212]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl">
+                {/* Header Row: Slide Number & TTS Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 gap-4 sm:gap-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black text-branding-primary drop-shadow-sm">{previewIndex + 1}</span>
+                    <span className="text-xs font-bold text-white/30 uppercase tracking-widest">of {slides.length}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {slides[previewIndex].audioUrl ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePreviewTTS();
+                        }}
+                        className="flex items-center justify-center flex-1 sm:flex-none gap-2 px-4 py-2 rounded-xl bg-branding-primary/10 hover:bg-branding-primary/20 border border-branding-primary/20 text-branding-primary font-bold text-sm transition-all hover:scale-105 active:scale-95 shadow-lg shadow-branding-primary/5"
+                      >
+                        {isPreviewTTSPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+                        {isPreviewTTSPlaying ? 'Pause TTS' : 'Play TTS'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onGenerateAudio(previewIndex);
+                        }}
+                        disabled={generatingSlides.has(previewIndex)}
+                        className="flex items-center justify-center flex-1 sm:flex-none gap-2 px-4 py-2 rounded-xl bg-branding-accent/10 hover:bg-branding-accent/20 border border-branding-accent/20 text-branding-accent font-bold text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-branding-accent/5"
+                      >
+                        {generatingSlides.has(previewIndex) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Speech className="w-4 h-4" />}
+                        {generatingSlides.has(previewIndex) ? 'Generating...' : 'Generate TTS'}
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Script Content */}
                 {slides[previewIndex].script.trim() && (
-                  <div className="text-sm text-white/70 w-full max-w-3xl mx-auto max-h-32 overflow-y-auto px-6 py-3 bg-white/5 rounded-lg border border-white/10">
+                  <div className="text-sm md:text-base text-white/80 w-full max-h-[25dvh] overflow-y-auto pr-2 font-medium leading-relaxed text-left [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
                     <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
                   </div>
                 )}
-                {/* TTS Controls */}
-                <div className="flex items-center justify-center gap-3 mt-2">
-                  {slides[previewIndex].audioUrl ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        togglePreviewTTS();
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-primary/20 hover:bg-branding-primary/30 border border-branding-primary/30 text-branding-primary font-bold text-xs transition-all hover:scale-105 active:scale-95"
-                    >
-                      {isPreviewTTSPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
-                      {isPreviewTTSPlaying ? 'Pause TTS' : 'Play TTS'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onGenerateAudio(previewIndex);
-                      }}
-                      disabled={generatingSlides.has(previewIndex)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-accent/20 hover:bg-branding-accent/30 border border-branding-accent/30 text-branding-accent font-bold text-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {generatingSlides.has(previewIndex) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Speech className="w-3.5 h-3.5" />}
-                      {generatingSlides.has(previewIndex) ? 'Generating...' : 'Generate TTS'}
-                    </button>
-                  )}
-                </div>
               </div>
 
-              <div className="relative">
+              <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
                 {slides[previewIndex].type === 'video' ? (
                   <video
                     src={slides[previewIndex].mediaUrl}
-                    className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
                     controls
                     autoPlay
                   />
@@ -2167,7 +2171,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                   <img
                     src={slides[previewIndex].dataUrl}
                     alt={`Slide ${previewIndex + 1}`}
-                    className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
                   />
                 )}
               </div>
@@ -2194,52 +2198,56 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             </div>
           </button>
 
-          <div className="relative flex flex-col items-center justify-center max-w-full max-h-full gap-4" onClick={(e) => e.stopPropagation()}>
-            {/* Slide title and number display */}
-            <div className="text-center space-y-2">
-              <div className="flex items-baseline justify-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
-                <span className="text-3xl font-bold text-branding-primary">{previewIndex + 1}</span>
-                <span className="text-sm font-medium text-white/40">/ {slides.length}</span>
+          <div className="relative flex flex-col w-full min-h-[50vh] max-h-[85dvh] gap-4" onClick={(e) => e.stopPropagation()}>
+            {/* Unified Slide Panel */}
+            <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 shrink-0 z-10 bg-[#121212]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl">
+              {/* Header Row: Slide Number & TTS Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 gap-4 sm:gap-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-branding-primary drop-shadow-sm">{previewIndex + 1}</span>
+                  <span className="text-xs font-bold text-white/30 uppercase tracking-widest">of {slides.length}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {slides[previewIndex].audioUrl ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePreviewTTS();
+                      }}
+                      className="flex items-center justify-center flex-1 sm:flex-none gap-2 px-4 py-2 rounded-xl bg-branding-primary/10 hover:bg-branding-primary/20 border border-branding-primary/20 text-branding-primary font-bold text-sm transition-all hover:scale-105 active:scale-95 shadow-lg shadow-branding-primary/5"
+                    >
+                      {isPreviewTTSPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+                      {isPreviewTTSPlaying ? 'Pause TTS' : 'Play TTS'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onGenerateAudio(previewIndex);
+                      }}
+                      disabled={generatingSlides.has(previewIndex)}
+                      className="flex items-center justify-center flex-1 sm:flex-none gap-2 px-4 py-2 rounded-xl bg-branding-accent/10 hover:bg-branding-accent/20 border border-branding-accent/20 text-branding-accent font-bold text-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-branding-accent/5"
+                    >
+                      {generatingSlides.has(previewIndex) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Speech className="w-4 h-4" />}
+                      {generatingSlides.has(previewIndex) ? 'Generating...' : 'Generate TTS'}
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Script Content */}
               {slides[previewIndex].script.trim() && (
-                <div className="text-sm text-white/70 w-full max-w-3xl mx-auto max-h-32 overflow-y-auto px-6 py-3 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-sm md:text-base text-white/80 w-full max-h-[25dvh] overflow-y-auto pr-2 font-medium leading-relaxed text-left [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
                   <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
                 </div>
               )}
-              {/* TTS Controls */}
-              <div className="flex items-center justify-center gap-3 mt-2">
-                {slides[previewIndex].audioUrl ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePreviewTTS();
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-primary/20 hover:bg-branding-primary/30 border border-branding-primary/30 text-branding-primary font-bold text-xs transition-all hover:scale-105 active:scale-95"
-                  >
-                    {isPreviewTTSPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
-                    {isPreviewTTSPlaying ? 'Pause TTS' : 'Play TTS'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onGenerateAudio(previewIndex);
-                    }}
-                    disabled={generatingSlides.has(previewIndex)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-branding-accent/20 hover:bg-branding-accent/30 border border-branding-accent/30 text-branding-accent font-bold text-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {generatingSlides.has(previewIndex) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Speech className="w-3.5 h-3.5" />}
-                    {generatingSlides.has(previewIndex) ? 'Generating...' : 'Generate TTS'}
-                  </button>
-                )}
-              </div>
             </div>
 
-            <div className="relative">
+            <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
               {slides[previewIndex].type === 'video' ? (
                 <video
                   src={slides[previewIndex].mediaUrl}
-                  className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
                   controls
                   autoPlay
                 />
@@ -2247,7 +2255,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 <img
                   src={slides[previewIndex].dataUrl}
                   alt={`Slide ${previewIndex + 1}`}
-                  className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl shadow-black ring-1 ring-white/10"
+                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
                 />
               )}
             </div>
