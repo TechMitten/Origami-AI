@@ -8,6 +8,59 @@ interface LLMSettings {
   webLlmModel?: string;
 }
 
+/**
+ * Expands common TTS-hostile symbols into their spoken equivalents
+ */
+const expandTTSSymbols = (text: string): string => {
+  const replacements: [RegExp, string][] = [
+    [/\s\+\s/g, ' plus '],           // + → plus
+    [/\s&\s/g, ' and '],             // & → and
+    [/\s@\s/g, ' at '],              // @ → at
+    [/\s%\s/g, ' percent '],         // % → percent
+    [/\$\s?/g, ' dollars '],         // $ → dollars
+    [/=/g, ' equals '],              // = → equals
+  ];
+
+  let result = text;
+  for (const [pattern, replacement] of replacements) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+};
+
+/**
+ * Splits text into sentences, handling fragments without punctuation
+ */
+const splitIntoSentences = (text: string): string[] => {
+  // Common abbreviations that should NOT end a sentence
+  const abbreviations = /\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|Ave|Blvd|Rd|U\.S\.A|U\.S|U\.K|E\.U|etc|vs|e\.g|i\.e)\.?$/i;
+
+  // First, try to split on existing punctuation
+  const withPunctuation: string[] = [];
+  const withoutPunctuation: string[] = [];
+
+  text.split(/(?<=[.!?])\s+/).forEach(chunk => {
+    if (/[.!?]$/.test(chunk)) {
+      withPunctuation.push(chunk);
+    } else if (chunk.trim()) {
+      withoutPunctuation.push(chunk);
+    }
+  });
+
+  // For chunks without punctuation, apply heuristics
+  const processed = withoutPunctuation.flatMap(chunk => {
+    // Split on capital letters that might indicate new sentences
+    // (e.g., "Title Here Subtitle Here" → "Title Here", "Subtitle Here")
+    const parts = chunk.split(/(?<=[a-z])\s+(?=[A-Z])/);
+
+    // If that didn't split anything, keep the chunk as-is
+    if (parts.length === 1) return [chunk];
+
+    return parts.map(p => p.trim()).filter(Boolean);
+  });
+
+  return [...withPunctuation, ...processed].filter(Boolean);
+};
 
 const cleanLLMResponse = (text: string): string => {
   let cleaned = text.trim();
@@ -54,24 +107,31 @@ const cleanLLMResponse = (text: string): string => {
     cleaned = cleaned.substring(1, cleaned.length - 1);
   }
 
-  // Enforce terminal punctuation on every sentence.
-  // Split on sentence boundaries (. ! ?), keeping the delimiter, then re-join.
-  // Any non-empty chunk that doesn't end with .  !  ? gets a period appended.
-  // This catches titles, short bullet-point sentences, and other cases where
-  // the AI (especially smaller WebLLM models) forgets the terminal period.
-  cleaned = cleaned
-    .split(/(?<=[.!?])\s+/)
-    .map(sentence => {
-      const s = sentence.trim();
-      if (!s) return '';
-      // If the sentence already ends with terminal punctuation, leave it alone
-      if (/[.!?]$/.test(s)) return s;
-      return s + '.';
-    })
-    .filter(Boolean)
-    .join(' ');
+  // NEW: Expand TTS-hostile symbols
+  cleaned = expandTTSSymbols(cleaned);
 
-  return cleaned.trim();
+  // NEW: Enhanced sentence boundary detection and punctuation
+  const sentences = splitIntoSentences(cleaned);
+
+  // Apply punctuation and capitalization
+  const finalSentences = sentences.map(sentence => {
+    let s = sentence.trim();
+    if (!s) return '';
+
+    // Ensure first letter is capitalized
+    if (s[0] && s[0] === s[0].toLowerCase()) {
+      s = s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    // Add period if no terminal punctuation
+    if (!/[.!?]$/.test(s)) {
+      s = s + '.';
+    }
+
+    return s;
+  }).filter(Boolean);
+
+  return finalSentences.join(' ');
 };
 
 /* Shared System Prompt for both WebLLM and Remote API */
