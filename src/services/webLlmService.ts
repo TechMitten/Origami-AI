@@ -68,21 +68,22 @@ const patchWebGPU = () => {
 
                 // Monkey-patch max storage bound to prevent FATAL memory allocation crashes.
                 // TVM requests ~37.7MB allocations for f32 KV caching, exceeding the default 28MB buffer limits.
-                const targetMemoryLimit = 256 * 1024 * 1024; // Request 256MB buffer allowance
+                // TEMPORARILY DISABLED for performance testing - this may be causing 60-second slowdowns
+                // const targetMemoryLimit = 256 * 1024 * 1024; // Request 256MB buffer allowance
 
-                if (adapter.limits?.maxStorageBufferBindingSize) {
-                    enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize = Math.max(
-                        enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize || 0,
-                        Math.min(adapter.limits.maxStorageBufferBindingSize, targetMemoryLimit)
-                    );
-                }
+                // if (adapter.limits?.maxStorageBufferBindingSize) {
+                //     enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize = Math.max(
+                //         enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize || 0,
+                //         Math.min(adapter.limits.maxStorageBufferBindingSize, targetMemoryLimit)
+                //     );
+                // }
 
-                if (adapter.limits?.maxBufferSize) {
-                    enhancedDescriptor.requiredLimits.maxBufferSize = Math.max(
-                        enhancedDescriptor.requiredLimits.maxBufferSize || 0,
-                        Math.min(adapter.limits.maxBufferSize, targetMemoryLimit)
-                    );
-                }
+                // if (adapter.limits?.maxBufferSize) {
+                //     enhancedDescriptor.requiredLimits.maxBufferSize = Math.max(
+                //         enhancedDescriptor.requiredLimits.maxBufferSize || 0,
+                //         Math.min(adapter.limits.maxBufferSize, targetMemoryLimit)
+                //     );
+                // }
 
                 return originalRequestDevice(enhancedDescriptor);
             };

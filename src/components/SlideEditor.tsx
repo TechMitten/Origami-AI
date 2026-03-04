@@ -470,7 +470,12 @@ const SortableSlideItem = ({
     const useVision = globalSettings?.useVisionForScripts ?? false;
 
     setIsTransforming(true);
+
+    // Yield to event loop to prevent React state batching from blocking WebLLM
+    await new Promise(resolve => setTimeout(resolve, 0));
+
     try {
+      console.log('[AI Fix] Starting transformation for slide', index);
       const transformed = await transformTextWithVision({
         apiKey: apiKey || '',
         baseUrl,
