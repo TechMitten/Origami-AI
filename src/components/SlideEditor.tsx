@@ -640,13 +640,28 @@ const SortableSlideItem = ({
 
     try {
       console.log('[AI Fix] Starting transformation for slide', index);
-      const transformed = await transformText({
+      let transformed = await transformText({
         apiKey: apiKey || '',
         baseUrl,
         model,
         useWebLLM,
         webLlmModel
       }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+
+      // Sometimes small models (like 2B) return the exact same text or fail to elaborate.
+      // Automatically retry once if the text is identical (ignoring whitespace/punctuation).
+      const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      if (normalize(transformed) === normalize(slide.script)) {
+        console.log('[AI Fix] Output was identical to input, retrying once automatically...');
+        transformed = await transformText({
+          apiKey: apiKey || '',
+          baseUrl,
+          model,
+          useWebLLM,
+          webLlmModel
+        }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+      }
+
       onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
     } catch (error) {
       console.error("[SlideEditor] Transformation Error:", error);
@@ -2108,7 +2123,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               className="absolute top-4 right-4 z-50 p-2 text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
               title="Close Preview"
             >
-              <span className="uppercase text-xs font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Close</span>
               <div className="transition-colors">
                 <X className="w-8 h-8 drop-shadow-md" />
               </div>
@@ -2192,7 +2206,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             className="absolute top-10 right-10 z-50 p-2 text-white/60 hover:text-white transition-colors flex items-center gap-2 group"
             title="Close Preview"
           >
-            <span className="uppercase text-xs font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Close</span>
             <div className="transition-colors">
               <X className="w-8 h-8 drop-shadow-md" />
             </div>
