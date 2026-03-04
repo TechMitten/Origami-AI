@@ -5,7 +5,6 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import hpp from 'hpp';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
@@ -32,13 +31,6 @@ async function createServer() {
   }));
   app.use(compression());
   app.use(hpp());
-
-  const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 100,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-  });
 
 
   app.use(cors({
@@ -154,8 +146,6 @@ async function createServer() {
 
       // Serve built app files
       app.use(express.static(distDir));
-
-      app.use(limiter);
 
       app.use((req, res, next) => {
           if (req.originalUrl.startsWith('/api')) {
