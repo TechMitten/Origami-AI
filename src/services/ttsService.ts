@@ -13,13 +13,46 @@ export interface Voice {
 }
 
 export const DEFAULT_VOICES: Voice[] = [
+  // American Female
   { id: 'af_heart', name: 'Heart (Default)' },
+  { id: 'af_alloy', name: 'Alloy' },
+  { id: 'af_aoede', name: 'Aoede' },
   { id: 'af_bella', name: 'Bella' },
+  { id: 'af_jessica', name: 'Jessica' },
+  { id: 'af_kore', name: 'Kore' },
   { id: 'af_nicole', name: 'Nicole' },
+  { id: 'af_nova', name: 'Nova' },
+  { id: 'af_river', name: 'River' },
+  { id: 'af_sarah', name: 'Sarah' },
+  { id: 'af_sky', name: 'Sky' },
+  // American Male
   { id: 'am_adam', name: 'Adam' },
+  { id: 'am_echo', name: 'Echo' },
+  { id: 'am_eric', name: 'Eric' },
+  { id: 'am_fenrir', name: 'Fenrir' },
+  { id: 'am_liam', name: 'Liam' },
   { id: 'am_michael', name: 'Michael' },
+  { id: 'am_onyx', name: 'Onyx' },
+  { id: 'am_puck', name: 'Puck' },
+  { id: 'am_santa', name: 'Santa' },
+  // British Female
+  { id: 'bf_alice', name: 'Alice (British)' },
   { id: 'bf_emma', name: 'Emma (British)' },
+  { id: 'bf_isabella', name: 'Isabella (British)' },
+  { id: 'bf_lily', name: 'Lily (British)' },
+  // British Male
+  { id: 'bm_daniel', name: 'Daniel (British)' },
+  { id: 'bm_fable', name: 'Fable (British)' },
   { id: 'bm_george', name: 'George (British)' },
+  { id: 'bm_lewis', name: 'Lewis (British)' },
+  // French
+  { id: 'ff_siwis', name: 'Siwis (French)' },
+  // High-pitched Female
+  { id: 'hf_alpha', name: 'HF Alpha (High Pitch)' },
+  { id: 'hf_beta', name: 'HF Beta (High Pitch)' },
+  // High-pitched Male
+  { id: 'hm_omega', name: 'HM Omega (High Pitch)' },
+  { id: 'hm_psi', name: 'HM Psi (High Pitch)' },
 ];
 
 export const AVAILABLE_VOICES = DEFAULT_VOICES;

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Maximize2, Timer } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Maximize2, Timer, Loader2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -130,6 +130,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
 
   const [availableModels, setAvailableModels] = useState<{ id: string, name: string }[]>([]);
@@ -373,14 +374,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
 
     try {
+      setIsGeneratingPreview(true);
       setIsPreviewPlaying(true);
-      const text = "Hi there! This is a sample of how I sound. I hope you like it!";
+      const text = "Hello! This is a sample of how I sound. I hope you enjoy listening to my voice. Thank you for choosing me!";
 
       const audioUrl = await generateTTS(text, {
         voice: voice,
         speed: 1.0,
         pitch: 1.0
       });
+
+      setIsGeneratingPreview(false);
 
       const audio = new Audio(audioUrl);
       audio.onended = () => {
@@ -397,6 +401,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       await audio.play();
     } catch (e) {
       console.error("Preview failed", e);
+      setIsGeneratingPreview(false);
       setIsPreviewPlaying(false);
       showAlert("Failed to generate preview: " + (e instanceof Error ? e.message : String(e)), { type: 'error', title: 'Preview Error' });
     }
@@ -899,10 +904,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     {/* Preview Button */}
                     <button
                       onClick={handlePlayPreview}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'}`}
+                      disabled={isGeneratingPreview}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isGeneratingPreview ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'}`}
                     >
-                      {isPreviewPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
-                      {isPreviewPlaying ? 'Stop' : 'Test Voice'}
+                      {isGeneratingPreview ? <Loader2 className="w-3 h-3 animate-spin" /> : isPreviewPlaying ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                      {isGeneratingPreview ? 'Generating...' : isPreviewPlaying ? 'Stop' : 'Test Voice'}
                     </button>
                   </div>
 

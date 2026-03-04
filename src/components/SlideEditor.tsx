@@ -1269,6 +1269,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   // Global Preview for Sidebar
   const [isGlobalPreviewPlaying, setIsGlobalPreviewPlaying] = React.useState(false);
   const [globalPreviewAudio, setGlobalPreviewAudio] = React.useState<HTMLAudioElement | null>(null);
+  const [isGlobalPreviewGenerating, setIsGlobalPreviewGenerating] = React.useState(false);
   const globalAudioContextRef = useRef<AudioContext | null>(null);
   const globalGainNodeRef = useRef<GainNode | null>(null);
 
@@ -1280,14 +1281,17 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
 
     try {
+      setIsGlobalPreviewGenerating(true);
       setIsGlobalPreviewPlaying(true);
-      const text = "Hi there! This is a sample of how I sound. I hope you like it!";
+      const text = "Hello! This is a sample of how I sound. I hope you enjoy listening to my voice. Thank you for choosing me!";
 
       const audioUrl = await generateTTS(text, {
         voice: globalVoice,
         speed: 1.0,
         pitch: 1.0
       });
+
+      setIsGlobalPreviewGenerating(false);
 
       const audio = new Audio(audioUrl);
       const vol = ttsVolume ?? 1;
@@ -1334,6 +1338,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       await audio.play();
     } catch (e) {
       console.error("Preview failed", e);
+      setIsGlobalPreviewGenerating(false);
       setIsGlobalPreviewPlaying(false);
       showAlert("Failed to generate preview", { type: 'error' });
     }
@@ -2457,8 +2462,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       />
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-4">
-                      <button onClick={handleGlobalPreview} className={`flex-1 h-12 sm:h-14 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
-                        {isGlobalPreviewPlaying ? <Square className="w-5 h-5" /> : <Play className="w-5 h-5" />} Preview Voice
+                      <button onClick={handleGlobalPreview} disabled={isGlobalPreviewGenerating} className={`flex-1 h-12 sm:h-14 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isGlobalPreviewGenerating ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
+                        {isGlobalPreviewGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : isGlobalPreviewPlaying ? <Square className="w-5 h-5" /> : <Play className="w-5 h-5" />} {isGlobalPreviewGenerating ? 'Generating...' : isGlobalPreviewPlaying ? 'Stop' : 'Preview Voice'}
                       </button>
                       <button onClick={handleApplyGlobalVoice} className="flex-1 h-12 sm:h-14 rounded-xl bg-branding-primary/20 border border-branding-primary/30 hover:bg-branding-primary/30 text-white font-bold text-sm uppercase tracking-wider transition-all">
                         Apply to All Slides
