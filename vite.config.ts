@@ -13,6 +13,7 @@ export default defineConfig({
           'web-llm': ['@mlc-ai/web-llm'],
           'ffmpeg': ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
           'pdfjs': ['pdfjs-dist'],
+          'ocr': ['tesseract.js'],
         },
       },
     },

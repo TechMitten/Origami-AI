@@ -28,51 +28,61 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const selectedOption = options.find(o => o.id === value);
 
+  const updatePosition = () => {
+    if (menuRef.current && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const isMobile = window.innerWidth < 640;
+      menuRef.current.style.top = `${rect.bottom + 8}px`;
+      menuRef.current.style.left = `${isMobile ? 0 : rect.left}px`;
+      menuRef.current.style.width = `${isMobile ? window.innerWidth : rect.width}px`;
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (
-        isOpen && 
+        isOpen &&
         containerRef.current && !containerRef.current.contains(target) &&
         menuRef.current && !menuRef.current.contains(target)
       ) {
         setIsOpen(false);
       }
     };
-    
-    // Handle scroll to close dropdown to avoid detachment, but allow scrolling inside menu
-    const handleScroll = (event: Event) => {
-      if (menuRef.current && menuRef.current.contains(event.target as Node)) {
-        return;
-      }
-      if (isOpen) setIsOpen(false);
+
+    const handleScroll = () => {
+      updatePosition();
     };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, { capture: true });
+      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('resize', handleScroll);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleScroll);
     };
   }, [isOpen]);
 
   const toggleOpen = () => {
-    if (!isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const isMobile = window.innerWidth < 640; // sm breakpoint
-      setCoords({
-        top: rect.bottom + window.scrollY + 8,
-        left: isMobile ? 0 : rect.left + window.scrollX,
-        width: isMobile ? window.innerWidth : rect.width
-      });
+    if (!isOpen) {
       setIsOpen(true);
+      // Set initial position after menu is rendered
+      setTimeout(() => updatePosition(), 0);
     } else {
       setIsOpen(false);
     }
   };
+
+  // Set initial position when menu opens
+  useEffect(() => {
+    if (isOpen && menuRef.current) {
+      updatePosition();
+    }
+  }, [isOpen]);
 
   return (
     <div className={cn("relative", className)} ref={containerRef}>
@@ -87,15 +97,14 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
       </button>
 
       {isOpen && createPortal(
-        <div 
+        <div
           ref={menuRef}
           className="fixed py-2 border border-white/10 rounded-xl shadow-2xl"
-          style={{ 
-            position: 'absolute',
-            top: coords.top,
-            left: coords.left,
-            width: coords.width,
-            backgroundColor: '#18181b', // Hardcoded solid background
+          style={{
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            backgroundColor: '#18181b',
             boxShadow: '0 10px 40px -10px rgba(0,0,0,0.8)',
             isolation: 'isolate',
             zIndex: 9999

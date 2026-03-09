@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { FileText, Loader2 } from 'lucide-react';
 import uploadIllustration from '../assets/images/app-logo.png';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
+import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -19,21 +20,85 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // OCR progress state
+  const [ocrStatus, setOcrStatus] = useState<string | null>(null);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrCurrentPage, setOcrCurrentPage] = useState(0);
+  const [ocrTotalPages, setOcrTotalPages] = useState(0);
+
+  // Listen to OCR events
+  useEffect(() => {
+    const handleInitStart = () => {
+      console.log('[PDFUploader] OCR initialization started');
+      setOcrStatus('initializing');
+    };
+
+    const handleInitComplete = () => {
+      console.log('[PDFUploader] OCR initialization complete');
+      setOcrStatus('ready');
+    };
+
+    const handlePageStart = (e: Event) => {
+      const detail = (e as CustomEvent<OCRProgressEventDetail>).detail;
+      console.log('[PDFUploader] OCR page start:', detail);
+      setOcrStatus('processing');
+      setOcrCurrentPage(detail.currentPage);
+      setOcrTotalPages(detail.totalPages);
+      setOcrProgress(detail.progress);
+    };
+
+    const handlePageProgress = (e: Event) => {
+      const detail = (e as CustomEvent<OCRProgressEventDetail>).detail;
+      setOcrProgress(detail.progress);
+    };
+
+    const handlePageComplete = () => {
+      console.log('[PDFUploader] OCR page complete');
+    };
+
+    const handleError = (e: Event) => {
+      const detail = (e as CustomEvent<{ error: string }>).detail;
+      console.error('[PDFUploader] OCR error:', detail.error);
+      setError(`OCR failed: ${detail.error}. Please try again.`);
+      setOcrStatus(null);
+    };
+
+    ocrEvents.addEventListener('init-start', handleInitStart);
+    ocrEvents.addEventListener('init-complete', handleInitComplete);
+    ocrEvents.addEventListener('page-start', handlePageStart);
+    ocrEvents.addEventListener('page-progress', handlePageProgress);
+    ocrEvents.addEventListener('page-complete', handlePageComplete);
+    ocrEvents.addEventListener('error', handleError);
+
+    return () => {
+      ocrEvents.removeEventListener('init-start', handleInitStart);
+      ocrEvents.removeEventListener('init-complete', handleInitComplete);
+      ocrEvents.removeEventListener('page-start', handlePageStart);
+      ocrEvents.removeEventListener('page-progress', handlePageProgress);
+      ocrEvents.removeEventListener('page-complete', handlePageComplete);
+      ocrEvents.removeEventListener('error', handleError);
+    };
+  }, []);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
     setIsProcessing(true);
     setError(null);
+    setOcrStatus(null);
+    setOcrProgress(0);
 
     try {
       const pages = await renderPdfToImages(file);
       onUploadComplete(pages);
     } catch (err) {
       console.error(err);
-      setError('Failed to process PDF. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to process PDF. Please try again.');
     } finally {
       setIsProcessing(false);
+      setOcrStatus(null);
+      setOcrProgress(0);
     }
   }, [onUploadComplete]);
 
@@ -91,14 +156,37 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
             "text-2xl sm:text-3xl font-black mb-3 tracking-tighter italic uppercase text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 pr-2",
             isProcessing && "animate-pulse"
           )}>
-            {isProcessing ? 'Processing...' : isDragActive ? 'Release to Fold' : 'Upload PDF'}
+            {isProcessing
+              ? (ocrStatus === 'initializing' ? 'Initializing OCR...'
+                : ocrStatus === 'processing' ? 'OCR Processing...'
+                : 'Processing...')
+              : isDragActive ? 'Release to Fold' : 'Upload PDF'}
           </h3>
-          
+
           <p className="text-white/40 mb-8 max-w-xs mx-auto font-medium text-xs sm:text-sm">
-            {isProcessing 
-              ? 'Turning your PDF into a cinematic tutorial.' 
+            {isProcessing
+              ? (ocrStatus === 'initializing'
+                ? 'Enabling OCR for scanned PDF...'
+                : ocrStatus === 'processing'
+                ? `Processing page ${ocrCurrentPage}${ocrTotalPages > 0 ? `/${ocrTotalPages}` : ''}${ocrProgress > 0 ? ` - ${ocrProgress}%` : ''}...`
+                : 'Turning your PDF into a cinematic tutorial.')
               : 'Drag & drop your presentation or click to browse.'}
           </p>
+
+          {/* OCR Progress Bar */}
+          {isProcessing && ocrStatus === 'processing' && (
+            <div className="w-full max-w-xs mx-auto mb-6">
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-400 to-purple-600 transition-all duration-300 ease-out"
+                  style={{ width: `${ocrProgress}%` }}
+                />
+              </div>
+              <p className="text-white/40 text-xs mt-2 text-center">
+                OCR: {ocrProgress}% complete
+              </p>
+            </div>
+          )}
 
           {!isProcessing && (
             <div className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 group-hover:text-white/80 group-hover:border-white/20 transition-all">

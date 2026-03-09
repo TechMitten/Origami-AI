@@ -7,15 +7,12 @@ import type {
   IncompetechTrack,
   IncompetechTrackWithDuration,
   MusicFilters,
-  IncompetechCachedTrack,
 } from '../types/music';
 
 // Bundled music library data (loaded from public/music-library.json)
 let bundledLibraryCache: IncompetechTrackWithDuration[] | null = null;
 
-const MUSIC_BASE_URL = 'https://incompetech.com/music/royalty-free/mp3-royaltyfree/';
 const MUSIC_PROXY_URL = '/api/music-preview/';
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 export interface DownloadProgress {
   loaded: number;
@@ -100,13 +97,6 @@ export function formatDuration(seconds: number): string {
  */
 export function getMusicStreamUrl(filename: string): string {
   return `${MUSIC_PROXY_URL}${encodeURIComponent(filename)}`;
-}
-
-/**
- * Check if cached library data is still valid
- */
-function isCacheValid(timestamp: number): boolean {
-  return Date.now() - timestamp < CACHE_TTL;
 }
 
 /**
@@ -208,7 +198,7 @@ export async function downloadTrack(
         throw new Error('Response body is not readable');
       }
 
-      const chunks: Uint8Array[] = [];
+      const chunks: BlobPart[] = [];
       let loaded = 0;
 
       while (true) {

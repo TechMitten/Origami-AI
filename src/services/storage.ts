@@ -2,7 +2,7 @@ import type { SlideData } from '../components/SlideEditor';
 
 const DB_NAME = 'TechTutorialsDB';
 const STORE_NAME = 'appState';
-const DB_VERSION = 1;
+const DB_VERSION = 3; // Increment to ensure OCR cache store is created
 
 export interface AppState {
   slides: SlideData[];
@@ -55,6 +55,19 @@ export interface GlobalSettings {
   recordingCountdownEnabled?: boolean;
 }
 
+// OCR Cache interfaces
+export interface OCRCacheEntry {
+  pdfFingerprint: string;
+  pageNumber: number;
+  ocrText: string;
+  timestamp: number;
+}
+
+interface StoredOCRCache {
+  entries: OCRCacheEntry[];
+  lastCleaned: number;
+}
+
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -81,8 +94,17 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
+
+      // Create main store if it doesn't exist
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
+      }
+
+      // Create OCR cache store for versions < 3
+      if (!db.objectStoreNames.contains(OCR_CACHE_STORE) && oldVersion < 3) {
+        db.createObjectStore(OCR_CACHE_STORE);
+        console.log('[Storage] Created OCR cache store');
       }
     };
   });
@@ -265,7 +287,7 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
       const transaction = db.transaction(STORE_NAME, 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get('globalDefaults');
-  
+
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result ? (request.result as GlobalSettings) : null);
     });
@@ -274,4 +296,197 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
     return null;
   }
 };
+
+// OCR Cache functions
+const OCR_CACHE_STORE = 'ocrCache';
+const CACHE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * Generate SHA-256 fingerprint of a PDF file for cache key.
+ */
+export async function generatePDFFingerprint(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+/**
+ * Get cached OCR text for a specific PDF page.
+ */
+export async function getCachedOCRText(
+  fingerprint: string,
+  pageNumber: number
+): Promise<string | null> {
+  try {
+    const db = await openDB();
+
+    // Check if store exists before trying to open transaction
+    if (!db.objectStoreNames.contains(OCR_CACHE_STORE)) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(OCR_CACHE_STORE, 'readonly');
+      const store = transaction.objectStore(OCR_CACHE_STORE);
+      const request = store.get(fingerprint);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const cache = request.result as StoredOCRCache | undefined;
+        if (!cache) {
+          resolve(null);
+          return;
+        }
+
+        // Find entry for this page
+        const entry = cache.entries.find(e => e.pageNumber === pageNumber);
+        if (!entry) {
+          resolve(null);
+          return;
+        }
+
+        // Check if expired
+        if (Date.now() - entry.timestamp > CACHE_EXPIRY_MS) {
+          console.log(`[OCR Cache] Entry expired for page ${pageNumber}`);
+          resolve(null);
+          return;
+        }
+
+        console.log(`[OCR Cache] Cache hit for page ${pageNumber}`);
+        resolve(entry.ocrText);
+      };
+    });
+  } catch (err) {
+    console.error('[OCR Cache] Failed to get cached OCR text:', err);
+    return null;
+  }
+}
+
+/**
+ * Set cached OCR text for a specific PDF page.
+ */
+export async function setCachedOCRText(
+  fingerprint: string,
+  pageNumber: number,
+  text: string
+): Promise<void> {
+  try {
+    const db = await openDB();
+
+    // Check if store exists before trying to open transaction
+    if (!db.objectStoreNames.contains(OCR_CACHE_STORE)) {
+      console.log('[OCR Cache] Store does not exist yet, skipping cache save');
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(OCR_CACHE_STORE, 'readwrite');
+      const store = transaction.objectStore(OCR_CACHE_STORE);
+
+      // Get existing cache or create new
+      const getRequest = store.get(fingerprint);
+      getRequest.onerror = () => reject(getRequest.error);
+      getRequest.onsuccess = () => {
+        const cache = getRequest.result as StoredOCRCache | undefined;
+
+        // Remove existing entry for this page if it exists
+        let entries = cache?.entries || [];
+        entries = entries.filter(e => e.pageNumber !== pageNumber);
+
+        // Add new entry
+        entries.push({
+          pdfFingerprint: fingerprint,
+          pageNumber,
+          ocrText: text,
+          timestamp: Date.now(),
+        });
+
+        // Save updated cache
+        const updatedCache: StoredOCRCache = {
+          entries,
+          lastCleaned: cache?.lastCleaned || Date.now(),
+        };
+
+        const putRequest = store.put(updatedCache, fingerprint);
+        putRequest.onerror = () => reject(putRequest.error);
+        putRequest.onsuccess = () => {
+          console.log(`[OCR Cache] Cached OCR text for page ${pageNumber}`);
+          resolve();
+        };
+      };
+    });
+  } catch (err) {
+    console.error('[OCR Cache] Failed to set cached OCR text:', err);
+  }
+}
+
+/**
+ * Clean expired OCR cache entries.
+ */
+export async function cleanExpiredOCRCache(): Promise<void> {
+  try {
+    const db = await openDB();
+
+    // Check if store exists before trying to open transaction
+    if (!db.objectStoreNames.contains(OCR_CACHE_STORE)) {
+      console.log('[OCR Cache] Store does not exist yet, skipping cleanup');
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(OCR_CACHE_STORE, 'readwrite');
+      const store = transaction.objectStore(OCR_CACHE_STORE);
+      const request = store.getAllKeys();
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const keys = request.result;
+        let processed = 0;
+
+        if (keys.length === 0) {
+          resolve();
+          return;
+        }
+
+        keys.forEach(key => {
+          const getReq = store.get(key);
+          getReq.onerror = () => reject(getReq.error);
+          getReq.onsuccess = () => {
+            const cache = getReq.result as StoredOCRCache | undefined;
+            if (!cache) {
+              processed++;
+              if (processed === keys.length) resolve();
+              return;
+            }
+
+            // Filter out expired entries
+            const now = Date.now();
+            const validEntries = cache.entries.filter(
+              entry => now - entry.timestamp <= CACHE_EXPIRY_MS
+            );
+
+            if (validEntries.length === 0) {
+              // All entries expired, delete entire cache
+              store.delete(key);
+            } else if (validEntries.length < cache.entries.length) {
+              // Some entries expired, update cache
+              const updatedCache: StoredOCRCache = {
+                entries: validEntries,
+                lastCleaned: now,
+              };
+              store.put(updatedCache, key);
+            }
+
+            processed++;
+            if (processed === keys.length) resolve();
+          };
+        });
+      };
+    });
+  } catch (err) {
+    console.error('[OCR Cache] Failed to clean expired cache:', err);
+  }
+}
 
