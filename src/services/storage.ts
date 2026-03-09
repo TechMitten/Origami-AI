@@ -71,11 +71,25 @@ interface StoredOCRCache {
 
 let dbInstance: IDBDatabase | null = null;
 
+const closeDB = () => {
+  if (dbInstance) {
+    dbInstance.close();
+    dbInstance = null;
+    console.log('[Storage] Database connection closed');
+  }
+};
+
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     if (dbInstance) {
-      resolve(dbInstance);
-      return;
+      // Verify the database has the required store
+      if (dbInstance.objectStoreNames.contains(OCR_CACHE_STORE)) {
+        resolve(dbInstance);
+        return;
+      }
+      // Store is missing, close and reopen
+      console.log('[Storage] Database missing OCR cache store, closing and reopening...');
+      closeDB();
     }
 
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -96,19 +110,59 @@ const openDB = (): Promise<IDBDatabase> => {
       const db = (event.target as IDBOpenDBRequest).result;
       const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
 
+      console.log(`[Storage] Database upgrade: version ${oldVersion} → ${DB_VERSION}`);
+
       // Create main store if it doesn't exist
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
+        console.log('[Storage] Created main app state store');
       }
 
       // Create OCR cache store for versions < 3
-      if (!db.objectStoreNames.contains(OCR_CACHE_STORE) && oldVersion < 3) {
+      if (!db.objectStoreNames.contains(OCR_CACHE_STORE)) {
         db.createObjectStore(OCR_CACHE_STORE);
         console.log('[Storage] Created OCR cache store');
       }
     };
   });
 };
+
+/**
+ * Ensures the OCR cache store exists. Creates it if missing.
+ * This is a fallback for databases that were upgraded but didn't get the store created.
+ */
+async function ensureOCRCacheStore(): Promise<void> {
+  try {
+    const db = await openDB();
+
+    if (db.objectStoreNames.contains(OCR_CACHE_STORE)) {
+      return; // Store exists, nothing to do
+    }
+
+    console.log('[Storage] OCR cache store missing, attempting to create it...');
+
+    // Close the database connection
+    closeDB();
+
+    // Delete and recreate the database to ensure all stores exist
+    await new Promise<void>((resolve, reject) => {
+      const deleteReq = indexedDB.deleteDatabase(DB_NAME);
+      deleteReq.onsuccess = () => {
+        console.log('[Storage] Old database deleted, will be recreated on next access');
+        resolve();
+      };
+      deleteReq.onerror = () => reject(deleteReq.error);
+    });
+
+    // Force a reconnect on next access by nullifying the instance
+    dbInstance = null;
+
+  } catch (error) {
+    console.error('[Storage] Failed to ensure OCR cache store:', error);
+    throw error;
+  }
+}
+
 
 export const saveState = async (slides: SlideData[], musicSettings?: { url?: string; blob?: Blob; volume: number; title?: string }): Promise<void> => {
   console.log(`[Storage] Saving state with ${slides.length} slides...`);
@@ -320,6 +374,9 @@ export async function getCachedOCRText(
   pageNumber: number
 ): Promise<string | null> {
   try {
+    // Ensure the OCR cache store exists before trying to use it
+    await ensureOCRCacheStore();
+
     const db = await openDB();
 
     // Check if store exists before trying to open transaction
@@ -373,6 +430,9 @@ export async function setCachedOCRText(
   text: string
 ): Promise<void> {
   try {
+    // Ensure the OCR cache store exists before trying to use it
+    await ensureOCRCacheStore();
+
     const db = await openDB();
 
     // Check if store exists before trying to open transaction

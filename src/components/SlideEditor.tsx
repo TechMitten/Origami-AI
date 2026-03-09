@@ -1194,6 +1194,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [isBatchFixing, setIsBatchFixing] = React.useState(false);
   const batchGeneratingCancelledRef = React.useRef(false);
   const batchFixingCancelledRef = React.useRef(false);
+  const [isCancellingBatch, setIsCancellingBatch] = React.useState<'generate' | 'fix' | null>(null);
 
   const [batchProgress, setBatchProgress] = React.useState<{ current: number; total: number } | null>(null);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
@@ -1260,6 +1261,13 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   useEffect(() => {
     localStorage.setItem('configureSlidesExpanded', String(isConfigureSlidesExpanded));
   }, [isConfigureSlidesExpanded]);
+
+  // Clear cancelling state when batch operations complete
+  useEffect(() => {
+    if (!isBatchGenerating && !isBatchFixing && isCancellingBatch) {
+      setIsCancellingBatch(null);
+    }
+  }, [isBatchGenerating, isBatchFixing, isCancellingBatch]);
 
   // Sync global settings changes to parent
 
@@ -1835,6 +1843,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const handleCancelBatchGenerate = () => {
     batchGeneratingCancelledRef.current = true;
+    setIsCancellingBatch('generate');
   };
 
   const handleGenerateAll = async () => {
@@ -1859,6 +1868,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       }
       if (cancelled) {
         showAlert(`Batch generation cancelled. ${processedCount} slide(s) were processed.`, { type: 'info', title: 'Cancelled' });
+        setIsCancellingBatch(null);
       } else {
         showAlert('Batch audio generation completed successfully!', { type: 'success', title: 'Batch Complete' });
       }
@@ -1871,6 +1881,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const handleCancelBatchFix = () => {
     batchFixingCancelledRef.current = true;
+    setIsCancellingBatch('fix');
   };
 
   const handleFixAllScripts = async () => {
@@ -1958,6 +1969,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       }
       if (cancelled) {
         showAlert(`Batch AI fix cancelled. ${processedCount} slide(s) were processed.`, { type: 'info', title: 'Cancelled' });
+        setIsCancellingBatch(null);
       } else {
         showAlert('Batch script fixing completed successfully!', { type: 'success', title: 'Batch Complete' });
       }
@@ -2686,19 +2698,18 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             <div className="text-xs font-bold text-branding-accent uppercase tracking-widest">
                               {isBatchFixing ? `Processing ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
                             </div>
-                            {isBatchFixing && (
-                              <div
-                                role="button"
-                                onClick={(e) => { e.stopPropagation(); handleCancelBatchFix(); }}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 hover:text-red-300 transition-all text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-                                title="Cancel batch AI fix"
-                              >
-                                <X className="w-3 h-3" /> Cancel
-                              </div>
-                            )}
                           </div>
                         </div>
                       </button>
+                      {isBatchFixing && (
+                        <button
+                          onClick={handleCancelBatchFix}
+                          className="absolute bottom-6 right-6 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 hover:text-red-300 transition-all text-[10px] font-bold uppercase tracking-wider z-10"
+                          title="Cancel batch AI fix"
+                        >
+                          <X className="w-3 h-3" /> Cancel
+                        </button>
+                      )}
                     </div>
 
                     {/* Generate All */}
@@ -2723,19 +2734,18 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             <div className="text-xs font-bold text-branding-primary uppercase tracking-widest">
                               {isBatchGenerating ? `Generating ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
                             </div>
-                            {isBatchGenerating && (
-                              <div
-                                role="button"
-                                onClick={(e) => { e.stopPropagation(); handleCancelBatchGenerate(); }}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 hover:text-red-300 transition-all text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-                                title="Cancel batch TTS generation"
-                              >
-                                <X className="w-3 h-3" /> Cancel
-                              </div>
-                            )}
                           </div>
                         </div>
                       </button>
+                      {isBatchGenerating && (
+                        <button
+                          onClick={handleCancelBatchGenerate}
+                          className="absolute bottom-6 right-6 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 hover:text-red-300 transition-all text-[10px] font-bold uppercase tracking-wider z-10"
+                          title="Cancel batch TTS generation"
+                        >
+                          <X className="w-3 h-3" /> Cancel
+                        </button>
+                      )}
                     </div>
 
                     {/* Bulk Revert */}
@@ -2875,6 +2885,37 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         onSelectTrack={handleSelectIncompetechTrack}
         currentTrack={incompetechTrack}
       />
+
+      {/* Cancel Batch Modal */}
+      {isCancellingBatch && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+          {/* Backdrop */}
+          <div className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm pointer-events-none" />
+
+          {/* Modal Content */}
+          <div className="relative z-10 w-full max-w-sm bg-[#1a1a1a] border border-amber-500/30 rounded-2xl shadow-2xl shadow-amber-500/20 animate-in fade-in scale-100 duration-300">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-amber-500/10 bg-amber-500/5">
+              <h3 className="text-lg font-bold text-white tracking-tight">
+                Stopping {isCancellingBatch === 'generate' ? 'Generation' : 'Processing'}...
+              </h3>
+            </div>
+
+            {/* Body */}
+            <div className="p-8 flex flex-col items-center justify-center gap-4">
+              <div className="relative w-16 h-16 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-4 border-amber-500/20" />
+                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-amber-500 animate-spin" />
+              </div>
+              <p className="text-white/60 text-sm text-center">
+                {isCancellingBatch === 'generate' 
+                  ? 'Please wait while the current slide finishes processing...'
+                  : 'Please wait while the current script finishes processing...'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
