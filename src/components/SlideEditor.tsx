@@ -881,7 +881,7 @@ const SortableSlideItem = ({
         <div className={`pt-2 ${isGridView ? 'space-y-4' : 'space-y-6'}`}>
           {/* Inputs Grid */}
           <div className={`grid grid-cols-1 gap-4 ${isGridView ? 'xl:grid-cols-2' : 'sm:grid-cols-3'}`}>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" title="Select the AI voice for narration">
               <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">Voice</label>
               <Dropdown
                 options={voices}
@@ -891,7 +891,7 @@ const SortableSlideItem = ({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" title="Choose the animation between slides">
               <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">Transition</label>
               <Dropdown
                 options={[
@@ -906,7 +906,7 @@ const SortableSlideItem = ({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" title="Pause duration after audio finishes">
               <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">
                 {slide.isTtsDisabled ? 'Duration (s)' : 'Delay (s)'}
               </label>
@@ -931,6 +931,7 @@ const SortableSlideItem = ({
                 onClick={() => onGenerate(index)}
                 disabled={isGenerating || !slide.script.trim() || isRecording}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
+                title="Generate AI narration from script text"
               >
                 {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
                 {slide.audioUrl ? 'Regenerate' : 'Generate TTS Audio'}
@@ -944,6 +945,7 @@ const SortableSlideItem = ({
               className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer h-9 whitespace-nowrap ${isRecording
                 ? 'bg-red-500/20 border-red-500/40 text-red-500'
                 : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-40 disabled:grayscale'}`}
+              title="Record your own voice directly"
             >
               <Mic className="w-3.5 h-3.5" />
               {isRecording ? `Stop Recording (${Math.floor(recordingDuration / 60)}:${(recordingDuration % 60).toString().padStart(2, '0')})` : 'Record Voice'}
@@ -953,6 +955,7 @@ const SortableSlideItem = ({
               <button
                 onClick={togglePlayback}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider h-9 ${isPlaying ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40'}`}
+                title="Play the slide audio"
               >
                 {isPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                 {isPlaying ? 'Stop' : 'Preview'}
@@ -993,6 +996,7 @@ const SortableSlideItem = ({
                   onUpdate(index, updates);
                 }}
                 className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isTtsDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
+                title="Toggle voiceover on/off"
               >
                 {!slide.isTtsDisabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">{slide.audioSourceType === 'recorded' ? 'REC' : 'TTS'}</span>
@@ -1001,6 +1005,7 @@ const SortableSlideItem = ({
               <button
                 onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
                 className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
+                title="Toggle background music on/off"
               >
                 {!slide.isMusicDisabled ? <Music className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                 <span className="hidden sm:inline">Music</span>
@@ -2412,7 +2417,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       />
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-4">
-                      <button onClick={handleGlobalPreview} disabled={isGlobalPreviewGenerating} className={`flex-1 h-12 sm:h-14 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isGlobalPreviewGenerating ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`}>
+                      <button onClick={handleGlobalPreview} disabled={isGlobalPreviewGenerating} className={`flex-1 h-12 sm:h-14 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-3 ${isGlobalPreviewPlaying ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : isGlobalPreviewGenerating ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white/5 border border-white/10 hover:bg-white/10 text-white/80 hover:text-white'}`} title="Listen to the selected voice">
                         {isGlobalPreviewGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : isGlobalPreviewPlaying ? <Square className="w-5 h-5" /> : <Play className="w-5 h-5" />} {isGlobalPreviewGenerating ? 'Generating...' : isGlobalPreviewPlaying ? 'Stop' : 'Preview Voice'}
                       </button>
                       <button onClick={handleApplyGlobalVoice} className="flex-1 h-12 sm:h-14 rounded-xl bg-branding-primary/20 border border-branding-primary/30 hover:bg-branding-primary/30 text-white font-bold text-sm uppercase tracking-wider transition-all">
@@ -2505,7 +2510,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <input type="file" ref={fileInputRef} className="hidden" accept="audio/*" onChange={handleMusicUpload} />
 
                         {/* Volume Control - ALWAYS VISIBLE */}
-                        <div className="space-y-4">
+                        <div className="space-y-4" title="Adjust background music volume">
                           <div className="flex justify-between items-center text-xs font-bold text-white/40 uppercase">
                             <span>Music Volume</span>
                             <span>{Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%</span>
@@ -2532,10 +2537,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         {/* Music Selection or Track Info */}
                         {!musicSettings.url ? (
                           <div className="space-y-4">
-                            <button onClick={() => setShowMusicPicker(true)} className="w-full h-16 rounded-2xl bg-branding-primary/10 border border-branding-primary/30 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3">
+                            <button onClick={() => setShowMusicPicker(true)} className="w-full h-16 rounded-2xl bg-branding-primary/10 border border-branding-primary/30 hover:bg-branding-primary/20 hover:border-branding-primary/50 text-branding-primary text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3" title="Choose from royalty-free music">
                               <Library className="w-5 h-5" /> Browse Music Library
                             </button>
-                            <button onClick={() => fileInputRef.current?.click()} className="w-full h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white text-white/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3">
+                            <button onClick={() => fileInputRef.current?.click()} className="w-full h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white text-white/50 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3" title="Upload your own audio file">
                               <Upload className="w-5 h-5" /> Upload Custom Track
                             </button>
                           </div>
