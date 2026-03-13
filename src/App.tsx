@@ -658,7 +658,7 @@ function MainApp() {
               </div>
 
               {activeTab === 'edit' && (
-                <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                <div className="hidden sm:flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
                   <button
                     onClick={() => setSlideEditorViewMode('list')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'list' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}

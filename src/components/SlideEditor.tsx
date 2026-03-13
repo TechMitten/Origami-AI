@@ -758,57 +758,102 @@ const SortableSlideItem = ({
       {/* Editing Controls */}
       <div className={`flex-1 ${isGridView ? 'space-y-3' : 'space-y-4'}`}>
         <div className="space-y-2">
-          <div className={`flex ${isGridView ? 'flex-col gap-2 items-start' : 'items-center justify-between'}`}>
-            <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
-            <div className={`flex flex-wrap ${isGridView ? 'gap-2' : 'gap-2 sm:gap-3'}`}>
-              {isMobile && (
+          {isMobile ? (
+            <>
+              <div className="flex flex-col w-full gap-3">
+                {isMobile && (
+                  <button
+                    onClick={() => setShowScriptEditor(true)}
+                    className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-branding-primary bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+                    title="Open Focus Mode Editor"
+                  >
+                    <Maximize2 className="w-4 h-4" /> Focus Mode
+                  </button>
+                )}
                 <button
-                  onClick={() => setShowScriptEditor(true)}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-primary hover:text-white transition-colors cursor-pointer"
-                  title="Open Focus Mode Editor"
+                  onClick={handleTransform}
+                  disabled={isTransforming || !slide.script.trim()}
+                  className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold bg-gradient-to-r from-branding-accent/20 to-branding-primary/20 hover:from-branding-accent/30 hover:to-branding-primary/30 border border-branding-accent/30 rounded-xl transition-all active:scale-[0.98] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Use AI to transform raw PDF text into natural sentences"
                 >
-                  <Maximize2 className="w-3 h-3" /> Focus Mode
+                  {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {isTransforming ? 'Fixing...' : 'AI Fix Script'}
                 </button>
-              )}
-              <button
-                onClick={handleTransform}
-                disabled={isTransforming || !slide.script.trim()}
-                className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                title="Use AI to transform raw PDF text into natural sentences"
-              >
-                {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                {isTransforming ? 'Fixing...' : 'AI Fix Script'}
-              </button>
-              <button
-                onClick={handleCopyScript}
-                disabled={!slide.script.trim()}
-                className="flex items-center gap-1 text-[10px] uppercase font-bold text-white hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Copy script to clipboard"
-              >
-                {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
-                {isCopied ? 'Copied!' : 'Copy'}
-              </button>
-              {slide.originalScript && (
                 <button
-                  onClick={handleRevertScript}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
-                  title="Revert to original script"
+                  onClick={handleCopyScript}
+                  disabled={!slide.script.trim()}
+                  className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Copy script to clipboard"
                 >
-                  <Undo2 className="w-3 h-3" /> Revert
+                  {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Clipboard className="w-4 h-4" />}
+                  {isCopied ? 'Copied!' : 'Copy'}
                 </button>
-              )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(index);
-                }}
-                className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2 rounded transition-colors"
-                title="Delete Slide"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
+                {slide.originalScript && (
+                  <button
+                    onClick={handleRevertScript}
+                    className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all active:scale-[0.98] transition-colors"
+                    title="Revert to original script"
+                  >
+                    <Undo2 className="w-4 h-4" /> Revert
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(index);
+                  }}
+                  className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-all active:scale-[0.98] transition-colors"
+                  title="Delete Slide"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </button>
+              </div>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
+            </>
+          ) : (
+            <div className={`flex ${isGridView ? 'flex-col gap-2 items-start' : 'items-center justify-between'}`}>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
+              <div className={`flex flex-wrap ${isGridView ? 'gap-2' : 'gap-2 sm:gap-3'}`}>
+                <button
+                  onClick={handleTransform}
+                  disabled={isTransforming || !slide.script.trim()}
+                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Use AI to transform raw PDF text into natural sentences"
+                >
+                  {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  {isTransforming ? 'Fixing...' : 'AI Fix Script'}
+                </button>
+                <button
+                  onClick={handleCopyScript}
+                  disabled={!slide.script.trim()}
+                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-white hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Copy script to clipboard"
+                >
+                  {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
+                  {isCopied ? 'Copied!' : 'Copy'}
+                </button>
+                {slide.originalScript && (
+                  <button
+                    onClick={handleRevertScript}
+                    className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                    title="Revert to original script"
+                  >
+                    <Undo2 className="w-3 h-3" /> Revert
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(index);
+                  }}
+                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2 rounded transition-colors"
+                  title="Delete Slide"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className={`relative w-full ${isGridView ? 'h-24' : 'h-32'} rounded-xl bg-white/5 border border-white/10 focus-within:border-branding-primary focus-within:ring-1 focus-within:ring-branding-primary transition-all overflow-hidden`}>
             {/* Backdrop (Highlights) */}
