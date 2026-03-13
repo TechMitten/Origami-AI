@@ -149,3 +149,18 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+
+/* utility for backdrop sync scroll */
+.transparent-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.transparent-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.transparent-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.transparent-scrollbar {
+  scrollbar-color: transparent transparent;
+}

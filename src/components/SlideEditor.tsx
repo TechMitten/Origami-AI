@@ -77,9 +77,11 @@ interface SlideEditorProps {
 function getMatchRanges(text: string, term: string) {
   if (!term) return [];
   const ranges = [];
+  const lowerText = text.toLowerCase();
+  const lowerTerm = term.toLowerCase();
   let pos = 0;
   while (true) {
-    const idx = text.indexOf(term, pos);
+    const idx = lowerText.indexOf(lowerTerm, pos);
     if (idx === -1) break;
     ranges.push({ start: idx, end: idx + term.length });
     pos = idx + term.length;
@@ -129,36 +131,21 @@ const ScriptEditorModal = ({
       return script;
     }
 
-    const matches = getMatchRanges(script, highlightText || '');
+    // Use regex-based highlighting for simpler, more reliable results
+    const regex = new RegExp(`(${highlightText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = script.split(regex);
 
-    const boundaries = new Set<number>([0, script.length]);
-    matches.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
-
-    const points = Array.from(boundaries).sort((a, b) => a - b);
-    const parts = [];
-
-    for (let i = 0; i < points.length - 1; i++) {
-      const start = points[i];
-      const end = points[i + 1];
-      const text = script.slice(start, end);
-
-      if (!text) continue;
-
-      const isMatch = matches.some(r => r.start <= start && r.end >= end);
-
-      let className = "";
-      if (isMatch) {
-        className = "bg-yellow-500/60";
+    return parts.map((part, index) => {
+      // When using split() with a capturing group, matches are at odd indices
+      if (index % 2 === 1 && part) {
+        return (
+          <mark key={`${index}-${part}`} className="bg-yellow-500/60 text-transparent rounded-sm p-0 m-0 border-none inline">
+            {part}
+          </mark>
+        );
       }
-
-      if (className) {
-        parts.push(<mark key={start} className={`${className} text-transparent rounded-sm px-0 py-0`}>{text}</mark>);
-      } else {
-        parts.push(text);
-      }
-    }
-
-    return <>{parts}</>;
+      return part;
+    });
   };
 
   return createPortal(
@@ -193,8 +180,10 @@ const ScriptEditorModal = ({
             {/* Backdrop */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 w-full h-full px-6 py-6 text-base sm:text-lg font-sans leading-relaxed whitespace-pre-wrap wrap-break-word overflow-hidden text-transparent pointer-events-none"
+              className="absolute inset-0 w-full h-full m-0 px-6 py-6 !text-[16px] sm:!text-[18px] !font-sans !tracking-normal !leading-relaxed whitespace-pre-wrap overflow-y-auto break-words text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
+              style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               aria-hidden="true"
+              dir="ltr"
             >
               {renderBackdrop()}
             </div>
@@ -205,9 +194,11 @@ const ScriptEditorModal = ({
               value={script}
               onChange={(e) => onUpdate({ script: e.target.value })}
               onScroll={syncScroll}
-              className="absolute inset-0 w-full h-full px-6 py-6 bg-transparent text-white text-base sm:text-lg font-sans leading-relaxed resize-none outline-none border-none focus:ring-0 selection:bg-branding-primary/30"
+              className="absolute inset-0 w-full h-full m-0 px-6 py-6 bg-transparent text-white !text-[16px] sm:!text-[18px] !font-sans !tracking-normal !leading-relaxed whitespace-pre-wrap resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/30 overflow-y-auto break-words no-scrollbar"
+              style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               placeholder="Enter your script here..."
               spellCheck={false}
+              dir="ltr"
             />
           </div>
         </div>
@@ -656,37 +647,21 @@ const SortableSlideItem = ({
       return slide.script;
     }
 
-    const matches = getMatchRanges(slide.script, highlightText || '');
+    // Use regex-based highlighting for simpler, more reliable results
+    const regex = new RegExp(`(${highlightText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = slide.script.split(regex);
 
-    const boundaries = new Set<number>([0, slide.script.length]);
-    matches.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
-
-    const points = Array.from(boundaries).sort((a, b) => a - b);
-
-    const parts = [];
-
-    for (let i = 0; i < points.length - 1; i++) {
-      const start = points[i];
-      const end = points[i + 1];
-      const text = slide.script.slice(start, end);
-
-      if (!text) continue;
-
-      const isMatch = matches.some(r => r.start <= start && r.end >= end);
-
-      let className = "";
-      if (isMatch) {
-        className = "bg-yellow-500/60";
+    return parts.map((part, index) => {
+      // When using split() with a capturing group, matches are at odd indices
+      if (index % 2 === 1 && part) {
+        return (
+          <mark key={`${index}-${part}`} className="bg-yellow-500/60 text-transparent rounded-sm p-0 m-0 border-none inline">
+            {part}
+          </mark>
+        );
       }
-
-      if (className) {
-        parts.push(<mark key={start} className={`${className} text-transparent rounded-sm px-0 py-0`}>{text}</mark>);
-      } else {
-        parts.push(text);
-      }
-    }
-
-    return <>{parts}</>;
+      return part;
+    });
   };
 
   return (
@@ -906,8 +881,10 @@ const SortableSlideItem = ({
             {/* Backdrop (Highlights) */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 w-full h-full px-4 py-3 text-sm font-sans whitespace-pre-wrap wrap-break-word overflow-hidden text-transparent pointer-events-none"
+              className="absolute inset-0 w-full h-full m-0 px-4 py-3 !font-sans !text-[16px] !tracking-normal !leading-[1.6] whitespace-pre-wrap overflow-y-auto break-words text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
+              style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               aria-hidden="true"
+              dir="ltr"
             >
               {renderBackdrop()}
             </div>
@@ -918,9 +895,11 @@ const SortableSlideItem = ({
               value={slide.script}
               onChange={(e) => handleTextChange(e.target.value)}
               onScroll={syncScroll}
-              className="absolute inset-0 w-full h-full px-4 py-3 bg-transparent text-white text-sm font-sans resize-none outline-none border-none focus:ring-0 selection:bg-branding-primary/20"
+              className="absolute inset-0 w-full h-full m-0 px-4 py-3 !font-sans !text-[16px] !tracking-normal !leading-[1.6] whitespace-pre-wrap bg-transparent text-white resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/20 overflow-y-auto break-words no-scrollbar"
+              style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               placeholder="Write or edit your narration script..."
               spellCheck={false}
+              dir="ltr"
             />
           </div>
         </div>
@@ -1431,6 +1410,26 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const [findText, setFindText] = React.useState('');
   const [replaceText, setReplaceText] = React.useState('');
+
+  // Helper function to highlight matching text in preview
+  const highlightPreviewText = (text: string, search: string) => {
+    if (!search) return text;
+
+    const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) => {
+      // When using split() with a capturing group, matches are at odd indices
+      if (index % 2 === 1 && part) {
+        return (
+          <mark key={index} className="bg-yellow-400/80 text-black rounded-sm px-0.5 py-0.5 font-bold">
+            {part}
+          </mark>
+        );
+      }
+      return part;
+    });
+  };
 
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
@@ -1993,13 +1992,16 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (!findText) return;
 
     let matchCount = 0;
+    const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    
     const newSlides = slides.map(s => {
-      const occurrences = s.script.split(findText).length - 1;
+      const matches = s.script.match(regex);
+      const occurrences = matches ? matches.length : 0;
       if (occurrences > 0) {
         matchCount += occurrences;
         return {
           ...s,
-          script: s.script.split(findText).join(replaceText)
+          script: s.script.replace(regex, replaceText)
         };
       }
       return s;
@@ -2270,7 +2272,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               {/* Script Content */}
               {slides[previewIndex].script.trim() && (
                 <div className="text-sm md:text-base text-white/80 w-full max-h-[25dvh] overflow-y-auto pr-2 font-medium leading-relaxed text-left [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
-                  <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
+                  <p className="whitespace-pre-wrap">{highlightPreviewText(slides[previewIndex].script, findText)}</p>
                 </div>
               )}
             </div>
@@ -2862,6 +2864,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 isMobile={isMobile}
                 slidesLength={slides.length}
                 viewMode={viewMode}
+                highlightText={findText}
               />
             ))}
           </div>
