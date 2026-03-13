@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings, Eraser, CircleHelp, XCircle, Trash2, Github } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -322,12 +322,6 @@ function MainApp() {
     }
   };
 
-  const handleResetHighlights = async () => {
-    if (await showConfirm("Are you sure you want to remove ALL text highlighting from every slide?", { type: 'warning', title: 'Reset Highlights', confirmText: 'Reset' })) {
-      setSlides(prev => prev.map(s => ({ ...s, selectionRanges: undefined })));
-    }
-  };
-
   const handleDeleteSelected = async () => {
     const selectedCount = slides.filter(s => s.isSelected).length;
     if (selectedCount === 0) return;
@@ -413,12 +407,7 @@ function MainApp() {
     setGeneratingSlides(prev => { const next = new Set(prev); next.add(index); return next; });
     try {
       const slide = slides[index];
-      const textToSpeak = slide.selectionRanges && slide.selectionRanges.length > 0
-        ? [...slide.selectionRanges]
-          .sort((a, b) => a.start - b.start)
-          .map(r => slide.script.slice(r.start, r.end))
-          .join(' ')
-        : slide.script;
+      const textToSpeak = slide.script;
 
       if (!textToSpeak.trim()) return;
 
@@ -428,7 +417,7 @@ function MainApp() {
         pitch: 1.0
       });
       const duration = await getAudioDuration(audioUrl);
-      updateSlide(index, { audioUrl, duration, lastGeneratedSelection: slide.selectionRanges, audioSourceType: 'tts' });
+      updateSlide(index, { audioUrl, duration, audioSourceType: 'tts' });
     } catch (error) {
       showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {
@@ -637,12 +626,6 @@ function MainApp() {
                       className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
                     >
                       <RotateCcw className="w-4 h-4" /> Start Over
-                    </button>
-                    <button
-                      onClick={() => { handleResetHighlights(); setIsActionsMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                    >
-                      <Eraser className="w-4 h-4" /> Reset Highlights
                     </button>
                     {slides.some(s => s.isSelected) && (
                       <>

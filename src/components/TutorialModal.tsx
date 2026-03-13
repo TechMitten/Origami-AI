@@ -67,10 +67,10 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
                 </div>
                 <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                    <h4 className="font-bold text-white mb-2 flex items-center gap-2">
-                     <span className="w-4 h-4 rounded bg-teal-500/50 flex items-center justify-center text-[10px] font-bold">H</span> Highlights
+                     <Mic className="w-4 h-4 text-branding-primary" /> Script Polish
                    </h4>
                    <p className="text-sm text-white/50">
-                     Only want to read specific parts? <strong>Highlight text</strong> in the script box. You can select multiple distinct sections, and the TTS engine will combine them, skipping unselected text.
+                     Edit your script directly in each slide card or Focus Mode, then generate TTS to voice the full script.
                    </p>
                 </div>
               </div>

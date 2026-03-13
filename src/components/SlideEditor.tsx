@@ -39,32 +39,12 @@ export interface SlideData extends Partial<RenderedPage> {
   duration?: number;
   transition: 'fade' | 'slide' | 'zoom' | 'none';
   voice: string;
-  selectionRanges?: { start: number; end: number }[];
   postAudioDelay?: number;
   isTtsDisabled?: boolean;
   isMusicDisabled?: boolean;
-  lastGeneratedSelection?: { start: number; end: number }[];
   originalScript?: string;
   isSelected?: boolean;
   audioSourceType?: 'tts' | 'recorded';
-}
-
-function mergeRanges(ranges: { start: number; end: number }[]) {
-  if (ranges.length === 0) return [];
-  const sorted = [...ranges].sort((a, b) => a.start - b.start);
-  const merged = [];
-  let current = sorted[0];
-
-  for (let i = 1; i < sorted.length; i++) {
-    if (current.end >= sorted[i].start) {
-      current.end = Math.max(current.end, sorted[i].end);
-    } else {
-      merged.push(current);
-      current = sorted[i];
-    }
-  }
-  merged.push(current);
-  return merged;
 }
 
 export interface MusicSettings {
@@ -108,14 +88,12 @@ const ScriptEditorModal = ({
   isOpen,
   onClose,
   script,
-  selectionRanges,
   onUpdate,
   highlightText
 }: {
   isOpen: boolean;
   onClose: () => void;
   script: string;
-  selectionRanges?: { start: number; end: number }[];
   onUpdate: (data: Partial<SlideData>) => void;
   highlightText?: string;
 }) => {
@@ -135,23 +113,6 @@ const ScriptEditorModal = ({
 
   if (!isOpen) return null;
 
-  const handleSelection = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-
-    // Check if we have a valid selection that is not just a caret position
-    if (el.selectionStart !== el.selectionEnd) {
-      const newRange = { start: el.selectionStart, end: el.selectionEnd };
-      const currentRanges = selectionRanges || [];
-      const updatedRanges = mergeRanges([...currentRanges, newRange]);
-      onUpdate({ selectionRanges: updatedRanges });
-    }
-  };
-
-  const handleClearHighlight = () => {
-    onUpdate({ selectionRanges: undefined });
-  };
-
   const syncScroll = () => {
     if (textareaRef.current && backdropRef.current) {
       backdropRef.current.scrollTop = textareaRef.current.scrollTop;
@@ -159,15 +120,13 @@ const ScriptEditorModal = ({
   };
 
   const renderBackdrop = () => {
-    if ((!selectionRanges || selectionRanges.length === 0) && !highlightText) {
+    if (!highlightText) {
       return script;
     }
 
-    const selections = selectionRanges || [];
     const matches = getMatchRanges(script, highlightText || '');
 
     const boundaries = new Set<number>([0, script.length]);
-    selections.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
     matches.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
 
     const points = Array.from(boundaries).sort((a, b) => a - b);
@@ -180,15 +139,10 @@ const ScriptEditorModal = ({
 
       if (!text) continue;
 
-      const isSelected = selections.some(r => r.start <= start && r.end >= end);
       const isMatch = matches.some(r => r.start <= start && r.end >= end);
 
       let className = "";
-      if (isSelected && isMatch) {
-        className = "bg-emerald-500/60";
-      } else if (isSelected) {
-        className = "bg-teal-500/30";
-      } else if (isMatch) {
+      if (isMatch) {
         className = "bg-yellow-500/60";
       }
 
@@ -212,7 +166,7 @@ const ScriptEditorModal = ({
               <Maximize2 className="w-5 h-5 text-branding-primary" />
               Focus Mode
             </h3>
-            <p className="text-xs text-white/40">Select text ranges for targeted audio generation</p>
+            <p className="text-xs text-white/40">Edit your script with a distraction-free view</p>
           </div>
           <button
             onClick={onClose}
@@ -225,15 +179,7 @@ const ScriptEditorModal = ({
         {/* Toolbar */}
         <div className="px-6 py-3 border-b border-white/5 bg-black/20 flex items-center justify-between">
           <span className="text-xs font-bold text-white/30 uppercase tracking-widest">Script Editor</span>
-          {selectionRanges && selectionRanges.length > 0 && (
-            <button
-              onClick={handleClearHighlight}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 text-xs font-bold uppercase tracking-wider transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-              Clear Highlights
-            </button>
-          )}
+          <span className="text-[10px] uppercase font-bold text-white/30 tracking-widest">Auto-save enabled</span>
         </div>
 
         {/* Editor Area */}
@@ -252,14 +198,10 @@ const ScriptEditorModal = ({
             <textarea
               ref={textareaRef}
               value={script}
-              onChange={(e) => onUpdate({ script: e.target.value, selectionRanges: undefined })}
+              onChange={(e) => onUpdate({ script: e.target.value })}
               onScroll={syncScroll}
-              onSelect={handleSelection} // Using onSelect for better mobile support
-              onTouchEnd={handleSelection} // Additional trigger for touch devices
-              onTouchCancel={handleSelection}
-              onBlur={handleSelection} // Ensure selection is captured on exit
               className="absolute inset-0 w-full h-full px-6 py-6 bg-transparent text-white text-base sm:text-lg font-sans leading-relaxed resize-none outline-none border-none focus:ring-0 selection:bg-branding-primary/30"
-              placeholder="Enter your script here. Highlight text to select specific parts for audio generation..."
+              placeholder="Enter your script here..."
               spellCheck={false}
             />
           </div>
@@ -269,7 +211,7 @@ const ScriptEditorModal = ({
         <div className="px-6 py-3 bg-white/5 border-t border-white/5">
           <div className="flex items-center gap-2 text-xs text-white/30">
             <span className="w-1.5 h-1.5 rounded-full bg-branding-primary animate-pulse" />
-            Highlighting text automatically enables selective TTS generation. Changes are saved automatically.
+            Changes are saved automatically.
           </div>
         </div>
       </div>
@@ -662,7 +604,7 @@ const SortableSlideItem = ({
         }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
       }
 
-      onUpdate(index, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
+      onUpdate(index, { script: transformed, originalScript: slide.script });
     } catch (error) {
       console.error("[SlideEditor] Transformation Error:", error);
       showAlert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Transformation Failed' });
@@ -685,7 +627,7 @@ const SortableSlideItem = ({
   const handleRevertScript = async () => {
     if (slide.originalScript) {
       if (await showConfirm("Revert to original script? This will discard current changes.", { type: 'warning', title: 'Revert Script', confirmText: 'Revert' })) {
-        onUpdate(index, { script: slide.originalScript, originalScript: undefined, selectionRanges: undefined });
+        onUpdate(index, { script: slide.originalScript, originalScript: undefined });
       }
     }
   };
@@ -696,44 +638,21 @@ const SortableSlideItem = ({
     }
   };
 
-  const handleSelection = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-
-    // Only process if there's an actual selection
-    if (el.selectionStart !== el.selectionEnd) {
-      const newRange = { start: el.selectionStart, end: el.selectionEnd };
-      const currentRanges = slide.selectionRanges || [];
-      const updatedRanges = mergeRanges([...currentRanges, newRange]);
-
-      onUpdate(index, { selectionRanges: updatedRanges });
-    }
-  };
-
-  const handleClearHighlight = () => {
-    onUpdate(index, { selectionRanges: undefined });
-  };
-
   const handleTextChange = (newText: string) => {
-    onUpdate(index, { script: newText, selectionRanges: undefined });
+    onUpdate(index, { script: newText });
   };
 
   // Render the backdrop content
   const renderBackdrop = () => {
-    // If no highlights at all, return generic.
-    if ((!slide.selectionRanges || slide.selectionRanges.length === 0) && !highlightText) {
+    if (!highlightText) {
       return slide.script;
     }
 
-    const selections = slide.selectionRanges || [];
     const matches = getMatchRanges(slide.script, highlightText || '');
 
-    // Collect all boundaries
     const boundaries = new Set<number>([0, slide.script.length]);
-    selections.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
     matches.forEach(r => { boundaries.add(r.start); boundaries.add(r.end); });
 
-    // Sort
     const points = Array.from(boundaries).sort((a, b) => a - b);
 
     const parts = [];
@@ -745,16 +664,10 @@ const SortableSlideItem = ({
 
       if (!text) continue;
 
-      // Check membership
-      const isSelected = selections.some(r => r.start <= start && r.end >= end);
       const isMatch = matches.some(r => r.start <= start && r.end >= end);
 
       let className = "";
-      if (isSelected && isMatch) {
-        className = "bg-emerald-500/60"; // Mixed overlap
-      } else if (isSelected) {
-        className = "bg-teal-500/30";
-      } else if (isMatch) {
+      if (isMatch) {
         className = "bg-yellow-500/60";
       }
 
@@ -886,14 +799,6 @@ const SortableSlideItem = ({
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
-              {slide.selectionRanges && slide.selectionRanges.length > 0 && (
-                <button
-                  onClick={handleClearHighlight}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-400 hover:text-red-300 transition-colors"
-                >
-                  <X className="w-3 h-3" /> Reset Highlights
-                </button>
-              )}
             </div>
           </div>
 
@@ -913,40 +818,11 @@ const SortableSlideItem = ({
               value={slide.script}
               onChange={(e) => handleTextChange(e.target.value)}
               onScroll={syncScroll}
-              onMouseUp={handleSelection}
               className="absolute inset-0 w-full h-full px-4 py-3 bg-transparent text-white text-sm font-sans resize-none outline-none border-none focus:ring-0 selection:bg-branding-primary/20"
-              placeholder="Highlight text to select specific parts for audio generation..."
+              placeholder="Write or edit your narration script..."
               spellCheck={false}
             />
           </div>
-
-          {slide.selectionRanges && slide.selectionRanges.length > 0 && (
-            <div className="space-y-2 mt-2">
-              <p className="text-[10px] text-branding-primary italic flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-branding-primary animate-pulse" />
-                Audio will be generated only from the highlighted sections.
-              </p>
-
-              {slide.audioUrl && (!slide.lastGeneratedSelection || JSON.stringify(slide.selectionRanges) !== JSON.stringify(slide.lastGeneratedSelection)) && (
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 animate-in fade-in slide-in-from-top-1 duration-300">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-amber-100">
-                        Audio Update Required
-                      </p>
-                      <p className="text-[11px] leading-relaxed opacity-90">
-                        You've selected specific text, but the current audio plays the full script. You must <span className="font-bold text-amber-100">Regenerate Speech</span> to apply these changes.
-                      </p>
-                      <p className="text-[10px] pt-1.5 mt-1 border-t border-amber-500/10 text-amber-300/70 italic">
-                        <span className="font-semibold not-italic text-amber-300/90">Tip:</span> Highlighting your script <strong>before</strong> generating audio avoids having to regenerate!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="space-y-6 pt-2">
@@ -1091,7 +967,6 @@ const SortableSlideItem = ({
         isOpen={showScriptEditor}
         onClose={() => setShowScriptEditor(false)}
         script={slide.script}
-        selectionRanges={slide.selectionRanges}
         onUpdate={(data) => onUpdate(index, data)}
         highlightText={highlightText}
       />
@@ -1950,7 +1825,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               webLlmModel
             }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
           }
-          onUpdateSlide(i, { script: transformed, selectionRanges: undefined, originalScript: slide.script });
+          onUpdateSlide(i, { script: transformed, originalScript: slide.script });
           processedCount++;
         } catch (error) {
           console.error(`Failed to fix slide ${i + 1}`, error);
@@ -1997,7 +1872,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i];
         if (slide.originalScript) {
-          onUpdateSlide(i, { script: slide.originalScript, originalScript: undefined, selectionRanges: undefined });
+          onUpdateSlide(i, { script: slide.originalScript, originalScript: undefined });
           revertedCount++;
         }
       }
@@ -2017,8 +1892,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         matchCount += occurrences;
         return {
           ...s,
-          script: s.script.split(findText).join(replaceText),
-          selectionRanges: undefined // Clear highlights as they are likely invalid after text change
+          script: s.script.split(findText).join(replaceText)
         };
       }
       return s;
@@ -2158,10 +2032,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             </button>
 
             <div className="relative flex flex-col w-full h-[calc(100dvh-2rem)] sm:h-[calc(100dvh-4rem)] gap-4 pt-10 pb-2" onClick={(e) => e.stopPropagation()}>
-              {/* Unified Slide Panel */}
-              <div className="w-full max-w-3xl mx-auto flex flex-col gap-4 shrink-0 z-10 bg-[#121212]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl">
-                {/* Header Row: Slide Number & TTS Controls */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 gap-4 sm:gap-0">
+              <div className="w-[min(96vw,1800px)] mx-auto shrink-0 z-10 bg-[#121212]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:px-6 sm:py-5 shadow-2xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-black text-branding-primary drop-shadow-sm">{previewIndex + 1}</span>
                     <span className="text-xs font-bold text-white/30 uppercase tracking-widest">of {slides.length}</span>
@@ -2193,30 +2065,41 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     )}
                   </div>
                 </div>
-
-                {/* Script Content */}
-                {slides[previewIndex].script.trim() && (
-                  <div className="text-sm md:text-base text-white/80 w-full max-h-[25dvh] overflow-y-auto pr-2 font-medium leading-relaxed text-left [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    <p className="whitespace-pre-wrap">{slides[previewIndex].script}</p>
-                  </div>
-                )}
               </div>
 
-              <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
-                {slides[previewIndex].type === 'video' ? (
-                  <video
-                    src={slides[previewIndex].mediaUrl}
-                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
-                    controls
-                    autoPlay
-                  />
-                ) : (
-                  <img
-                    src={slides[previewIndex].dataUrl}
-                    alt={`Slide ${previewIndex + 1}`}
-                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
-                  />
-                )}
+              <div className="w-[min(96vw,1800px)] mx-auto flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] gap-4">
+                <div className="relative min-h-[52dvh] lg:min-h-0 w-full flex items-center justify-center overflow-hidden rounded-2xl bg-black/50 border border-white/10 shadow-2xl shadow-black/40 p-2 sm:p-3">
+                  {slides[previewIndex].type === 'video' ? (
+                    <video
+                      src={slides[previewIndex].mediaUrl}
+                      className="w-full h-full object-contain rounded-xl"
+                      controls
+                      autoPlay
+                    />
+                  ) : (
+                    <img
+                      src={slides[previewIndex].dataUrl}
+                      alt={`Slide ${previewIndex + 1}`}
+                      className="w-full h-full object-contain rounded-xl"
+                    />
+                  )}
+                </div>
+
+                <aside className="min-h-0 flex flex-col rounded-2xl bg-[#121212]/95 backdrop-blur-2xl border border-white/10 shadow-2xl p-4 sm:p-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <span className="text-xs font-bold text-white/40 uppercase tracking-widest">Script</span>
+                    <span className="text-[11px] text-white/35">{slides[previewIndex].script.length} chars</span>
+                  </div>
+                  <div className="mt-4 min-h-0 flex-1">
+                    <textarea
+                      value={slides[previewIndex].script}
+                      onChange={(e) => onUpdateSlide(previewIndex, { script: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-full min-h-[220px] resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm md:text-base text-white/85 font-medium leading-relaxed placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-branding-primary/40 focus:border-branding-primary/40"
+                      placeholder="Write or edit your narration script..."
+                    />
+                  </div>
+                </aside>
               </div>
             </div>
           </div>,
@@ -2865,7 +2748,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
-                highlightText={findText}
                 onDelete={handleDeleteSlide}
                 ttsVolume={ttsVolume}
                 voices={voices}
