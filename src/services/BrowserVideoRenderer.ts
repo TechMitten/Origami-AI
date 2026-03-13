@@ -43,6 +43,7 @@ export interface VideoProgressEventDetail {
 export class BrowserVideoRenderer {
   private ffmpeg: FFmpeg | null = null;
   private loaded: boolean = false;
+  private aborted: boolean = false;
 
   constructor() {
     // Lazy init
@@ -106,6 +107,9 @@ export class BrowserVideoRenderer {
     onLog,
     signal
   }: RenderOptions): Promise<Blob> {
+    // Reset aborted state for new render
+    this.aborted = false;
+
     if (!this.loaded || !this.ffmpeg) {
       await this.load();
     }
@@ -154,9 +158,12 @@ export class BrowserVideoRenderer {
       }
       signal.addEventListener('abort', () => {
         console.log('[FFmpeg] Render aborted by user. Terminating worker...');
+        this.aborted = true;
         try {
           this.ffmpeg?.terminate();
         } catch (e) {
+          // FFmpeg.terminate() throws an error, which is expected
+          // We'll handle this in the catch block below
           console.error("Error terminating ffmpeg:", e);
         }
         this.loaded = false; // Force reload next time
@@ -393,6 +400,10 @@ export class BrowserVideoRenderer {
 
     } catch (e) {
       console.error('Render failed', e);
+      // If we were aborted, throw a clean error instead of the FFmpeg termination error
+      if (this.aborted) {
+        throw new Error('Render aborted');
+      }
       throw e;
     } finally {
       // Cleanup
