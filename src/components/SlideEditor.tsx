@@ -812,8 +812,53 @@ const SortableSlideItem = ({
             </>
           ) : (
             <div className={`flex ${isGridView ? 'flex-col gap-2 items-start' : 'items-center justify-between'}`}>
-              <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
-              <div className={`flex flex-wrap ${isGridView ? 'gap-2' : 'gap-2 sm:gap-3'}`}>
+              {isGridView ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleTransform}
+                      disabled={isTransforming || !slide.script.trim()}
+                      className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      title="Use AI to transform raw PDF text into natural sentences"
+                    >
+                      {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      {isTransforming ? 'Fixing...' : 'AI Fix Script'}
+                    </button>
+                    <button
+                      onClick={handleCopyScript}
+                      disabled={!slide.script.trim()}
+                      className="flex items-center gap-1 text-[10px] uppercase font-bold text-white hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Copy script to clipboard"
+                    >
+                      {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
+                      {isCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                    {slide.originalScript && (
+                      <button
+                        onClick={handleRevertScript}
+                        className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                        title="Revert to original script"
+                      >
+                        <Undo2 className="w-3 h-3" /> Revert
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(index);
+                      }}
+                      className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2 rounded transition-colors"
+                      title="Delete Slide"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                  <label className="mt-1 text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
+                </>
+              ) : (
+                <>
+                  <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
+                  <div className="flex flex-wrap gap-2 sm:gap-3">
                 <button
                   onClick={handleTransform}
                   disabled={isTransforming || !slide.script.trim()}
@@ -852,6 +897,8 @@ const SortableSlideItem = ({
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               </div>
+                </>
+              )}
             </div>
           )}
 

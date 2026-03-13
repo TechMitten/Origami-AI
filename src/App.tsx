@@ -516,6 +516,14 @@ function MainApp() {
 
 
   const handleDownloadMP4 = async () => {
+    if (!allAudioReady) {
+      const confirmed = await showConfirm(
+        'Some slides do not have audio generated yet. You can generate audio now or proceed with the video anyway (slides without audio will be silent or use default duration).',
+        { type: 'warning', title: 'Audio Not Ready', confirmText: 'Proceed Anyway', cancelText: 'Cancel' }
+      );
+      if (!confirmed) return;
+    }
+
     const controller = new AbortController();
     setRenderAbortController(controller);
     setIsRenderingWithAudio(true);
@@ -845,16 +853,11 @@ function MainApp() {
                       <button
                         onClick={handleDownloadMP4}
                         className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white text-black font-extrabold hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale w-full sm:w-auto"
-                        disabled={!allAudioReady || isRenderingWithAudio || isRenderingSilent}
+                        disabled={isRenderingWithAudio || isRenderingSilent}
                       >
                         {isRenderingWithAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                         {isRenderingWithAudio ? `Processing... ${Math.round(renderProgress)}%` : 'Render Video (With TTS)'}
                       </button>
-                      {!allAudioReady && !isRenderingWithAudio && !isRenderingSilent && (
-                        <div className="text-[10px] text-center text-red-400 font-bold uppercase tracking-wider animate-pulse">
-                          Audio Required
-                        </div>
-                      )}
                       {isRenderingWithAudio && (
                         <button
                           onClick={handleCancelRender}
@@ -890,12 +893,6 @@ function MainApp() {
                     </div>
                   </div>
                 </div>
-
-                {!allAudioReady && (
-                  <p className="text-center text-branding-accent text-sm font-bold animate-pulse">
-                    Please generate audio for all slides before exporting.
-                  </p>
-                )}
               </div>
             ) : (
               <SlideEditor
