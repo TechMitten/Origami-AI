@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -12,6 +12,7 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -55,6 +56,8 @@ export interface MusicSettings {
   title?: string;
 }
 
+export type SlideEditorViewMode = 'list' | 'grid';
+
 interface SlideEditorProps {
   slides: SlideData[];
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
@@ -67,6 +70,8 @@ interface SlideEditorProps {
   onUpdateTtsVolume?: (volume: number) => void;
   globalSettings?: GlobalSettings | null;
   onUpdateGlobalSettings?: (settings: Partial<GlobalSettings>) => void;
+  viewMode: SlideEditorViewMode;
+  onViewModeChange: (mode: SlideEditorViewMode) => void;
 }
 
 function getMatchRanges(text: string, term: string) {
@@ -234,7 +239,8 @@ const SortableSlideItem = ({
   voices, // Add voices to destructuring
   globalSettings, // Add globalSettings to destructuring
   isMobile, // Add isMobile to destructuring
-  slidesLength // Add slidesLength to destructuring
+  slidesLength, // Add slidesLength to destructuring
+  viewMode
 }: {
   slide: SlideData,
   index: number,
@@ -250,6 +256,7 @@ const SortableSlideItem = ({
   globalSettings?: GlobalSettings | null; // Add globalSettings prop
   isMobile: boolean; // Add isMobile prop
   slidesLength: number; // Add slidesLength prop
+  viewMode: SlideEditorViewMode;
 }) => {
   const {
     attributes,
@@ -261,6 +268,7 @@ const SortableSlideItem = ({
   } = useSortable({ id: slide.id });
 
   const { showAlert, showConfirm } = useModal();
+  const isGridView = viewMode === 'grid';
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -685,20 +693,20 @@ const SortableSlideItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-5 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300"
+      className={`group relative flex flex-col ${isGridView ? 'gap-4 h-full' : 'sm:flex-row gap-4 sm:gap-6'} p-4 sm:p-5 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300`}
     >
       {/* Drag Handle */}
       <div
-        className="absolute left-1/2 -top-3 sm:left-0 sm:top-1/2 -translate-x-1/2 sm:translate-x-0 sm:-translate-y-1/2 p-1.5 sm:p-1 cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none bg-[#18181b] sm:bg-transparent rounded-full border border-white/10 sm:border-transparent"
+        className={`absolute cursor-grab active:cursor-grabbing text-white hover:text-branding-primary transition-colors z-20 touch-none bg-[#18181b] rounded-full border border-white/10 ${isGridView ? 'left-1/2 top-3 -translate-x-1/2 p-1.5 bg-transparent' : 'left-1/2 -top-3 sm:left-0 sm:top-1/2 -translate-x-1/2 sm:translate-x-0 sm:-translate-y-1/2 p-1.5 sm:p-1 sm:bg-transparent sm:border-transparent'}`}
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="w-5 h-5 rotate-90 sm:rotate-0" />
+        <GripVertical className={`w-5 h-5 ${isGridView ? 'rotate-90' : 'rotate-90 sm:rotate-0'}`} />
       </div>
 
       {/* Slide Preview */}
       {/* Slide Preview Column */}
-      <div className="w-full sm:w-[45%] sm:ml-2 flex flex-col gap-3 mt-4 sm:mt-0 justify-center">
+      <div className={`w-full flex flex-col gap-3 justify-center ${isGridView ? '' : 'sm:w-[45%] sm:ml-2 mt-4 sm:mt-0'}`}>
         {/* Enhanced slide number header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -748,11 +756,11 @@ const SortableSlideItem = ({
       </div>
 
       {/* Editing Controls */}
-      <div className="flex-1 space-y-4">
+      <div className={`flex-1 ${isGridView ? 'space-y-3' : 'space-y-4'}`}>
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className={`flex ${isGridView ? 'flex-col gap-2 items-start' : 'items-center justify-between'}`}>
             <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
-            <div className="flex gap-2 sm:gap-3">
+            <div className={`flex flex-wrap ${isGridView ? 'gap-2' : 'gap-2 sm:gap-3'}`}>
               {isMobile && (
                 <button
                   onClick={() => setShowScriptEditor(true)}
@@ -802,7 +810,7 @@ const SortableSlideItem = ({
             </div>
           </div>
 
-          <div className="relative w-full h-32 rounded-xl bg-white/5 border border-white/10 focus-within:border-branding-primary focus-within:ring-1 focus-within:ring-branding-primary transition-all overflow-hidden">
+          <div className={`relative w-full ${isGridView ? 'h-24' : 'h-32'} rounded-xl bg-white/5 border border-white/10 focus-within:border-branding-primary focus-within:ring-1 focus-within:ring-branding-primary transition-all overflow-hidden`}>
             {/* Backdrop (Highlights) */}
             <div
               ref={backdropRef}
@@ -825,9 +833,9 @@ const SortableSlideItem = ({
           </div>
         </div>
 
-        <div className="space-y-6 pt-2">
+        <div className={`pt-2 ${isGridView ? 'space-y-4' : 'space-y-6'}`}>
           {/* Inputs Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 gap-4 ${isGridView ? 'xl:grid-cols-2' : 'sm:grid-cols-3'}`}>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">Voice</label>
               <Dropdown
@@ -871,7 +879,7 @@ const SortableSlideItem = ({
           </div>
 
           {/* Actions Toolbar */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm overflow-x-auto">
+          <div className={`flex flex-wrap items-center gap-2 ${isGridView ? '' : 'sm:gap-3'} p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm overflow-x-auto`}>
             {/* Generate Button - hide if audio was recorded */}
             {slide.audioSourceType !== 'recorded' && (
               <button
@@ -918,10 +926,10 @@ const SortableSlideItem = ({
               </span>
             )}
 
-            <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
+            <div className={`w-px h-5 bg-white/10 mx-1 ${isGridView ? 'hidden xl:block' : 'hidden sm:block'}`} />
 
             {/* Controls Group */}
-            <div className="flex items-center gap-2 ml-auto w-full sm:w-auto">
+            <div className={`flex items-center gap-2 w-full ${isGridView ? '' : 'ml-auto sm:w-auto'}`}>
               {slide.type === 'video' && (
                 <button
                   onClick={() => onUpdate(index, { isVideoMusicPaused: !slide.isVideoMusicPaused })}
@@ -1059,7 +1067,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   ttsVolume,
   onUpdateTtsVolume,
   globalSettings, // Destructure globalSettings
-  onUpdateGlobalSettings
+  onUpdateGlobalSettings,
+  viewMode,
+  onViewModeChange
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
@@ -2012,7 +2022,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   return (
     <div className="space-y-8 animate-fade-in relative">
       {/* Expanded Slide Preview */}
-      {previewIndex !== null && globalSettings?.previewMode === 'modal' ? (
+      {previewIndex !== null && (globalSettings?.previewMode ?? 'modal') === 'modal' ? (
         createPortal(
           <div
             className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md p-4 sm:p-8 flex items-center justify-center animate-fade-in"
@@ -2730,9 +2740,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       >
         <SortableContext
           items={slides.map(s => s.id)}
-          strategy={verticalListSortingStrategy}
+          strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
         >
-          <div className="grid gap-6">
+          <div className={`grid gap-6 ${viewMode === 'grid' ? 'md:grid-cols-2 2xl:grid-cols-3 items-start' : ''}`}>
             {slides.map((slide, index) => (
               <SortableSlideItem
                 key={slide.id}
@@ -2744,7 +2754,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 isAnyGenerating={generatingSlides.size > 0 || isBatchGenerating}
                 onExpand={(i) => {
                   setPreviewIndex(prev => prev === i ? null : i);
-                  if (previewIndex !== i && globalSettings?.previewMode !== 'modal') {
+                  if (previewIndex !== i && (globalSettings?.previewMode ?? 'modal') !== 'modal') {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
@@ -2754,6 +2764,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 globalSettings={globalSettings}
                 isMobile={isMobile}
                 slidesLength={slides.length}
+                viewMode={viewMode}
               />
             ))}
           </div>

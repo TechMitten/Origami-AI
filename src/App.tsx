@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -48,7 +48,13 @@ function MainApp() {
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
+  const [slideEditorViewMode, setSlideEditorViewMode] = useState<'list' | 'grid'>(() => {
+    if (typeof window === 'undefined') {
+      return 'list';
+    }
 
+    return localStorage.getItem('slide_editor_view_mode') === 'grid' ? 'grid' : 'list';
+  });
 
   const [isRestoring, setIsRestoring] = useState(true);
   const { showAlert, showConfirm } = useModal();
@@ -313,6 +319,10 @@ function MainApp() {
     return () => clearTimeout(timeoutId);
   }, [slides, isRestoring, musicSettings]);
 
+  useEffect(() => {
+    localStorage.setItem('slide_editor_view_mode', slideEditorViewMode);
+  }, [slideEditorViewMode]);
+
   const handleStartOver = async () => {
     if (await showConfirm("Are you sure you want to start over? This will delete all current slides and progress.", { type: 'warning', title: 'Start Over', confirmText: 'Yes, Start Over' })) {
       await clearState();
@@ -342,6 +352,7 @@ function MainApp() {
       voice: 'af_heart',
       delay: 0.5,
       transition: 'fade',
+      previewMode: 'modal',
     };
 
     const current = globalSettings || defaults;
@@ -541,25 +552,46 @@ function MainApp() {
         {/* Center: View Toggle (Segmented Control) */}
         {slides.length > 0 && (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <button
-                onClick={() => setActiveTab('edit')}
-                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
-                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
-                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Preview
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                <button
+                  onClick={() => setActiveTab('edit')}
+                  className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
+                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setActiveTab('preview')}
+                  className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
+                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  Preview
+                </button>
+              </div>
+
+              {activeTab === 'edit' && (
+                <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                  <button
+                    onClick={() => setSlideEditorViewMode('list')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'list' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                    title="List view"
+                  >
+                    <List className="w-4 h-4" /><span className="hidden sm:inline">List</span>
+                  </button>
+                  <button
+                    onClick={() => setSlideEditorViewMode('grid')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'grid' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                    title="Grid view"
+                  >
+                    <LayoutGrid className="w-4 h-4" /><span className="hidden sm:inline">Grid</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -769,7 +801,6 @@ function MainApp() {
                 onUpdateSlide={updateSlide}
                 onGenerateAudio={generateAudioForSlide}
                 generatingSlides={generatingSlides}
-
                 onReorderSlides={setSlides}
                 musicSettings={musicSettings}
                 onUpdateMusicSettings={setMusicSettings}
@@ -777,6 +808,8 @@ function MainApp() {
                 onUpdateTtsVolume={setTtsVolume}
                 globalSettings={globalSettings}
                 onUpdateGlobalSettings={handlePartialGlobalSettings}
+                viewMode={slideEditorViewMode}
+                onViewModeChange={setSlideEditorViewMode}
               />
             )}
           </div>

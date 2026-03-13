@@ -70,7 +70,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
   );
-  const [previewMode, setPreviewMode] = useState<'inline' | 'modal'>(currentSettings?.previewMode ?? 'inline');
+  const [previewMode, setPreviewMode] = useState<'inline' | 'modal'>(currentSettings?.previewMode ?? 'modal');
   const [recordingCountdownEnabled, setRecordingCountdownEnabled] = useState(currentSettings?.recordingCountdownEnabled ?? true);
 
   // Prevent background scrolling when modal is open
