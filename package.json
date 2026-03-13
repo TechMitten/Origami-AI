@@ -30,6 +30,7 @@
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
+    "jszip": "^3.10.1",
     "kokoro-js": "^1.2.1",
     "lucide-react": "^0.562.0",
     "pdfjs-dist": "^5.4.449",

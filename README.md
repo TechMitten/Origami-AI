@@ -151,6 +151,17 @@ Origami AI requires a **WebGPU-enabled browser** for local AI inference:
 6. **Render Video** - FFmpeg.wasm combines everything into an MP4
 7. **Download** - Export your final video
 
+## Project Backup and Restore
+
+You can back up and move work between devices using `.origami` project files from the **Actions** menu.
+
+- **Export Project**: Saves your current slides, slide audio/media blobs, music settings, and project metadata into a single `.origami` archive.
+- **Import Project**: Validates the archive and replaces the current project with the imported one.
+
+Notes:
+- Import is strict by format version. Unsupported or malformed archives are rejected.
+- Global app defaults (for example voice/model defaults in Settings) are not changed by import/export.
+
 ## Configuration
 
 ### Settings Panel (⚙️)

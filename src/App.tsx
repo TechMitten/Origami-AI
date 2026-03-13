@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { PDFUploader } from './components/PDFUploader';
@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List, Upload } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -25,6 +25,7 @@ import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
+import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
 
 
 
@@ -60,6 +61,7 @@ function MainApp() {
   const { showAlert, showConfirm } = useModal();
   const [renderAbortController, setRenderAbortController] = useState<AbortController | null>(null);
   const [renderProgress, setRenderProgress] = useState<number>(0);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const renderer = useMemo(() => new BrowserVideoRenderer(), []);
 
@@ -341,6 +343,79 @@ function MainApp() {
     }
   };
 
+  const handleExportProject = async () => {
+    if (isRenderingWithAudio || isRenderingSilent) {
+      showAlert('Wait for video rendering to complete before exporting a project.', { type: 'warning', title: 'Export Blocked' });
+      return;
+    }
+
+    try {
+      const archiveBlob = await exportProjectArchive({
+        slides,
+        musicSettings,
+        appVersion: import.meta.env.VITE_APP_VERSION || 'dev',
+      });
+
+      const dateString = new Date().toISOString().slice(0, 10);
+      const archiveUrl = URL.createObjectURL(archiveBlob);
+      const link = document.createElement('a');
+      link.href = archiveUrl;
+      link.setAttribute('download', `origami-project-${dateString}.origami`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(archiveUrl);
+
+      showAlert('Project exported successfully.', { type: 'success', title: 'Export Complete' });
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to export project.', { type: 'error', title: 'Export Failed' });
+    }
+  };
+
+  const handleImportProjectClick = () => {
+    importFileInputRef.current?.click();
+  };
+
+  const handleImportProject = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (isRenderingWithAudio || isRenderingSilent) {
+      showAlert('Wait for video rendering to complete before importing a project.', { type: 'warning', title: 'Import Blocked' });
+      return;
+    }
+
+    const shouldReplace = await showConfirm(
+      'Importing a project replaces your current slides and music settings. Continue?',
+      { type: 'warning', title: 'Import Project', confirmText: 'Import and Replace' }
+    );
+
+    if (!shouldReplace) {
+      return;
+    }
+
+    try {
+      const imported = await importProjectArchive(selectedFile);
+
+      setSlides(imported.slides);
+      setMusicSettings(imported.musicSettings || { volume: 0.36 });
+      setActiveTab('edit');
+
+      await saveState(imported.slides, imported.musicSettings);
+
+      showAlert(`Project imported successfully with ${imported.metadata.slideCount} slides.`, {
+        type: 'success',
+        title: 'Import Complete',
+      });
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to import project.', { type: 'error', title: 'Import Failed' });
+    }
+  };
+
   const handleSaveGlobalSettings = async (settings: GlobalSettings) => {
     await saveGlobalSettings(settings);
     setGlobalSettings(settings);
@@ -537,6 +612,14 @@ function MainApp() {
 
   return (
     <div className={`min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>
+      <input
+        ref={importFileInputRef}
+        type="file"
+        accept=".origami,application/zip"
+        className="hidden"
+        onChange={handleImportProject}
+      />
+
       {/* Header */}
       <header className="relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl">
         {/* Left: Logo */}
@@ -654,6 +737,19 @@ function MainApp() {
                 {isActionsMenuOpen && (
                   <div className="absolute left-0 right-0 sm:left-auto sm:right-0 sm:w-48 top-full mt-2 w-full py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-60">
                     <button
+                      onClick={() => { handleExportProject(); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                    >
+                      <Download className="w-4 h-4" /> Export Project
+                    </button>
+                    <button
+                      onClick={() => { handleImportProjectClick(); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                    >
+                      <Upload className="w-4 h-4" /> Import Project
+                    </button>
+                    <div className="h-px bg-white/10 my-1" />
+                    <button
                       onClick={() => { handleStartOver(); setIsActionsMenuOpen(false); }}
                       className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
                     >
@@ -682,6 +778,12 @@ function MainApp() {
         {slides.length === 0 ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
             <PDFUploader onUploadComplete={onUploadComplete} />
+            <button
+              onClick={handleImportProjectClick}
+              className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 bg-white/5 text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Upload className="w-4 h-4" /> Import .origami Project
+            </button>
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
                 Checking for saved session...
