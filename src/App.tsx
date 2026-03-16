@@ -22,7 +22,7 @@ import { RuntimeResourceModal, type ResourceSelection } from './components/Runti
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { UnifiedInitModal } from './components/UnifiedInitModal';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
-import { initWebLLM, webLlmEvents, checkWebGPUSupport } from './services/webLlmService';
+import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, DEFAULT_WEB_LLM_MODEL_ID } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
@@ -160,7 +160,7 @@ function MainApp() {
 
       // Only init WebLLM if enabled specifically in settings AND (cached OR pre-initialized)
       if (settings?.useWebLLM) {
-        const model = settings.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
+        const model = settings.webLlmModel || DEFAULT_WEB_LLM_MODEL_ID;
 
         if (cached.webllm) {
           // Already cached, initialize with loading modal
@@ -219,7 +219,7 @@ function MainApp() {
 
           // Initialize WebLLM after TTS completes
           if (pref.enableWebLLM && !cached.webllm) {
-            const model = settings?.webLlmModel || 'gemma-2-2b-it-q4f32_1-MLC';
+            const model = settings?.webLlmModel || DEFAULT_WEB_LLM_MODEL_ID;
             initWebLLM(model, () => {
               // console.log('WebLLM Loading:', p);
             }).catch(console.error);
@@ -296,9 +296,9 @@ function MainApp() {
         return;
       }
 
-      // Enable WebLLM in settings with the default model
-      // Use f32 variant for better compatibility
-      const defaultModel = 'gemma-2-2b-it-q4f32_1-MLC';
+      // Enable WebLLM in settings with the default Gemma model.
+      // Fall back to the f32 variant when the GPU does not support f16 shaders.
+      const defaultModel = getDefaultWebLlmModel(webgpuStatus.hasF16);
       await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: defaultModel });
 
       // Start initialization

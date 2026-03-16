@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -47,7 +47,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   // WebLLM State
   const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
-  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? "gemma-2-2b-it-q4f32_1-MLC");
+  const [webLlmModel, setWebLlmModel] = useState(currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID);
   const [webLlmDownloadProgress, setWebLlmDownloadProgress] = useState<string>('');
   const [webLlmProgressPercent, setWebLlmProgressPercent] = useState(0);
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
@@ -568,7 +568,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     // If the WebLLM model was changed while one was already loaded, prompt the user to reload the browser
     const modelChangedAndLoaded =
       useWebLLM &&
-      webLlmModel !== (currentSettings?.webLlmModel ?? "gemma-2-2b-it-q4f32_1-MLC") &&
+      webLlmModel !== (currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID) &&
       isWebLLMLoaded();
 
     if (modelChangedAndLoaded) {
@@ -1016,7 +1016,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                           }`}
                       >
-                        <span className="text-sm font-bold">f16 (Fast)</span>
+                          <span className="text-sm font-bold">f16 (Better)</span>
                         <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-black/60' : 'text-white/40'}`}>
                           {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory'}
                         </span>

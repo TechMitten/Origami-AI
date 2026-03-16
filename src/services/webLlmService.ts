@@ -9,6 +9,13 @@ export interface ModelInfo {
     precision: 'f16' | 'f32';
 }
 
+export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
+export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
+
+export const getDefaultWebLlmModel = (hasF16: boolean = true): string => {
+    return hasF16 ? DEFAULT_WEB_LLM_MODEL_ID : DEFAULT_WEB_LLM_FALLBACK_MODEL_ID;
+};
+
 // Filter mostly for smaller models suitable for browser
 // This list can be expanded based on prebuiltAppConfig.model_list
 // f16 models are faster and use less memory, f32 models have better compatibility
