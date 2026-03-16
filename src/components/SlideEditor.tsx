@@ -1183,18 +1183,24 @@ const SortableSlideItem = ({
           </div>
         )}
 
-        {slide.type === 'video' && slide.videoNarrationAnalysis && (
+        {slide.type === 'video' && (slide.videoNarrationAnalysis || isUploadedVideoMediaSlide) && (
           <div className="mt-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2.5 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">
-                {slide.videoNarrationAnalysis.scenes.length} Scene{slide.videoNarrationAnalysis.scenes.length !== 1 ? 's' : ''}
-              </span>
-              {slide.videoNarrationAnalysis.scenes.some(s => s.audioUrl) ? (
-                <span className="flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
-                  <Check className="w-3 h-3" /> Audio ready
-                </span>
+              {slide.videoNarrationAnalysis ? (
+                <>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">
+                    {slide.videoNarrationAnalysis.scenes.length} Scene{slide.videoNarrationAnalysis.scenes.length !== 1 ? 's' : ''}
+                  </span>
+                  {slide.videoNarrationAnalysis.scenes.some(s => s.audioUrl) ? (
+                    <span className="flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
+                      <Check className="w-3 h-3" /> Audio ready
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/40">No audio yet — open editor to review &amp; generate</span>
+                  )}
+                </>
               ) : (
-                <span className="text-[10px] text-white/40">No audio yet — open editor to review &amp; generate</span>
+                <span className="text-[10px] text-white/40">No analysis yet — analyze video to generate narration</span>
               )}
             </div>
             <button
@@ -1206,14 +1212,16 @@ const SortableSlideItem = ({
               {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <VideoIcon className="w-3.5 h-3.5" />}
               {isAnalyzing ? (analysisProgress?.status || 'Analyzing Video...') : 'Analyze Video'}
             </button>
-            <button
-              onClick={() => onOpenSceneEditor(index)}
-              disabled={isAnalyzing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
-              title="Open the full-screen scene alignment editor"
-            >
-              <Maximize2 className="w-3.5 h-3.5" /> Edit Scenes
-            </button>
+            {slide.videoNarrationAnalysis && (
+              <button
+                onClick={() => onOpenSceneEditor(index)}
+                disabled={isAnalyzing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+                title="Open the full-screen scene alignment editor"
+              >
+                <Maximize2 className="w-3.5 h-3.5" /> Edit Scenes
+              </button>
+            )}
           </div>
         )}
       </div>
