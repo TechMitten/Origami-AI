@@ -315,6 +315,8 @@ const SortableSlideItem = ({
 
   const { showAlert, showConfirm } = useModal();
   const isGridView = viewMode === 'grid';
+  const isUploadedVideoMediaSlide = slide.type === 'video' && Boolean(slide.mediaUrl);
+  const useCompactMediaToolbar = isUploadedVideoMediaSlide;
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -1073,7 +1075,7 @@ const SortableSlideItem = ({
           </div>
 
           {/* Actions Toolbar */}
-          <div className={`flex flex-wrap items-center gap-2 ${isGridView ? '' : 'sm:gap-3'} p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm overflow-x-auto`}>
+          <div className={`flex flex-wrap items-center gap-2 ${isGridView ? '' : 'sm:gap-3'} ${useCompactMediaToolbar ? 'sm:flex-nowrap' : ''} p-2 rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm overflow-x-auto`}>
             {/* Generate Button - hide if audio was recorded */}
             {slide.audioSourceType !== 'recorded' && (
               <button
@@ -1087,17 +1089,7 @@ const SortableSlideItem = ({
               </button>
             )}
 
-            {slide.type === 'video' && (
-              <button
-                onClick={() => onAnalyzeVideo(index)}
-                disabled={isAnalyzing || isGenerating || isRecording}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-indigo-500/5 h-9 whitespace-nowrap"
-                title="Analyze video and build editable timestamped narration plan"
-              >
-                {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <VideoIcon className="w-3.5 h-3.5" />}
-                {isAnalyzing ? (analysisProgress?.status || 'Analyzing Video...') : 'Analyze Video'}
-              </button>
-            )}
+            {/* Analyze Video button moved to the scene summary panel below for uploaded media slides */}
 
             {/* Record Button */}
             <button
@@ -1139,33 +1131,34 @@ const SortableSlideItem = ({
                 <Loader2 className="w-3 h-3 animate-spin" /> Queued
               </span>
             )}
-            {slide.type === 'video' && slide.videoNarrationAnalysis && !isAnalyzing && (
+            {slide.type === 'video' && slide.videoNarrationAnalysis && !isAnalyzing && !isUploadedVideoMediaSlide && (
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-200/80 uppercase tracking-wider ml-1">
                 <Check className="w-3 h-3" /> {slide.videoNarrationAnalysis.scenes.length} Scene{slide.videoNarrationAnalysis.scenes.length !== 1 ? 's' : ''}
               </span>
             )}
 
-            <div className={`w-px h-5 bg-white/10 mx-1 ${isGridView ? 'hidden xl:block' : 'hidden sm:block'}`} />
+            <div className={`w-px h-5 bg-white/10 mx-1 ${useCompactMediaToolbar ? 'hidden' : (isGridView ? 'hidden xl:block' : 'hidden sm:block')}`} />
 
             {/* Controls Group */}
-            <div className={`flex items-center gap-2 w-full ${isGridView ? '' : 'ml-auto sm:w-auto'}`}>
+            <div className={`${useCompactMediaToolbar ? 'ml-auto flex items-center gap-2 shrink-0' : `flex items-center gap-2 w-full ${isGridView ? '' : 'ml-auto sm:w-auto'}`}`}>
               {slide.type === 'video' && (
                 <button
                   onClick={() => onUpdate(index, { isVideoMusicPaused: !slide.isVideoMusicPaused })}
                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all h-9 ${slide.isVideoMusicPaused ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'}`}
-                  title="Toggle Video Music"
+                  title="Toggle the embedded video's audio on/off for this slide"
                 >
                   {slide.isVideoMusicPaused ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  <span className={`${useCompactMediaToolbar ? 'hidden md:inline ml-2' : 'hidden sm:inline ml-2'} text-[10px] font-bold uppercase tracking-wider`}>{useCompactMediaToolbar ? 'VIDEO' : 'VIDEO AUDIO'}</span>
                 </button>
               )}
 
               <button
                 onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
-                className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
-                title="Toggle background music on/off"
+                className={`${useCompactMediaToolbar ? '' : 'flex-1 sm:flex-none'} px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
+                title="Toggle the project's background music for this slide (global music track)"
               >
                 {!slide.isMusicDisabled ? <Music className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">BACKGROUND MUSIC</span>
+                <span className={`${useCompactMediaToolbar ? 'hidden md:inline' : 'hidden sm:inline'}`}>{useCompactMediaToolbar ? 'BG MUSIC' : 'BACKGROUND MUSIC'}</span>
               </button>
             </div>
           </div>
@@ -1201,6 +1194,15 @@ const SortableSlideItem = ({
                 <span className="text-[10px] text-white/40">No audio yet — open editor to review &amp; generate</span>
               )}
             </div>
+            <button
+              onClick={() => onAnalyzeVideo(index)}
+              disabled={isAnalyzing || isGenerating || isRecording}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 disabled:opacity-40 disabled:grayscale transition-all text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+              title="Analyze video and build editable timestamped narration plan"
+            >
+              {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <VideoIcon className="w-3.5 h-3.5" />}
+              {isAnalyzing ? (analysisProgress?.status || 'Analyzing Video...') : 'Analyze Video'}
+            </button>
             <button
               onClick={() => onOpenSceneEditor(index)}
               disabled={isAnalyzing}

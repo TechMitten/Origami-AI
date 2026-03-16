@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, LocateFixed, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import backgroundImage from '../assets/images/background.png';
 import type { SlideData, VideoNarrationSceneTrack, VideoNarrationAnalysisData } from '../components/SlideEditor';
 import { useVideoSceneSync } from '../hooks/useVideoSceneSync';
@@ -518,7 +518,6 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       <SceneCard
                         scene={scene}
                         sceneNumber={i + 1}
-                        onJumpToTimestamp={seekTo}
                         onEdit={handleSceneEdit}
                         onTimestampChange={handleTimestampChange}
                         onTimestampBlur={handleTimestampBlur}
@@ -572,7 +571,6 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
 interface SceneCardProps {
   scene: VideoNarrationSceneTrack;
   sceneNumber: number;
-  onJumpToTimestamp: (seconds: number) => void;
   onEdit: (id: string, patch: Partial<VideoNarrationSceneTrack>) => void;
   onTimestampChange: (id: string, value: string) => void;
   onTimestampBlur: (id: string, value: string) => void;
@@ -583,7 +581,7 @@ interface SceneCardProps {
   targetHeight: number;
 }
 
-const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimestamp, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating, isActive, targetHeight }) => {
+const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating, isActive, targetHeight }) => {
   const topTrimPx = 48;
   const bottomExtendPx = 24;
   const adjustedHeight = Math.max(260, targetHeight - topTrimPx + bottomExtendPx);
@@ -628,13 +626,6 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimes
           </div>
         </div>
 
-        <button
-          onClick={() => onJumpToTimestamp(scene.effectiveStartSeconds)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-colors text-[10px] font-bold uppercase tracking-wider"
-          title={`Jump video preview to ${scene.timestampStart}`}
-        >
-          <LocateFixed className="w-3 h-3" /> Jump
-        </button>
       </div>
 
       {/* Narration */}
