@@ -100,7 +100,9 @@ interface SlideEditorProps {
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
   onReplaceSlideImage: (index: number, file: File) => Promise<void>;
   onGenerateAudio: (index: number) => Promise<void>;
+  onGenerateVideoSceneAudio: (index: number) => Promise<void>;
   onAnalyzeVideoNarration: (index: number) => Promise<void>;
+  onOpenSceneAlignmentEditor: (index: number) => void;
   generatingSlides: Set<number>;
   analyzingSlides: Set<number>;
   analysisProgressBySlide: Record<number, SlideAnalysisProgress>;
@@ -263,7 +265,9 @@ const SortableSlideItem = ({
   onUpdate,
   onReplaceImage,
   onGenerate,
+  onGenerateSceneAudio,
   onAnalyzeVideo,
+  onOpenSceneEditor,
   analysisProgress,
   isGenerating,
   isAnalyzing,
@@ -283,7 +287,9 @@ const SortableSlideItem = ({
   onUpdate: (i: number, d: Partial<SlideData>) => void,
   onReplaceImage: (i: number, file: File) => Promise<void>,
   onGenerate: (i: number) => Promise<void>,
+  onGenerateSceneAudio: (i: number) => Promise<void>,
   onAnalyzeVideo: (i: number) => Promise<void>,
+  onOpenSceneEditor: (i: number) => void,
   analysisProgress?: SlideAnalysisProgress,
   isGenerating: boolean,
   isAnalyzing: boolean,
@@ -324,7 +330,6 @@ const SortableSlideItem = ({
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
   const [showScriptEditor, setShowScriptEditor] = React.useState(false);
-  const [showAlignmentDebug, setShowAlignmentDebug] = React.useState(false);
   const replaceImageInputRef = useRef<HTMLInputElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -1073,12 +1078,12 @@ const SortableSlideItem = ({
             {slide.audioSourceType !== 'recorded' && (
               <button
                 onClick={() => onGenerate(index)}
-                disabled={isGenerating || !slide.script.trim() || isRecording}
+                disabled={isGenerating || (!slide.script.trim() && !slide.videoNarrationAnalysis?.scenes?.length) || isRecording}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
-                title="Generate AI narration from script text"
+                title={slide.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length ? 'Generate scene-level TTS using the current alignment plan' : 'Generate AI narration from script text'}
               >
                 {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
-                {slide.audioUrl ? 'Regenerate' : 'Generate TTS Audio'}
+                {slide.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length ? (slide.audioUrl ? 'Regenerate Scene TTS' : 'Generate Scene TTS') : (slide.audioUrl ? 'Regenerate' : 'Generate TTS Audio')}
               </button>
             )}
 
@@ -1087,7 +1092,7 @@ const SortableSlideItem = ({
                 onClick={() => onAnalyzeVideo(index)}
                 disabled={isAnalyzing || isGenerating || isRecording}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-indigo-500/5 h-9 whitespace-nowrap"
-                title="Analyze video and generate timestamped narration with Gemini"
+                title="Analyze video and build editable timestamped narration plan"
               >
                 {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <VideoIcon className="w-3.5 h-3.5" />}
                 {isAnalyzing ? (analysisProgress?.status || 'Analyzing Video...') : 'Analyze Video'}
@@ -1183,80 +1188,27 @@ const SortableSlideItem = ({
         )}
 
         {slide.type === 'video' && slide.videoNarrationAnalysis && (
-          <div className="mt-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+          <div className="mt-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2.5 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">
+                {slide.videoNarrationAnalysis.scenes.length} Scene{slide.videoNarrationAnalysis.scenes.length !== 1 ? 's' : ''}
+              </span>
+              {slide.videoNarrationAnalysis.scenes.some(s => s.audioUrl) ? (
+                <span className="flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
+                  <Check className="w-3 h-3" /> Audio ready
+                </span>
+              ) : (
+                <span className="text-[10px] text-white/40">No audio yet — open editor to review &amp; generate</span>
+              )}
+            </div>
             <button
-              onClick={() => setShowAlignmentDebug(prev => !prev)}
-              className="w-full px-3 py-2 flex items-center justify-between text-left"
-              title="Show scene timing map and raw Gemini JSON"
+              onClick={() => onOpenSceneEditor(index)}
+              disabled={isAnalyzing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+              title="Open the full-screen scene alignment editor"
             >
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-200">
-                TTS Alignment Debug
-              </span>
-              <span className="text-indigo-200/80">
-                {showAlignmentDebug ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </span>
+              <Maximize2 className="w-3.5 h-3.5" /> Edit Scenes
             </button>
-
-            {showAlignmentDebug && (
-              <div className="px-3 pb-3 space-y-3">
-                <div className="text-[10px] text-indigo-100/80">
-                  Scenes: {slide.videoNarrationAnalysis.scenes.length} · Timeline: {formatSeconds(slide.videoNarrationAnalysis.totalTimelineDurationSeconds)} · Stretch: {slide.videoNarrationAnalysis.totalStretchSeconds.toFixed(2)}s
-                </div>
-
-                <div className="relative h-8 rounded-lg bg-black/30 border border-white/10 overflow-hidden">
-                  {slide.videoNarrationAnalysis.scenes.map((scene) => {
-                    const total = Math.max(slide.videoNarrationAnalysis?.totalTimelineDurationSeconds || 1, 0.001);
-                    const left = (scene.effectiveStartSeconds / total) * 100;
-                    const width = (Math.max(scene.audioDurationSeconds || scene.effectiveDurationSeconds, 0.05) / total) * 100;
-
-                    return (
-                      <div
-                        key={scene.id}
-                        className="absolute top-0 h-full bg-indigo-400/40 border-r border-indigo-200/70"
-                        style={{ left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.max(0.5, Math.min(100, width))}%` }}
-                        title={`Scene ${scene.stepNumber} | start ${formatSeconds(scene.effectiveStartSeconds)} | audio ${formatSeconds(scene.audioDurationSeconds || 0)}`}
-                      >
-                        <span className="absolute left-1 top-1 text-[9px] font-bold text-indigo-100">{scene.stepNumber}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[10px] text-left min-w-[560px]">
-                    <thead className="text-white/50">
-                      <tr>
-                        <th className="py-1 pr-2">Step</th>
-                        <th className="py-1 pr-2">Gemini Start</th>
-                        <th className="py-1 pr-2">Effective Start</th>
-                        <th className="py-1 pr-2">Target Dur</th>
-                        <th className="py-1 pr-2">Audio Dur</th>
-                        <th className="py-1 pr-2">Narration</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-white/80">
-                      {slide.videoNarrationAnalysis.scenes.map((scene) => (
-                        <tr key={`row-${scene.id}`} className="border-t border-white/10">
-                          <td className="py-1 pr-2">{scene.stepNumber}</td>
-                          <td className="py-1 pr-2">{scene.timestampStart}</td>
-                          <td className="py-1 pr-2">{formatSeconds(scene.effectiveStartSeconds)}</td>
-                          <td className="py-1 pr-2">{scene.durationSeconds.toFixed(2)}s</td>
-                          <td className="py-1 pr-2">{(scene.audioDurationSeconds || 0).toFixed(2)}s</td>
-                          <td className="py-1 pr-2 max-w-[240px] truncate" title={scene.narrationText}>{scene.narrationText}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/60">Raw Gemini JSON</div>
-                  <pre className="max-h-40 overflow-auto rounded-lg bg-black/40 border border-white/10 p-2 text-[10px] text-white/80 whitespace-pre-wrap break-words">
-                    {slide.videoNarrationAnalysis.rawGeminiJson || 'No raw JSON captured.'}
-                  </pre>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1351,7 +1303,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onUpdateSlide,
   onReplaceSlideImage,
   onGenerateAudio,
+  onGenerateVideoSceneAudio,
   onAnalyzeVideoNarration,
+  onOpenSceneAlignmentEditor,
   generatingSlides,
   analyzingSlides,
   analysisProgressBySlide,
@@ -3065,7 +3019,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 onUpdate={onUpdateSlide}
                 onReplaceImage={onReplaceSlideImage}
                 onGenerate={onGenerateAudio}
+                onGenerateSceneAudio={onGenerateVideoSceneAudio}
                 onAnalyzeVideo={onAnalyzeVideoNarration}
+                onOpenSceneEditor={onOpenSceneAlignmentEditor}
                 analysisProgress={analysisProgressBySlide[index]}
                 isGenerating={generatingSlides.has(index) || isBatchGenerating}
                 isAnalyzing={analyzingSlides.has(index)}

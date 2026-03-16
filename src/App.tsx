@@ -28,6 +28,7 @@ import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, DE
 import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
+import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
 
 
 
@@ -37,6 +38,7 @@ function MainApp() {
   const [generatingSlides, setGeneratingSlides] = useState<Set<number>>(new Set());
   const [analyzingSlides, setAnalyzingSlides] = useState<Set<number>>(new Set());
   const [analysisProgressBySlide, setAnalysisProgressBySlide] = useState<Record<number, { status: string; progress: number }>>({});
+  const [alignmentEditorSlideIndex, setAlignmentEditorSlideIndex] = useState<number | null>(null);
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
@@ -610,6 +612,11 @@ function MainApp() {
     setGeneratingSlides(prev => { const next = new Set(prev); next.add(index); return next; });
     try {
       const slide = slides[index];
+      if (slide?.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length) {
+        await generateVideoSceneAudioForSlide(index);
+        return;
+      }
+
       const textToSpeak = slide.script;
 
       if (!textToSpeak.trim()) return;
@@ -629,6 +636,85 @@ function MainApp() {
       showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {
       setGeneratingSlides(prev => { const next = new Set(prev); next.delete(index); return next; });
+    }
+  };
+
+  const generateVideoSceneAudioForSlide = async (index: number) => {
+    setGeneratingSlides(prev => {
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+
+    try {
+      const slide = slides[index];
+      if (!slide || slide.type !== 'video' || !slide.videoNarrationAnalysis?.scenes?.length) {
+        throw new Error('Analyze the video first to generate scene-level TTS audio.');
+      }
+
+      const scenes = slide.videoNarrationAnalysis.scenes;
+      let cumulativeStretch = 0;
+      let totalNarrationDuration = 0;
+
+      const scenesWithAudio: typeof scenes = [];
+      for (const scene of scenes) {
+        const sceneAudioUrl = await generateTTS(scene.narrationText, {
+          voice: slide.voice,
+          speed: 1.0,
+          pitch: 1.0,
+        });
+        const sceneAudioDuration = await getAudioDuration(sceneAudioUrl);
+
+        const effectiveStart = scene.timestampStartSeconds + cumulativeStretch;
+        const effectiveDuration = Math.max(scene.durationSeconds, sceneAudioDuration);
+        const stretchDelta = Math.max(0, sceneAudioDuration - scene.durationSeconds);
+        cumulativeStretch += stretchDelta;
+        totalNarrationDuration += sceneAudioDuration;
+
+        scenesWithAudio.push({
+          ...scene,
+          effectiveStartSeconds: effectiveStart,
+          effectiveDurationSeconds: effectiveDuration,
+          audioUrl: sceneAudioUrl,
+          audioDurationSeconds: sceneAudioDuration,
+        });
+      }
+
+      const lastSceneEnd = scenesWithAudio.reduce((max, scene) => {
+        return Math.max(max, scene.effectiveStartSeconds + scene.effectiveDurationSeconds);
+      }, 0);
+
+      const timelineDuration = Math.max(
+        slide.mediaDuration || 0,
+        slide.videoNarrationAnalysis.videoMetadata.totalEstimatedDurationSeconds + cumulativeStretch,
+        lastSceneEnd
+      );
+
+      const mergedScript = scenesWithAudio.map(scene => scene.narrationText.trim()).filter(Boolean).join(' ');
+
+      updateSlide(index, {
+        script: mergedScript || slide.script,
+        audioDuration: totalNarrationDuration,
+        duration: timelineDuration,
+        audioSourceType: 'tts',
+        videoNarrationAnalysis: {
+          ...slide.videoNarrationAnalysis,
+          scenes: scenesWithAudio,
+          totalTimelineDurationSeconds: timelineDuration,
+          totalStretchSeconds: cumulativeStretch,
+        }
+      });
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to generate scene TTS audio.', {
+        type: 'error',
+        title: 'Scene TTS Generation Failed'
+      });
+    } finally {
+      setGeneratingSlides(prev => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
     }
   };
 
@@ -708,70 +794,49 @@ function MainApp() {
         }
       );
 
-      let cumulativeStretch = 0;
-      let totalNarrationDuration = 0;
-      const scenesWithAudio = [];
+      const scenesDraft = analysis.scenes.map(scene => ({
+        id: crypto.randomUUID(),
+        stepNumber: scene.stepNumber,
+        timestampStart: scene.timestampStart,
+        timestampStartSeconds: scene.timestampStartSeconds,
+        onScreenAction: scene.onScreenAction,
+        narrationText: scene.narrationText,
+        durationSeconds: scene.durationSeconds,
+        effectiveStartSeconds: scene.timestampStartSeconds,
+        effectiveDurationSeconds: scene.durationSeconds,
+        audioUrl: undefined,
+        audioDurationSeconds: undefined,
+      }));
 
-      for (let i = 0; i < analysis.scenes.length; i++) {
-        const scene = analysis.scenes[i];
-        const ttsProgress = 89 + (((i + 1) / Math.max(analysis.scenes.length, 1)) * 10);
-        updateAnalyzeProgress(`Generating scene audio ${i + 1}/${analysis.scenes.length}`, ttsProgress);
-        const sceneAudioUrl = await generateTTS(scene.narrationText, {
-          voice: slide.voice,
-          speed: 1.0,
-          pitch: 1.0
-        });
-        const sceneAudioDuration = await getAudioDuration(sceneAudioUrl);
-
-        const effectiveStart = scene.timestampStartSeconds + cumulativeStretch;
-        const effectiveDuration = Math.max(scene.durationSeconds, sceneAudioDuration);
-        const stretchDelta = Math.max(0, sceneAudioDuration - scene.durationSeconds);
-        cumulativeStretch += stretchDelta;
-        totalNarrationDuration += sceneAudioDuration;
-
-        scenesWithAudio.push({
-          id: crypto.randomUUID(),
-          stepNumber: scene.stepNumber,
-          timestampStart: scene.timestampStart,
-          timestampStartSeconds: scene.timestampStartSeconds,
-          onScreenAction: scene.onScreenAction,
-          narrationText: scene.narrationText,
-          durationSeconds: scene.durationSeconds,
-          effectiveStartSeconds: effectiveStart,
-          effectiveDurationSeconds: effectiveDuration,
-          audioUrl: sceneAudioUrl,
-          audioDurationSeconds: sceneAudioDuration,
-        });
-      }
-
-      const lastSceneEnd = scenesWithAudio.reduce((max, scene) => {
-        return Math.max(max, scene.effectiveStartSeconds + scene.effectiveDurationSeconds);
+      const lastSceneEnd = scenesDraft.reduce((max, scene) => {
+        return Math.max(max, scene.timestampStartSeconds + scene.durationSeconds);
       }, 0);
 
       const timelineDuration = Math.max(
         slide.mediaDuration || 0,
-        analysis.videoMetadata.totalEstimatedDurationSeconds + cumulativeStretch,
+        analysis.videoMetadata.totalEstimatedDurationSeconds,
         lastSceneEnd
       );
 
-      const mergedScript = scenesWithAudio.map(scene => scene.narrationText.trim()).filter(Boolean).join(' ');
+      const mergedScript = scenesDraft.map(scene => scene.narrationText.trim()).filter(Boolean).join(' ');
 
       updateSlide(index, {
         script: mergedScript || slide.script,
-        audioDuration: totalNarrationDuration,
+        audioDuration: undefined,
         duration: timelineDuration,
-        audioSourceType: 'tts',
+        audioUrl: undefined,
+        audioSourceType: undefined,
         videoNarrationAnalysis: {
           model,
           generatedAt: Date.now(),
           videoMetadata: analysis.videoMetadata,
-          scenes: scenesWithAudio,
+          scenes: scenesDraft,
           totalTimelineDurationSeconds: timelineDuration,
-          totalStretchSeconds: cumulativeStretch,
+          totalStretchSeconds: 0,
           rawGeminiJson: analysis.rawJson,
         }
       });
-      updateAnalyzeProgress('Completed', 100);
+      updateAnalyzeProgress('Review scenes, then generate TTS', 100);
     } catch (error) {
       showAlert(error instanceof Error ? error.message : 'Failed to analyze video slide.', {
         type: 'error',
@@ -1203,7 +1268,9 @@ function MainApp() {
                 onUpdateSlide={updateSlide}
                 onReplaceSlideImage={handleReplaceSlideImage}
                 onGenerateAudio={generateAudioForSlide}
+                onGenerateVideoSceneAudio={generateVideoSceneAudioForSlide}
                 onAnalyzeVideoNarration={analyzeVideoNarrationForSlide}
+                onOpenSceneAlignmentEditor={setAlignmentEditorSlideIndex}
                 generatingSlides={generatingSlides}
                 analyzingSlides={analyzingSlides}
                 analysisProgressBySlide={analysisProgressBySlide}
@@ -1223,6 +1290,21 @@ function MainApp() {
       </main>
 
       <Footer />
+
+      {/* Scene Alignment Editor full-screen overlay */}
+      {alignmentEditorSlideIndex !== null && slides[alignmentEditorSlideIndex]?.videoNarrationAnalysis && (
+        <SceneAlignmentPage
+          slide={slides[alignmentEditorSlideIndex]}
+          slideIndex={alignmentEditorSlideIndex}
+          slideNumber={alignmentEditorSlideIndex + 1}
+          isGenerating={generatingSlides.has(alignmentEditorSlideIndex)}
+          onClose={() => setAlignmentEditorSlideIndex(null)}
+          onUpdate={updateSlide}
+          onGenerateSceneAudio={async (index) => {
+            await generateVideoSceneAudioForSlide(index);
+          }}
+        />
+      )}
 
       {/* Duplicate tab warning */}
       <DuplicateTabModal />
