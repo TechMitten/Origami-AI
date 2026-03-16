@@ -692,7 +692,14 @@ function MainApp() {
     }
   };
 
-  const allAudioReady = slides.length > 0 && slides.every(s => !!s.audioUrl);
+  const allAudioReady = slides.length > 0 && slides.every((slide) => {
+    // Slides added via the slide-media flow are self-timed media and don't require TTS audio.
+    if (slide.type === 'video') {
+      return true;
+    }
+
+    return !!slide.audioUrl;
+  });
 
   return (
     <div className={`min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>

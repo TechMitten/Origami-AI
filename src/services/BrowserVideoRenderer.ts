@@ -45,6 +45,28 @@ export class BrowserVideoRenderer {
   private loaded: boolean = false;
   private aborted: boolean = false;
 
+  private getSafeMediaExtension(mediaUrl: string, slideType?: Slide['type']): string {
+    // blob: URLs and URLs with query strings can produce invalid virtual paths in FFmpeg FS.
+    // Keep only a small whitelist of safe extensions and fall back by slide type.
+    const fallback = slideType === 'video' ? 'mp4' : 'png';
+
+    try {
+      const parsed = new URL(mediaUrl, window.location.href);
+      const pathname = parsed.pathname || '';
+      const filename = pathname.split('/').pop() || '';
+      const ext = filename.includes('.') ? filename.split('.').pop() || '' : '';
+      const normalized = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      if (/^(mp4|webm|mov|mkv|avi|m4v|gif|png|jpg|jpeg|webp)$/.test(normalized)) {
+        return normalized;
+      }
+    } catch {
+      // If URL parsing fails, use fallback.
+    }
+
+    return fallback;
+  }
+
   constructor() {
     // Lazy init
   }
@@ -228,7 +250,7 @@ export class BrowserVideoRenderer {
             throw new Error(`Failed to load image for slide ${i + 1}. Please try re-uploading the PDF. Details: ${(err as Error).message}`);
           }
         } else if (slide.mediaUrl) {
-          const ext = slide.mediaUrl.split('.').pop() || 'mp4';
+          const ext = this.getSafeMediaExtension(slide.mediaUrl, slide.type);
           const fname = `visual_${i}.${ext}`;
           await ffmpeg.writeFile(fname, await fetchFile(slide.mediaUrl));
           cleanupFiles.push(fname);
