@@ -1996,24 +1996,37 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     setIsCancellingBatch('generate');
   };
 
+  const isSlideMediaVideo = (slide: SlideData) => slide.type === 'video' && Boolean(slide.mediaUrl);
+
   const handleGenerateAll = async () => {
-    if (!await showConfirm("This will generate audio for all slides, overwriting any existing audio. Continue?", { title: 'Batch Generate', confirmText: 'Generate All' })) {
+    const eligibleSlideIndexes = slides
+      .map((slide, index) => ({ slide, index }))
+      .filter(({ slide }) => !isSlideMediaVideo(slide))
+      .map(({ index }) => index);
+
+    if (eligibleSlideIndexes.length === 0) {
+      showAlert('No eligible slides found. Slide Media video slides are excluded from batch TTS.', { type: 'info', title: 'Nothing to Generate' });
+      return;
+    }
+
+    if (!await showConfirm(`This will generate audio for ${eligibleSlideIndexes.length} eligible slide(s), overwriting any existing audio. Slide Media video slides are excluded. Continue?`, { title: 'Batch Generate', confirmText: 'Generate All' })) {
       return;
     }
 
     batchGeneratingCancelledRef.current = false;
     setIsBatchGenerating(true);
-    setBatchProgress({ current: 0, total: slides.length });
+    setBatchProgress({ current: 0, total: eligibleSlideIndexes.length });
     let cancelled = false;
     let processedCount = 0;
     try {
-      for (let i = 0; i < slides.length; i++) {
+      for (let i = 0; i < eligibleSlideIndexes.length; i++) {
         if (batchGeneratingCancelledRef.current) {
           cancelled = true;
           break;
         }
-        setBatchProgress({ current: i + 1, total: slides.length });
-        await onGenerateAudio(i);
+        const slideIndex = eligibleSlideIndexes[i];
+        setBatchProgress({ current: i + 1, total: eligibleSlideIndexes.length });
+        await onGenerateAudio(slideIndex);
         processedCount++;
       }
       if (cancelled) {
@@ -2037,11 +2050,20 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const handleFixAllScripts = async () => {
     const useWebLLM = globalSettings?.useWebLLM;
     const webLlmModel = globalSettings?.webLlmModel;
+    const eligibleSlideIndexes = slides
+      .map((slide, index) => ({ slide, index }))
+      .filter(({ slide }) => !isSlideMediaVideo(slide))
+      .map(({ index }) => index);
 
     const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
     const apiKey = decrypt(storedApiKey);
     const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
+
+    if (eligibleSlideIndexes.length === 0) {
+      showAlert('No eligible slides found. Slide Media video slides are excluded from batch AI fix.', { type: 'info', title: 'Nothing to Process' });
+      return;
+    }
 
     if (!useWebLLM && !apiKey) {
       showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning' });
@@ -2061,24 +2083,25 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       }
     }
 
-    if (!await showConfirm("This will sequentially update ALL slide scripts using AI. This process runs individually for each slide to respect API limits. Continue?", { title: 'Batch AI Fix', confirmText: 'Start Processing' })) {
+    if (!await showConfirm(`This will sequentially update ${eligibleSlideIndexes.length} eligible slide script(s) using AI. Slide Media video slides are excluded. Continue?`, { title: 'Batch AI Fix', confirmText: 'Start Processing' })) {
       return;
     }
 
     batchFixingCancelledRef.current = false;
     setIsBatchFixing(true);
-    setBatchProgress({ current: 0, total: slides.length });
+    setBatchProgress({ current: 0, total: eligibleSlideIndexes.length });
     let cancelled = false;
     let processedCount = 0;
 
     try {
-      for (let i = 0; i < slides.length; i++) {
+      for (let i = 0; i < eligibleSlideIndexes.length; i++) {
         if (batchFixingCancelledRef.current) {
           cancelled = true;
           break;
         }
-        setBatchProgress({ current: i + 1, total: slides.length });
-        const slide = slides[i];
+        const slideIndex = eligibleSlideIndexes[i];
+        setBatchProgress({ current: i + 1, total: eligibleSlideIndexes.length });
+        const slide = slides[slideIndex];
         if (!slide.script.trim()) continue;
 
         try {
@@ -2092,7 +2115,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
           const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
           if (normalize(transformed) === normalize(slide.script)) {
-            console.log(`[AI Fix Batch] Output was identical to input for slide ${i + 1}, retrying once automatically...`);
+            console.log(`[AI Fix Batch] Output was identical to input for slide ${slideIndex + 1}, retrying once automatically...`);
             transformed = await transformText({
               apiKey: apiKey || '',
               baseUrl,
@@ -2101,15 +2124,15 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               webLlmModel
             }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
           }
-          onUpdateSlide(i, { script: transformed, originalScript: slide.script });
+          onUpdateSlide(slideIndex, { script: transformed, originalScript: slide.script });
           processedCount++;
         } catch (error) {
-          console.error(`Failed to fix slide ${i + 1}`, error);
+          console.error(`Failed to fix slide ${slideIndex + 1}`, error);
         }
 
         // Delay 5s to prevent rate limiting only when using cloud API (API imposes 15 RPM ~ 4s/req)
         // Skip delay for WebLLM since it runs locally without rate limits
-        if (!useWebLLM && i < slides.length - 1) {
+        if (!useWebLLM && i < eligibleSlideIndexes.length - 1) {
           // Check cancellation during the delay using a polling loop
           const delayEnd = Date.now() + 5000;
           while (Date.now() < delayEnd) {
