@@ -78,8 +78,16 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   const analysis = slide.videoNarrationAnalysis;
   const scenes = analysis?.scenes ?? [];
 
+  const pageScrollRef = useRef<HTMLDivElement>(null);
+  const playerPanelRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const sceneCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const snapLockRef = useRef(false);
+  const snapUnlockTimerRef = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [playerPanelHeight, setPlayerPanelHeight] = useState<number>(0);
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(scenes[0]?.id ?? null);
+  const activeSceneIdRef = useRef<string | null>(activeSceneId);
   const totalDuration = analysis?.totalTimelineDurationSeconds ?? 0;
 
   const { videoRef, audioRef, isPlaying, elapsedTime, seekTo, togglePlayPause, skipForward, skipBack, onVideoLoadedMetadata } = useVideoSceneSync(scenes, totalDuration);
@@ -96,6 +104,123 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    if (scenes.length === 0) {
+      setActiveSceneId(null);
+      return;
+    }
+
+    if (!activeSceneId || !scenes.some((scene) => scene.id === activeSceneId)) {
+      setActiveSceneId(scenes[0].id);
+    }
+  }, [scenes, activeSceneId]);
+
+  useEffect(() => {
+    activeSceneIdRef.current = activeSceneId;
+  }, [activeSceneId]);
+
+  useEffect(() => {
+    return () => {
+      if (snapUnlockTimerRef.current !== null) {
+        window.clearTimeout(snapUnlockTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const root = pageScrollRef.current;
+    if (!root || scenes.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const bestVisible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (!bestVisible) return;
+
+        const sceneId = (bestVisible.target as HTMLDivElement).dataset.sceneId;
+        if (!sceneId) return;
+        setActiveSceneId((current) => (current === sceneId ? current : sceneId));
+      },
+      {
+        root,
+        threshold: [0.55, 0.7, 0.85],
+      }
+    );
+
+    scenes.forEach((scene) => {
+      const el = sceneCardRefs.current[scene.id];
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [scenes]);
+
+  useEffect(() => {
+    const activeScene = scenes.find((scene) => scene.id === activeSceneId);
+    if (!activeScene) return;
+    seekTo(activeScene.effectiveStartSeconds);
+  }, [activeSceneId, scenes, seekTo]);
+
+  useEffect(() => {
+    const root = pageScrollRef.current;
+    if (!root || scenes.length === 0) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) < 8) return;
+      e.preventDefault();
+
+      if (snapLockRef.current) return;
+
+      const currentIndex = Math.max(0, scenes.findIndex((scene) => scene.id === activeSceneIdRef.current));
+      const direction = e.deltaY > 0 ? 1 : -1;
+      const targetIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex + direction));
+
+      if (targetIndex === currentIndex) return;
+
+      const targetScene = scenes[targetIndex];
+      const targetCard = sceneCardRefs.current[targetScene.id];
+      if (!targetCard) return;
+
+      snapLockRef.current = true;
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      if (snapUnlockTimerRef.current !== null) {
+        window.clearTimeout(snapUnlockTimerRef.current);
+      }
+      snapUnlockTimerRef.current = window.setTimeout(() => {
+        snapLockRef.current = false;
+      }, 520);
+    };
+
+    root.addEventListener('wheel', handleWheel, { passive: false });
+    return () => root.removeEventListener('wheel', handleWheel);
+  }, [scenes]);
+
+  useEffect(() => {
+    const panel = playerPanelRef.current;
+    if (!panel) return;
+
+    const updatePanelHeight = () => {
+      setPlayerPanelHeight(Math.round(panel.getBoundingClientRect().height));
+    };
+
+    updatePanelHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updatePanelHeight();
+    });
+
+    resizeObserver.observe(panel);
+    window.addEventListener('resize', updatePanelHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updatePanelHeight);
+    };
+  }, [slide.mediaUrl]);
 
   const handleSceneEdit = useCallback(
     (sceneId: string, patch: Partial<VideoNarrationSceneTrack>) => {
@@ -176,6 +301,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   }, [isDragging, seekTo, totalDuration]);
 
   const hasAudio = scenes.some(s => s.audioUrl);
+  const activeScene = scenes.find((scene) => scene.id === activeSceneId) ?? null;
   const progressPercent = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
 
   const pageContent = (
@@ -232,14 +358,21 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={pageScrollRef} className="flex-1 overflow-y-auto snap-y snap-mandatory scroll-smooth">
         <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
 
             <section className="xl:sticky xl:top-6 self-start">
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">Slide Media</div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">Slide Media</div>
+                {activeScene && (
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
+                    Locked to Step {activeScene.stepNumber}
+                  </div>
+                )}
+              </div>
               {slide.mediaUrl ? (
-                <div className="rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl shadow-black/30 max-w-5xl">
+                <div ref={playerPanelRef} className="rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl shadow-black/30 max-w-5xl">
                   <div className="aspect-video bg-black">
                     <video
                       ref={videoRef}
@@ -313,7 +446,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                   No scenes found. Try re-analyzing the video.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-20 pb-[45vh]">
                   {analysis && (
                     <div className="rounded-xl border border-white/10 bg-white/3 p-3 space-y-3">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-white/50">Plan Summary</div>
@@ -367,18 +500,28 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                   </div>
 
                   {scenes.map((scene, i) => (
-                    <SceneCard
+                    <div
                       key={scene.id}
-                      scene={scene}
-                      sceneNumber={i + 1}
-                      onJumpToTimestamp={seekTo}
-                      onEdit={handleSceneEdit}
-                      onTimestampChange={handleTimestampChange}
-                      onTimestampBlur={handleTimestampBlur}
-                      onGenerateSceneTTS={handleGenerateSceneTTS}
-                      isGeneratingTTS={generatingSceneId === scene.id}
-                      anyGenerating={isGenerating || generatingSceneId !== null}
-                    />
+                      data-scene-id={scene.id}
+                      ref={(el) => {
+                        sceneCardRefs.current[scene.id] = el;
+                      }}
+                      className="snap-start snap-always min-h-[calc(100vh-9rem)] flex items-start"
+                    >
+                      <SceneCard
+                        scene={scene}
+                        sceneNumber={i + 1}
+                        onJumpToTimestamp={seekTo}
+                        onEdit={handleSceneEdit}
+                        onTimestampChange={handleTimestampChange}
+                        onTimestampBlur={handleTimestampBlur}
+                        onGenerateSceneTTS={handleGenerateSceneTTS}
+                        isGeneratingTTS={generatingSceneId === scene.id}
+                        anyGenerating={isGenerating || generatingSceneId !== null}
+                        isActive={activeSceneId === scene.id}
+                        targetHeight={playerPanelHeight}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -429,11 +572,20 @@ interface SceneCardProps {
   onGenerateSceneTTS: (sceneId: string) => Promise<void>;
   isGeneratingTTS: boolean;
   anyGenerating: boolean;
+  isActive: boolean;
+  targetHeight: number;
 }
 
-const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimestamp, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating }) => {
+const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimestamp, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating, isActive, targetHeight }) => {
+  const topTrimPx = 48;
+  const bottomExtendPx = 24;
+  const adjustedHeight = Math.max(260, targetHeight - topTrimPx + bottomExtendPx);
+
   return (
-    <div className="rounded-xl border border-white/10 bg-white/3 hover:border-white/20 transition-colors overflow-hidden">
+    <div
+      className={`w-full rounded-xl border ${isActive ? 'border-cyan-400/45' : 'border-white/10 hover:border-white/20'} bg-white/3 transition-colors overflow-hidden flex flex-col`}
+      style={targetHeight > 0 ? { height: `${adjustedHeight}px`, marginTop: `${topTrimPx}px` } : undefined}
+    >
       {/* Card header */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-white/3 border-b border-white/8">
         <div className="flex items-center gap-2 shrink-0">
@@ -476,45 +628,42 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimes
         >
           <LocateFixed className="w-3 h-3" /> Jump
         </button>
-
-        {scene.audioDurationSeconds ? (
-          <div className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-            <Check className="w-3 h-3" /> {scene.audioDurationSeconds.toFixed(2)}s audio
-          </div>
-        ) : (
-          <div className="ml-auto text-[10px] text-white/30 font-bold uppercase tracking-wider">No audio yet</div>
-        )}
       </div>
 
       {/* Narration */}
-      <div className="px-4 py-3 space-y-3">
-        <div>
+      <div className="px-4 py-3 flex-1 min-h-0 flex flex-col gap-3">
+        <div className="flex-1 min-h-0 flex flex-col">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
             Narration script
           </label>
           <textarea
             value={scene.narrationText}
             onChange={(e) => onEdit(scene.id, { narrationText: e.target.value })}
-            rows={3}
-            className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-y leading-relaxed"
+            className="w-full flex-1 min-h-[9rem] px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-none leading-relaxed"
             placeholder="What should the narrator say during this scene?"
           />
         </div>
 
-        <div>
+        <div className="flex-1 min-h-0 flex flex-col">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
             On-screen action
           </label>
           <textarea
             value={scene.onScreenAction}
-            onChange={(e) => onEdit(scene.id, { onScreenAction: e.target.value })}
-            rows={2}
-            className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-[11px] text-white/70 focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-y leading-relaxed"
+            readOnly
+            className="w-full flex-1 min-h-[7rem] px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-[11px] text-white/70 focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-none leading-relaxed"
             placeholder="What is happening visually in this scene?"
           />
         </div>
 
-        <div className="flex justify-end pt-0.5">
+        <div className="flex items-center justify-between pt-0.5 shrink-0">
+          {scene.audioDurationSeconds ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+              <Check className="w-3 h-3" /> {scene.audioDurationSeconds.toFixed(2)}s audio
+            </div>
+          ) : (
+            <div className="text-[10px] text-white/30 font-bold uppercase tracking-wider">No audio yet</div>
+          )}
           <button
             onClick={() => onGenerateSceneTTS(scene.id)}
             disabled={anyGenerating}
