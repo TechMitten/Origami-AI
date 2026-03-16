@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward, Maximize } from 'lucide-react';
 import backgroundImage from '../assets/images/background.png';
 import type { SlideData, VideoNarrationSceneTrack, VideoNarrationAnalysisData } from '../components/SlideEditor';
 import { useVideoSceneSync } from '../hooks/useVideoSceneSync';
@@ -273,6 +273,19 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
     }
   }, [onGenerateSceneTTS, slideIndex]);
 
+  const toggleFullscreen = useCallback(async () => {
+    if (!playerPanelRef.current) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await playerPanelRef.current.requestFullscreen();
+      }
+    } catch (err) {
+      console.error('Error attempting to toggle fullscreen:', err);
+    }
+  }, []);
+
   const handleProgressSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || totalDuration <= 0) return;
     const rect = progressBarRef.current.getBoundingClientRect();
@@ -437,6 +450,14 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       <span className="ml-2 text-xs font-mono text-white/50">
                         {formatMMSS(elapsedTime)} / {formatMMSS(totalDuration)}
                       </span>
+                      <div className="flex-1" />
+                      <button
+                        onClick={toggleFullscreen}
+                        className="p-1.5 rounded-full text-white/50 hover:bg-white/10 hover:text-white transition-all ml-auto"
+                        title="Toggle Fullscreen"
+                      >
+                        <Maximize className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
