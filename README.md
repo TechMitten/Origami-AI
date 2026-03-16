@@ -2,6 +2,25 @@
 
 Transform PDF presentations into cinematic narrated videos using AI-powered text-to-speech and browser-based video rendering.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+	- [PDF Processing](#pdf-processing)
+	- [AI-Powered Narration](#ai-powered-narration)
+	- [Text-to-Speech](#text-to-speech)
+	- [Video Editor](#video-editor)
+	- [Video Rendering](#video-rendering)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Browser Requirements](#browser-requirements)
+- [How It Works](#how-it-works)
+- [Project Backup and Restore](#project-backup-and-restore)
+- [Configuration](#configuration)
+- [System Requirements](#system-requirements)
+- [Notes](#notes)
+
 ## Overview
 
 Origami AI is a web application that converts static PDF presentations into engaging video content with AI-generated narration, background music, and professional transitions. All processing happens locally in your browser using WebGPU-accelerated AI models and FFmpeg.wasm for video rendering.
@@ -63,6 +82,8 @@ Origami AI is a web application that converts static PDF presentations into enga
 - **At least 8GB RAM** recommended for local AI model processing
 - **Stable internet connection** for initial model downloads
 
+- **Docker** (Docker Desktop or Docker Engine) — recommended for containerized deployment (see Option C)
+
 ## Getting Started
 
 ### Option A — Hosted (No Setup)
@@ -116,7 +137,7 @@ Serves the production build locally via Vite's preview server for a final sanity
 
 ---
 
-### Option C — Docker
+### Option C — Docker (Recommended)
 
 A `Dockerfile` and `docker-compose.yml` are included for containerized deployment.
 
