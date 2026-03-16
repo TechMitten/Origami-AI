@@ -314,16 +314,16 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
       />
 
       {/* Header */}
-      <header className="shrink-0 h-14 flex items-center gap-3 px-4 sm:px-6 border-b border-white/10 bg-black/30 backdrop-blur-sm">
+      <header className="relative shrink-0 h-14 flex items-center gap-3 px-4 sm:px-6 border-b border-white/10 bg-black/30 backdrop-blur-sm">
         <button
           onClick={onClose}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm font-bold"
+          className="relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm font-bold"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Back to Editor</span>
         </button>
 
-        <div className="flex items-center gap-2 ml-1">
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none">
           <Clapperboard className="w-4 h-4 text-indigo-400 shrink-0" />
           <div className="flex flex-col leading-none">
             <span className="text-xs font-black uppercase tracking-widest text-indigo-300">Scene Alignment Editor</span>
@@ -331,7 +331,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="relative z-10 ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowDebug(true)}
             className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/55 hover:text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-wider"
@@ -362,7 +362,14 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
         <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
 
-            <section className="xl:sticky xl:top-6 self-start">
+            <section
+              className="xl:sticky self-start"
+              style={{
+                top: playerPanelHeight > 0
+                  ? `max(1.5rem, calc((100vh - 3.5rem - ${playerPanelHeight}px) / 2))`
+                  : '1.5rem',
+              }}
+            >
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">Slide Media</div>
                 {activeScene && (
@@ -506,7 +513,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       ref={(el) => {
                         sceneCardRefs.current[scene.id] = el;
                       }}
-                      className="snap-start snap-always min-h-[calc(100vh-9rem)] flex items-start"
+                      className="snap-start snap-always min-h-[calc(100vh-9rem)] flex items-center"
                     >
                       <SceneCard
                         scene={scene}
