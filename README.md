@@ -19,7 +19,7 @@
 
 <p>&nbsp;</p>
 
-**Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based TTS, and local rendering.**
+<p style="text-align:center"><strong>Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based TTS, and local rendering.</strong></p>
 
 ## Table of Contents
 
