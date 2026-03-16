@@ -808,20 +808,21 @@ const SortableSlideItem = ({
         </div>
 
         <div
-          className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 ring-1 ring-white/5 shadow-2xl shadow-black/40 relative bg-black cursor-pointer group/image"
-          onClick={() => onExpand(index)}
+          className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 ring-1 ring-white/5 shadow-2xl shadow-black/40 relative bg-black group/image"
         >
           {slide.type === 'video' ? (
             <video
               src={slide.mediaUrl}
               className="w-full h-full object-contain rounded-2xl"
               muted
+              onClick={() => onExpand(index)}
             />
           ) : (
             <img
               src={slide.dataUrl}
               alt={`Slide ${index + 1}`}
               className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105 rounded-2xl"
+              onClick={() => onExpand(index)}
             />
           )}
 
@@ -840,6 +841,7 @@ const SortableSlideItem = ({
               />
               <button
                 type="button"
+                data-no-expand="true"
                 onClick={(e) => {
                   e.stopPropagation();
                   replaceImageInputRef.current?.click();
