@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List, Settings as SettingsIcon } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List, Settings as SettingsIcon, Wrench } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -2500,7 +2500,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           <div className="space-y-1 flex-1">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
               <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
-              Configure Slides
+              <Wrench className="w-5 h-5 text-branding-primary" />
+              Tool Box
             </h2>
             <p className="text-sm text-white/70 font-medium pl-4.5">
               Manage {slides.length} slides, voice settings, and audio generation
