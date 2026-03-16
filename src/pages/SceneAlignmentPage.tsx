@@ -204,7 +204,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
     if (!panel) return;
 
     const updatePanelHeight = () => {
-      setPlayerPanelHeight(Math.round(panel.getBoundingClientRect().height));
+      setPlayerPanelHeight(panel.offsetHeight);
     };
 
     updatePanelHeight();
@@ -335,12 +335,13 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   const activeScene = scenes.find((scene) => scene.id === activeSceneId) ?? null;
   const progressPercent = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
 
+  const ZOOM = 1.25;
   const stickyTop = playerPanelHeight > 0
-    ? `max(1.5rem, calc((100vh - 3.5rem - ${playerPanelHeight}px) / 2))`
+    ? `max(1.5rem, calc((100vh / ${ZOOM} - 3.5rem - ${playerPanelHeight}px) / 2))`
     : '1.5rem';
 
   const pageContent = (
-    <div className="fixed inset-0 z-[9999] text-white flex flex-col overflow-hidden" style={{ backgroundColor: '#09090b' }}>
+    <div className="fixed inset-0 z-[9999] text-white flex flex-col overflow-hidden" style={{ backgroundColor: '#09090b', zoom: ZOOM }}>
       <img
         src={backgroundImage}
         alt=""
@@ -632,7 +633,7 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
   return (
     <div
       className={`w-full rounded-xl border ${isActive ? 'border-cyan-400/45' : 'border-white/10 hover:border-white/20'} bg-white/3 transition-colors overflow-hidden flex flex-col`}
-      style={targetHeight > 0 ? { height: `${targetHeight}px`, marginTop: stickyTop } : undefined}
+      style={targetHeight > 0 ? { height: `${targetHeight - 96}px`, marginTop: stickyTop } : undefined}
     >
       {/* Card header */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-white/3 border-b border-white/8">
