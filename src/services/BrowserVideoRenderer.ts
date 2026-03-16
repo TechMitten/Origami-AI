@@ -11,6 +11,16 @@ interface Slide {
   isVideoMusicPaused?: boolean;
   isTtsDisabled?: boolean;
   isMusicDisabled?: boolean;
+  videoNarrationAnalysis?: {
+    scenes: Array<{
+      audioUrl?: string;
+      timestampStartSeconds: number;
+      durationSeconds: number;
+      effectiveStartSeconds: number;
+      effectiveDurationSeconds: number;
+      audioDurationSeconds?: number;
+    }>;
+  };
 }
 
 interface MusicSettings {
@@ -275,13 +285,35 @@ export class BrowserVideoRenderer {
 
         // 3. Prepare Audio Input (TTS)
         let hasAudio = false;
-        if (slide.audioUrl && !slide.isTtsDisabled) {
+        let singleAudioIdx: number | null = null;
+        const segmentAudioInputs: Array<{ idx: number; startSeconds: number; durationSeconds: number; label: string }> = [];
+
+        const timedScenes = slide.videoNarrationAnalysis?.scenes?.filter(scene => !!scene.audioUrl) ?? [];
+        if (timedScenes.length > 0 && !slide.isTtsDisabled) {
+          for (let j = 0; j < timedScenes.length; j++) {
+            const scene = timedScenes[j];
+            const fname = `speech_${i}_${j}.mp3`;
+            await ffmpeg.writeFile(fname, await fetchFile(scene.audioUrl!));
+            cleanupFiles.push(fname);
+
+            inputArgs.push('-i', fname);
+            segmentAudioInputs.push({
+              idx: currentInputIdx,
+              startSeconds: Math.max(0, scene.effectiveStartSeconds || 0),
+              durationSeconds: Math.max(0.05, scene.audioDurationSeconds || scene.effectiveDurationSeconds || 0.1),
+              label: `seg_${i}_${j}`
+            });
+            currentInputIdx++;
+          }
+          hasAudio = segmentAudioInputs.length > 0;
+        } else if (slide.audioUrl && !slide.isTtsDisabled) {
           const fname = `speech_${i}.mp3`;
           await ffmpeg.writeFile(fname, await fetchFile(slide.audioUrl));
           cleanupFiles.push(fname);
 
           inputArgs.push('-i', fname);
           hasAudio = true;
+          singleAudioIdx = currentInputIdx;
           currentInputIdx++;
         }
 
@@ -290,23 +322,95 @@ export class BrowserVideoRenderer {
         const aLabel = `a${i}`;
 
         // Video Filter
-        // Scale and Pad
-        let vFilter = `[${visualIdx}:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+        const allTimedScenes = (slide.videoNarrationAnalysis?.scenes ?? [])
+          .filter(scene => Number.isFinite(scene.timestampStartSeconds) && Number.isFinite(scene.durationSeconds) && Number.isFinite(scene.effectiveDurationSeconds))
+          .sort((a, b) => a.effectiveStartSeconds - b.effectiveStartSeconds);
 
-        // FPS & Format
-        vFilter += `,fps=${FPS},format=yuv420p`;
+        if (slide.type === 'video' && allTimedScenes.length > 0) {
+          const sceneLabels: string[] = [];
 
-        vFilter += `,trim=duration=${duration},setpts=PTS-STARTPTS[${vLabel}]`;
-        videoFilterParts.push(vFilter);
+          for (let j = 0; j < allTimedScenes.length; j++) {
+            const scene = allTimedScenes[j];
+            const originalStart = Math.max(0, scene.timestampStartSeconds || 0);
+            const originalDuration = Math.max(0.05, scene.durationSeconds || 0.05);
+            const originalEnd = originalStart + originalDuration;
+            const effectiveDuration = Math.max(0.05, scene.effectiveDurationSeconds || originalDuration);
+
+            const baseLabel = `vSceneBase_${i}_${j}`;
+            const sceneLabel = `vScene_${i}_${j}`;
+            sceneLabels.push(sceneLabel);
+
+            videoFilterParts.push(
+              `[${visualIdx}:v]trim=start=${originalStart}:end=${originalEnd},setpts=PTS-STARTPTS,scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS},format=yuv420p[${baseLabel}]`
+            );
+
+            if (effectiveDuration > originalDuration) {
+              const freezeDuration = Math.max(0.01, effectiveDuration - originalDuration);
+              videoFilterParts.push(
+                `[${baseLabel}]tpad=stop_mode=clone:stop_duration=${freezeDuration},trim=duration=${effectiveDuration},setpts=PTS-STARTPTS[${sceneLabel}]`
+              );
+            } else {
+              videoFilterParts.push(
+                `[${baseLabel}]trim=duration=${effectiveDuration},setpts=PTS-STARTPTS[${sceneLabel}]`
+              );
+            }
+          }
+
+          const stitchedLabel = `vStitched_${i}`;
+          if (sceneLabels.length === 1) {
+            videoFilterParts.push(`[${sceneLabels[0]}]copy[${stitchedLabel}]`);
+          } else {
+            const concatInputs = sceneLabels.map(label => `[${label}]`).join('');
+            videoFilterParts.push(`${concatInputs}concat=n=${sceneLabels.length}:v=1:a=0[${stitchedLabel}]`);
+          }
+
+          const renderedSceneEnd = allTimedScenes.reduce((max, scene) => {
+            return Math.max(max, (scene.effectiveStartSeconds || 0) + (scene.effectiveDurationSeconds || 0));
+          }, 0);
+          const tailPad = Math.max(0, duration - renderedSceneEnd);
+
+          if (tailPad > 0.01) {
+            videoFilterParts.push(`[${stitchedLabel}]tpad=stop_mode=clone:stop_duration=${tailPad},trim=duration=${duration},setpts=PTS-STARTPTS[${vLabel}]`);
+          } else {
+            videoFilterParts.push(`[${stitchedLabel}]trim=duration=${duration},setpts=PTS-STARTPTS[${vLabel}]`);
+          }
+        } else {
+          // Scale and Pad
+          let vFilter = `[${visualIdx}:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
+
+          // FPS & Format
+          vFilter += `,fps=${FPS},format=yuv420p`;
+
+          vFilter += `,trim=duration=${duration},setpts=PTS-STARTPTS[${vLabel}]`;
+          videoFilterParts.push(vFilter);
+        }
         videoStreamLabels.push(vLabel);
 
         // Audio Filter
         if (hasAudio) {
-          // Audio is at visualIdx + 1
-          const audioIdx = visualIdx + 1;
-          audioFilterParts.push(`[${audioIdx}:a]aformat=sample_rates=44100:channel_layouts=stereo,apad,atrim=duration=${duration}[${aLabel}]`);
-          audioStreamLabels.push(aLabel);
-        } else {
+          if (segmentAudioInputs.length > 0) {
+            const delayedLabels: string[] = [];
+
+            for (const seg of segmentAudioInputs) {
+              const delayMs = Math.max(0, Math.round(seg.startSeconds * 1000));
+              const outLabel = `${seg.label}_d`;
+              audioFilterParts.push(
+                `[${seg.idx}:a]aformat=sample_rates=44100:channel_layouts=stereo,atrim=duration=${seg.durationSeconds},adelay=${delayMs}|${delayMs}[${outLabel}]`
+              );
+              delayedLabels.push(`[${outLabel}]`);
+            }
+
+            const mixedLabel = `segMix_${i}`;
+            audioFilterParts.push(`${delayedLabels.join('')}amix=inputs=${delayedLabels.length}:duration=longest:dropout_transition=0[${mixedLabel}]`);
+            audioFilterParts.push(`[${mixedLabel}]aformat=sample_rates=44100:channel_layouts=stereo,apad,atrim=duration=${duration}[${aLabel}]`);
+            audioStreamLabels.push(aLabel);
+          } else if (singleAudioIdx !== null) {
+            audioFilterParts.push(`[${singleAudioIdx}:a]aformat=sample_rates=44100:channel_layouts=stereo,apad,atrim=duration=${duration}[${aLabel}]`);
+            audioStreamLabels.push(aLabel);
+          }
+        }
+
+        if (!hasAudio) {
           // Silence
           audioFilterParts.push(`anullsrc=r=44100:cl=stereo,atrim=duration=${duration}[${aLabel}]`);
           audioStreamLabels.push(aLabel);

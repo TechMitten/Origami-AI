@@ -18,6 +18,8 @@ import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
+import { analyzeVideoNarrationWithGemini } from './services/aiService';
+import { decrypt } from './utils/secureStorage';
 import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { UnifiedInitModal } from './components/UnifiedInitModal';
@@ -33,6 +35,8 @@ import { exportProjectArchive, importProjectArchive } from './services/projectAr
 function MainApp() {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [generatingSlides, setGeneratingSlides] = useState<Set<number>>(new Set());
+  const [analyzingSlides, setAnalyzingSlides] = useState<Set<number>>(new Set());
+  const [analysisProgressBySlide, setAnalysisProgressBySlide] = useState<Record<number, { status: string; progress: number }>>({});
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
@@ -499,6 +503,46 @@ function MainApp() {
     }));
   };
 
+  const detectAudioTrackInVideo = async (sourceUrl: string): Promise<boolean | null> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      let settled = false;
+
+      const finish = (value: boolean | null) => {
+        if (settled) return;
+        settled = true;
+        video.src = '';
+        resolve(value);
+      };
+
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const mediaVideo = video as HTMLVideoElement & {
+          mozHasAudio?: boolean;
+          webkitAudioDecodedByteCount?: number;
+          audioTracks?: { length?: number };
+        };
+
+        if (typeof mediaVideo.mozHasAudio === 'boolean') {
+          finish(mediaVideo.mozHasAudio);
+          return;
+        }
+        if (typeof mediaVideo.webkitAudioDecodedByteCount === 'number') {
+          finish(mediaVideo.webkitAudioDecodedByteCount > 0);
+          return;
+        }
+        if (mediaVideo.audioTracks && typeof mediaVideo.audioTracks.length === 'number') {
+          finish(mediaVideo.audioTracks.length > 0);
+          return;
+        }
+
+        finish(null);
+      };
+      video.onerror = () => finish(null);
+      video.src = sourceUrl;
+    });
+  };
+
   const handleReplaceSlideImage = async (index: number, file: File) => {
     const fileName = file.name.toLowerCase();
     const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
@@ -585,6 +629,165 @@ function MainApp() {
       showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {
       setGeneratingSlides(prev => { const next = new Set(prev); next.delete(index); return next; });
+    }
+  };
+
+  const analyzeVideoNarrationForSlide = async (index: number) => {
+    const updateAnalyzeProgress = (status: string, progress: number) => {
+      const clamped = Math.max(0, Math.min(100, Math.round(progress)));
+      setAnalysisProgressBySlide(prev => ({
+        ...prev,
+        [index]: { status, progress: clamped }
+      }));
+    };
+
+    setAnalyzingSlides(prev => {
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    updateAnalyzeProgress('Preparing video', 2);
+
+    try {
+      const slide = slides[index];
+      if (!slide || slide.type !== 'video') {
+        throw new Error('Video analysis is only available for Slide Media video slides.');
+      }
+
+      if (!slide.mediaUrl) {
+        throw new Error('Analyze Video is only available for MP4 Slide Media video uploads. GIF/image media is not supported.');
+      }
+
+      const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
+      const apiKey = decrypt(storedApiKey);
+      const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+      const configuredModel = localStorage.getItem('llm_model') || '';
+      const model = configuredModel || 'gemini-2.5-flash-lite';
+
+      if (!apiKey.trim()) {
+        throw new Error('Please configure your Gemini API key in Settings before analyzing video slides.');
+      }
+
+      let mediaBlob: Blob | undefined;
+      const mediaSourceUrl = slide.mediaUrl;
+      if (mediaSourceUrl) {
+        updateAnalyzeProgress('Loading media', 6);
+        const mediaResp = await fetch(mediaSourceUrl);
+        if (!mediaResp.ok) {
+          throw new Error('Failed to read slide media for Gemini analysis.');
+        }
+        mediaBlob = await mediaResp.blob();
+      }
+
+      const mime = mediaBlob?.type?.toLowerCase() || '';
+      if (mime !== 'video/mp4') {
+        throw new Error('Analyze Video is restricted to silent MP4 videos inserted via Slide Media.');
+      }
+
+      const hasAudioTrack = await detectAudioTrackInVideo(mediaSourceUrl);
+      if (hasAudioTrack === true) {
+        throw new Error('This MP4 contains an audio track. Analyze Video is only for silent MP4 videos.');
+      }
+
+      updateAnalyzeProgress('Sending to Gemini', 10);
+
+      const analysis = await analyzeVideoNarrationWithGemini(
+        {
+          apiKey,
+          baseUrl,
+          model,
+          useWebLLM: false,
+        },
+        {
+          topicHint: slide.script?.trim() || `Slide Media tutorial for clip ${index + 1}`,
+          mediaDurationSeconds: slide.mediaDuration,
+          fileNameHint: `Slide-${index + 1}-Media`,
+          mediaBlob,
+          mediaMimeType: mediaBlob?.type || 'video/mp4',
+          onProgress: ({ stage, progress }) => updateAnalyzeProgress(stage, progress),
+        }
+      );
+
+      let cumulativeStretch = 0;
+      let totalNarrationDuration = 0;
+      const scenesWithAudio = [];
+
+      for (let i = 0; i < analysis.scenes.length; i++) {
+        const scene = analysis.scenes[i];
+        const ttsProgress = 89 + (((i + 1) / Math.max(analysis.scenes.length, 1)) * 10);
+        updateAnalyzeProgress(`Generating scene audio ${i + 1}/${analysis.scenes.length}`, ttsProgress);
+        const sceneAudioUrl = await generateTTS(scene.narrationText, {
+          voice: slide.voice,
+          speed: 1.0,
+          pitch: 1.0
+        });
+        const sceneAudioDuration = await getAudioDuration(sceneAudioUrl);
+
+        const effectiveStart = scene.timestampStartSeconds + cumulativeStretch;
+        const effectiveDuration = Math.max(scene.durationSeconds, sceneAudioDuration);
+        const stretchDelta = Math.max(0, sceneAudioDuration - scene.durationSeconds);
+        cumulativeStretch += stretchDelta;
+        totalNarrationDuration += sceneAudioDuration;
+
+        scenesWithAudio.push({
+          id: crypto.randomUUID(),
+          stepNumber: scene.stepNumber,
+          timestampStart: scene.timestampStart,
+          timestampStartSeconds: scene.timestampStartSeconds,
+          onScreenAction: scene.onScreenAction,
+          narrationText: scene.narrationText,
+          durationSeconds: scene.durationSeconds,
+          effectiveStartSeconds: effectiveStart,
+          effectiveDurationSeconds: effectiveDuration,
+          audioUrl: sceneAudioUrl,
+          audioDurationSeconds: sceneAudioDuration,
+        });
+      }
+
+      const lastSceneEnd = scenesWithAudio.reduce((max, scene) => {
+        return Math.max(max, scene.effectiveStartSeconds + scene.effectiveDurationSeconds);
+      }, 0);
+
+      const timelineDuration = Math.max(
+        slide.mediaDuration || 0,
+        analysis.videoMetadata.totalEstimatedDurationSeconds + cumulativeStretch,
+        lastSceneEnd
+      );
+
+      const mergedScript = scenesWithAudio.map(scene => scene.narrationText.trim()).filter(Boolean).join(' ');
+
+      updateSlide(index, {
+        script: mergedScript || slide.script,
+        audioDuration: totalNarrationDuration,
+        duration: timelineDuration,
+        audioSourceType: 'tts',
+        videoNarrationAnalysis: {
+          model,
+          generatedAt: Date.now(),
+          videoMetadata: analysis.videoMetadata,
+          scenes: scenesWithAudio,
+          totalTimelineDurationSeconds: timelineDuration,
+          totalStretchSeconds: cumulativeStretch,
+          rawGeminiJson: analysis.rawJson,
+        }
+      });
+      updateAnalyzeProgress('Completed', 100);
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to analyze video slide.', {
+        type: 'error',
+        title: 'Video Analysis Failed'
+      });
+    } finally {
+      setAnalyzingSlides(prev => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+      setAnalysisProgressBySlide(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
     }
   };
 
@@ -901,6 +1104,16 @@ function MainApp() {
                       type: s.type,
                       mediaUrl: s.mediaUrl,
                       isTtsDisabled: false,
+                      videoNarrationAnalysis: s.videoNarrationAnalysis ? {
+                        scenes: s.videoNarrationAnalysis.scenes.map(scene => ({
+                          audioUrl: scene.audioUrl,
+                          timestampStartSeconds: scene.timestampStartSeconds,
+                          durationSeconds: scene.durationSeconds,
+                          effectiveStartSeconds: scene.effectiveStartSeconds,
+                          effectiveDurationSeconds: scene.effectiveDurationSeconds,
+                          audioDurationSeconds: scene.audioDurationSeconds,
+                        }))
+                      } : undefined,
                     }))}
                     musicUrl={musicSettings?.url}
                     musicVolume={musicSettings?.volume || 0.36}
@@ -990,7 +1203,10 @@ function MainApp() {
                 onUpdateSlide={updateSlide}
                 onReplaceSlideImage={handleReplaceSlideImage}
                 onGenerateAudio={generateAudioForSlide}
+                onAnalyzeVideoNarration={analyzeVideoNarrationForSlide}
                 generatingSlides={generatingSlides}
+                analyzingSlides={analyzingSlides}
+                analysisProgressBySlide={analysisProgressBySlide}
                 onReorderSlides={setSlides}
                 musicSettings={musicSettings}
                 onUpdateMusicSettings={setMusicSettings}

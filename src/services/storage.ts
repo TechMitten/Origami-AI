@@ -19,6 +19,11 @@ interface StoredSlideData extends Omit<SlideData, 'dataUrl' | 'mediaUrl' | 'audi
   dataUrl?: string | Blob;
   mediaUrl?: string | Blob;
   audioUrl?: string | Blob;
+  videoNarrationAnalysis?: SlideData['videoNarrationAnalysis'] extends infer T
+    ? T extends { scenes: Array<infer S> }
+      ? Omit<T, 'scenes'> & { scenes: Array<Omit<S, 'audioUrl'> & { audioUrl?: string | Blob }> }
+      : SlideData['videoNarrationAnalysis']
+    : SlideData['videoNarrationAnalysis'];
 }
 
 interface StoredMusicSettings {
@@ -192,6 +197,20 @@ export const saveState = async (slides: SlideData[], musicSettings?: { url?: str
       newSlide.mediaUrl = await processUrl(slide.mediaUrl, 'mediaUrl');
       newSlide.audioUrl = await processUrl(slide.audioUrl, 'audioUrl');
 
+      if (slide.videoNarrationAnalysis?.scenes?.length) {
+        const processedScenes = await Promise.all(
+          slide.videoNarrationAnalysis.scenes.map(async (scene) => ({
+            ...scene,
+            audioUrl: await processUrl(scene.audioUrl, 'videoNarrationScene.audioUrl')
+          }))
+        );
+
+        newSlide.videoNarrationAnalysis = {
+          ...slide.videoNarrationAnalysis,
+          scenes: processedScenes
+        } as StoredSlideData['videoNarrationAnalysis'];
+      }
+
       return newSlide;
     }));
 
@@ -274,6 +293,16 @@ export const loadState = async (): Promise<AppState | null> => {
                   mediaUrl: slide.mediaUrl instanceof Blob ? URL.createObjectURL(slide.mediaUrl) : slide.mediaUrl,
                   audioUrl: slide.audioUrl instanceof Blob ? URL.createObjectURL(slide.audioUrl) : slide.audioUrl,
               } as SlideData;
+
+              if (slide.videoNarrationAnalysis?.scenes?.length) {
+                newSlide.videoNarrationAnalysis = {
+                  ...slide.videoNarrationAnalysis,
+                  scenes: slide.videoNarrationAnalysis.scenes.map((scene) => ({
+                    ...scene,
+                    audioUrl: scene.audioUrl instanceof Blob ? URL.createObjectURL(scene.audioUrl) : scene.audioUrl,
+                  }))
+                } as SlideData['videoNarrationAnalysis'];
+              }
 
               return newSlide;
           });

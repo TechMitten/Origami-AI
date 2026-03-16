@@ -1,11 +1,47 @@
 import { generateWebLLMResponse, isWebLLMLoaded } from './webLlmService';
 
-interface LLMSettings {
+export interface LLMSettings {
   apiKey: string;
   baseUrl: string;
   model: string;
   useWebLLM?: boolean;
   webLlmModel?: string;
+}
+
+export interface VideoNarrationScene {
+  stepNumber: number;
+  timestampStart: string;
+  timestampStartSeconds: number;
+  onScreenAction: string;
+  narrationText: string;
+  durationSeconds: number;
+}
+
+export interface VideoNarrationAnalysis {
+  videoMetadata: {
+    title: string;
+    totalEstimatedDuration: string;
+    totalEstimatedDurationSeconds: number;
+  };
+  scenes: VideoNarrationScene[];
+  rawJson?: string;
+}
+
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface GeminiFileResource {
+  name: string;
+  uri: string;
+  mimeType?: string;
+  state?: string;
+}
+
+export interface VideoAnalysisProgress {
+  stage: string;
+  progress: number;
 }
 
 /**
@@ -181,6 +217,549 @@ Example Input:
 Example Output:
 Welcome to this guide on how to install Visual Studio Code. This process works on both Windows 10 and Windows 11. It should take you approximately 5 minutes. The software works as a free download. You can get it by navigating to code dot visualstudio dot com.`;
 
+export const GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT = `### Improved Tutorial Script Prompt
+
+Act as a professional technical scriptwriter for a high-end YouTube tutorial channel. 
+
+**Task:** Generate a step-by-step narration script for a tutorial on [INSERT YOUR TOPIC HERE]. The script is intended for a Text-to-Speech (TTS) engine and must be synchronized with on-screen actions.
+
+**Script Requirements:**
+* **Tone:** Helpful, concise, and professional (think "Apple Support" or "Modern SaaS" style). 
+* **Structure:** Each step must include a visual description of what is happening on screen and the corresponding narration.
+* **Clarity:** Use action-oriented language (e.g., "Click the gear icon" instead of "The gear icon is clicked").
+* **Timestamps:** Estimate logical durations for each step based on average speaking speed (approx. 150 words per minute).
+
+**Output Format:** Provide the response strictly in valid JSON format with the following structure:
+
+{
+  "video_metadata": {
+    "title": "String",
+    "total_estimated_duration": "MM:SS"
+  },
+  "scenes": [
+    {
+      "step_number": 1,
+      "timestamp_start": "MM:SS",
+      "on_screen_action": "Detailed description of the visual movement or UI element shown.",
+      "narration_text": "The exact words the TTS should read.",
+      "duration_seconds": 10
+    }
+  ]
+}`;
+
+const toChatCompletionsEndpoint = (baseUrl: string): string => {
+  let endpoint = baseUrl;
+  if (!endpoint.endsWith('/chat/completions')) {
+    endpoint = endpoint.replace(/\/+$/, '');
+    endpoint = `${endpoint}/chat/completions`;
+  }
+  return endpoint;
+};
+
+const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string): Promise<string> => {
+  const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: modelOverride || settings.model,
+      messages,
+      temperature
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to generate content: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+};
+
+const parseMMSS = (value: string): number => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) {
+    throw new Error(`Invalid timestamp format: ${value}. Expected MM:SS.`);
+  }
+
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds >= 60) {
+    throw new Error(`Invalid timestamp value: ${value}.`);
+  }
+
+  return (minutes * 60) + seconds;
+};
+
+const parseTimestampFlexible = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.round(value));
+  }
+
+  const text = String(value ?? '').trim();
+  if (!text) {
+    throw new Error('Empty timestamp');
+  }
+
+  // Supports HH:MM:SS and MM:SS in addition to strict MM:SS.
+  const hmsMatch = /^(\d{1,2}):(\d{2}):(\d{2})$/.exec(text);
+  if (hmsMatch) {
+    const h = Number(hmsMatch[1]);
+    const m = Number(hmsMatch[2]);
+    const s = Number(hmsMatch[3]);
+    if (m < 60 && s < 60) {
+      return (h * 3600) + (m * 60) + s;
+    }
+  }
+
+  return parseMMSS(text);
+};
+
+const stripCodeFence = (input: string): string => {
+  const trimmed = input.trim();
+  if (trimmed.startsWith('```')) {
+    return trimmed.replace(/^```[\w-]*\s*/, '').replace(/\s*```$/, '').trim();
+  }
+  return trimmed;
+};
+
+const formatMMSS = (totalSeconds: number): string => {
+  const clamped = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(clamped / 60);
+  const seconds = clamped % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const estimateDurationFromNarration = (text: string): number => {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  if (words === 0) return 4;
+  // 150 words/minute ~= 2.5 words/second
+  return Math.max(2, Math.round(words / 2.5));
+};
+
+const pickFirstDefined = <T = unknown>(source: Record<string, any>, keys: string[]): T | undefined => {
+  for (const key of keys) {
+    if (source[key] !== undefined && source[key] !== null) {
+      return source[key] as T;
+    }
+  }
+  return undefined;
+};
+
+const parseVideoNarrationAnalysis = (rawContent: string): VideoNarrationAnalysis => {
+  const cleaned = stripCodeFence(rawContent);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error('Gemini returned invalid JSON for video analysis.');
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Video analysis payload is not a JSON object.');
+  }
+
+  const metadata = (parsed.video_metadata || parsed.videoMetadata || parsed.metadata || {}) as Record<string, any>;
+  const scenes = (parsed.scenes || parsed.steps || parsed.segments || parsed.timeline || []) as any[];
+
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new Error('Missing video_metadata in Gemini output.');
+  }
+  if (!Array.isArray(scenes) || scenes.length === 0) {
+    throw new Error('Missing or empty scenes array in Gemini output.');
+  }
+
+  const title = String(
+    pickFirstDefined(metadata, ['title', 'video_title', 'name']) ||
+    'Video Tutorial'
+  ).trim();
+  const totalEstimatedDurationRaw = String(
+    pickFirstDefined(metadata, ['total_estimated_duration', 'totalEstimatedDuration', 'duration', 'total_duration']) ||
+    ''
+  ).trim();
+  if (!title) {
+    throw new Error('video_metadata.title is required.');
+  }
+
+  const normalizedScenes: VideoNarrationScene[] = [];
+  let inferredCursor = 0;
+
+  for (let idx = 0; idx < scenes.length; idx++) {
+    const scene = (scenes[idx] && typeof scenes[idx] === 'object') ? scenes[idx] : {};
+    const rawTimestampValue = pickFirstDefined(scene, [
+      'timestamp_start',
+      'timestampStart',
+      'start',
+      'start_time',
+      'startTime',
+      'time'
+    ]);
+    let onScreenAction = String(
+      pickFirstDefined(scene, [
+        'on_screen_action',
+        'onScreenAction',
+        'screen_action',
+        'screenAction',
+        'visual',
+        'action'
+      ]) ||
+      ''
+    ).trim();
+    let narrationText = String(
+      pickFirstDefined(scene, [
+        'narration_text',
+        'naration_text',
+        'narrationText',
+        'narration',
+        'voiceover',
+        'voice_over',
+        'script',
+        'tts'
+      ]) ||
+      ''
+    ).trim();
+    const stepNumberRaw = Number(pickFirstDefined(scene, ['step_number', 'stepNumber', 'step', 'index', 'order']) ?? idx + 1);
+    const stepNumber = Number.isFinite(stepNumberRaw) ? stepNumberRaw : idx + 1;
+
+    // Never drop a scene row. Fill placeholders if the model omitted fields.
+
+    if (!onScreenAction) {
+      onScreenAction = `Continue to step ${stepNumber} on screen.`;
+    }
+    if (!narrationText) {
+      narrationText = `Now, continue with step ${stepNumber}.`;
+    }
+
+    let durationSecondsRaw = Number(
+      pickFirstDefined(scene, ['duration_seconds', 'durationSeconds', 'duration', 'seconds', 'length']) ?? 0
+    );
+    if (!Number.isFinite(durationSecondsRaw) || durationSecondsRaw <= 0) {
+      durationSecondsRaw = estimateDurationFromNarration(narrationText);
+    }
+    const durationSeconds = Math.max(1, Math.round(durationSecondsRaw));
+
+    let timestampStartSeconds: number;
+    let timestampStart: string;
+    try {
+      if (rawTimestampValue === undefined || rawTimestampValue === null || String(rawTimestampValue).trim() === '') {
+        throw new Error('missing');
+      }
+      timestampStartSeconds = parseTimestampFlexible(rawTimestampValue);
+      timestampStart = formatMMSS(timestampStartSeconds);
+    } catch {
+      timestampStartSeconds = Math.max(0, Math.round(inferredCursor));
+      timestampStart = formatMMSS(timestampStartSeconds);
+    }
+
+    normalizedScenes.push({
+      stepNumber,
+      timestampStart,
+      timestampStartSeconds,
+      onScreenAction,
+      narrationText,
+      durationSeconds,
+    });
+
+    inferredCursor = Math.max(inferredCursor, timestampStartSeconds + durationSeconds);
+  }
+
+  if (normalizedScenes.length === 0) {
+    throw new Error('Gemini returned no usable scenes.');
+  }
+
+  normalizedScenes.sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds || a.stepNumber - b.stepNumber);
+
+  for (let i = 1; i < normalizedScenes.length; i++) {
+    if (normalizedScenes[i].timestampStartSeconds < normalizedScenes[i - 1].timestampStartSeconds) {
+      throw new Error('Scene timestamps are not in non-decreasing order.');
+    }
+  }
+
+  const inferredTotalDurationSeconds = Math.max(
+    1,
+    Math.ceil(normalizedScenes.reduce((max, scene) => Math.max(max, scene.timestampStartSeconds + scene.durationSeconds), 0))
+  );
+
+  let totalEstimatedDurationSeconds = inferredTotalDurationSeconds;
+  let totalEstimatedDuration = formatMMSS(inferredTotalDurationSeconds);
+  if (totalEstimatedDurationRaw) {
+    try {
+      totalEstimatedDurationSeconds = parseMMSS(totalEstimatedDurationRaw);
+      totalEstimatedDuration = totalEstimatedDurationRaw;
+    } catch {
+      // Keep inferred duration when metadata timestamp is invalid.
+    }
+  }
+
+  return {
+    videoMetadata: {
+      title,
+      totalEstimatedDuration,
+      totalEstimatedDurationSeconds,
+    },
+    scenes: normalizedScenes,
+  };
+};
+
+const isGoogleGeminiEndpoint = (baseUrl: string): boolean => {
+  return /generativelanguage\.googleapis\.com/i.test(baseUrl);
+};
+
+const getGeminiApiKey = (settings: LLMSettings): string => {
+  const apiKey = settings.apiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing API key for Gemini video analysis.');
+  }
+  return apiKey;
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const uploadGeminiFile = async (
+  apiKey: string,
+  file: Blob,
+  mimeType: string,
+  displayName: string,
+  onProgress?: (update: VideoAnalysisProgress) => void
+): Promise<GeminiFileResource> => {
+  onProgress?.({ stage: 'Uploading video', progress: 12 });
+  const startResp = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Protocol': 'resumable',
+      'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(file.size),
+      'X-Goog-Upload-Header-Content-Type': mimeType,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      file: {
+        display_name: displayName,
+      }
+    })
+  });
+
+  if (!startResp.ok) {
+    const errorData = await startResp.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to start Gemini file upload: ${startResp.statusText}`);
+  }
+
+  const uploadUrl = startResp.headers.get('x-goog-upload-url');
+  if (!uploadUrl) {
+    throw new Error('Gemini upload URL was not returned by the API.');
+  }
+
+  onProgress?.({ stage: 'Uploading video', progress: 20 });
+
+  const finalizeResp = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'X-Goog-Upload-Command': 'upload, finalize',
+      'X-Goog-Upload-Offset': '0',
+      'Content-Type': mimeType,
+    },
+    body: file,
+  });
+
+  if (!finalizeResp.ok) {
+    const errorData = await finalizeResp.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to upload Gemini file: ${finalizeResp.statusText}`);
+  }
+
+  const finalizeData = await finalizeResp.json();
+  const uploaded = (finalizeData.file ?? finalizeData) as GeminiFileResource;
+  if (!uploaded?.name || !uploaded?.uri) {
+    throw new Error('Gemini upload response did not include file metadata.');
+  }
+
+  onProgress?.({ stage: 'Video uploaded', progress: 28 });
+
+  return uploaded;
+};
+
+const waitForGeminiFileActive = async (
+  apiKey: string,
+  fileName: string,
+  onProgress?: (update: VideoAnalysisProgress) => void
+): Promise<GeminiFileResource> => {
+  const cleanName = fileName.startsWith('files/') ? fileName : fileName.replace(/^\/+/, '');
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/${cleanName}?key=${encodeURIComponent(apiKey)}`;
+
+  const maxAttempts = 45;
+  onProgress?.({ stage: 'Processing video', progress: 30 });
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const resp = await fetch(endpoint);
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `Failed to check Gemini file state: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    const resource = (data.file ?? data) as GeminiFileResource;
+    const state = (resource.state || '').toUpperCase();
+
+    if (state === 'ACTIVE') {
+      onProgress?.({ stage: 'Video processed', progress: 70 });
+      return resource;
+    }
+    if (state === 'FAILED') {
+      throw new Error('Gemini failed to process the uploaded video file.');
+    }
+
+    const processProgress = Math.min(69, 30 + Math.floor(((attempt + 1) / maxAttempts) * 39));
+    onProgress?.({ stage: 'Processing video', progress: processProgress });
+    await sleep(2000);
+  }
+
+  throw new Error('Gemini video processing timed out. Try a shorter clip and retry.');
+};
+
+const deleteGeminiFile = async (apiKey: string, fileName: string): Promise<void> => {
+  const cleanName = fileName.startsWith('files/') ? fileName : fileName.replace(/^\/+/, '');
+  await fetch(`https://generativelanguage.googleapis.com/v1beta/${cleanName}?key=${encodeURIComponent(apiKey)}`, {
+    method: 'DELETE'
+  }).catch(() => undefined);
+};
+
+const generateGeminiVideoAnalysis = async (
+  apiKey: string,
+  model: string,
+  fileUri: string,
+  mimeType: string,
+  userPrompt: string,
+  onProgress?: (update: VideoAnalysisProgress) => void
+): Promise<string> => {
+  onProgress?.({ stage: 'Generating script JSON', progress: 76 });
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT }]
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: userPrompt },
+            { file_data: { mime_type: mimeType, file_uri: fileUri } }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+      }
+    })
+  });
+
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Gemini video analysis request failed: ${resp.statusText}`);
+  }
+
+  const data = await resp.json();
+  const text = data.candidates?.[0]?.content?.parts?.find((p: any) => typeof p?.text === 'string')?.text || '';
+  if (!text.trim()) {
+    throw new Error('Gemini did not return any text output for video analysis.');
+  }
+  onProgress?.({ stage: 'Parsing JSON output', progress: 84 });
+  return text;
+};
+
+export const analyzeVideoNarrationWithGemini = async (
+  settings: LLMSettings,
+  context: {
+    topicHint: string;
+    mediaDurationSeconds?: number;
+    fileNameHint?: string;
+    mediaBlob?: Blob;
+    mediaMimeType?: string;
+    onProgress?: (update: VideoAnalysisProgress) => void;
+  }
+): Promise<VideoNarrationAnalysis> => {
+  if (!settings.apiKey?.trim()) {
+    throw new Error('Missing API key for Gemini video analysis.');
+  }
+
+  const model = settings.model?.trim() || 'gemini-2.5-flash-lite';
+  context.onProgress?.({ stage: 'Preparing request', progress: 5 });
+  const userPrompt = [
+    `Tutorial topic: ${context.topicHint || 'Video walkthrough'}`,
+    context.fileNameHint ? `Video file hint: ${context.fileNameHint}` : '',
+    Number.isFinite(context.mediaDurationSeconds) ? `Video length hint (seconds): ${context.mediaDurationSeconds}` : '',
+    'Return strictly valid JSON only. Do not include markdown fences.',
+    'Use EXACT keys: video_metadata.title, video_metadata.total_estimated_duration, and scenes[].{step_number,timestamp_start,on_screen_action,narration_text,duration_seconds}.',
+  ].filter(Boolean).join('\n');
+
+  if (!context.mediaBlob) {
+    // Fallback path for callers that do not provide a media blob.
+    const messages: ChatMessage[] = [
+      { role: 'system', content: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt }
+    ];
+
+    const first = await postChatCompletions(settings, messages, 0.2, model);
+    context.onProgress?.({ stage: 'Parsing JSON output', progress: 84 });
+    try {
+      context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
+      return { ...parseVideoNarrationAnalysis(first), rawJson: stripCodeFence(first) };
+    } catch {
+      const repairMessages: ChatMessage[] = [
+        ...messages,
+        { role: 'assistant', content: first },
+        { role: 'user', content: 'Your previous response was invalid. Return ONLY valid JSON matching the required schema. No markdown, no commentary.' }
+      ];
+      const repaired = await postChatCompletions(settings, repairMessages, 0.1, model);
+      context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
+      return { ...parseVideoNarrationAnalysis(repaired), rawJson: stripCodeFence(repaired) };
+    }
+  }
+
+  if (!isGoogleGeminiEndpoint(settings.baseUrl)) {
+    throw new Error('Actual video analysis requires a Google Gemini endpoint. Set Base URL to generativelanguage.googleapis.com and retry.');
+  }
+
+  const apiKey = getGeminiApiKey(settings);
+  const mimeType = context.mediaMimeType?.trim() || context.mediaBlob.type || 'video/mp4';
+  let uploadedFile: GeminiFileResource | null = null;
+
+  try {
+    uploadedFile = await uploadGeminiFile(
+      apiKey,
+      context.mediaBlob,
+      mimeType,
+      context.fileNameHint || 'slide-media-video',
+      context.onProgress
+    );
+    const activeFile = await waitForGeminiFileActive(apiKey, uploadedFile.name, context.onProgress);
+
+    const first = await generateGeminiVideoAnalysis(apiKey, model, activeFile.uri, mimeType, userPrompt, context.onProgress);
+    try {
+      context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
+      return { ...parseVideoNarrationAnalysis(first), rawJson: stripCodeFence(first) };
+    } catch {
+      const repairPrompt = `${userPrompt}\n\nYour previous response was invalid JSON. Return only valid JSON matching the requested schema.`;
+      const repaired = await generateGeminiVideoAnalysis(apiKey, model, activeFile.uri, mimeType, repairPrompt, context.onProgress);
+      context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
+      return { ...parseVideoNarrationAnalysis(repaired), rawJson: stripCodeFence(repaired) };
+    }
+  } finally {
+    if (uploadedFile?.name) {
+      await deleteGeminiFile(apiKey, uploadedFile.name);
+    }
+  }
+};
+
 export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
   const systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
 
@@ -218,38 +797,11 @@ Write a continuous, flowing narration script for the above content. Ensure every
     }
   }
 
-  let endpoint = settings.baseUrl;
-  // Ensure we hit the chat completions endpoint if not provided
-  if (!endpoint.endsWith('/chat/completions')) {
-    // Remove trailing slash if present
-    endpoint = endpoint.replace(/\/+$/, '');
-    endpoint = `${endpoint}/chat/completions`;
-  }
-
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.7
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `Failed to generate content: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const textContent = data.choices?.[0]?.message?.content || '';
+    const textContent = await postChatCompletions(settings, [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ], 0.7);
 
     return cleanLLMResponse(textContent);
   } catch (error) {

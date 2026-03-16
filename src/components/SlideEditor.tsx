@@ -29,6 +29,35 @@ import { isWebLLMLoaded } from '../services/webLlmService';
 import { Dropdown } from './Dropdown';
 import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
+import { decrypt } from '../utils/secureStorage';
+
+export interface VideoNarrationSceneTrack {
+  id: string;
+  stepNumber: number;
+  timestampStart: string;
+  timestampStartSeconds: number;
+  onScreenAction: string;
+  narrationText: string;
+  durationSeconds: number;
+  effectiveStartSeconds: number;
+  effectiveDurationSeconds: number;
+  audioUrl?: string;
+  audioDurationSeconds?: number;
+}
+
+export interface VideoNarrationAnalysisData {
+  model: string;
+  generatedAt: number;
+  videoMetadata: {
+    title: string;
+    totalEstimatedDuration: string;
+    totalEstimatedDurationSeconds: number;
+  };
+  scenes: VideoNarrationSceneTrack[];
+  totalTimelineDurationSeconds: number;
+  totalStretchSeconds: number;
+  rawGeminiJson?: string;
+}
 
 export interface SlideData extends Partial<RenderedPage> {
   id: string;
@@ -48,6 +77,7 @@ export interface SlideData extends Partial<RenderedPage> {
   originalScript?: string;
   isSelected?: boolean;
   audioSourceType?: 'tts' | 'recorded';
+  videoNarrationAnalysis?: VideoNarrationAnalysisData;
 }
 
 export interface MusicSettings {
@@ -60,12 +90,20 @@ export interface MusicSettings {
 
 export type SlideEditorViewMode = 'list' | 'grid';
 
+interface SlideAnalysisProgress {
+  status: string;
+  progress: number;
+}
+
 interface SlideEditorProps {
   slides: SlideData[];
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
   onReplaceSlideImage: (index: number, file: File) => Promise<void>;
   onGenerateAudio: (index: number) => Promise<void>;
+  onAnalyzeVideoNarration: (index: number) => Promise<void>;
   generatingSlides: Set<number>;
+  analyzingSlides: Set<number>;
+  analysisProgressBySlide: Record<number, SlideAnalysisProgress>;
   onReorderSlides: (slides: SlideData[]) => void;
   musicSettings: MusicSettings;
   onUpdateMusicSettings: (settings: MusicSettings) => void;
@@ -225,7 +263,10 @@ const SortableSlideItem = ({
   onUpdate,
   onReplaceImage,
   onGenerate,
+  onAnalyzeVideo,
+  analysisProgress,
   isGenerating,
+  isAnalyzing,
   isAnyGenerating,
   onExpand,
   highlightText,
@@ -242,7 +283,10 @@ const SortableSlideItem = ({
   onUpdate: (i: number, d: Partial<SlideData>) => void,
   onReplaceImage: (i: number, file: File) => Promise<void>,
   onGenerate: (i: number) => Promise<void>,
+  onAnalyzeVideo: (i: number) => Promise<void>,
+  analysisProgress?: SlideAnalysisProgress,
   isGenerating: boolean,
+  isAnalyzing: boolean,
   isAnyGenerating: boolean,
   onExpand: (i: number) => void,
   highlightText?: string,
@@ -280,6 +324,7 @@ const SortableSlideItem = ({
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
   const [showScriptEditor, setShowScriptEditor] = React.useState(false);
+  const [showAlignmentDebug, setShowAlignmentDebug] = React.useState(false);
   const replaceImageInputRef = useRef<HTMLInputElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -581,7 +626,8 @@ const SortableSlideItem = ({
     const useWebLLM = globalSettings?.useWebLLM;
     const webLlmModel = globalSettings?.webLlmModel;
 
-    const apiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
+    const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
+    const apiKey = decrypt(storedApiKey);
     const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
 
@@ -666,6 +712,13 @@ const SortableSlideItem = ({
 
   const handleTextChange = (newText: string) => {
     onUpdate(index, { script: newText });
+  };
+
+  const formatSeconds = (seconds: number): string => {
+    if (!Number.isFinite(seconds)) return '00:00.00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds - (mins * 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toFixed(2).padStart(5, '0')}`;
   };
 
   const handleReplaceImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1029,6 +1082,18 @@ const SortableSlideItem = ({
               </button>
             )}
 
+            {slide.type === 'video' && (
+              <button
+                onClick={() => onAnalyzeVideo(index)}
+                disabled={isAnalyzing || isGenerating || isRecording}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-indigo-500/5 h-9 whitespace-nowrap"
+                title="Analyze video and generate timestamped narration with Gemini"
+              >
+                {isAnalyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <VideoIcon className="w-3.5 h-3.5" />}
+                {isAnalyzing ? (analysisProgress?.status || 'Analyzing Video...') : 'Analyze Video'}
+              </button>
+            )}
+
             {/* Record Button */}
             <button
               onClick={() => isRecording ? stopRecording() : startRecording()}
@@ -1059,9 +1124,19 @@ const SortableSlideItem = ({
                 <Loader2 className="w-3 h-3 animate-spin" /> Generating...
               </span>
             )}
+            {isAnalyzing && analysisProgress && (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-200/80 uppercase tracking-wider ml-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> {analysisProgress.progress}%
+              </span>
+            )}
             {!isGenerating && isAnyGenerating && !slide.audioUrl && (
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-white/30 uppercase tracking-wider ml-1">
                 <Loader2 className="w-3 h-3 animate-spin" /> Queued
+              </span>
+            )}
+            {slide.type === 'video' && slide.videoNarrationAnalysis && !isAnalyzing && (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-200/80 uppercase tracking-wider ml-1">
+                <Check className="w-3 h-3" /> {slide.videoNarrationAnalysis.scenes.length} Scene{slide.videoNarrationAnalysis.scenes.length !== 1 ? 's' : ''}
               </span>
             )}
 
@@ -1089,11 +1164,99 @@ const SortableSlideItem = ({
               </button>
             </div>
           </div>
+          {isAnalyzing && analysisProgress && (
+            <div className="px-2 pt-1 pb-0.5 w-full">
+              <div className="h-1.5 w-full rounded-full bg-indigo-500/20 overflow-hidden">
+                <div
+                  className="h-full bg-indigo-400 transition-all duration-300"
+                  style={{ width: `${Math.max(0, Math.min(100, analysisProgress.progress))}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {(slide.audioDuration ?? slide.duration) && (
           <div className="text-[10px] text-white/40 font-medium">
             Audio Duration: {(slide.audioDuration ?? slide.duration ?? 0).toFixed(2)}s
+          </div>
+        )}
+
+        {slide.type === 'video' && slide.videoNarrationAnalysis && (
+          <div className="mt-2 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+            <button
+              onClick={() => setShowAlignmentDebug(prev => !prev)}
+              className="w-full px-3 py-2 flex items-center justify-between text-left"
+              title="Show scene timing map and raw Gemini JSON"
+            >
+              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-200">
+                TTS Alignment Debug
+              </span>
+              <span className="text-indigo-200/80">
+                {showAlignmentDebug ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </span>
+            </button>
+
+            {showAlignmentDebug && (
+              <div className="px-3 pb-3 space-y-3">
+                <div className="text-[10px] text-indigo-100/80">
+                  Scenes: {slide.videoNarrationAnalysis.scenes.length} · Timeline: {formatSeconds(slide.videoNarrationAnalysis.totalTimelineDurationSeconds)} · Stretch: {slide.videoNarrationAnalysis.totalStretchSeconds.toFixed(2)}s
+                </div>
+
+                <div className="relative h-8 rounded-lg bg-black/30 border border-white/10 overflow-hidden">
+                  {slide.videoNarrationAnalysis.scenes.map((scene) => {
+                    const total = Math.max(slide.videoNarrationAnalysis?.totalTimelineDurationSeconds || 1, 0.001);
+                    const left = (scene.effectiveStartSeconds / total) * 100;
+                    const width = (Math.max(scene.audioDurationSeconds || scene.effectiveDurationSeconds, 0.05) / total) * 100;
+
+                    return (
+                      <div
+                        key={scene.id}
+                        className="absolute top-0 h-full bg-indigo-400/40 border-r border-indigo-200/70"
+                        style={{ left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.max(0.5, Math.min(100, width))}%` }}
+                        title={`Scene ${scene.stepNumber} | start ${formatSeconds(scene.effectiveStartSeconds)} | audio ${formatSeconds(scene.audioDurationSeconds || 0)}`}
+                      >
+                        <span className="absolute left-1 top-1 text-[9px] font-bold text-indigo-100">{scene.stepNumber}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[10px] text-left min-w-[560px]">
+                    <thead className="text-white/50">
+                      <tr>
+                        <th className="py-1 pr-2">Step</th>
+                        <th className="py-1 pr-2">Gemini Start</th>
+                        <th className="py-1 pr-2">Effective Start</th>
+                        <th className="py-1 pr-2">Target Dur</th>
+                        <th className="py-1 pr-2">Audio Dur</th>
+                        <th className="py-1 pr-2">Narration</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-white/80">
+                      {slide.videoNarrationAnalysis.scenes.map((scene) => (
+                        <tr key={`row-${scene.id}`} className="border-t border-white/10">
+                          <td className="py-1 pr-2">{scene.stepNumber}</td>
+                          <td className="py-1 pr-2">{scene.timestampStart}</td>
+                          <td className="py-1 pr-2">{formatSeconds(scene.effectiveStartSeconds)}</td>
+                          <td className="py-1 pr-2">{scene.durationSeconds.toFixed(2)}s</td>
+                          <td className="py-1 pr-2">{(scene.audioDurationSeconds || 0).toFixed(2)}s</td>
+                          <td className="py-1 pr-2 max-w-[240px] truncate" title={scene.narrationText}>{scene.narrationText}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/60">Raw Gemini JSON</div>
+                  <pre className="max-h-40 overflow-auto rounded-lg bg-black/40 border border-white/10 p-2 text-[10px] text-white/80 whitespace-pre-wrap break-words">
+                    {slide.videoNarrationAnalysis.rawGeminiJson || 'No raw JSON captured.'}
+                  </pre>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1188,7 +1351,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onUpdateSlide,
   onReplaceSlideImage,
   onGenerateAudio,
+  onAnalyzeVideoNarration,
   generatingSlides,
+  analyzingSlides,
+  analysisProgressBySlide,
   onReorderSlides,
   musicSettings,
   onUpdateMusicSettings,
@@ -1916,7 +2082,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const useWebLLM = globalSettings?.useWebLLM;
     const webLlmModel = globalSettings?.webLlmModel;
 
-    const apiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
+    const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
+    const apiKey = decrypt(storedApiKey);
     const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
 
@@ -2898,7 +3065,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 onUpdate={onUpdateSlide}
                 onReplaceImage={onReplaceSlideImage}
                 onGenerate={onGenerateAudio}
+                onAnalyzeVideo={onAnalyzeVideoNarration}
+                analysisProgress={analysisProgressBySlide[index]}
                 isGenerating={generatingSlides.has(index) || isBatchGenerating}
+                isAnalyzing={analyzingSlides.has(index)}
                 isAnyGenerating={generatingSlides.size > 0 || isBatchGenerating}
                 onExpand={(i) => {
                   setPreviewIndex(prev => prev === i ? null : i);

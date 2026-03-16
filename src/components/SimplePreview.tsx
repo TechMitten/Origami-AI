@@ -12,6 +12,16 @@ interface Slide {
   transition?: 'fade' | 'slide' | 'none' | 'zoom';
   type?: 'image' | 'video';
   isTtsDisabled?: boolean;
+  videoNarrationAnalysis?: {
+    scenes: Array<{
+      audioUrl?: string;
+      timestampStartSeconds: number;
+      durationSeconds: number;
+      effectiveStartSeconds: number;
+      effectiveDurationSeconds: number;
+      audioDurationSeconds?: number;
+    }>;
+  };
 }
 
 interface SimplePreviewProps {
@@ -38,9 +48,55 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const musicRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const progressBarRef = useRef<HTMLDivElement>(null);
+
+  const mapEffectiveToOriginalVideoState = useCallback((slide: Slide | undefined, effectiveTime: number): { time: number; isFrozen: boolean } => {
+    if (!slide?.videoNarrationAnalysis?.scenes?.length) {
+      return { time: Math.max(0, effectiveTime), isFrozen: false };
+    }
+
+    const scenes = [...slide.videoNarrationAnalysis.scenes]
+      .sort((a, b) => a.effectiveStartSeconds - b.effectiveStartSeconds);
+
+    let previousEffectiveEnd = 0;
+    let previousOriginalEnd = 0;
+
+    for (const scene of scenes) {
+      const effectiveStart = Math.max(0, scene.effectiveStartSeconds || 0);
+      const effectiveDur = Math.max(0.05, scene.effectiveDurationSeconds || 0.05);
+      const effectiveEnd = effectiveStart + effectiveDur;
+
+      const originalStart = Math.max(0, scene.timestampStartSeconds || 0);
+      const originalDur = Math.max(0.05, scene.durationSeconds || 0.05);
+      const originalEnd = originalStart + originalDur;
+
+      if (effectiveTime < effectiveStart) {
+        return { time: Math.max(0, previousOriginalEnd + (effectiveTime - previousEffectiveEnd)), isFrozen: false };
+      }
+
+      if (effectiveTime >= effectiveStart && effectiveTime < effectiveEnd) {
+        const localEffective = Math.max(0, effectiveTime - effectiveStart);
+
+        // Prefer natural playback and freeze the last frame for extra time.
+        if (effectiveDur > originalDur) {
+          const played = Math.min(localEffective, originalDur);
+          return { time: originalStart + played, isFrozen: localEffective >= originalDur };
+        }
+
+        // If a scene is shorter than source duration, compress proportionally.
+        const local = localEffective / effectiveDur;
+        return { time: originalStart + (local * originalDur), isFrozen: false };
+      }
+
+      previousEffectiveEnd = effectiveEnd;
+      previousOriginalEnd = originalEnd;
+    }
+
+    return { time: Math.max(0, previousOriginalEnd + (effectiveTime - previousEffectiveEnd)), isFrozen: false };
+  }, []);
 
   // Calculate timeline metadata
   const timeline = useMemo(() => {
@@ -139,6 +195,38 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
     };
   }, [isPlaying, totalDuration, getSlideAtTime, currentSlideIndex]); // Logic depends on currentSlideIndex for optimization? No, mostly just updates it.
 
+  // Video Sync Effect
+  useEffect(() => {
+    const slideMeta = timeline[currentSlideIndex];
+    const video = videoRef.current;
+    const current = slides[currentSlideIndex];
+
+    if (!slideMeta || !video || !current || current.type !== 'video' || !current.mediaUrl) {
+      return;
+    }
+
+    const timeInSlide = Math.max(0, elapsedTime - slideMeta.start);
+    const mapped = mapEffectiveToOriginalVideoState(current, timeInSlide);
+    const mappedVideoTime = mapped.time;
+    if (Math.abs(video.currentTime - mappedVideoTime) > 0.2) {
+      video.currentTime = mappedVideoTime;
+    }
+
+    // Freeze windows should hold a stable frame with video paused.
+    if (mapped.isFrozen) {
+      if (!video.paused) {
+        video.pause();
+      }
+      return;
+    }
+
+    if (isPlaying && video.paused) {
+      video.play().catch(() => {});
+    } else if (!isPlaying && !video.paused) {
+      video.pause();
+    }
+  }, [elapsedTime, currentSlideIndex, slides, timeline, isPlaying, mapEffectiveToOriginalVideoState]);
+
   // Audio Sync Effect
   useEffect(() => {
     // This effect ensures the audio matches the current slide and time within slide
@@ -150,7 +238,45 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
     // Calculate time within current slide
     const timeInSlide = elapsedTime - slideMeta.start;
     
-    // Check if we should be playing TTS
+    const currentSlide = slides[currentSlideIndex];
+    const sceneTracks = currentSlide?.type === 'video' ? currentSlide.videoNarrationAnalysis?.scenes ?? [] : [];
+
+    if (sceneTracks.length > 0 && audio) {
+        const activeScene = sceneTracks.find((scene) => {
+          const sceneEnd = scene.effectiveStartSeconds + scene.effectiveDurationSeconds;
+          return timeInSlide >= scene.effectiveStartSeconds && timeInSlide < sceneEnd;
+        });
+
+        if (activeScene?.audioUrl) {
+          const desiredSrc = activeScene.audioUrl;
+          const currentSrc = audio.src;
+          if (!currentSrc.endsWith(desiredSrc) && currentSrc !== desiredSrc) {
+            audio.src = desiredSrc;
+          }
+
+          const localSceneTime = Math.max(0, timeInSlide - activeScene.effectiveStartSeconds);
+          const sceneAudioDuration = activeScene.audioDurationSeconds ?? activeScene.effectiveDurationSeconds;
+
+          if (localSceneTime < sceneAudioDuration) {
+            if (Math.abs(audio.currentTime - localSceneTime) > 0.2) {
+              audio.currentTime = localSceneTime;
+            }
+            if (isPlaying && audio.paused) {
+              audio.play().catch(() => {});
+            } else if (!isPlaying && !audio.paused) {
+              audio.pause();
+            }
+          } else if (!audio.paused) {
+            audio.pause();
+          }
+        } else {
+          audio.pause();
+          audio.src = '';
+        }
+        return;
+    }
+
+    // Check if we should be playing standard slide TTS
     if (slides[currentSlideIndex]?.audioUrl && !slides[currentSlideIndex].isTtsDisabled && audio) {
         // Source Check
         const desiredSrc = slides[currentSlideIndex].audioUrl!;
@@ -217,6 +343,9 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
      }
      if (musicRef.current) {
          musicRef.current.volume = isMuted ? 0 : (musicVolume * masterVolume);
+     }
+     if (videoRef.current) {
+       videoRef.current.volume = isMuted ? 0 : masterVolume;
      }
   }, [masterVolume, isMuted, ttsVolume, musicVolume]);
 
@@ -376,21 +505,23 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
             src={currentSlide.mediaUrl}
             className={`max-w-full max-h-full object-contain ${getTransitionClass()}`}
             style={getTransitionStyle()}
-            // We manage play/pause externally, but simple property passing helps
-             // However, syncing video with custom timeline is tricky. for preview, usually letting it run or sync manual is ok.
-            // Let's rely on isPlaying state primarily
-            // But we actually need to seek the video if we scrub... 
-            // Complex to sync external video. For now, just play if global is playing.
             autoPlay={isPlaying}
             loop={false} 
             muted={isMuted || masterVolume === 0} 
-            ref={(el) => {
-               // Basic video sync
-               if (el) {
-                   if (isPlaying) el.play().catch(() => {});
-                   else el.pause();
-                   el.volume = isMuted ? 0 : masterVolume;
-               }
+            ref={videoRef}
+            onLoadedMetadata={() => {
+              if (!videoRef.current) return;
+              const slideMeta = timeline[currentSlideIndex];
+              if (!slideMeta) return;
+              const timeInSlide = Math.max(0, elapsedTime - slideMeta.start);
+              const mapped = mapEffectiveToOriginalVideoState(currentSlide, timeInSlide);
+              videoRef.current.currentTime = mapped.time;
+              videoRef.current.volume = isMuted ? 0 : masterVolume;
+              if (isPlaying && !mapped.isFrozen) {
+                videoRef.current.play().catch(() => {});
+              } else {
+                videoRef.current.pause();
+              }
             }}
           />
         )}
