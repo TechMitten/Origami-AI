@@ -58,3 +58,6 @@ test_ai.ts
 test_ai2.ts
 test_bug.mjs
 test_regex.mjs
+
+# Secrets and credentials
+src/utils/secureStorage.ts
