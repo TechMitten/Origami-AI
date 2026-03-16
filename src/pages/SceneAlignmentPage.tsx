@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Clapperboard, ChevronDown, ChevronUp, Code2, Loader2, Sparkles, Check, X, LocateFixed } from 'lucide-react';
+import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, LocateFixed, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import backgroundImage from '../assets/images/background.png';
 import type { SlideData, VideoNarrationSceneTrack, VideoNarrationAnalysisData } from '../components/SlideEditor';
+import { useVideoSceneSync } from '../hooks/useVideoSceneSync';
 
 interface SceneAlignmentPageProps {
   slide: SlideData;
@@ -12,6 +13,7 @@ interface SceneAlignmentPageProps {
   onClose: () => void;
   onUpdate: (index: number, data: Partial<SlideData>) => void;
   onGenerateSceneAudio: (index: number) => Promise<void>;
+  onGenerateSceneTTS: (slideIndex: number, sceneId: string) => Promise<void>;
 }
 
 function formatMMSS(seconds: number): string {
@@ -68,12 +70,19 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   onClose,
   onUpdate,
   onGenerateSceneAudio,
+  onGenerateSceneTTS,
 }) => {
   const [showDebug, setShowDebug] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
 
   const analysis = slide.videoNarrationAnalysis;
   const scenes = analysis?.scenes ?? [];
+
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const totalDuration = analysis?.totalTimelineDurationSeconds ?? 0;
+
+  const { videoRef, audioRef, isPlaying, elapsedTime, seekTo, togglePlayPause, skipForward, skipBack, onVideoLoadedMetadata } = useVideoSceneSync(scenes, totalDuration);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -130,28 +139,44 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
     [handleSceneEdit]
   );
 
-  const handleJumpToTimestamp = useCallback((timestampSeconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const safeTime = Math.max(0, timestampSeconds);
-    video.pause();
-
-    if (video.readyState >= 1) {
-      video.currentTime = safeTime;
-      return;
+  const handleGenerateSceneTTS = useCallback(async (sceneId: string) => {
+    setGeneratingSceneId(sceneId);
+    try {
+      await onGenerateSceneTTS(slideIndex, sceneId);
+    } finally {
+      setGeneratingSceneId(null);
     }
+  }, [onGenerateSceneTTS, slideIndex]);
 
-    const seekWhenReady = () => {
-      video.currentTime = safeTime;
-      video.removeEventListener('loadedmetadata', seekWhenReady);
+  const handleProgressSeek = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current || totalDuration <= 0) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    seekTo(ratio * totalDuration);
+  }, [seekTo, totalDuration]);
+
+  // Progress bar window-level drag — mirrors SimplePreview
+  useEffect(() => {
+    const handleWindowMouseUp = () => setIsDragging(false);
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!progressBarRef.current) return;
+      const rect = progressBarRef.current.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      seekTo(ratio * totalDuration);
     };
-
-    video.addEventListener('loadedmetadata', seekWhenReady);
-    video.load();
-  }, []);
+    if (isDragging) {
+      window.addEventListener('mousemove', handleWindowMouseMove);
+      window.addEventListener('mouseup', handleWindowMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [isDragging, seekTo, totalDuration]);
 
   const hasAudio = scenes.some(s => s.audioUrl);
+  const progressPercent = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
 
   const pageContent = (
     <div className="fixed inset-0 z-[9999] text-white flex flex-col overflow-hidden" style={{ backgroundColor: '#09090b' }}>
@@ -195,7 +220,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
           )}
           <button
             onClick={() => onGenerateSceneAudio(slideIndex)}
-            disabled={isGenerating || !analysis}
+            disabled={isGenerating || generatingSceneId !== null || !analysis}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/15 border border-branding-primary/30 text-branding-primary hover:bg-branding-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-sm font-bold"
           >
             {isGenerating ? (
@@ -220,11 +245,59 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       ref={videoRef}
                       src={slide.mediaUrl}
                       className="w-full h-full object-contain"
-                      controls
                       muted
                       playsInline
                       preload="metadata"
+                      onLoadedMetadata={onVideoLoadedMetadata}
                     />
+                  </div>
+                  <audio ref={audioRef} preload="none" />
+                  {/* Player controls — mirrors SimplePreview */}
+                  <div className="px-4 py-3 bg-black/60 border-t border-white/10">
+                    {/* Seek bar */}
+                    <div
+                      ref={progressBarRef}
+                      className="mb-3 group/timeline relative py-2 cursor-pointer"
+                      onMouseDown={(e) => { setIsDragging(true); handleProgressSeek(e); }}
+                      onTouchStart={handleProgressSeek}
+                    >
+                      <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden group-hover/timeline:h-2.5 transition-all">
+                        <div
+                          className="h-full bg-cyan-400 relative"
+                          style={{ width: `${progressPercent}%` }}
+                        >
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md opacity-0 group-hover/timeline:opacity-100 scale-0 group-hover/timeline:scale-100 transition-all" />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Controls row */}
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={skipBack}
+                        className="p-1.5 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                        title="-5s"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={togglePlayPause}
+                        className="p-2.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black transition-all hover:scale-105 active:scale-95 shadow-lg shadow-cyan-500/20"
+                      >
+                        {isPlaying
+                          ? <Pause className="w-5 h-5 fill-current" />
+                          : <Play className="w-5 h-5 fill-current ml-0.5" />}
+                      </button>
+                      <button
+                        onClick={skipForward}
+                        className="p-1.5 rounded-full text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                        title="+5s"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </button>
+                      <span className="ml-2 text-xs font-mono text-white/50">
+                        {formatMMSS(elapsedTime)} / {formatMMSS(totalDuration)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -298,10 +371,13 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       key={scene.id}
                       scene={scene}
                       sceneNumber={i + 1}
-                      onJumpToTimestamp={handleJumpToTimestamp}
+                      onJumpToTimestamp={seekTo}
                       onEdit={handleSceneEdit}
                       onTimestampChange={handleTimestampChange}
                       onTimestampBlur={handleTimestampBlur}
+                      onGenerateSceneTTS={handleGenerateSceneTTS}
+                      isGeneratingTTS={generatingSceneId === scene.id}
+                      anyGenerating={isGenerating || generatingSceneId !== null}
                     />
                   ))}
                 </div>
@@ -350,9 +426,12 @@ interface SceneCardProps {
   onEdit: (id: string, patch: Partial<VideoNarrationSceneTrack>) => void;
   onTimestampChange: (id: string, value: string) => void;
   onTimestampBlur: (id: string, value: string) => void;
+  onGenerateSceneTTS: (sceneId: string) => Promise<void>;
+  isGeneratingTTS: boolean;
+  anyGenerating: boolean;
 }
 
-const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimestamp, onEdit, onTimestampChange, onTimestampBlur }) => {
+const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimestamp, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating }) => {
   return (
     <div className="rounded-xl border border-white/10 bg-white/3 hover:border-white/20 transition-colors overflow-hidden">
       {/* Card header */}
@@ -391,7 +470,7 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimes
         </div>
 
         <button
-          onClick={() => onJumpToTimestamp(scene.timestampStartSeconds)}
+          onClick={() => onJumpToTimestamp(scene.effectiveStartSeconds)}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-colors text-[10px] font-bold uppercase tracking-wider"
           title={`Jump video preview to ${scene.timestampStart}`}
         >
@@ -433,6 +512,21 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onJumpToTimes
             className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-[11px] text-white/70 focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-y leading-relaxed"
             placeholder="What is happening visually in this scene?"
           />
+        </div>
+
+        <div className="flex justify-end pt-0.5">
+          <button
+            onClick={() => onGenerateSceneTTS(scene.id)}
+            disabled={anyGenerating}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-branding-primary/10 border border-branding-primary/25 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-bold"
+            title={scene.audioUrl ? 'Regenerate TTS audio for this scene only' : 'Generate TTS audio for this scene only'}
+          >
+            {isGeneratingTTS ? (
+              <><Loader2 className="w-3 h-3 animate-spin" /> Generating…</>
+            ) : (
+              <><Sparkles className="w-3 h-3" />{scene.audioUrl ? 'Regenerate TTS' : 'Generate TTS'}</>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -718,6 +718,75 @@ function MainApp() {
     }
   };
 
+  const generateVideoSceneAudioForScene = async (slideIndex: number, sceneId: string) => {
+    try {
+      const slide = slides[slideIndex];
+      if (!slide || slide.type !== 'video' || !slide.videoNarrationAnalysis?.scenes?.length) {
+        throw new Error('No video scene analysis found for this slide.');
+      }
+
+      const scene = slide.videoNarrationAnalysis.scenes.find(s => s.id === sceneId);
+      if (!scene) throw new Error('Scene not found.');
+
+      const sceneAudioUrl = await generateTTS(scene.narrationText, {
+        voice: slide.voice,
+        speed: 1.0,
+        pitch: 1.0,
+      });
+      const sceneAudioDuration = await getAudioDuration(sceneAudioUrl);
+
+      // Patch this scene's audio then recalculate effective positions for all scenes
+      const patchedScenes = slide.videoNarrationAnalysis.scenes.map(s =>
+        s.id === sceneId
+          ? { ...s, audioUrl: sceneAudioUrl, audioDurationSeconds: sceneAudioDuration }
+          : s
+      );
+
+      let cumulativeStretch = 0;
+      let totalNarrationDuration = 0;
+      const scenesWithEffective = patchedScenes.map(s => {
+        totalNarrationDuration += s.audioDurationSeconds ?? 0;
+        const effectiveStart = s.timestampStartSeconds + cumulativeStretch;
+        const effectiveDuration = s.audioDurationSeconds
+          ? Math.max(s.durationSeconds, s.audioDurationSeconds)
+          : s.durationSeconds;
+        const stretchDelta = s.audioDurationSeconds
+          ? Math.max(0, s.audioDurationSeconds - s.durationSeconds)
+          : 0;
+        cumulativeStretch += stretchDelta;
+        return { ...s, effectiveStartSeconds: effectiveStart, effectiveDurationSeconds: effectiveDuration };
+      });
+
+      const lastSceneEnd = scenesWithEffective.reduce(
+        (max, s) => Math.max(max, s.effectiveStartSeconds + s.effectiveDurationSeconds), 0
+      );
+      const timelineDuration = Math.max(
+        slide.mediaDuration || 0,
+        slide.videoNarrationAnalysis.videoMetadata.totalEstimatedDurationSeconds + cumulativeStretch,
+        lastSceneEnd
+      );
+      const mergedScript = scenesWithEffective.map(s => s.narrationText.trim()).filter(Boolean).join(' ');
+
+      updateSlide(slideIndex, {
+        script: mergedScript || slide.script,
+        audioDuration: totalNarrationDuration,
+        duration: timelineDuration,
+        audioSourceType: 'tts',
+        videoNarrationAnalysis: {
+          ...slide.videoNarrationAnalysis,
+          scenes: scenesWithEffective,
+          totalTimelineDurationSeconds: timelineDuration,
+          totalStretchSeconds: cumulativeStretch,
+        }
+      });
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : 'Failed to generate scene TTS audio.', {
+        type: 'error',
+        title: 'Scene TTS Generation Failed'
+      });
+    }
+  };
+
   const analyzeVideoNarrationForSlide = async (index: number) => {
     const updateAnalyzeProgress = (status: string, progress: number) => {
       const clamped = Math.max(0, Math.min(100, Math.round(progress)));
@@ -1303,6 +1372,7 @@ function MainApp() {
           onGenerateSceneAudio={async (index) => {
             await generateVideoSceneAudioForSlide(index);
           }}
+          onGenerateSceneTTS={generateVideoSceneAudioForScene}
         />
       )}
 
