@@ -13,3 +13,4 @@ temp_render
 .DS_Store
 coverage
 npm-debug.log
+secureStorage.ts
