@@ -187,7 +187,7 @@ Notes:
 
 ## Configuration
 
-Settings are available in the app under **Settings** → tabs (General, API, TTS Model, WebLLM, AI Prompt). Below is a clearer, easier-to-scan layout grouped by tab and by the in-app Configure Slides sections.
+Settings are available in the app under **Settings** → tabs (General, API, TTS Model, WebLLM, AI Prompt).
 
 ### General (Settings → General)
 - **Enable Global Defaults** — Apply these defaults to newly uploaded projects.
