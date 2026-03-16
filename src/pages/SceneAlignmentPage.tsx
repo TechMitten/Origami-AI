@@ -633,7 +633,7 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
   return (
     <div
       className={`w-full rounded-xl border ${isActive ? 'border-cyan-400/45' : 'border-white/10 hover:border-white/20'} bg-white/3 transition-colors overflow-hidden flex flex-col`}
-      style={targetHeight > 0 ? { height: `${targetHeight - 96}px`, marginTop: stickyTop } : undefined}
+      style={targetHeight > 0 ? { height: `${targetHeight}px`, marginTop: stickyTop } : undefined}
     >
       {/* Card header */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-white/3 border-b border-white/8">
