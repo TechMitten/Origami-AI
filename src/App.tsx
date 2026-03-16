@@ -64,6 +64,10 @@ function MainApp() {
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const renderer = useMemo(() => new BrowserVideoRenderer(), []);
+  const enforceTtsEnabled = React.useCallback((slide: SlideData): SlideData => {
+    if (slide.isTtsDisabled === false) return slide;
+    return { ...slide, isTtsDisabled: false };
+  }, []);
 
   // Prevent accidental navigation during rendering
   useEffect(() => {
@@ -132,7 +136,7 @@ function MainApp() {
       setGlobalSettings(settings);
 
       if (state && state.slides.length > 0) {
-        setSlides(state.slides);
+        setSlides(state.slides.map(enforceTtsEnabled));
       }
 
       // Restore music settings
@@ -401,11 +405,12 @@ function MainApp() {
     try {
       const imported = await importProjectArchive(selectedFile);
 
-      setSlides(imported.slides);
+      const normalizedSlides = imported.slides.map(enforceTtsEnabled);
+      setSlides(normalizedSlides);
       setMusicSettings(imported.musicSettings || { volume: 0.36 });
       setActiveTab('edit');
 
-      await saveState(imported.slides, imported.musicSettings);
+      await saveState(normalizedSlides, imported.musicSettings);
 
       showAlert(`Project imported successfully with ${imported.metadata.slideCount} slides.`, {
         type: 'success',
@@ -486,7 +491,10 @@ function MainApp() {
   };
 
   const updateSlide = (index: number, data: Partial<SlideData>) => {
-    setSlides(prev => prev.map((s, i) => i === index ? { ...s, ...data } : s));
+    setSlides(prev => prev.map((s, i) => {
+      if (i !== index) return s;
+      return enforceTtsEnabled({ ...s, ...data });
+    }));
   };
 
   const handleReplaceSlideImage = async (index: number, file: File) => {
@@ -518,8 +526,9 @@ function MainApp() {
           type: 'image',
           dataUrl: nextDataUrl,
           mediaUrl: undefined,
+          mediaDuration: undefined,
           isVideoMusicPaused: undefined,
-          duration: target.audioUrl ? target.duration : undefined,
+          duration: target.audioUrl ? (target.audioDuration ?? target.duration) : undefined,
         };
 
         const revokeIfUnused = (url?: string) => {
@@ -564,8 +573,12 @@ function MainApp() {
         speed: 1.0,
         pitch: 1.0
       });
-      const duration = await getAudioDuration(audioUrl);
-      updateSlide(index, { audioUrl, duration, audioSourceType: 'tts' });
+      const audioDuration = await getAudioDuration(audioUrl);
+      const duration = slide.type === 'video'
+        ? Math.max(slide.mediaDuration ?? slide.duration ?? 5, audioDuration)
+        : audioDuration;
+
+      updateSlide(index, { audioUrl, audioDuration, duration, audioSourceType: 'tts' });
     } catch (error) {
       showAlert(error instanceof Error ? error.message : 'Failed to generate audio', { type: 'error', title: 'Generation Failed' });
     } finally {
@@ -595,6 +608,7 @@ function MainApp() {
       const blob = await renderer.render({
         slides: slides.map(s => ({
           ...s,
+          isTtsDisabled: false,
           // Ensure we use the raw blob/data URLs directly
           // No need to upload
         })),
@@ -867,12 +881,13 @@ function MainApp() {
                     slides={slides.map(s => ({
                       dataUrl: s.dataUrl,
                       audioUrl: s.audioUrl,
+                      audioDuration: s.audioDuration,
                       duration: s.duration || 5,
                       postAudioDelay: s.postAudioDelay,
                       transition: s.transition,
                       type: s.type,
                       mediaUrl: s.mediaUrl,
-                      isTtsDisabled: s.isTtsDisabled,
+                      isTtsDisabled: false,
                     }))}
                     musicUrl={musicSettings?.url}
                     musicVolume={musicSettings?.volume || 0.36}

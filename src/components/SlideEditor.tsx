@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, MicOff, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -34,9 +34,11 @@ export interface SlideData extends Partial<RenderedPage> {
   id: string;
   type: 'image' | 'video';
   mediaUrl?: string;
+  mediaDuration?: number;
   isVideoMusicPaused?: boolean;
   script: string;
   audioUrl?: string;
+  audioDuration?: number;
   duration?: number;
   transition: 'fade' | 'slide' | 'zoom' | 'none';
   voice: string;
@@ -462,12 +464,32 @@ const SortableSlideItem = ({
         // Find duration
         const tempAudio = new Audio(url);
         tempAudio.onloadedmetadata = () => {
-          onUpdate(index, { audioUrl: url, duration: tempAudio.duration, audioSourceType: 'recorded' });
+          const audioDuration = tempAudio.duration;
+          const nextDuration = slide.type === 'video'
+            ? Math.max(slide.mediaDuration ?? slide.duration ?? 5, audioDuration)
+            : audioDuration;
+
+          onUpdate(index, {
+            audioUrl: url,
+            audioDuration,
+            duration: nextDuration,
+            audioSourceType: 'recorded'
+          });
         };
         // fallback if loadedmetadata doesn't fire nicely
         setTimeout(() => {
           if (!tempAudio.duration || tempAudio.duration === Infinity) {
-            onUpdate(index, { audioUrl: url, duration: recordingDuration, audioSourceType: 'recorded' });
+            const audioDuration = recordingDuration;
+            const nextDuration = slide.type === 'video'
+              ? Math.max(slide.mediaDuration ?? slide.duration ?? 5, audioDuration)
+              : audioDuration;
+
+            onUpdate(index, {
+              audioUrl: url,
+              audioDuration,
+              duration: nextDuration,
+              audioSourceType: 'recorded'
+            });
           }
         }, 500);
 
@@ -977,7 +999,7 @@ const SortableSlideItem = ({
 
             <div className="space-y-1.5" title="Pause duration after audio finishes">
               <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest pl-0.5">
-                {slide.isTtsDisabled ? 'Duration (s)' : 'Delay (s)'}
+                Delay (s)
               </label>
               <div className="relative group/input">
                 <input
@@ -1058,34 +1080,20 @@ const SortableSlideItem = ({
               )}
 
               <button
-                onClick={() => {
-                  const newDisabled = !slide.isTtsDisabled;
-                  const updates: Partial<SlideData> = { isTtsDisabled: newDisabled };
-                  if (newDisabled && (slide.postAudioDelay || 0) < 1) updates.postAudioDelay = 5;
-                  onUpdate(index, updates);
-                }}
-                className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isTtsDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
-                title="Toggle voiceover on/off"
-              >
-                {!slide.isTtsDisabled ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{slide.audioSourceType === 'recorded' ? 'REC' : 'TTS'}</span>
-              </button>
-
-              <button
                 onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
                 className={`flex-1 sm:flex-none px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
                 title="Toggle background music on/off"
               >
                 {!slide.isMusicDisabled ? <Music className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">Music</span>
+                <span className="hidden sm:inline">BACKGROUND MUSIC</span>
               </button>
             </div>
           </div>
         </div>
 
-        {slide.duration && (
+        {(slide.audioDuration ?? slide.duration) && (
           <div className="text-[10px] text-white/40 font-medium">
-            Audio Duration: {slide.duration.toFixed(2)}s
+            Audio Duration: {(slide.audioDuration ?? slide.duration ?? 0).toFixed(2)}s
           </div>
         )}
       </div>
@@ -1527,6 +1535,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         voice: AVAILABLE_VOICES[0].id,
         dataUrl: isGif ? url : undefined, // Quick hack for GIF preview if it works as image
         isVideoMusicPaused: false,
+        isTtsDisabled: false,
+        mediaDuration: duration,
         duration: duration,
         postAudioDelay: 0
       };
@@ -2863,8 +2873,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <input type="file" ref={mediaInputRef} className="hidden" accept="video/mp4,image/gif" onChange={handleMediaUpload} />
                     <button
                       onClick={() => mediaInputRef.current?.click()}
-                      className="px-10 py-4 rounded-2xl bg-branding-primary text-black font-bold text-sm uppercase tracking-wider hover:bg-branding-primary/90 hover:scale-105 transition-all shadow-lg shadow-branding-primary/20"
+                      className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl border border-white/25 bg-branding-primary text-white font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-branding-primary/30 hover:bg-branding-primary/90 hover:border-white/40 hover:shadow-xl hover:shadow-branding-primary/40 active:scale-[0.98] active:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 transition-all"
                     >
+                      <Upload className="w-4 h-4" />
                       Select File to Insert
                     </button>
                   </div>

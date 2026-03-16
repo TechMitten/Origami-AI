@@ -6,6 +6,7 @@ interface Slide {
   dataUrl?: string;
   mediaUrl?: string;
   audioUrl?: string;
+  audioDuration?: number;
   duration?: number;
   postAudioDelay?: number;
   transition?: 'fade' | 'slide' | 'none' | 'zoom';
@@ -159,7 +160,7 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
 
         // Only manipulate audio if we are 'playing' AND within the audio duration part of the slide
         // (slide duration includes postAudioDelay)
-        const audioDuration = slides[currentSlideIndex].duration || 5; 
+        const audioDuration = slides[currentSlideIndex].audioDuration || slides[currentSlideIndex].duration || 5;
         
         if (timeInSlide < audioDuration) {
             // We should be playing the audio at timeInSlide
