@@ -1,255 +1,181 @@
-# Origami AI
+<img src="screenshots/logo.png" alt="Origami AI Logo" width="300" />
 
-Transform PDF presentations into cinematic narrated videos using AI-powered text-to-speech and browser-based video rendering.
+
+[![GitHub stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=social)](https://github.com/IslandApps/Origami-AI/stargazers) [![Issues](https://img.shields.io/github/issues/IslandApps/Origami-AI)](https://github.com/IslandApps/Origami-AI/issues) [![License](https://img.shields.io/github/license/IslandApps/Origami-AI)](LICENSE) [![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen)](https://nodejs.org/)
+
+Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based text-to-speech, and local video rendering.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
+- [Why Origami?](#why-origami)
+- [Key Features](#key-features)
 	- [PDF Processing](#pdf-processing)
 	- [AI-Powered Narration](#ai-powered-narration)
 	- [Text-to-Speech](#text-to-speech)
 	- [Video Editor](#video-editor)
 	- [Video Rendering](#video-rendering)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-- [Browser Requirements](#browser-requirements)
+	- [Option A - Hosted (No Setup)](#option-a---hosted-no-setup)
+	- [Option B - Run Locally](#option-b---run-locally)
+	- [Option C - Docker](#option-c---docker)
+	- [Available Scripts](#available-scripts)
+- [Requirements](#requirements)
+	- [Prerequisites](#prerequisites)
+	- [Browser Compatibility](#browser-compatibility)
+	- [System Requirements](#system-requirements)
 - [How It Works](#how-it-works)
-- [Project Backup and Restore](#project-backup-and-restore)
 - [Configuration](#configuration)
-- [System Requirements](#system-requirements)
+	- [Settings](#settings)
+		- [General](#general)
+		- [TTS Model](#tts-model)
+		- [WebLLM](#webllm)
+		- [API](#api)
+		- [AI Prompt](#ai-prompt)
+	- [Configure Slides (In-App)](#configure-slides-in-app)
+	- [WebGPU Setup](#webgpu-setup)
+- [Project Backup and Restore](#project-backup-and-restore)
+- [Troubleshooting](#troubleshooting)
+- [Tech Stack](#tech-stack)
 - [Notes](#notes)
- - [Troubleshooting](#troubleshooting)
- - [Credits](#credits)
+- [Support](#support)
+- [Credits](#credits)
 
 ## Overview
 
-Origami AI is a web application that converts static PDF presentations into engaging video content with AI-generated narration, background music, and professional transitions. All processing happens locally in your browser using WebGPU-accelerated AI models and FFmpeg.wasm for video rendering.
+Origami AI is a web application that converts static PDF presentations into polished video content with AI-generated narration, background music, and transitions. Processing happens locally in your browser using WebGPU-accelerated models and FFmpeg.wasm.
 
-## Features
+## Why Origami?
 
-### PDF Processing
-- Drag-and-drop PDF upload interface
-- Automatic text extraction from each slide using PDF.js
-- High-resolution image conversion (2x scale)
+Traditional video creation from presentations is often a choice between **tedious manual labor** or **expensive AI subscriptions**. Origami AI offers a third way: a fully automated, local-first studio that lives in your browser.
 
-### AI-Powered Narration
-- **Local AI Processing**: Runs language models directly in your browser using MLC-WebLLM
-- **Remote API Support**: Compatible with OpenAI-style APIs
-- **Customizable Prompts**: Modify AI behavior through system prompts
+* **🎬 Static to Cinematic:** Don't just show slides; tell a story. Origami automatically extracts context from your PDFs and crafts a narrative script that flows naturally.
+* **🔒 Privacy First (Local-Only):** Your data stays on your machine. By leveraging **WebGPU** and **WebLLM**, your scripts and audio are generated locally without ever sending sensitive presentation data to a third-party server.
+* **🎙️ The "No-Mic" Solution:** Perfect for creators who prefer not to use their own voice. With integrated **Kokoro.js** TTS, you get high-quality, human-like narration without needing a recording studio.
+* **⚙️ Zero Infrastructure:** No complex Python environments or CUDA drivers to wrestle with. If you have a modern browser, you have a professional-grade video editor.
+* **💸 Cost Effective:** Avoid "per-minute" AI generation fees. Use your own hardware to run inference and rendering for free.
 
-### Text-to-Speech
-- Multiple voice options (af_heart, af_bella, am_adam, and more)
-- Browser TTS processing with Kokoro.js
-- Remote TTS service support
-- Automatic audio duration calculation for perfect timing
-
-### Video Editor
-- Drag-and-drop slide reordering
-- Edit individual slide scripts with text highlighting
-- Choose from 5 transition effects: fade, slide, wipe, blur, zoom
-- Add background music with volume control and auto-ducking
-- Generate audio for individual slides or entire presentations
-
-### Video Rendering
-- Browser-based rendering with FFmpeg.wasm
-- Export in 720p or 1080p resolution
-- Real-time progress tracking
-- Cancel long-running renders anytime
-
-## Tech Stack
-
-**Frontend**
-- React 19.2.0 with TypeScript
-- Vite 7.2.4 for build tooling
-- Tailwind CSS 4.1.18 for styling
-- React Router DOM 7.13.0
-
-**Core Libraries**
-- `@mlc-ai/web-llm` - Local LLM inference
-- `@ffmpeg/ffmpeg` & `@ffmpeg/util` - Video processing
-- `pdfjs-dist` - PDF rendering and text extraction
-- `kokoro-js` - Text-to-speech
-- `@dnd-kit` - Drag-and-drop functionality
-
-**Backend**
-- Express.js 5.2.1 development server
-- TypeScript throughout
-
-## Prerequisites
-
-- **Node.js** >= 20.19.0
-- **WebGPU-compatible browser** (Chrome 113+, Edge 113+, or Firefox Nightly with WebGPU enabled)
-- **At least 8GB RAM** recommended for local AI model processing
-- **Stable internet connection** for initial model downloads
-
-- **Docker** (Docker Desktop or Docker Engine) — recommended for containerized deployment (see Option C)
-
-## Getting Started
-
-### Option A — Hosted (No Setup)
-
-Visit **[https://origami.techmitten.com](https://origami.techmitten.com)** — no installation required, everything runs directly in your browser.
+| Feature | Traditional Editors | Cloud AI Video Tools | Origami AI |
+| :--- | :--- | :--- | :--- |
+| **Effort** | High (Manual) | Low | **Minimal (Automated)** |
+| **Privacy** | Local | Cloud-Based (Risk) | **Local-First** |
+| **Cost** | One-time / Free | Monthly Subscription | **Free & Open Source** |
+| **Voice** | Your own / Pro Talent | Credits-based TTS | **Unlimited Local TTS** |
 
 ---
 
-### Option B — Run Locally
+## Key Features
 
-#### 1. Clone the Repository
+### PDF Processing
+- Drag-and-drop PDF upload
+- Automatic text extraction from each slide with PDF.js
+- High-resolution image conversion (2x scale)
+
+### AI-Powered Narration
+- Local AI processing with MLC-WebLLM
+- Remote API support with OpenAI-compatible providers
+- Customizable prompts for script behavior
+
+### Text-to-Speech
+- Multiple voices (af_heart, af_bella, am_adam, and more)
+- Browser TTS via Kokoro.js
+- Remote TTS support
+- Automatic audio duration calculation for timing
+
+### Video Editor
+- Drag-and-drop slide ordering
+- Per-slide script editing with highlighting
+- Transitions: fade, slide, wipe, blur, zoom
+- Background music with volume and auto-ducking
+- Per-slide or full-project audio generation
+
+### Video Rendering
+- Browser rendering using FFmpeg.wasm
+- 720p and 1080p export
+- Real-time progress tracking
+- Render cancellation support
+
+## Getting Started
+
+### Option A - Hosted (No Setup)
+
+Visit **[https://origami.techmitten.com](https://origami.techmitten.com)**. No install required.
+
+### Option B - Run Locally
+
+1. Clone the repository:
 
 ```bash
 git clone https://github.com/IslandApps/Origami-AI.git
 cd Origami-AI
 ```
 
-#### 2. Install Dependencies
-
-Requires **Node.js >= 20.19.0** ([download](https://nodejs.org/)).
+2. Install dependencies (Node.js >= 20.19.0):
 
 ```bash
 npm install
 ```
 
-#### 3. Start the Development Server
+3. Start development server:
 
 ```bash
 npm run dev
 ```
 
-This starts an Express + Vite dev server with hot module replacement. Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+Open **[http://localhost:3000](http://localhost:3000)**.
 
-> **Note:** The development server sets the required `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers needed for FFmpeg.wasm and SharedArrayBuffer to work correctly. Opening `index.html` directly in the browser **will not work**.
+> The development server is required because it sets `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy`, which FFmpeg.wasm and SharedArrayBuffer need. Opening `index.html` directly will not work.
 
-#### 4. Build for Production
+4. Build production assets:
 
 ```bash
 npm run build
 ```
 
-Output is written to the `dist/` directory.
-
-#### 5. Preview the Production Build
+5. Preview production build:
 
 ```bash
 npm run preview
 ```
 
-Serves the production build locally via Vite's preview server for a final sanity check before deploying.
+### Option C - Docker
 
----
-
-### Option C — Docker (Recommended)
-
-A `Dockerfile` and `docker-compose.yml` are included for containerized deployment.
+Containerized deployment is supported via the included Docker files:
 
 ```bash
 docker compose up --build
 ```
 
-The app will be available at **[http://localhost:3000](http://localhost:3000)**.
+App URL: **[http://localhost:3000](http://localhost:3000)**.
 
----
+### Available Scripts
 
-### Browser Requirements
+- `npm run dev` - Start Express + Vite development server with HMR
+- `npm run build` - Create production build
+- `npm run preview` - Preview production build locally
+- `npm run lint` - Run lint checks
 
-Origami AI requires a **WebGPU-enabled browser** for local AI inference:
+## Requirements
+
+### Prerequisites
+
+- Node.js >= 20.19.0
+- WebGPU-compatible browser for local AI inference
+- Stable internet connection for first-time model downloads
+- Docker Desktop or Docker Engine (optional, for container deployment)
+
+### Browser Compatibility
 
 | Browser | Minimum Version |
 |---|---|
 | Chrome / Chromium | 113+ |
 | Microsoft Edge | 113+ |
-| Firefox | Nightly (enable `dom.webgpu.enabled` in `about:config`) |
+| Firefox | Nightly (enable `dom.webgpu.enabled`) |
 | Safari | 18+ (macOS Sonoma) |
 
-> **Tip:** If WebGPU is unavailable, you can still use Origami AI by configuring a remote OpenAI-compatible API in the Settings panel — no local GPU required.
+If WebGPU is unavailable, you can still use remote OpenAI-compatible APIs from Settings.
 
-## How It Works
-
-1. **Upload PDF** - Drag and drop your PDF presentation
-2. **Process Slides** - The app extracts text and converts pages to images
-3. **Generate Scripts** - AI creates narration scripts for each slide
-4. **Create Audio** - Text-to-speech generates speech audio from scripts
-5. **Customize** - Edit scripts, select voices, add music, choose transitions
-6. **Render Video** - FFmpeg.wasm combines everything into an MP4
-7. **Download** - Export your final video
-
-## Project Backup and Restore
-
-You can back up and move work between devices using `.origami` project files from the **Actions** menu.
-
-- **Export Project**: Saves your current slides, slide audio/media blobs, music settings, and project metadata into a single `.origami` archive.
-- **Import Project**: Validates the archive and replaces the current project with the imported one.
-
-Notes:
-- Import is strict by format version. Unsupported or malformed archives are rejected.
-- Global app defaults (for example voice/model defaults in Settings) are not changed by import/export.
-
-## Configuration
-
-Settings are available in the app under **Settings** → tabs (General, API, TTS Model, WebLLM, AI Prompt).
-
-### General (Settings → General)
-- **Enable Global Defaults** — Apply these defaults to newly uploaded projects.
-- **Intro Fade In** / **Intro Fade Length** — Toggle and set the first-slide fade duration (seconds).
-- **Post-Audio Delay** — Default pause (seconds) after each slide narration.
-- **Audio Normalization** — Toggle automatic normalization of generated audio.
-- **Recording Countdown** — Enable/disable the pre-recording countdown.
-- **Default Transition** — Choose default slide transition: Fade, Slide, Zoom, or None.
-- **Default Music** — Upload a default background music file and set volume.
-
-### TTS Model (Settings → TTS Model)
-- **TTS Model / Quantization** — Choose `q4` or `q8` quantization for the browser TTS model (tradeoff: size vs quality).
-
-### WebLLM (Settings → WebLLM)
-- **Use WebLLM** — Enable local WebLLM for AI generation instead of remote APIs.
-- **Model** — Select which WebLLM model to download/load.
-- **Model Precision Filter** — Filter available models by precision (f16/f32/all).
-
-### API (Settings → API)
-- **Base URL / API Key** — Configure remote OpenAI-compatible providers (Gemini, OpenRouter, Ollama, etc.).
-- **Fetch Models** — Query the provider for available models to populate the Model dropdown.
-
-### AI Prompt (Settings → AI Prompt)
-- **Script Fix System Prompt** — Customize the system prompt used when refining scripts with AI.
-
-### **Configure Slides (in-app)**
-The slide editor groups features into five sidebar tabs: Overview, Voice Settings, Audio Mixing, Batch Tools, and Slide Media. Key features by section:
-
-Overview
-- Inline Script editing (Script / Focus Mode)
-- `AI Fix Script` — AI-assisted rewrite of slide text
-- Copy / Revert script, Preview modal, Select/Deselect, Delete, Drag & Drop reorder, List/Grid view
-
-Voice Settings
-- Global preview and `Apply Voice` to all slides
-- Per-slide `Voice` dropdown
-- `Generate TTS Audio` / `Regenerate` and `Record Voice` (with optional countdown)
-- Per-slide `Delay (s)` and global `Apply Delay`
-
-Audio Mixing
-- Default Music upload and default volume
-- Per-slide music toggle, playback, seek, loop, and visualizer
-- Video music toggle for video slides
-
-Batch Tools
-- `Generate All Audio`, `Fix All Scripts`, `Revert All Scripts`, `Find & Replace`
-- Batch progress UI, cancellation, and queued processing behavior
-
-Slide Media
-- Replace slide image/media (PDF/JPG/PNG)
-- Upload MP4 or GIF slides (media duration auto-detected)
-- Media preview and duration influence on slide export
-
-Notes: Configure Slides exposes both per-slide and bulk actions. AI features require configured LLM settings (Settings → API) or a loaded WebLLM model.
-
-### WebGPU Setup
-If WebGPU is not available in your browser:
-1. Enable hardware acceleration in browser settings
-2. Update to the latest browser version
-3. For Firefox, enable `dom.webgpu.enabled` in `about:config`
-
-## System Requirements
+### System Requirements
 
 **Minimum**
 - 4-core CPU
@@ -260,45 +186,142 @@ If WebGPU is not available in your browser:
 - 8-core CPU
 - 16GB RAM
 - Dedicated GPU with WebGPU support
-- SSD for faster model loading
+- SSD for faster model/model-cache operations
 
-## Notes
+## How It Works
 
-- All AI processing happens locally in your browser - your data never leaves your device
-- Initial AI model download may take several minutes depending on your internet connection
-- Models are cached locally after first download
-- Video rendering performance depends on your hardware capabilities
+1. Upload a PDF.
+2. Extract text and convert pages to slide images.
+3. Generate narration scripts with AI.
+4. Generate speech audio from scripts.
+5. Edit scripts, voice, timing, transitions, and music.
+6. Render final MP4 with FFmpeg.wasm.
+7. Download the video.
 
-- Report issues: https://github.com/IslandApps/Origami-AI/issues
+## Configuration
 
----
+### Settings
+
+Settings are grouped under **General**, **API**, **TTS Model**, **WebLLM**, and **AI Prompt**.
+
+#### General
+- Enable Global Defaults for new uploads
+- Intro Fade In and Intro Fade Length (seconds)
+- Post-Audio Delay (seconds)
+- Audio Normalization toggle
+- Recording Countdown toggle
+- Default Transition (Fade, Slide, Zoom, None)
+- Default Music upload and volume
+
+#### TTS Model
+- TTS quantization selection: `q4` or `q8`
+
+#### WebLLM
+- Enable/disable local WebLLM
+- Select model to load
+- Precision filter (f16, f32, all)
+
+#### API
+- Configure Base URL and API Key for OpenAI-compatible providers (Gemini, OpenRouter, Ollama, etc.)
+- Fetch models from provider
+
+#### AI Prompt
+- Customize Script Fix System Prompt
+
+### Configure Slides (In-App)
+
+The slide editor includes five tabs:
+
+- Overview
+	- Script edit/focus modes
+	- AI Fix Script
+	- Copy/Revert, preview, select/delete, reorder, list/grid
+- Voice Settings
+	- Global voice preview and apply-all
+	- Per-slide voice, TTS generation/regeneration, voice recording
+	- Per-slide delay and apply-all delay
+- Audio Mixing
+	- Default music and volume
+	- Per-slide music playback, seek, loop, visualizer
+	- Video music toggle for video slides
+- Batch Tools
+	- Generate All Audio, Fix All Scripts, Revert All Scripts, Find & Replace
+	- Batch progress/cancel support
+- Slide Media
+	- Replace slide image/media (PDF/JPG/PNG)
+	- Upload MP4/GIF slides (duration auto-detected)
+	- Media preview and duration-aware export behavior
+
+AI actions require either a configured API provider or a loaded WebLLM model.
+
+### WebGPU Setup
+
+If WebGPU is unavailable:
+
+1. Enable hardware acceleration in browser settings.
+2. Update browser to latest version.
+3. In Firefox Nightly, enable `dom.webgpu.enabled`.
+
+## Project Backup and Restore
+
+Use `.origami` archives from the **Actions** menu to move projects between devices.
+
+- Export Project: Saves slides, media/audio blobs, music settings, and project metadata.
+- Import Project: Validates archive and replaces the current project.
+
+Notes:
+- Import is strict by archive format version.
+- Global defaults in Settings are not changed by project import/export.
 
 ## Troubleshooting
 
-- **WebGPU not detected**: Verify hardware acceleration is enabled in your browser, update GPU drivers, and use a supported browser (Chrome/Edge 113+). On Firefox enable `dom.webgpu.enabled` in `about:config` and use Nightly builds.
+- **WebGPU not detected**: Enable hardware acceleration, update GPU drivers, and use a supported browser.
+- **Dev server or FFmpeg.wasm errors**: Start via `npm run dev`; do not open `index.html` directly.
+- **SharedArrayBuffer / COOP/COEP warnings**: Ensure responses include `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless`.
+- **Model download or TTS failures**: Verify internet stability, clear site data, and check browser storage permissions.
+- **Out of memory during local inference**: Use smaller/quantized models, close background apps, or switch to remote API.
+- **FFmpeg.wasm slow/high memory**: Lower resolution, reduce project size, or run via Docker.
+- **Audio/video sync or export failures**: Rebuild with `npm run build`, then retry with `npm run preview`.
+- **Docker issues**: Confirm Docker is installed/running and has enough disk space/permissions.
 
-- **Dev server pages fail / FFmpeg.wasm errors**: Do not open `index.html` directly — run the development server so COOP/COEP headers are set:
+## Tech Stack
 
-```bash
-npm run dev
-```
+**Frontend**
+- React 19.2.0 with TypeScript
+- Vite 7.2.4
+- Tailwind CSS 4.1.18
+- React Router DOM 7.13.0
 
-- **SharedArrayBuffer / COOP/COEP warnings**: Ensure the dev server provides `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless`. If using a custom server, add these headers to responses.
+**Core Libraries**
+- `@mlc-ai/web-llm` for local LLM inference
+- `@ffmpeg/ffmpeg` and `@ffmpeg/util` for video rendering
+- `pdfjs-dist` for PDF rendering and extraction
+- `kokoro-js` for text-to-speech
+- `@dnd-kit` for drag-and-drop UI
 
-- **Large model downloads or TTS failures**: Ensure a stable internet connection for first-time model/TTS downloads, clear site data if downloads stall, and allow storage in browser settings.
+**Backend (Dev Server)**
+- Express.js 5.2.1
+- TypeScript
 
-- **Out of memory (OOM) during local inference**: Try a smaller or quantized model, close other applications, increase system RAM, or switch to the remote API fallback in Settings.
+## Notes
 
-- **FFmpeg.wasm slow or high memory usage**: Reduce output resolution (e.g., 720p), split rendering into smaller jobs, or use the Docker container to offload work to a more consistent environment.
+- AI workflows can run locally in-browser; model downloads are cached after first use.
+- First-time setup can take several minutes based on network speed.
+- Rendering performance depends on available CPU/GPU/memory.
 
-- **Audio/video sync or export failures**: Rebuild the project assets (`npm run build`) and retry previewing with `npm run preview`. Check browser console for errors and include logs when reporting issues.
+## Support
 
-- **Docker issues**: If `docker compose up` fails, ensure Docker Desktop/Engine is installed and running, and verify you have sufficient disk space and permissions.
+Report issues at: https://github.com/IslandApps/Origami-AI/issues
 
-- **When reporting issues**: Include browser name/version, OS, Node version (`node -v`), steps to reproduce, and relevant console logs. Report at: https://github.com/IslandApps/Origami-AI/issues
+When reporting, include:
+- Browser and version
+- OS
+- Node version (`node -v`)
+- Reproduction steps
+- Relevant console logs
 
 ## Credits
 
-- WebLLM — Local LLM inference: https://github.com/mlc-ai/web-llm
-- Kokoro.js — Text-to-speech: https://github.com/Kokoro-js
-- ffmpeg.wasm — FFmpeg in WebAssembly: https://github.com/ffmpegwasm/ffmpeg.wasm
+- WebLLM: https://github.com/mlc-ai/web-llm
+- Kokoro.js: https://github.com/Kokoro-js
+- ffmpeg.wasm: https://github.com/ffmpegwasm/ffmpeg.wasm
