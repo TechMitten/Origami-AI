@@ -68,7 +68,7 @@ export const PrivacyPolicy: React.FC = () => {
               <Globe className="w-5 h-5 text-branding-accent shrink-0" />
               <div>
                 <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Website</span>
-                <p className="text-white font-bold">origami.islandapps.dev</p>
+                <p className="text-white font-bold">origami.techmitten.com</p>
               </div>
             </div>
           </div>

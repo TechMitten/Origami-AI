@@ -46,7 +46,7 @@ export const MobileWarningModal: React.FC = () => {
         const subject = encodeURIComponent('Note to self - Check out Origami');
         const body = encodeURIComponent(
             `Check out Origami, an AI-powered tool that transforms PDF presentations into cinematic narrated videos.\n\n` +
-            `Website: https://origami.islandapps.dev\n\n` +
+            `Website: https://origami.techmitten.com\n\n` +
             `Note: This works best on a desktop or laptop browser.`
         );
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
