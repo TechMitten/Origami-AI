@@ -1,7 +1,7 @@
-// Replace this with a unique random string. 
+// Replace this with a unique random string via the VITE_SECRET_KEY environment variable.
 // Note: In client-side storage, this serves as obfuscation to prevent plain-text snooping.
 // For true cryptographic security, a backend or a user-provided master password is required.
-const SECRET_KEY = '';
+const SECRET_KEY = import.meta.env.VITE_SECRET_KEY || '';
 
 /**
  * Encrypts a string using XOR and Base64.
