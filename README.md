@@ -20,6 +20,8 @@ Transform PDF presentations into cinematic narrated videos using AI-powered text
 - [Configuration](#configuration)
 - [System Requirements](#system-requirements)
 - [Notes](#notes)
+ - [Troubleshooting](#troubleshooting)
+ - [Credits](#credits)
 
 ## Overview
 
@@ -185,11 +187,61 @@ Notes:
 
 ## Configuration
 
-### Settings Panel (⚙️)
-- **Default Voices**: Set preferred TTS voices for new projects
-- **Transition Effects**: Choose default transition style
-- **AI Model Settings**: Configure local vs remote AI processing
-- **WebGPU Check**: Verify browser compatibility
+Settings are available in the app under **Settings** → tabs (General, API, TTS Model, WebLLM, AI Prompt). Below is a clearer, easier-to-scan layout grouped by tab and by the in-app Configure Slides sections.
+
+### General (Settings → General)
+- **Enable Global Defaults** — Apply these defaults to newly uploaded projects.
+- **Intro Fade In** / **Intro Fade Length** — Toggle and set the first-slide fade duration (seconds).
+- **Post-Audio Delay** — Default pause (seconds) after each slide narration.
+- **Audio Normalization** — Toggle automatic normalization of generated audio.
+- **Recording Countdown** — Enable/disable the pre-recording countdown.
+- **Default Transition** — Choose default slide transition: Fade, Slide, Zoom, or None.
+- **Default Music** — Upload a default background music file and set volume.
+
+### TTS Model (Settings → TTS Model)
+- **TTS Model / Quantization** — Choose `q4` or `q8` quantization for the browser TTS model (tradeoff: size vs quality).
+
+### WebLLM (Settings → WebLLM)
+- **Use WebLLM** — Enable local WebLLM for AI generation instead of remote APIs.
+- **Model** — Select which WebLLM model to download/load.
+- **Model Precision Filter** — Filter available models by precision (f16/f32/all).
+
+### API (Settings → API)
+- **Base URL / API Key** — Configure remote OpenAI-compatible providers (Gemini, OpenRouter, Ollama, etc.).
+- **Fetch Models** — Query the provider for available models to populate the Model dropdown.
+
+### AI Prompt (Settings → AI Prompt)
+- **Script Fix System Prompt** — Customize the system prompt used when refining scripts with AI.
+
+### **Configure Slides (in-app)**
+The slide editor groups features into five sidebar tabs: Overview, Voice Settings, Audio Mixing, Batch Tools, and Slide Media. Key features by section:
+
+Overview
+- Inline Script editing (Script / Focus Mode)
+- `AI Fix Script` — AI-assisted rewrite of slide text
+- Copy / Revert script, Preview modal, Select/Deselect, Delete, Drag & Drop reorder, List/Grid view
+
+Voice Settings
+- Global preview and `Apply Voice` to all slides
+- Per-slide `Voice` dropdown
+- `Generate TTS Audio` / `Regenerate` and `Record Voice` (with optional countdown)
+- Per-slide `Delay (s)` and global `Apply Delay`
+
+Audio Mixing
+- Default Music upload and default volume
+- Per-slide music toggle, playback, seek, loop, and visualizer
+- Video music toggle for video slides
+
+Batch Tools
+- `Generate All Audio`, `Fix All Scripts`, `Revert All Scripts`, `Find & Replace`
+- Batch progress UI, cancellation, and queued processing behavior
+
+Slide Media
+- Replace slide image/media (PDF/JPG/PNG)
+- Upload MP4 or GIF slides (media duration auto-detected)
+- Media preview and duration influence on slide export
+
+Notes: Configure Slides exposes both per-slide and bulk actions. AI features require configured LLM settings (Settings → API) or a loaded WebLLM model.
 
 ### WebGPU Setup
 If WebGPU is not available in your browser:
@@ -216,3 +268,37 @@ If WebGPU is not available in your browser:
 - Initial AI model download may take several minutes depending on your internet connection
 - Models are cached locally after first download
 - Video rendering performance depends on your hardware capabilities
+
+- Report issues: https://github.com/IslandApps/Origami-AI/issues
+
+---
+
+## Troubleshooting
+
+- **WebGPU not detected**: Verify hardware acceleration is enabled in your browser, update GPU drivers, and use a supported browser (Chrome/Edge 113+). On Firefox enable `dom.webgpu.enabled` in `about:config` and use Nightly builds.
+
+- **Dev server pages fail / FFmpeg.wasm errors**: Do not open `index.html` directly — run the development server so COOP/COEP headers are set:
+
+```bash
+npm run dev
+```
+
+- **SharedArrayBuffer / COOP/COEP warnings**: Ensure the dev server provides `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless`. If using a custom server, add these headers to responses.
+
+- **Large model downloads or TTS failures**: Ensure a stable internet connection for first-time model/TTS downloads, clear site data if downloads stall, and allow storage in browser settings.
+
+- **Out of memory (OOM) during local inference**: Try a smaller or quantized model, close other applications, increase system RAM, or switch to the remote API fallback in Settings.
+
+- **FFmpeg.wasm slow or high memory usage**: Reduce output resolution (e.g., 720p), split rendering into smaller jobs, or use the Docker container to offload work to a more consistent environment.
+
+- **Audio/video sync or export failures**: Rebuild the project assets (`npm run build`) and retry previewing with `npm run preview`. Check browser console for errors and include logs when reporting issues.
+
+- **Docker issues**: If `docker compose up` fails, ensure Docker Desktop/Engine is installed and running, and verify you have sufficient disk space and permissions.
+
+- **When reporting issues**: Include browser name/version, OS, Node version (`node -v`), steps to reproduce, and relevant console logs. Report at: https://github.com/IslandApps/Origami-AI/issues
+
+## Credits
+
+- WebLLM — Local LLM inference: https://github.com/mlc-ai/web-llm
+- Kokoro.js — Text-to-speech: https://github.com/Kokoro-js
+- ffmpeg.wasm — FFmpeg in WebAssembly: https://github.com/ffmpegwasm/ffmpeg.wasm
