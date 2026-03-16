@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { RenderedPage } from '../services/pdfService';
-import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
+import { AVAILABLE_VOICES, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 
@@ -1416,21 +1416,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   React.useEffect(() => {
     // Helper to process settings and update state
     const processSettings = (settings: GlobalSettings | null) => {
-      // Logic to fetch base voices
-      const fetchPromise = (settings?.useLocalTTS && settings?.localTTSUrl)
-        ? fetchRemoteVoices(settings.localTTSUrl)
-        : Promise.resolve(DEFAULT_VOICES);
-
-      fetchPromise.then(fetchedVoices => {
-        let finalVoices = [...fetchedVoices];
+      const finalVoices = [...DEFAULT_VOICES];
 
 
 
-        setVoices(finalVoices);
+      setVoices(finalVoices);
 
-        if (settings?.delay) setGlobalDelay(settings.delay);
-        if (settings?.voice) setGlobalVoice(settings.voice);
-      });
+      if (settings?.delay) setGlobalDelay(settings.delay);
+      if (settings?.voice) setGlobalVoice(settings.voice);
     };
 
     if (globalSettings !== undefined) {

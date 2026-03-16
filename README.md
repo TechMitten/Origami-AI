@@ -20,7 +20,7 @@ Origami AI is a web application that converts static PDF presentations into enga
 
 ### Text-to-Speech
 - Multiple voice options (af_heart, af_bella, am_adam, and more)
-- Local TTS processing with Kokoro.js
+- Browser TTS processing with Kokoro.js
 - Remote TTS service support
 - Automatic audio duration calculation for perfect timing
 

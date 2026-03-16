@@ -47,8 +47,6 @@ export interface GlobalSettings {
     fileName?: string;
   };
   ttsQuantization?: 'q8' | 'q4';
-  useLocalTTS?: boolean;
-  localTTSUrl?: string;
   disableAudioNormalization?: boolean;
   useWebLLM?: boolean;
   webLlmModel?: string;

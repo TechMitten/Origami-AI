@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM } from '../services/webLlmService';
-import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
+import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
@@ -39,8 +39,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt'>(initialTab);
   const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q4');
-  const [useLocalTTS, setUseLocalTTS] = useState(currentSettings?.useLocalTTS ?? false);
-  const [localTTSUrl, setLocalTTSUrl] = useState(currentSettings?.localTTSUrl ?? 'http://localhost:8880/v1/audio/speech');
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -125,10 +123,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   // Reset TTS download state when quantization changes
 
 
-  const [availableVoices, setAvailableVoices] = useState<Voice[]>(AVAILABLE_VOICES);
-
-
-  const [voiceFetchError, setVoiceFetchError] = useState<string | null>(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
@@ -417,29 +411,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   }, [previewAudio]);
 
-  const loadVoices = useCallback(async () => {
-    if (!localTTSUrl) return;
-    try {
-      setVoiceFetchError(null);
-      const voices = await fetchRemoteVoices(localTTSUrl);
-      setAvailableVoices(voices);
-    } catch (err) {
-      console.error("Failed to load voices", err);
-      setVoiceFetchError(err instanceof Error ? err.message : 'Failed to fetch voices');
-      setAvailableVoices(DEFAULT_VOICES);
-    }
-  }, [localTTSUrl]);
-
-  // Fetch voices when Local TTS is enabled
-  React.useEffect(() => {
-    if (useLocalTTS && localTTSUrl) {
-      loadVoices();
-    } else {
-      setAvailableVoices(DEFAULT_VOICES);
-    }
-  }, [useLocalTTS, localTTSUrl, loadVoices]);
-
-
   React.useEffect(() => {
     if (isOpen) {
       const key = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
@@ -481,8 +452,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       } : undefined,
 
       ttsQuantization,
-      useLocalTTS,
-      localTTSUrl,
       disableAudioNormalization,
 
       useWebLLM,
@@ -907,23 +876,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
                       <Mic className="w-4 h-4" /> Default Voice
                     </label>
-                    {useLocalTTS && (
-                      <div className="flex items-center gap-2">
-                        {voiceFetchError && (
-                          <span className="text-[10px] text-red-400 font-bold animate-pulse" title={voiceFetchError}>
-                            Fetch Failed
-                          </span>
-                        )}
-                        <button
-                          onClick={loadVoices}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-                          title="Refresh Voices from API"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                        </button>
-
-                      </div>
-                    )}
 
                     {/* Preview Button */}
                     <button
@@ -937,7 +889,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   </div>
 
                   <Dropdown
-                    options={availableVoices}
+                    options={AVAILABLE_VOICES}
                     value={voice}
                     onChange={setVoice}
                     className="bg-black/20"
@@ -945,51 +897,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                          Use Local TTS Instance
-                          {/* {useLocalTTS && <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">Active</span>} */}
-                        </h3>
-                        {/* <p className="text-xs text-white/60">
-                                        Connect to a local Dockerized Kokoro FastAPI instance instead of using the browser model.
-                                    </p> */}
-                      </div>
-                      <button
-                        onClick={() => setUseLocalTTS(!useLocalTTS)}
-                        className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useLocalTTS ? 'bg-emerald-500' : 'bg-white/10'}`}
-                      >
-                        <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useLocalTTS ? 'translate-x-7' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    {useLocalTTS && (
-                      <div className="space-y-3 animate-fade-in border-t border-white/5 pt-3">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
-                            API Endpoint URL
-                          </label>
-                          <input
-                            type="text"
-                            value={localTTSUrl}
-                            onChange={(e) => setLocalTTSUrl(e.target.value)}
-                            placeholder="http://localhost:8880/v1/audio/speech"
-                            className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                          />
-                        </div>
-                        <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                          <p className="text-[10px] text-yellow-200">
-                            <strong>Note:</strong> When enabled, browser-side quantization settings are ignored.
-                            Request format follows OpenAI audio/speech standard.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {!useLocalTTS && (
                   <div className="space-y-4">
                     <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
                       Model Quantization
@@ -1015,7 +922,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       </button>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* TTS Loading Progress (shown when reloading model on save) */}
                 {isLoadingTTS && (

@@ -1,5 +1,4 @@
 import TTSWorker from './tts.worker?worker';
-import { loadGlobalSettings } from './storage';
 
 export interface TTSOptions {
   voice: string;
@@ -56,69 +55,6 @@ export const DEFAULT_VOICES: Voice[] = [
 ];
 
 export const AVAILABLE_VOICES = DEFAULT_VOICES;
-
-export async function fetchRemoteVoices(baseUrl: string): Promise<Voice[]> {
-    let voicesUrl = baseUrl;
-    try {
-        // More robust URL construction
-        if (baseUrl.includes('/audio/speech')) {
-             voicesUrl = baseUrl.replace('/audio/speech', '/audio/voices');
-        } else if (baseUrl.endsWith('/v1')) {
-            voicesUrl = `${baseUrl}/audio/voices`;
-        } else if (!baseUrl.endsWith('/voices')) {
-             // Try to guess based on common patterns
-             try {
-                const url = new URL(baseUrl);
-                if (url.port === '8880') {
-                    // Kokoro Fast API default port
-                    url.pathname = '/v1/audio/voices';
-                    voicesUrl = url.toString();
-                } else {
-                    // fall back to replacing speech or appending
-                     voicesUrl = baseUrl.replace(/\/speech$/, '/voices');
-                }
-             } catch {
-                // Keep original if not parsable
-             }
-        }
-
-        console.log(`[TTS Service] Fetching voices from ${voicesUrl}`);
-        const res = await fetch(voicesUrl);
-        if (!res.ok) {
-            throw new Error(`Failed to fetch voices from ${voicesUrl} (Status: ${res.status})`);
-        }
-        
-        const data = await res.json();
-        
-        let voices: Voice[] = [];
-
-        // Handle various response formats
-        if (data.voices && Array.isArray(data.voices)) {
-             // Format: { voices: [...] }
-             voices = data.voices;
-        } else if (data.object === 'list' && Array.isArray(data.data)) {
-             // OpenAI Format: { object: 'list', data: [...] }
-             voices = data.data;
-        } else if (Array.isArray(data)) {
-             // Simple Array: [...]
-             voices = data;
-        } else {
-            console.warn("[TTS Service] Unknown voice response format", data);
-            return DEFAULT_VOICES;
-        }
-
-        // Normalize
-        // Normalize
-        return voices.map((v: string | { id: string; name?: string }) => ({ 
-            id: typeof v === 'string' ? v : v.id, 
-            name: typeof v === 'string' ? v : (v.name || v.id) 
-        }));
-
-    } catch (e) {
-        console.error("[TTS Service] Voice fetch error:", e);
-        throw e; // Re-throw to let UI handle the error state
-    }
-}
 
 // Singleton worker instance
 let worker: Worker | null = null;
@@ -199,40 +135,7 @@ export function reloadTTS(quantization: 'q8' | 'q4'): Promise<void> {
 
 
 export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
-  // Check for local TTS override
-  const settings = await loadGlobalSettings();
-  
-  if (settings?.useLocalTTS && settings?.localTTSUrl) {
-    try {
-      console.log(`[TTS Service] Using Local TTS at ${settings.localTTSUrl}`);
-      const response = await fetch(settings.localTTSUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'kokoro',
-          input: text,
-          voice: options.voice,
-          speed: options.speed,
-          response_format: 'wav' // or mp3, wav is safer for uncompressed quality if local
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Local TTS API Error (${response.status}): ${errorText}`);
-      }
-
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
-    } catch (err) {
-      console.error("[TTS Service] Local TTS generation failed:", err);
-      throw err; // Propagate error to UI
-    }
-  }
-
-  // Fallback / Standard Worker Implementation
+  // Standard worker implementation
   const worker = getWorker();
   const id = crypto.randomUUID();
   
