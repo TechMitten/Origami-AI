@@ -61,6 +61,7 @@ export type SlideEditorViewMode = 'list' | 'grid';
 interface SlideEditorProps {
   slides: SlideData[];
   onUpdateSlide: (index: number, data: Partial<SlideData>) => void;
+  onReplaceSlideImage: (index: number, file: File) => Promise<void>;
   onGenerateAudio: (index: number) => Promise<void>;
   generatingSlides: Set<number>;
   onReorderSlides: (slides: SlideData[]) => void;
@@ -220,6 +221,7 @@ const SortableSlideItem = ({
   slide,
   index,
   onUpdate,
+  onReplaceImage,
   onGenerate,
   isGenerating,
   isAnyGenerating,
@@ -236,6 +238,7 @@ const SortableSlideItem = ({
   slide: SlideData,
   index: number,
   onUpdate: (i: number, d: Partial<SlideData>) => void,
+  onReplaceImage: (i: number, file: File) => Promise<void>,
   onGenerate: (i: number) => Promise<void>,
   isGenerating: boolean,
   isAnyGenerating: boolean,
@@ -271,9 +274,11 @@ const SortableSlideItem = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
+  const [isReplacingImage, setIsReplacingImage] = React.useState(false);
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
   const [showScriptEditor, setShowScriptEditor] = React.useState(false);
+  const replaceImageInputRef = useRef<HTMLInputElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
@@ -641,6 +646,19 @@ const SortableSlideItem = ({
     onUpdate(index, { script: newText });
   };
 
+  const handleReplaceImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsReplacingImage(true);
+    try {
+      await onReplaceImage(index, file);
+    } finally {
+      setIsReplacingImage(false);
+      event.target.value = '';
+    }
+  };
+
   // Render the backdrop content
   const renderBackdrop = () => {
     if (!highlightText) {
@@ -727,6 +745,31 @@ const SortableSlideItem = ({
           <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100 pointer-events-none">
             <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
           </div>
+
+          {slide.type === 'image' && (
+            <>
+              <input
+                ref={replaceImageInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                className="hidden"
+                onChange={handleReplaceImageUpload}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  replaceImageInputRef.current?.click();
+                }}
+                disabled={isReplacingImage}
+                className="absolute top-2 right-2 z-10 inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black/60 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/90 opacity-0 pointer-events-none transition-all duration-200 group-hover/image:opacity-100 group-hover/image:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Replace slide image (PDF/JPG/PNG)"
+              >
+                {isReplacingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                {isReplacingImage ? 'Replacing...' : 'Replace'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1135,6 +1178,7 @@ const SortableSlideItem = ({
 export const SlideEditor: React.FC<SlideEditorProps> = ({
   slides,
   onUpdateSlide,
+  onReplaceSlideImage,
   onGenerateAudio,
   generatingSlides,
   onReorderSlides,
@@ -2848,6 +2892,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 slide={slide}
                 index={index}
                 onUpdate={onUpdateSlide}
+                onReplaceImage={onReplaceSlideImage}
                 onGenerate={onGenerateAudio}
                 isGenerating={generatingSlides.has(index) || isBatchGenerating}
                 isAnyGenerating={generatingSlides.size > 0 || isBatchGenerating}

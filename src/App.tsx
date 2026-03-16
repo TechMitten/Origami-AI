@@ -5,7 +5,7 @@ import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
 import { SimplePreview } from './components/SimplePreview';
 import { generateTTS, getAudioDuration, ttsEvents, initTTS } from './services/ttsService';
-import type { RenderedPage } from './services/pdfService';
+import { renderPdfFirstPageToImage, type RenderedPage } from './services/pdfService';
 import { GlobalSettingsModal } from './components/GlobalSettingsModal';
 import { TutorialModal } from './components/TutorialModal';
 import { Footer } from './components/Footer';
@@ -489,6 +489,68 @@ function MainApp() {
     setSlides(prev => prev.map((s, i) => i === index ? { ...s, ...data } : s));
   };
 
+  const handleReplaceSlideImage = async (index: number, file: File) => {
+    const fileName = file.name.toLowerCase();
+    const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+    const isJpg = file.type === 'image/jpeg' || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+    const isPng = file.type === 'image/png' || fileName.endsWith('.png');
+
+    if (!isPdf && !isJpg && !isPng) {
+      showAlert('Please select a PDF, JPG, or PNG file.', { type: 'error', title: 'Invalid File' });
+      return;
+    }
+
+    try {
+      const nextDataUrl = isPdf
+        ? await renderPdfFirstPageToImage(file)
+        : URL.createObjectURL(file);
+
+      setSlides((prev) => {
+        const target = prev[index];
+        if (!target) return prev;
+
+        const oldDataUrl = target.dataUrl;
+        const oldMediaUrl = target.mediaUrl;
+
+        const nextSlides = [...prev];
+        nextSlides[index] = {
+          ...target,
+          type: 'image',
+          dataUrl: nextDataUrl,
+          mediaUrl: undefined,
+          isVideoMusicPaused: undefined,
+          duration: target.audioUrl ? target.duration : undefined,
+        };
+
+        const revokeIfUnused = (url?: string) => {
+          if (!url || !url.startsWith('blob:')) return;
+          const stillUsed = prev.some((slide, slideIndex) => {
+            if (slideIndex === index) return false;
+            return slide.dataUrl === url || slide.mediaUrl === url || slide.audioUrl === url;
+          });
+          if (!stillUsed) {
+            URL.revokeObjectURL(url);
+          }
+        };
+
+        if (oldDataUrl && oldDataUrl !== nextDataUrl) {
+          revokeIfUnused(oldDataUrl);
+        }
+        if (oldMediaUrl) {
+          revokeIfUnused(oldMediaUrl);
+        }
+
+        return nextSlides;
+      });
+    } catch (error) {
+      console.error(error);
+      showAlert(error instanceof Error ? error.message : 'Failed to replace slide image.', {
+        type: 'error',
+        title: 'Image Replace Failed',
+      });
+    }
+  };
+
   const generateAudioForSlide = async (index: number) => {
     setGeneratingSlides(prev => { const next = new Set(prev); next.add(index); return next; });
     try {
@@ -896,6 +958,7 @@ function MainApp() {
               <SlideEditor
                 slides={slides}
                 onUpdateSlide={updateSlide}
+                onReplaceSlideImage={handleReplaceSlideImage}
                 onGenerateAudio={generateAudioForSlide}
                 generatingSlides={generatingSlides}
                 onReorderSlides={setSlides}

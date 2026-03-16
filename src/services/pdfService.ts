@@ -16,6 +16,32 @@ export interface RenderedPage {
   ocrWarning?: string;
 }
 
+export async function renderPdfFirstPageToImage(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2.0 });
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not get canvas context');
+
+  canvas.height = viewport.height;
+  canvas.width = viewport.width;
+
+  await page.render({
+    canvasContext: context,
+    canvas,
+    viewport,
+  }).promise;
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('Failed to convert PDF page to image');
+
+  return URL.createObjectURL(blob);
+}
+
 export async function renderPdfToImages(file: File): Promise<RenderedPage[]> {
   // Generate PDF fingerprint for OCR caching
   const fingerprint = await generatePDFFingerprint(file);
