@@ -1,6 +1,6 @@
 <div align="center">
 
-# Origami AI
+
 <img src="screenshots/logo.png" alt="Origami AI Logo" width="300" />
 
 [![GitHub stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=social)](https://github.com/IslandApps/Origami-AI/stargazers) 
@@ -8,15 +8,18 @@
 [![License](https://img.shields.io/github/license/IslandApps/Origami-AI)](LICENSE) 
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen)](https://nodejs.org/)
 
-**[Try the Hosted Demo](https://origami.techmitten.com)** | **[Watch the Full Video](screenshots/demo.mp4)**
+**[Try the Hosted Demo](https://origami.techmitten.com)** | **[Watch the Full Video](https://youtu.be/h1nrUA4TPfs)**
 
-<a href="screenshots/demo.gif">
-	<img src="screenshots/demo.gif" alt="Origami demo GIF" width="720" />
+
+<a href="https://youtu.be/h1nrUA4TPfs" target="_blank" rel="noopener">
+	<img src="screenshots/demo.gif" alt="Origami demo GIF" width="720" style="box-shadow: 0 12px 30px rgba(0,0,0,0.25); border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;" />
 </a>
 
-**Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based TTS, and local rendering.**
-
 </div>
+
+<p>&nbsp;</p>
+
+**Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based TTS, and local rendering.**
 
 ## Table of Contents
 
