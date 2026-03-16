@@ -1352,6 +1352,7 @@ function MainApp() {
                 onUpdateGlobalSettings={handlePartialGlobalSettings}
                 viewMode={slideEditorViewMode}
                 onViewModeChange={setSlideEditorViewMode}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
               />
             )}
           </div>

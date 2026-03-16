@@ -30,6 +30,7 @@
 	- [AI-Powered Narration](#ai-powered-narration)
 	- [Text-to-Speech](#text-to-speech)
 	- [Video Editor](#video-editor)
+	- [Analyze Video and Scene Alignment](#analyze-video-and-scene-alignment)
 	- [Video Rendering](#video-rendering)
 - [Getting Started](#getting-started)
 	- [Option A - Hosted (No Setup)](#option-a---hosted-no-setup)
@@ -49,6 +50,7 @@
 		- [API](#api)
 		- [AI Prompt](#ai-prompt)
 	- [Configure Slides (In-App)](#configure-slides-in-app)
+	- [Analyze Video Workflow (In-App)](#analyze-video-workflow-in-app)
 	- [WebGPU Setup](#webgpu-setup)
 - [Project Backup and Restore](#project-backup-and-restore)
 - [Troubleshooting](#troubleshooting)
@@ -104,6 +106,14 @@ Traditional video creation from presentations is often a choice between **tediou
 - Transitions: fade, slide, wipe, blur, zoom
 - Background music with volume and auto-ducking
 - Per-slide or full-project audio generation
+
+### Analyze Video and Scene Alignment
+- Analyze uploaded Slide Media MP4 clips into timestamped scenes using Gemini
+- Produces structured scene plans: step number, start timestamp, on-screen action, narration text, and duration
+- Adds a full-screen Scene Alignment Editor for timeline-locked scene review and editing
+- Supports per-scene TTS generation and full scene-batch TTS generation
+- Automatically stretches the effective timeline when narration audio exceeds scene duration
+- Stores raw Gemini JSON output for debugging
 
 ### Video Rendering
 - Browser rendering using FFmpeg.wasm
@@ -267,8 +277,31 @@ The slide editor includes five tabs:
 	- Replace slide image/media (PDF/JPG/PNG)
 	- Upload MP4/GIF slides (duration auto-detected)
 	- Media preview and duration-aware export behavior
+	- Analyze Video (silent MP4 only) to generate editable scene narration plans
+	- Open Scene Alignment Editor to edit timestamps, durations, and narration per scene
+	- Generate TTS per scene or all scenes with timeline stretch recalculation
 
 AI actions require either a configured API provider or a loaded WebLLM model.
+
+### Analyze Video Workflow (In-App)
+
+Use this workflow after uploading a Slide Media video when you want scene-aware narration.
+
+1. Upload a video slide as MP4 in Slide Media.
+2. Click **Analyze Video** on that slide.
+3. Wait for progress stages (upload, processing, JSON generation, parsing).
+4. Open **Edit Scenes** to review in the full-screen Scene Alignment Editor.
+5. Adjust scene timestamps (`MM:SS`), durations, and narration text.
+6. Generate scene TTS (single scene or all scenes).
+7. Render MP4 normally; slide timeline uses the effective stretched duration.
+
+#### Analyze Video Requirements and Limits
+- Requires a configured Gemini API key in Settings.
+- Video file analysis requires Google Gemini base URL (`https://generativelanguage.googleapis.com/v1beta/openai/`).
+- Analyze Video only supports Slide Media silent MP4 uploads.
+- GIF/image media is not supported for analysis.
+- MP4 files with embedded audio tracks are rejected for this workflow.
+- If model output JSON is malformed, Origami automatically retries with a repair prompt.
 
 ### WebGPU Setup
 
@@ -298,6 +331,8 @@ Notes:
 - **Out of memory during local inference**: Use smaller/quantized models, close background apps, or switch to remote API.
 - **FFmpeg.wasm slow/high memory**: Lower resolution, reduce project size, or run via Docker.
 - **Audio/video sync or export failures**: Rebuild with `npm run build`, then retry with `npm run preview`.
+- **Analyze Video fails or stays unavailable**: Verify Gemini API key, Google Gemini base URL, and that the slide media is a silent MP4.
+- **Analyze Video rejects your MP4 for audio**: Remove the clip audio track, then re-upload and analyze again.
 - **Docker issues**: Confirm Docker is installed/running and has enough disk space/permissions.
 
 ## Tech Stack

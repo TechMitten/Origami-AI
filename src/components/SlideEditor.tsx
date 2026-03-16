@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List, Settings as SettingsIcon } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -115,6 +115,7 @@ interface SlideEditorProps {
   onUpdateGlobalSettings?: (settings: Partial<GlobalSettings>) => void;
   viewMode: SlideEditorViewMode;
   onViewModeChange: (mode: SlideEditorViewMode) => void;
+  onOpenSettings?: () => void;
 }
 
 function getMatchRanges(text: string, term: string) {
@@ -1319,7 +1320,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   globalSettings, // Destructure globalSettings
   onUpdateGlobalSettings,
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  onOpenSettings
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
@@ -1337,7 +1339,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
 
 
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>('tools');
   const [isMobile, setIsMobile] = useState(false);
   const [isConfigureSlidesExpanded, setIsConfigureSlidesExpanded] = useState(() => {
     const saved = localStorage.getItem('configureSlidesExpanded');
@@ -2510,36 +2512,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </button>
 
         {isConfigureSlidesExpanded && (
-          <div className={`mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row ${activeTab === 'overview' ? '' : 'max-h-175'}`}>
+          <div className={`mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-175`}>
             {/* Left Navigation */}
             <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
-              <button
-                onClick={() => setActiveTab('overview')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'overview'
-                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
-                  }`}
-              >
-                <Info className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Overview
-              </button>
-              <button
-                onClick={() => setActiveTab('voice')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'voice'
-                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
-                  }`}
-              >
-                <Mic className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Voice Settings
-              </button>
-              <button
-                onClick={() => setActiveTab('mixing')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'mixing'
-                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
-                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
-                  }`}
-              >
-                <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Audio Mixing
-              </button>
+              {/* Overview tab removed */}
               <button
                 onClick={() => setActiveTab('tools')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'tools'
@@ -2549,6 +2525,27 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               >
                 <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Batch Tools
               </button>
+              
+              <button
+                onClick={() => setActiveTab('voice')}
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'voice'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  }`}
+              >
+                <Mic className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Voice Settings
+              </button>
+
+              <button
+                onClick={() => setActiveTab('mixing')}
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'mixing'
+                  ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
+                  : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
+                  }`}
+              >
+                <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Audio Mixing
+              </button>
+              
               <button
                 onClick={() => setActiveTab('media')}
                 className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'media'
@@ -2558,83 +2555,16 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               >
                 <VideoIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Slide Media
               </button>
+              <button
+                onClick={() => onOpenSettings?.()}
+                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent`}
+              >
+                <SettingsIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Settings
+              </button>
             </div>
 
             {/* Right Content */}
-            <div className={`flex-1 p-6 sm:p-10 bg-black/10 flex flex-col ${activeTab === 'overview' ? 'overflow-visible' : 'overflow-y-auto'}`}>
-              {activeTab === 'overview' && (
-                <div className="max-w-4xl w-full mx-auto flex flex-col space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                  {/* Compact Header */}
-                  <div className="space-y-1.5">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                      <Sparkles className="w-5 h-5 text-branding-primary" /> Quick Start Guide
-                    </h3>
-                    <p className="text-sm text-white/60">Complete your video in 4 simple steps</p>
-                  </div>
-
-                  {/* Timeline Accordion */}
-                  <div className="relative">
-                    {/* Gradient timeline line with 4 color stops */}
-                    <div
-                      className="absolute left-4 sm:left-4 top-8 bottom-6 w-px opacity-30"
-                      style={{
-                        background: 'linear-gradient(to bottom, #a855f7 0%, #10b981 33%, #f97316 66%, #ec4899 100%)'
-                      }}
-                    />
-
-                    {/* Step rows */}
-                    <div className="space-y-2">
-                      {quickStartSteps.map((step) => {
-                        // Color mappings for each step
-                        const colorClasses = {
-                          1: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400' },
-                          2: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-                          3: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400' },
-                          4: { bg: 'bg-pink-500/10', border: 'border-pink-500/30', text: 'text-pink-400' }
-                        }[step.id];
-
-                        return (
-                          <div key={step.id} className="relative">
-                            <button
-                              onClick={() => setExpandedCards(prev => ({ ...prev, [step.id]: !prev[step.id] }))}
-                              className="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-all text-left group"
-                              aria-expanded={expandedCards[step.id]}
-                              aria-controls={`step-description-${step.id}`}
-                            >
-                              {/* Compact number indicator */}
-                              <div className={`w-8 h-8 rounded-full ${colorClasses.bg} border ${colorClasses.border} flex items-center justify-center shrink-0 z-10`}>
-                                <span className={`${colorClasses.text} text-sm font-bold`}>{step.id}</span>
-                              </div>
-
-                              {/* Content area */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="text-base font-semibold text-white">{step.title}</h4>
-                                  <ChevronDown className={`w-4 h-4 ${colorClasses.text} ml-auto transition-transform shrink-0 ${expandedCards[step.id] ? 'rotate-180' : ''}`} />
-                                </div>
-                                <p
-                                  id={`step-description-${step.id}`}
-                                  className={`text-sm text-white/60 leading-relaxed mt-1 ${expandedCards[step.id] ? 'block' : 'hidden'}`}
-                                >
-                                  {step.description}
-                                </p>
-                              </div>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Minimal Footer */}
-                  <div className="shrink-0 pt-4 border-t border-white/5">
-                    <p className="text-xs text-white/40 text-center">
-                      Need help? Check the tutorial or configure settings using the tabs above
-                    </p>
-                  </div>
-                </div>
-              )}
-
+            <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col overflow-y-auto">
               {activeTab === 'voice' && (
                 <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 shrink-0">
