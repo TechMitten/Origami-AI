@@ -1,14 +1,22 @@
+<div align="center">
+
+# Origami AI
 <img src="screenshots/logo.png" alt="Origami AI Logo" width="300" />
 
+[![GitHub stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=social)](https://github.com/IslandApps/Origami-AI/stargazers) 
+[![Issues](https://img.shields.io/github/issues/IslandApps/Origami-AI)](https://github.com/IslandApps/Origami-AI/issues) 
+[![License](https://img.shields.io/github/license/IslandApps/Origami-AI)](LICENSE) 
+[![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen)](https://nodejs.org/)
 
-[![GitHub stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=social)](https://github.com/IslandApps/Origami-AI/stargazers) [![Issues](https://img.shields.io/github/issues/IslandApps/Origami-AI)](https://github.com/IslandApps/Origami-AI/issues) [![License](https://img.shields.io/github/license/IslandApps/Origami-AI)](LICENSE) [![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen)](https://nodejs.org/)
+**[Try the Hosted Demo](https://origami.techmitten.com)** | **[Watch the Full Video](screenshots/demo.mp4)**
 
-<video controls width="720">
-	<source src="screenshots/demo.mp4" type="video/mp4">
-	Your browser does not support the video tag. You can download the demo: [screenshots/demo.mp4](screenshots/demo.mp4)
-</video>
+<a href="screenshots/demo.gif">
+	<img src="screenshots/demo.gif" alt="Origami demo GIF" width="720" />
+</a>
 
-Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based text-to-speech, and local video rendering.
+**Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based TTS, and local rendering.**
+
+</div>
 
 ## Table of Contents
 
