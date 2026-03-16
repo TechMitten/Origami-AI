@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward, Maximize } from 'lucide-react';
+import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward, Maximize, ChevronUp, ChevronDown } from 'lucide-react';
 import backgroundImage from '../assets/images/background.png';
 import type { SlideData, VideoNarrationSceneTrack, VideoNarrationAnalysisData } from '../components/SlideEditor';
 import { useVideoSceneSync } from '../hooks/useVideoSceneSync';
@@ -273,6 +273,24 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
     }
   }, [onGenerateSceneTTS, slideIndex]);
 
+  const handleNavigateToScene = useCallback((index: number) => {
+    if (index >= 0 && index < scenes.length) {
+      const targetScene = scenes[index];
+      const targetCard = sceneCardRefs.current[targetScene.id];
+      if (targetCard) {
+        snapLockRef.current = true;
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        if (snapUnlockTimerRef.current !== null) {
+          window.clearTimeout(snapUnlockTimerRef.current);
+        }
+        snapUnlockTimerRef.current = window.setTimeout(() => {
+          snapLockRef.current = false;
+        }, 520);
+      }
+    }
+  }, [scenes]);
+
   const toggleFullscreen = useCallback(async () => {
     if (!playerPanelRef.current) return;
     try {
@@ -316,6 +334,10 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   const hasAudio = scenes.some(s => s.audioUrl);
   const activeScene = scenes.find((scene) => scene.id === activeSceneId) ?? null;
   const progressPercent = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
+
+  const stickyTop = playerPanelHeight > 0
+    ? `max(1.5rem, calc((100vh - 3.5rem - ${playerPanelHeight}px) / 2))`
+    : '1.5rem';
 
   const pageContent = (
     <div className="fixed inset-0 z-[9999] text-white flex flex-col overflow-hidden" style={{ backgroundColor: '#09090b' }}>
@@ -378,9 +400,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
             <section
               className="xl:sticky self-start"
               style={{
-                top: playerPanelHeight > 0
-                  ? `max(1.5rem, calc((100vh - 3.5rem - ${playerPanelHeight}px) / 2))`
-                  : '1.5rem',
+                top: stickyTop,
               }}
             >
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -534,7 +554,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       ref={(el) => {
                         sceneCardRefs.current[scene.id] = el;
                       }}
-                      className="snap-start snap-always min-h-[calc(100vh-9rem)] flex items-center"
+                      className="snap-start snap-always min-h-[calc(100vh-3.5rem)] flex items-start"
                     >
                       <SceneCard
                         scene={scene}
@@ -547,6 +567,9 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                         anyGenerating={isGenerating || generatingSceneId !== null}
                         isActive={activeSceneId === scene.id}
                         targetHeight={playerPanelHeight}
+                        stickyTop={stickyTop}
+                        onNavigatePrev={i > 0 ? () => handleNavigateToScene(i - 1) : undefined}
+                        onNavigateNext={i < scenes.length - 1 ? () => handleNavigateToScene(i + 1) : undefined}
                       />
                     </div>
                   ))}
@@ -600,17 +623,16 @@ interface SceneCardProps {
   anyGenerating: boolean;
   isActive: boolean;
   targetHeight: number;
+  stickyTop: string;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
 }
 
-const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating, isActive, targetHeight }) => {
-  const topTrimPx = 48;
-  const bottomExtendPx = 24;
-  const adjustedHeight = Math.max(260, targetHeight - topTrimPx + bottomExtendPx);
-
+const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTimestampChange, onTimestampBlur, onGenerateSceneTTS, isGeneratingTTS, anyGenerating, isActive, targetHeight, stickyTop, onNavigatePrev, onNavigateNext }) => {
   return (
     <div
       className={`w-full rounded-xl border ${isActive ? 'border-cyan-400/45' : 'border-white/10 hover:border-white/20'} bg-white/3 transition-colors overflow-hidden flex flex-col`}
-      style={targetHeight > 0 ? { height: `${adjustedHeight}px`, marginTop: `${topTrimPx}px` } : undefined}
+      style={targetHeight > 0 ? { height: `${targetHeight}px`, marginTop: stickyTop } : undefined}
     >
       {/* Card header */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-white/3 border-b border-white/8">
@@ -646,7 +668,6 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
             <span className="text-[10px] text-white/40">s</span>
           </div>
         </div>
-
       </div>
 
       {/* Narration */}
@@ -676,17 +697,40 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
         </div>
 
         <div className="flex items-center justify-between pt-0.5 shrink-0">
-          {scene.audioDurationSeconds ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-              <Check className="w-3 h-3" /> {scene.audioDurationSeconds.toFixed(2)}s audio
-            </div>
-          ) : (
-            <div className="text-[10px] text-white/30 font-bold uppercase tracking-wider">No audio yet</div>
-          )}
+          <div className="flex items-center gap-2 min-w-[120px]">
+            {scene.audioDurationSeconds ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                <Check className="w-3 h-3" /> {scene.audioDurationSeconds.toFixed(2)}s audio
+              </div>
+            ) : (
+              <div className="text-[10px] text-white/30 font-bold uppercase tracking-wider">No audio yet</div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 px-1 py-0.5 rounded-lg bg-white/5 border border-white/5">
+            <button
+              onClick={onNavigatePrev}
+              disabled={!onNavigatePrev}
+              className="p-1 rounded text-white/35 hover:bg-white/10 hover:text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              title="Previous scene"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+            <div className="w-[1px] h-3 bg-white/10" />
+            <button
+              onClick={onNavigateNext}
+              disabled={!onNavigateNext}
+              className="p-1 rounded text-white/35 hover:bg-white/10 hover:text-white/80 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              title="Next scene"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+
           <button
             onClick={() => onGenerateSceneTTS(scene.id)}
             disabled={anyGenerating}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-branding-primary/10 border border-branding-primary/25 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-bold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-branding-primary/10 border border-branding-primary/25 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-bold min-w-[120px] justify-center"
             title={scene.audioUrl ? 'Regenerate TTS audio for this scene only' : 'Generate TTS audio for this scene only'}
           >
             {isGeneratingTTS ? (
