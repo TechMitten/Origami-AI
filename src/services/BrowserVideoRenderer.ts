@@ -26,6 +26,8 @@ export interface RenderOptions {
   slides: Slide[];
   musicSettings?: MusicSettings;
   ttsVolume?: number;
+  enableIntroFadeIn?: boolean;
+  introFadeInDurationSec?: number;
   resolution?: RenderResolution;
   onProgress?: (progress: number) => void;
   onLog?: (message: string) => void;
@@ -124,6 +126,8 @@ export class BrowserVideoRenderer {
     slides,
     musicSettings,
     ttsVolume = 1,
+    enableIntroFadeIn = true,
+    introFadeInDurationSec = 1,
     resolution = '720p',
     onProgress,
     onLog,
@@ -212,7 +216,7 @@ export class BrowserVideoRenderer {
         duration: 5,
         postAudioDelay: 0,
         type: 'image',
-        transition: 'none',
+        transition: 'fade',
         isTtsDisabled: true,
       }];
 
@@ -359,7 +363,12 @@ export class BrowserVideoRenderer {
       // Output mapping
       if (renderSlides.length > 0) {
         // Rename final output to standard labels expected by footer
-        videoFilterParts.push(`[${lastV}]format=yuv420p[vout_raw]`);
+        if (enableIntroFadeIn) {
+          const introFadeDuration = Math.max(0.05, Math.min(Math.max(0.1, introFadeInDurationSec || 1), currentDuration / 2));
+          videoFilterParts.push(`[${lastV}]fade=t=in:st=0:d=${introFadeDuration},format=yuv420p[vout_raw]`);
+        } else {
+          videoFilterParts.push(`[${lastV}]format=yuv420p[vout_raw]`);
+        }
         audioFilterParts.push(`[${lastA}]volume=1.0[aout_speech]`);
       } else {
         videoFilterParts.push(`color=black:${VIDEO_WIDTH}x${VIDEO_HEIGHT}:d=1[vout_raw]`);

@@ -432,6 +432,8 @@ function MainApp() {
       voice: 'af_heart',
       delay: 0.5,
       transition: 'fade',
+      introFadeInEnabled: true,
+      introFadeInDurationSec: 1,
       previewMode: 'modal',
     };
 
@@ -614,6 +616,8 @@ function MainApp() {
         })),
         musicSettings,
         ttsVolume,
+        enableIntroFadeIn: globalSettings?.introFadeInEnabled ?? true,
+        introFadeInDurationSec: globalSettings?.introFadeInDurationSec ?? 1,
         resolution: renderResolution,
         signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
@@ -666,6 +670,8 @@ function MainApp() {
         slides: silentSlides,
         musicSettings,
         ttsVolume,
+        enableIntroFadeIn: globalSettings?.introFadeInEnabled ?? true,
+        introFadeInDurationSec: globalSettings?.introFadeInDurationSec ?? 1,
         resolution: renderResolution,
         signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
@@ -899,6 +905,8 @@ function MainApp() {
                     musicUrl={musicSettings?.url}
                     musicVolume={musicSettings?.volume || 0.36}
                     ttsVolume={ttsVolume}
+                    enableIntroFadeIn={globalSettings?.introFadeInEnabled ?? true}
+                    introFadeInDurationSec={globalSettings?.introFadeInDurationSec ?? 1}
                   />
                 </div>
 

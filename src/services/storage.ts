@@ -39,6 +39,8 @@ export interface GlobalSettings {
   voice: string;
   delay: number;
   transition: 'fade' | 'slide' | 'zoom' | 'none';
+  introFadeInEnabled?: boolean;
+  introFadeInDurationSec?: number;
   music?: {
     blob?: Blob;
     volume: number;
@@ -353,6 +355,16 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
         if (settings.previewMode === 'inline') {
           settings.previewMode = 'modal';
         }
+
+        if (typeof settings.introFadeInEnabled !== 'boolean') {
+          settings.introFadeInEnabled = true;
+        }
+
+        if (typeof settings.introFadeInDurationSec !== 'number' || !isFinite(settings.introFadeInDurationSec)) {
+          settings.introFadeInDurationSec = 1;
+        }
+
+        settings.introFadeInDurationSec = Math.min(5, Math.max(0.1, settings.introFadeInDurationSec));
 
         resolve(settings);
       };

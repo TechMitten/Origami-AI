@@ -71,6 +71,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
   );
   const [recordingCountdownEnabled, setRecordingCountdownEnabled] = useState(currentSettings?.recordingCountdownEnabled ?? true);
+  const [introFadeInEnabled, setIntroFadeInEnabled] = useState(currentSettings?.introFadeInEnabled ?? true);
+  const [introFadeInDurationSec, setIntroFadeInDurationSec] = useState(currentSettings?.introFadeInDurationSec ?? 1);
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -470,6 +472,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       voice,
       delay,
       transition,
+      introFadeInEnabled,
+      introFadeInDurationSec: Math.min(5, Math.max(0.1, introFadeInDurationSec || 1)),
       music: musicBlob && savedMusicName ? {
         blob: musicBlob,
         volume: musicVolume,
@@ -692,6 +696,43 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 >
                   <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${isEnabled ? 'translate-x-7' : 'translate-x-0'}`} />
                 </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                    <Play className="w-4 h-4" /> Intro Fade In
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-white/40 uppercase">{introFadeInEnabled ? 'On' : 'Off'}</span>
+                  <button
+                    onClick={() => setIntroFadeInEnabled(!introFadeInEnabled)}
+                    className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${introFadeInEnabled ? 'bg-emerald-500' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${introFadeInEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-3">
+                <label className="flex items-center justify-between gap-3 text-xs font-bold text-white/40 uppercase tracking-widest">
+                  <span>Intro Fade Length</span>
+                  <span className="text-white/30">Seconds</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="5"
+                    step="0.1"
+                    value={introFadeInDurationSec}
+                    onChange={(e) => setIntroFadeInDurationSec(parseFloat(e.target.value) || 1)}
+                    className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all pr-12"
+                    disabled={!introFadeInEnabled}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/30 font-bold">SEC</span>
+                </div>
               </div>
 
               <div className={`space-y-8 transition-opacity duration-300 ${isEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none grayscale'}`}>

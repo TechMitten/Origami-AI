@@ -19,11 +19,14 @@ interface SimplePreviewProps {
   musicUrl?: string;
   musicVolume?: number;
   ttsVolume?: number;
+  enableIntroFadeIn?: boolean;
+  introFadeInDurationSec?: number;
 }
 
-export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume = 1.0 }: SimplePreviewProps) {
+export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume = 1.0, enableIntroFadeIn = true, introFadeInDurationSec = 1 }: SimplePreviewProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [introPlaybackNonce, setIntroPlaybackNonce] = useState(0);
   const [masterVolume, setMasterVolume] = useState(1); // Master volume control (0-1)
   const [isMuted, setIsMuted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -263,7 +266,16 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
 
 
   const togglePlayPause = () => {
-    setIsPlaying(p => !p);
+    setIsPlaying(prev => {
+      const next = !prev;
+
+      // CSS fade animations only run on mount; force a remount when playback starts from slide 1.
+      if (next && !prev && enableIntroFadeIn && currentSlideIndex === 0 && elapsedTime <= 0.05) {
+        setIntroPlaybackNonce(n => n + 1);
+      }
+
+      return next;
+    });
     lastFrameTimeRef.current = 0; // Reset frame timer
   };
 
@@ -281,14 +293,31 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
   
   const currentSlide = slides[currentSlideIndex];
   const progressPercent = (elapsedTime / totalDuration) * 100;
+  const introDuration = Math.min(5, Math.max(0.1, introFadeInDurationSec || 1));
 
   const getTransitionClass = () => {
+    const isIntroWindow = currentSlideIndex === 0 && elapsedTime <= (introDuration + 0.05);
+
+    if (isIntroWindow) {
+      return enableIntroFadeIn ? 'animate-fade-in' : '';
+    }
+
     switch (currentSlide?.transition) {
       case 'fade': return 'animate-fade-in';
       case 'slide': return 'animate-slide-in-right';
       case 'zoom': return 'animate-zoom-in';
       default: return '';
     }
+  };
+
+  const getTransitionStyle = () => {
+    const isIntroWindow = currentSlideIndex === 0 && elapsedTime <= (introDuration + 0.05);
+
+    if (enableIntroFadeIn && isIntroWindow) {
+      return { animationDuration: `${introDuration}s` };
+    }
+
+    return undefined;
   };
 
   const formatTime = (seconds: number) => {
@@ -334,17 +363,19 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
       <div className="absolute inset-0 flex items-center justify-center">
         {currentSlide?.dataUrl && (
           <img
-            key={`img-${currentSlideIndex}`} // Key ensures animation restarts on slide change
+            key={`img-${currentSlideIndex}-${introPlaybackNonce}`} // Includes intro nonce so fade-in can replay when restarting from time 0
             src={currentSlide.dataUrl}
             alt={`Slide ${currentSlideIndex + 1}`}
             className={`max-w-full max-h-full object-contain ${getTransitionClass()}`}
+            style={getTransitionStyle()}
           />
         )}
         {currentSlide?.mediaUrl && currentSlide.type === 'video' && (
           <video
-            key={`vid-${currentSlideIndex}`}
+            key={`vid-${currentSlideIndex}-${introPlaybackNonce}`}
             src={currentSlide.mediaUrl}
             className={`max-w-full max-h-full object-contain ${getTransitionClass()}`}
+            style={getTransitionStyle()}
             // We manage play/pause externally, but simple property passing helps
              // However, syncing video with custom timeline is tricky. for preview, usually letting it run or sync manual is ok.
             // Let's rely on isPlaying state primarily
