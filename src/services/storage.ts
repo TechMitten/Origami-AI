@@ -51,7 +51,7 @@ export interface GlobalSettings {
   useWebLLM?: boolean;
   webLlmModel?: string;
   aiFixScriptSystemPrompt?: string;
-  previewMode?: 'inline' | 'modal';
+  previewMode?: 'modal';
   recordingCountdownEnabled?: boolean;
 }
 
@@ -343,7 +343,19 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
       const request = store.get('globalDefaults');
 
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result ? (request.result as GlobalSettings) : null);
+      request.onsuccess = () => {
+        if (!request.result) {
+          resolve(null);
+          return;
+        }
+
+        const settings = request.result as GlobalSettings & { previewMode?: 'inline' | 'modal' };
+        if (settings.previewMode === 'inline') {
+          settings.previewMode = 'modal';
+        }
+
+        resolve(settings);
+      };
     });
   } catch (err) {
     console.error("[Storage] Failed to load global settings from IndexedDB", err);

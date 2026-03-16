@@ -643,46 +643,44 @@ function MainApp() {
         {/* Center: View Toggle (Segmented Control) */}
         {slides.length > 0 && (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <button
-                  onClick={() => setActiveTab('edit')}
-                  className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
-                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
-                    ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                  Preview
-                </button>
-              </div>
+            <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <button
+                onClick={() => setActiveTab('edit')}
+                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
+                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setActiveTab('preview')}
+                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
+                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                Preview
+              </button>
 
-              {activeTab === 'edit' && (
-                <div className="hidden sm:flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <button
-                    onClick={() => setSlideEditorViewMode('list')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'list' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-                    title="List view"
-                  >
-                    <List className="w-4 h-4" /><span className="hidden sm:inline">List</span>
-                  </button>
-                  <button
-                    onClick={() => setSlideEditorViewMode('grid')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'grid' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-                    title="Grid view"
-                  >
-                    <LayoutGrid className="w-4 h-4" /><span className="hidden sm:inline">Grid</span>
-                  </button>
-                </div>
-              )}
+              <div className="mx-1 h-5 w-px bg-white/10" />
+
+              <button
+                onClick={() => setSlideEditorViewMode('list')}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'list' && activeTab === 'edit' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'} ${activeTab === 'preview' ? 'pointer-events-none opacity-40' : ''}`}
+                title="List view"
+                aria-disabled={activeTab === 'preview'}
+              >
+                <List className="w-4 h-4" /><span>List</span>
+              </button>
+              <button
+                onClick={() => setSlideEditorViewMode('grid')}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'grid' && activeTab === 'edit' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'} ${activeTab === 'preview' ? 'pointer-events-none opacity-40' : ''}`}
+                title="Grid view"
+                aria-disabled={activeTab === 'preview'}
+              >
+                <LayoutGrid className="w-4 h-4" /><span>Grid</span>
+              </button>
             </div>
           </div>
         )}

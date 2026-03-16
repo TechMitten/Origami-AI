@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Maximize2, Timer, Loader2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, RotateCcw, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM } from '../services/webLlmService';
 import { AVAILABLE_VOICES, fetchRemoteVoices, DEFAULT_VOICES, type Voice, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -70,7 +70,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
   );
-  const [previewMode, setPreviewMode] = useState<'inline' | 'modal'>(currentSettings?.previewMode ?? 'modal');
   const [recordingCountdownEnabled, setRecordingCountdownEnabled] = useState(currentSettings?.recordingCountdownEnabled ?? true);
 
   // Prevent background scrolling when modal is open
@@ -485,7 +484,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useWebLLM,
       webLlmModel,
       aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined,
-      previewMode,
+      previewMode: 'modal',
       recordingCountdownEnabled
     };
 
@@ -772,22 +771,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       ]}
                       value={transition}
                       onChange={(val) => setTransition(val as GlobalSettings['transition'])}
-                      className="bg-black/20"
-                    />
-                  </div>
-
-                  {/* Preview Mode */}
-                  <div className="space-y-4">
-                    <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                      <Maximize2 className="w-4 h-4" /> Slide Preview Mode
-                    </label>
-                    <Dropdown
-                      options={[
-                        { id: 'inline', name: 'Scroll to Top' },
-                        { id: 'modal', name: 'Modal Popup' },
-                      ]}
-                      value={previewMode}
-                      onChange={(val) => setPreviewMode(val as 'inline' | 'modal')}
                       className="bg-black/20"
                     />
                   </div>

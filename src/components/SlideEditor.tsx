@@ -2853,9 +2853,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 isAnyGenerating={generatingSlides.size > 0 || isBatchGenerating}
                 onExpand={(i) => {
                   setPreviewIndex(prev => prev === i ? null : i);
-                  if (previewIndex !== i && (globalSettings?.previewMode ?? 'modal') !== 'modal') {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
                 }}
                 onDelete={handleDeleteSlide}
                 ttsVolume={ttsVolume}
