@@ -67,7 +67,7 @@ Origami AI is a web application that converts static PDF presentations into enga
 
 ### Option A — Hosted (No Setup)
 
-Visit **[https://origami.islandapps.dev](https://origami.islandapps.dev)** — no installation required, everything runs directly in your browser.
+Visit **[https://origami.techmitten.com](https://origami.techmitten.com)** — no installation required, everything runs directly in your browser.
 
 ---
 
