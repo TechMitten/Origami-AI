@@ -1,4 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
+import {
+  startBrowserExtensionSession,
+  stopBrowserExtensionSession,
+  type BrowserExtensionSessionData,
+} from '../services/browserExtensionBridge';
 
 export interface CursorPoint {
   timeMs: number;
@@ -29,18 +34,42 @@ export function useScreenRecorder() {
   const cursorDataRef = useRef<CursorPoint[]>([]);
   const interactionDataRef = useRef<InteractionPoint[]>([]);
   const startTimeRef = useRef<number>(0);
+  const extensionSessionActiveRef = useRef(false);
+
+  const stopExtensionSessionSafely = useCallback(async (): Promise<BrowserExtensionSessionData | null> => {
+    if (!extensionSessionActiveRef.current) return null;
+    extensionSessionActiveRef.current = false;
+    try {
+      return await stopBrowserExtensionSession();
+    } catch (error) {
+      console.warn('Origami extension session stop failed, falling back to local interaction data.', error);
+      return null;
+    }
+  }, []);
 
   const startRecording = useCallback(async (): Promise<void> => {
     try {
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+      const displayMediaOptions: DisplayMediaStreamOptions & {
+        preferCurrentTab?: boolean;
+        selfBrowserSurface?: 'include' | 'exclude';
+        surfaceSwitching?: 'include' | 'exclude';
+        monitorTypeSurfaces?: 'include' | 'exclude';
+      } = {
+        // Do not force a browser-only surface or bias toward the current tab.
+        // Let Chrome present the normal picker for any tab, window, or screen.
         video: {
-          displaySurface: 'browser',
+          frameRate: { ideal: 30, max: 60 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: true,
-        // @ts-ignore - Some non-standard Chrome properties to allow recording the current tab
-        preferCurrentTab: true,
-        selfBrowserSurface: 'include'
-      });
+        preferCurrentTab: false,
+        selfBrowserSurface: 'include',
+        surfaceSwitching: 'include',
+        monitorTypeSurfaces: 'include',
+      };
+
+      const displayStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
       // Try to get microphone audio as well to mix
       let finalStream = displayStream;
@@ -153,11 +182,20 @@ export function useScreenRecorder() {
 
       mediaRecorder.start(100);
       setIsRecording(true);
+
+      try {
+        await startBrowserExtensionSession();
+        extensionSessionActiveRef.current = true;
+      } catch (error) {
+        extensionSessionActiveRef.current = false;
+        console.info('Origami Chrome extension not available; using local interaction tracking only.', error);
+      }
     } catch (err) {
+      await stopExtensionSessionSafely();
       console.error('Failed to start recording:', err);
       throw err;
     }
-  }, [isRecording]);
+  }, [isRecording, stopExtensionSessionSafely]);
 
   const stopRecording = useCallback((): Promise<ScreenRecordResult> => {
     return new Promise((resolve, reject) => {
@@ -168,27 +206,35 @@ export function useScreenRecorder() {
 
       const recorder = mediaRecorderRef.current;
       
-      const handleStop = () => {
+      const handleStop = async () => {
         setIsRecording(false);
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        
+        const extensionData = await stopExtensionSessionSafely();
+        const useExtensionData = !!extensionData && (
+          extensionData.cursorData.length > 0 || extensionData.interactionData.length > 0
+        );
+         
         // Cleanup tracks
         streamRef.current?.getTracks().forEach(track => track.stop());
         streamRef.current = null;
-        
+         
         resolve({
           blob,
-          cursorData: [...cursorDataRef.current],
-          interactionData: [...interactionDataRef.current]
+          cursorData: useExtensionData
+            ? extensionData.cursorData
+            : [...cursorDataRef.current],
+          interactionData: useExtensionData
+            ? extensionData.interactionData
+            : [...interactionDataRef.current]
         });
-        
+         
         recorder.removeEventListener('stop', handleStop);
       };
 
       recorder.addEventListener('stop', handleStop);
       recorder.stop();
     });
-  }, []);
+  }, [stopExtensionSessionSafely]);
 
   return {
     isRecording,

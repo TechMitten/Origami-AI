@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Origami AI Browser Recorder Bridge",
+  "version": "0.1.0",
+  "description": "Captures browser tab interaction telemetry for Origami AI so zoom, pan, and follow effects can be generated from real in-page activity.",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_title": "Origami AI Bridge",
+    "default_popup": "popup.html"
+  },
+  "host_permissions": ["<all_urls>"]
+}
