@@ -26,6 +26,20 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
 
   const [isClosing, setIsClosing] = useState(false);
   const [prevOpen, setPrevOpen] = useState(isOpen);
+  const [scale, setScale] = useState(1);
+
+  // auto-scale to fit viewport height, for a no-scroll experience
+  useEffect(() => {
+    const updateScale = () => {
+      const availableHeight = window.innerHeight - 40; // more headroom for desktop bars
+      const targetHeight = 560; // narrower/taller reduced target
+      const scaleValue = Math.min(1, availableHeight / targetHeight);
+      setScale(Math.max(0.85, scaleValue)); // do not shrink too far
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   // Sync state with props during render (Adjusting state during rendering)
   if (isOpen !== prevOpen) {
@@ -73,7 +87,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-6 transition-all duration-300 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+<div className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 transition-all duration-300 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       {/* Backdrop with animated gradient */}
       <div
         className="absolute inset-0 bg-linear-to-br from-black/80 via-black/70 to-black/80 backdrop-blur-md transition-opacity"
@@ -81,20 +95,23 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
 
       {/* Modal Content */}
       <div className={`
-        relative w-full max-h-[92dvh] overflow-y-auto my-3 sm:my-0 bg-linear-to-br from-[#0F1115] via-[#12151A] to-[#0A0C0F]
-        border border-white/8 rounded-3xl shadow-2xl
-        transform transition-all duration-300 ease-out
-        ${isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'}
+        relative w-full max-h-[calc(100vh-1.5rem)] overflow-y-auto my-0.5 sm:my-0 bg-linear-to-br from-[#0F1115] via-[#12151A] to-[#0A0C0F]
+        border border-white/8 rounded-2xl shadow-xl
+        transition-all duration-300 ease-out
       `}
-        style={{ width: 'min(100%, clamp(320px, 92vw, 44rem))' }}>
+        style={{
+          width: 'min(100%, clamp(320px, 88vw, 40rem))',
+          maxHeight: 'calc(100vh - 1.5rem)',
+          transform: `${isOpen ? 'translateY(0)' : 'translateY(0.25rem)'} scale(${scale})`,
+        }}>
         {/* Decorative gradient border */}
         <div className="absolute inset-0 rounded-3xl bg-linear-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 opacity-0 blur-xl transition-opacity duration-500" />
         <div className={`absolute inset-0 rounded-3xl bg-linear-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 transition-opacity duration-700 ${isOpen ? 'opacity-100' : 'opacity-0'}`} />
 
         {/* Header */}
-        <div className="relative p-6 sm:p-7 border-b border-white/5">
+        <div className="relative p-3 sm:p-4 border-b border-white/5">
           {/* Decorative icon */}
-          <div className="flex justify-center mb-5">
+          <div className="flex justify-center mb-3">
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-2xl blur-xl animate-pulse" />
               <div className="relative bg-linear-to-br from-blue-500/20 to-purple-500/20 p-3 rounded-2xl border border-white/10">
@@ -103,25 +120,22 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
             </div>
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-2 tracking-tight">
+          <h2 className="text-base sm:text-lg font-bold text-white text-center mb-1.5 tracking-tight">
             Let's Get You Set Up
           </h2>
-          <p className="text-xs sm:text-sm text-white/50 text-center mb-5 uppercase tracking-widest font-medium">
+          <p className="text-xs sm:text-sm text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-blue-400 text-center mb-3 uppercase tracking-wider font-medium">
             One-time setup
           </p>
 
-          <div className="space-y-2.5">
-            <p className="text-sm sm:text-base text-white/90 leading-relaxed text-center">
-              Origami uses <span className="font-semibold text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-blue-400">WebLLM technology</span> — small but powerful AI models that run <span className="font-semibold text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-blue-400">directly in your browser</span>. No cloud, no subscriptions, completely private.
-            </p>
-            <p className="text-xs sm:text-sm text-white/60 leading-relaxed text-center">
-              Download once, use forever. Skip any option to use paid APIs instead.
+          <div className="space-y-1.5">
+            <p className="text-xs sm:text-sm text-white/90 leading-tight text-center">
+              Origami uses <a href="https://webllm.mlc.ai/" target="_blank" rel="noopener noreferrer" className="font-semibold text-transparent bg-clip-text bg-linear-to-r from-cyan-400 to-blue-400 no-underline hover:no-underline focus:no-underline">WebLLM</a> — small, powerful in-browser AI. No cloud or subscription.
             </p>
           </div>
         </div>
 
         {/* Body */}
-        <div className="relative p-5 sm:p-6 space-y-2.5 sm:space-y-3">
+        <div className="relative p-2.5 sm:p-3 space-y-1 sm:space-y-1.5">
           {/* TTS Option */}
           <div
             onClick={toggleTTS}
@@ -140,9 +154,9 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 to-cyan-500/10 blur-xl opacity-50" />
             )}
 
-            <div className="relative flex items-start gap-3.5 p-4 sm:p-5">
-              <div className={`p-3 rounded-xl ${preinstalled.tts ? 'bg-green-500/20 text-green-400' : (selection.downloadTTS ? 'bg-linear-to-br from-blue-500/20 to-cyan-500/20 text-blue-300' : 'bg-white/5 text-gray-500')} transition-all duration-200`}>
-                {preinstalled.tts ? <CheckSquare className="w-6 h-6" /> : <Cpu className="w-6 h-6" />}
+            <div className="relative flex items-start gap-2.5 p-2.5 sm:p-3">
+              <div className={`p-2 rounded-xl ${preinstalled.tts ? 'bg-green-500/20 text-green-400' : (selection.downloadTTS ? 'bg-linear-to-br from-blue-500/20 to-cyan-500/20 text-blue-300' : 'bg-white/5 text-gray-500')} transition-all duration-200`}>
+                {preinstalled.tts ? <CheckSquare className="w-5 h-5" /> : <Cpu className="w-5 h-5" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1.5">
@@ -157,8 +171,8 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
                   {!preinstalled.tts && (
                     <div className="flex items-center gap-2">
                       {selection.downloadTTS ? (
-                        <div className="p-1.5 rounded-lg bg-blue-500/20">
-                          <CheckSquare className="w-4 h-4 text-blue-400" />
+                        <div className="p-1 rounded-lg bg-blue-500/20">
+                          <CheckSquare className="w-3 h-3 text-blue-400" />
                         </div>
                       ) : (
                         <div className="p-1.5 rounded-lg bg-white/5">
@@ -202,9 +216,9 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="absolute inset-0 bg-linear-to-r from-purple-500/10 to-pink-500/10 blur-xl opacity-50" />
             )}
 
-            <div className="relative flex items-start gap-3.5 p-4 sm:p-5">
-              <div className={`p-3 rounded-xl ${preinstalled.ffmpeg ? 'bg-green-500/20 text-green-400' : (selection.downloadFFmpeg ? 'bg-linear-to-br from-purple-500/20 to-pink-500/20 text-purple-300' : 'bg-white/5 text-gray-500')} transition-all duration-200`}>
-                {preinstalled.ffmpeg ? <CheckSquare className="w-6 h-6" /> : <HardDrive className="w-6 h-6" />}
+            <div className="relative flex items-start gap-2.5 p-2.5 sm:p-3">
+              <div className={`p-2 rounded-xl ${preinstalled.ffmpeg ? 'bg-green-500/20 text-green-400' : (selection.downloadFFmpeg ? 'bg-linear-to-br from-purple-500/20 to-pink-500/20 text-purple-300' : 'bg-white/5 text-gray-500')} transition-all duration-200`}>
+                {preinstalled.ffmpeg ? <CheckSquare className="w-5 h-5" /> : <HardDrive className="w-5 h-5" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1.5">
@@ -219,12 +233,12 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
                   {!preinstalled.ffmpeg && (
                     <div className="flex items-center gap-2">
                       {selection.downloadFFmpeg ? (
-                        <div className="p-1.5 rounded-lg bg-purple-500/20">
-                          <CheckSquare className="w-4 h-4 text-purple-400" />
+                        <div className="p-1 rounded-lg bg-purple-500/20">
+                          <CheckSquare className="w-3 h-3 text-purple-400" />
                         </div>
                       ) : (
-                        <div className="p-1.5 rounded-lg bg-white/5">
-                          <Square className="w-4 h-4 text-gray-600" />
+                        <div className="p-1 rounded-lg bg-white/5">
+                          <Square className="w-3 h-3 text-gray-600" />
                         </div>
                       )}
                     </div>
@@ -264,9 +278,9 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
               <div className="absolute inset-0 bg-linear-to-r from-orange-500/10 to-amber-500/10 blur-xl opacity-50" />
             )}
 
-            <div className="relative flex items-start gap-3.5 p-4 sm:p-5">
-              <div className={`p-3 rounded-xl ${preinstalled.webllm ? 'bg-green-500/20 text-green-400' : (selection.enableWebLLM ? 'bg-linear-to-br from-orange-500/20 to-amber-500/20 text-orange-400' : 'bg-white/5 text-gray-500')} transition-all duration-200`}>
-                {preinstalled.webllm ? <CheckSquare className="w-6 h-6" /> : <Zap className="w-6 h-6" />}
+            <div className="relative flex items-start gap-2.5 p-2.5 sm:p-3">
+              <div className={`p-2 rounded-xl ${preinstalled.webllm ? 'bg-green-500/20 text-green-400' : (selection.enableWebLLM ? 'bg-linear-to-br from-orange-500/20 to-amber-500/20 text-orange-400' : 'bg-white/5 text-gray-500')} transition-all duration-200`}>
+                {preinstalled.webllm ? <CheckSquare className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1.5">
@@ -284,12 +298,12 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
                   {!preinstalled.webllm && (
                     <div className="flex items-center gap-2">
                       {selection.enableWebLLM ? (
-                        <div className="p-1.5 rounded-lg bg-orange-500/20">
-                          <CheckSquare className="w-4 h-4 text-orange-400" />
+                        <div className="p-1 rounded-lg bg-orange-500/20">
+                          <CheckSquare className="w-3 h-3 text-orange-400" />
                         </div>
                       ) : (
-                        <div className="p-1.5 rounded-lg bg-white/5">
-                          <Square className="w-4 h-4 text-gray-600" />
+                        <div className="p-1 rounded-lg bg-white/5">
+                          <Square className="w-3 h-3 text-gray-600" />
                         </div>
                       )}
                     </div>
@@ -314,9 +328,9 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
         </div>
 
         {/* Footer */}
-        <div className="relative p-5 sm:p-6 pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 border-t border-white/5 bg-linear-to-b from-transparent to-black/20">
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-white/40 text-center sm:text-left flex items-center gap-2 whitespace-nowrap">
+        <div className="relative p-2.5 sm:p-3 pt-2 sm:pt-2.5 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-2.5 border-t border-white/5 bg-linear-to-b from-transparent to-black/20">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-white/40 text-center sm:text-left flex items-center gap-1.5 whitespace-nowrap">
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -336,7 +350,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm, preinstalled }: Runtim
           </div>
           <button
             onClick={() => onConfirm(selection, dontShowAgain)}
-            className="group w-full sm:w-auto px-8 py-3.5 bg-linear-to-r from-white to-gray-100 text-black font-semibold rounded-xl hover:scale-105 active:scale-95 transition-all duration-200 shadow-xl shadow-white/10 hover:shadow-white/20 hover:shadow-2xl flex items-center justify-center gap-2"
+            className="group w-full sm:w-auto px-4 py-1.5 bg-linear-to-r from-white to-gray-100 text-black font-semibold rounded-lg hover:scale-105 active:scale-95 transition-all duration-200 shadow-sm shadow-white/10 hover:shadow-white/20 hover:shadow-md flex items-center justify-center gap-1"
           >
             {!selection.downloadTTS && !selection.downloadFFmpeg && !selection.enableWebLLM ? 'Continue' : 'Download'}
             <Download className="w-4 h-4 group-hover:translate-y-px transition-transform" />

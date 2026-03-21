@@ -30,6 +30,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   onShowWebGPUModal
 }) => {
   const { showAlert } = useModal();
+  const normalizeFetchedModelId = (raw: string): string => raw.replace(/^models\//, '');
   const [isEnabled, setIsEnabled] = useState(currentSettings?.isEnabled ?? false);
   const [voice, setVoice] = useState(currentSettings?.voice ?? AVAILABLE_VOICES[0].id);
   const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
@@ -257,8 +258,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       if (rawModels.length > 0) {
         const models = rawModels
           .map((m) => ({
-            id: m.id || m.name || 'unknown',
-            name: m.name || m.id || 'Unknown Model'
+            id: normalizeFetchedModelId(m.id || m.name || 'unknown'),
+            name: normalizeFetchedModelId(m.name || m.id || 'Unknown Model')
           }))
           .sort((a, b) => a.name.localeCompare(b.name));
 

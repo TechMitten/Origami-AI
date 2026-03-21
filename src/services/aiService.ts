@@ -256,8 +256,11 @@ const toChatCompletionsEndpoint = (baseUrl: string): string => {
   return endpoint;
 };
 
+const normalizeModelForRequest = (model: string): string => model.replace(/^models\//, '');
+
 const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string): Promise<string> => {
   const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
+  const normalizedModel = normalizeModelForRequest((modelOverride || settings.model || '').trim());
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -265,7 +268,7 @@ const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[
       'Authorization': `Bearer ${settings.apiKey}`,
     },
     body: JSON.stringify({
-      model: modelOverride || settings.model,
+      model: normalizedModel,
       messages,
       temperature
     }),
@@ -635,7 +638,8 @@ const generateGeminiVideoAnalysis = async (
   onProgress?: (update: VideoAnalysisProgress) => void
 ): Promise<string> => {
   onProgress?.({ stage: 'Generating script JSON', progress: 76 });
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const normalizedModel = normalizeModelForRequest(model.trim());
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(normalizedModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const resp = await fetch(endpoint, {
     method: 'POST',
