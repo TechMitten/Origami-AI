@@ -490,7 +490,6 @@ export class BrowserVideoRenderer {
       const calcDuration = (s: Slide) => Math.max((s.duration || 5) + (s.postAudioDelay || 0), 0.1);
 
       let lastV = videoStreamLabels[0];
-      let lastA = audioStreamLabels[0];
       let currentDuration = calcDuration(renderSlides[0]);
 
       if (renderSlides.length > 1) {
@@ -508,24 +507,23 @@ export class BrowserVideoRenderer {
             default: ffmpegTrans = 'fade';
           }
 
-          let transDur = 0.5;
-          if (transType === 'none') transDur = 0.1;
-
           const dCurrent = calcDuration(slide);
-          const safeTransDur = Math.min(transDur, currentDuration / 2, dCurrent / 2);
-          transDur = Math.max(safeTransDur, 0.05);
-
-          const offset = currentDuration - transDur;
-
           const nextV = `vMerged${i}`;
-          const nextA = `aMerged${i}`;
 
-          videoFilterParts.push(`[${lastV}][${videoStreamLabels[i]}]xfade=transition=${ffmpegTrans}:duration=${transDur}:offset=${offset}[${nextV}]`);
-          audioFilterParts.push(`[${lastA}][${audioStreamLabels[i]}]acrossfade=d=${transDur}:c1=tri:c2=tri[${nextA}]`);
+          if (transType === 'none') {
+            videoFilterParts.push(`[${lastV}][${videoStreamLabels[i]}]concat=n=2:v=1:a=0[${nextV}]`);
+          } else {
+            let transDur = 0.5;
+            const safeTransDur = Math.min(transDur, currentDuration / 2, dCurrent / 2);
+            transDur = Math.max(safeTransDur, 0.05);
+
+            const paddedPrev = `vPad${i}`;
+            videoFilterParts.push(`[${lastV}]tpad=stop_mode=clone:stop_duration=${transDur}[${paddedPrev}]`);
+            videoFilterParts.push(`[${paddedPrev}][${videoStreamLabels[i]}]xfade=transition=${ffmpegTrans}:duration=${transDur}:offset=${currentDuration}[${nextV}]`);
+          }
 
           lastV = nextV;
-          lastA = nextA;
-          currentDuration = offset + dCurrent;
+          currentDuration += dCurrent;
         }
       }
 
@@ -541,7 +539,13 @@ export class BrowserVideoRenderer {
         } else {
           videoFilterParts.push(`[${lastV}]format=yuv420p[vout_raw]`);
         }
-        audioFilterParts.push(`[${lastA}]volume=1.0[aout_speech]`);
+        if (audioStreamLabels.length === 1) {
+          audioFilterParts.push(`[${audioStreamLabels[0]}]volume=1.0[aout_speech]`);
+        } else {
+          const concatAudioInputs = audioStreamLabels.map(label => `[${label}]`).join('');
+          audioFilterParts.push(`${concatAudioInputs}concat=n=${audioStreamLabels.length}:v=0:a=1[aout_speech_concat]`);
+          audioFilterParts.push(`[aout_speech_concat]volume=1.0[aout_speech]`);
+        }
       } else {
         videoFilterParts.push(`color=black:${VIDEO_WIDTH}x${VIDEO_HEIGHT}:d=1[vout_raw]`);
         audioFilterParts.push(`anullsrc[aout_speech]`);

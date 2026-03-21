@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward, Maximize, ChevronUp, ChevronDown } from 'lucide-react';
 import backgroundImage from '../assets/images/background.png';
@@ -90,7 +90,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   const activeSceneIdRef = useRef<string | null>(activeSceneId);
   const totalDuration = analysis?.totalTimelineDurationSeconds ?? 0;
 
-  const { videoRef, audioRef, isPlaying, elapsedTime, seekTo, togglePlayPause, skipForward, skipBack, onVideoLoadedMetadata } = useVideoSceneSync(scenes, totalDuration);
+  const { videoRef, audioRef, isPlaying, elapsedTime, mappedVideoState, seekTo, togglePlayPause, skipForward, skipBack, onVideoLoadedMetadata } = useVideoSceneSync(scenes, totalDuration);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -334,6 +334,32 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   const hasAudio = scenes.some(s => s.audioUrl);
   const activeScene = scenes.find((scene) => scene.id === activeSceneId) ?? null;
   const progressPercent = totalDuration > 0 ? (elapsedTime / totalDuration) * 100 : 0;
+  const liveZoomStyle = useMemo(() => {
+    if (slide.type !== 'video' || !slide.zooms || slide.zooms.length === 0) return {};
+
+    const timeInVideo = Number.isFinite(mappedVideoState.time) ? mappedVideoState.time : 0;
+    const sorted = [...slide.zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+    const activeZoom = sorted.filter((zoom) => zoom.timestampStartSeconds <= timeInVideo).pop();
+
+    if (!activeZoom) {
+      return { transform: 'scale(1)', transition: 'transform 0.5s ease-out' };
+    }
+
+    let tx = activeZoom.targetX ?? 0.5;
+    let ty = activeZoom.targetY ?? 0.5;
+
+    if (activeZoom.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
+      const cp = slide.cursorTrack.find((point) => point.timeMs / 1000 >= timeInVideo) || slide.cursorTrack[slide.cursorTrack.length - 1];
+      tx = cp.x;
+      ty = cp.y;
+    }
+
+    return {
+      transform: `scale(${activeZoom.zoomLevel})`,
+      transformOrigin: `${tx * 100}% ${ty * 100}%`,
+      transition: 'transform 1.0s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.5s ease-out',
+    };
+  }, [slide, mappedVideoState.time]);
 
   const ZOOM = 1.25;
   const stickyTop = playerPanelHeight > 0
@@ -419,6 +445,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                       ref={videoRef}
                       src={slide.mediaUrl}
                       className="w-full h-full object-contain"
+                      style={liveZoomStyle}
                       muted
                       playsInline
                       preload="metadata"

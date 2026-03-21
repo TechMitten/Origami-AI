@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 export interface VideoSceneTrack {
   audioUrl?: string;
@@ -84,6 +84,11 @@ export function useVideoSceneSync(scenes: VideoSceneTrack[], totalDuration: numb
     [scenes]
   );
 
+  const mappedVideoState = useMemo(
+    () => mapEffectiveToOriginalVideoState(elapsedTime),
+    [elapsedTime, mapEffectiveToOriginalVideoState]
+  );
+
   // ── Main Animation Loop ── identical to SimplePreview ──────────────────────
   useEffect(() => {
     if (!isPlaying) {
@@ -125,13 +130,12 @@ export function useVideoSceneSync(scenes: VideoSceneTrack[], totalDuration: numb
     const video = videoRef.current;
     if (!video) return;
 
-    const mapped = mapEffectiveToOriginalVideoState(elapsedTime);
-    if (Math.abs(video.currentTime - mapped.time) > 0.2) {
-      video.currentTime = mapped.time;
+    if (Math.abs(video.currentTime - mappedVideoState.time) > 0.2) {
+      video.currentTime = mappedVideoState.time;
     }
 
     // Freeze windows: hold the last frame with the video paused.
-    if (mapped.isFrozen) {
+    if (mappedVideoState.isFrozen) {
       if (!video.paused) video.pause();
       return;
     }
@@ -141,7 +145,7 @@ export function useVideoSceneSync(scenes: VideoSceneTrack[], totalDuration: numb
     } else if (!isPlaying && !video.paused) {
       video.pause();
     }
-  }, [elapsedTime, isPlaying, mapEffectiveToOriginalVideoState]);
+  }, [isPlaying, mappedVideoState]);
 
   // ── Audio Sync Effect ── identical to SimplePreview's scene TTS section ────
   useEffect(() => {
@@ -228,6 +232,7 @@ export function useVideoSceneSync(scenes: VideoSceneTrack[], totalDuration: numb
     audioRef,
     isPlaying,
     elapsedTime,
+    mappedVideoState,
     seekTo,
     togglePlayPause,
     skipForward,
