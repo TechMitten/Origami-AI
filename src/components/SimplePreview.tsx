@@ -2,6 +2,22 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
 
+interface ZoomKeyframe {
+  id: string;
+  timestampStartSeconds: number;
+  durationSeconds: number;
+  type: 'fixed' | 'cursor';
+  targetX?: number;
+  targetY?: number;
+  zoomLevel: number;
+}
+
+interface CursorPoint {
+  timeMs: number;
+  x: number;
+  y: number;
+}
+
 interface Slide {
   dataUrl?: string;
   mediaUrl?: string;
@@ -12,6 +28,8 @@ interface Slide {
   transition?: 'fade' | 'slide' | 'none' | 'zoom';
   type?: 'image' | 'video';
   isTtsDisabled?: boolean;
+  zooms?: ZoomKeyframe[];
+  cursorTrack?: CursorPoint[];
   videoNarrationAnalysis?: {
     scenes: Array<{
       audioUrl?: string;
@@ -117,6 +135,43 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
   }, [slides]);
 
   const totalDuration = timeline[timeline.length - 1]?.end || 0;
+
+  const currentSlideMeta = timeline[currentSlideIndex];
+  const currentSlideTimeInSlide = currentSlideMeta ? Math.max(0, elapsedTime - currentSlideMeta.start) : elapsedTime;
+  const currentMappedVideoState = useMemo(
+    () => mapEffectiveToOriginalVideoState(slides[currentSlideIndex], currentSlideTimeInSlide),
+    [slides, currentSlideIndex, currentSlideTimeInSlide, mapEffectiveToOriginalVideoState]
+  );
+
+  // Live zoom/pan style derived from elapsedTime + current slide's zoom keyframes
+  const liveZoomStyle = useMemo(() => {
+    const slide = slides[currentSlideIndex];
+    if (!slide || slide.type !== 'video' || !slide.zooms || slide.zooms.length === 0) return {};
+
+    const timeInVideo = Number.isFinite(currentMappedVideoState.time) ? currentMappedVideoState.time : currentSlideTimeInSlide;
+
+    // Match render semantics: active zooms are keyed off original video time.
+    const sorted = [...slide.zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+    const z = sorted.filter(k => k.timestampStartSeconds <= timeInVideo).pop();
+
+    if (!z) return { transform: 'scale(1)', transition: 'transform 0.5s ease-out' };
+
+    let tx = z.targetX ?? 0.5;
+    let ty = z.targetY ?? 0.5;
+
+    if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
+      const videoTime = videoRef.current?.currentTime ?? timeInVideo;
+      const cp = slide.cursorTrack.find(c => c.timeMs / 1000 >= videoTime) || slide.cursorTrack[slide.cursorTrack.length - 1];
+      tx = cp.x;
+      ty = cp.y;
+    }
+
+    return {
+      transform: `scale(${z.zoomLevel})`,
+      transformOrigin: `${tx * 100}% ${ty * 100}%`,
+      transition: 'transform 1.0s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.5s ease-out',
+    };
+  }, [slides, currentSlideIndex, currentSlideTimeInSlide, currentMappedVideoState]);
   
   // Helper to find slide at a given global time
   const getSlideAtTime = useCallback((time: number) => {
@@ -207,8 +262,9 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
 
     const timeInSlide = Math.max(0, elapsedTime - slideMeta.start);
     const mapped = mapEffectiveToOriginalVideoState(current, timeInSlide);
-    const mappedVideoTime = mapped.time;
-    if (Math.abs(video.currentTime - mappedVideoTime) > 0.2) {
+    const mappedVideoTime = Number.isFinite(mapped.time) ? mapped.time : 0;
+    
+    if (Number.isFinite(video.currentTime) && Math.abs(video.currentTime - mappedVideoTime) > 0.2) {
       video.currentTime = mappedVideoTime;
     }
 
@@ -504,7 +560,7 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
             key={`vid-${currentSlideIndex}-${introPlaybackNonce}`}
             src={currentSlide.mediaUrl}
             className={`max-w-full max-h-full object-contain ${getTransitionClass()}`}
-            style={getTransitionStyle()}
+            style={{ ...getTransitionStyle(), ...liveZoomStyle }}
             autoPlay={isPlaying}
             loop={false} 
             muted={isMuted || masterVolume === 0} 
@@ -515,7 +571,8 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
               if (!slideMeta) return;
               const timeInSlide = Math.max(0, elapsedTime - slideMeta.start);
               const mapped = mapEffectiveToOriginalVideoState(currentSlide, timeInSlide);
-              videoRef.current.currentTime = mapped.time;
+              const targetTime = Number.isFinite(mapped.time) ? mapped.time : 0;
+              videoRef.current.currentTime = targetTime;
               videoRef.current.volume = isMuted ? 0 : masterVolume;
               if (isPlaying && !mapped.isFrozen) {
                 videoRef.current.play().catch(() => {});

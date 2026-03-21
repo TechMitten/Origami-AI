@@ -29,6 +29,8 @@ import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
 import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
+import { useScreenRecorder } from './hooks/useScreenRecorder';
+import { Video } from 'lucide-react';
 
 
 
@@ -69,10 +71,196 @@ function MainApp() {
   const [renderProgress, setRenderProgress] = useState<number>(0);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const { isRecording, startRecording, stopRecording } = useScreenRecorder();
+
+  const handleStartScreenRecord = async () => {
+    try {
+      await startRecording();
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'Permission denied') {
+        showAlert('Failed to start screen recording: ' + err.message, { type: 'error', title: 'Recording Failed' });
+      }
+    }
+  };
+
+  const handleStopScreenRecord = async () => {
+    try {
+      const { blob, cursorData, interactionData } = await stopRecording();
+      const url = URL.createObjectURL(blob);
+      
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.src = url;
+      
+      const duration = await new Promise<number>((resolve) => {
+        video.onloadedmetadata = () => {
+          if (video.duration === Infinity) {
+            video.currentTime = 1e101;
+            video.ondurationchange = () => {
+              video.currentTime = 0;
+              video.ondurationchange = null;
+              resolve(video.duration);
+            };
+          } else {
+            resolve(video.duration);
+          }
+        };
+        video.onerror = () => resolve(5);
+      });
+
+      // Generate Auto Zooms from Interactions
+      const autoZooms: any[] = [];
+      if (interactionData && interactionData.length > 0) {
+        let currentZoomStartMs: number | null = null;
+        let lastInteractionMs = 0;
+        let clusterCount = 0;
+        let avgX = 0;
+        let avgY = 0;
+
+        let scrollStartMs: number | null = null;
+        let lastScrollMs: number | null = null;
+
+        for (let i = 0; i < interactionData.length; i++) {
+          const point = interactionData[i];
+          
+          if (point.type === 'click' || point.type === 'keypress') {
+            scrollStartMs = null;
+            lastScrollMs = null;
+
+            if (currentZoomStartMs === null) {
+               currentZoomStartMs = point.timeMs;
+               clusterCount = 1;
+               avgX = point.x;
+               avgY = point.y;
+               lastInteractionMs = point.timeMs;
+            } else {
+               if (point.timeMs - lastInteractionMs < 2000) {
+                 clusterCount++;
+                 avgX = (avgX * (clusterCount - 1) + point.x) / clusterCount;
+                 avgY = (avgY * (clusterCount - 1) + point.y) / clusterCount;
+               } else {
+                 // Chain keyframes! End the previous segment here and start a new one to scale deeper.
+                 const startSec = Math.max(0, currentZoomStartMs / 1000 - 0.2);
+                 const durationSec = (point.timeMs - currentZoomStartMs) / 1000;
+                 const zoomLvl = Math.min(2.0, 1.25 + (clusterCount - 1) * 0.25);
+                 
+                 autoZooms.push({
+                    id: crypto.randomUUID(),
+                    timestampStartSeconds: startSec,
+                    durationSeconds: durationSec,
+                    type: 'cursor',
+                    targetX: avgX,
+                    targetY: avgY,
+                    zoomLevel: zoomLvl
+                 });
+                 
+                 currentZoomStartMs = point.timeMs;
+                 clusterCount++;
+                 avgX = point.x;
+                 avgY = point.y;
+               }
+               lastInteractionMs = point.timeMs;
+            }
+          } else if (point.type === 'scroll') {
+             if (currentZoomStartMs !== null) {
+                if (scrollStartMs === null) {
+                   scrollStartMs = point.timeMs;
+                   lastScrollMs = point.timeMs;
+                } else {
+                   // Reset scroll tracking if gap between scrolls is > 1.5s
+                   if (lastScrollMs && point.timeMs - lastScrollMs > 1500) {
+                      scrollStartMs = point.timeMs;
+                   }
+                   lastScrollMs = point.timeMs;
+                   
+                   // Zoom out only after 1000ms of continuous scrolling
+                   if (point.timeMs - scrollStartMs >= 1000) {
+                      const startSec = Math.max(0, currentZoomStartMs / 1000 - 0.2);
+                      const durationSec = (point.timeMs - currentZoomStartMs) / 1000 + 0.2;
+                      const zoomLvl = Math.min(2.0, 1.25 + (clusterCount - 1) * 0.25);
+                      
+                      autoZooms.push({
+                        id: crypto.randomUUID(),
+                        timestampStartSeconds: startSec,
+                        durationSeconds: durationSec,
+                        type: 'cursor',
+                        targetX: avgX,
+                        targetY: avgY,
+                        zoomLevel: zoomLvl
+                      });
+                      currentZoomStartMs = null;
+                      clusterCount = 0;
+                      scrollStartMs = null;
+                      lastScrollMs = null;
+                   }
+                }
+             }
+          }
+        }
+        
+        // Video ends while zoomed in
+        if (currentZoomStartMs !== null) {
+           const startSec = Math.max(0, currentZoomStartMs / 1000 - 0.2);
+           const durationSec = duration - startSec;
+           const zoomLvl = Math.min(2.0, 1.25 + (clusterCount - 1) * 0.25);
+           autoZooms.push({
+              id: crypto.randomUUID(),
+              timestampStartSeconds: startSec,
+              durationSeconds: durationSec,
+              type: 'cursor',
+              targetX: avgX,
+              targetY: avgY,
+              zoomLevel: zoomLvl
+           });
+        }
+      }
+
+      const newSlide: SlideData = {
+        id: crypto.randomUUID(),
+        type: 'video',
+        mediaUrl: url,
+        script: '',
+        transition: 'fade',
+        voice: globalSettings?.voice || 'af_heart',
+        isVideoMusicPaused: false,
+        isTtsDisabled: false,
+        mediaDuration: duration,
+        duration: duration,
+        postAudioDelay: globalSettings?.delay ?? 0.5,
+        cursorTrack: cursorData.length > 0 ? cursorData : undefined,
+        zooms: autoZooms.length > 0 ? autoZooms : undefined
+      };
+
+      setSlides(prev => [...prev, newSlide]);
+      setActiveTab('edit');
+    } catch (err) {
+      showAlert('Failed to save screen recording.', { type: 'error', title: 'Recording Failed' });
+    }
+  };
+
   const renderer = useMemo(() => new BrowserVideoRenderer(), []);
   const enforceTtsEnabled = React.useCallback((slide: SlideData): SlideData => {
     if (slide.isTtsDisabled === false) return slide;
     return { ...slide, isTtsDisabled: false };
+  }, []);
+  const triggerBlobDownload = React.useCallback((blob: Blob, filename: string) => {
+    if (!blob || blob.size <= 0) {
+      throw new Error('Rendered file was empty.');
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    // Revoke after the browser has had time to start reading the blob.
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 30000);
   }, []);
 
   // Prevent accidental navigation during rendering
@@ -367,14 +555,7 @@ function MainApp() {
       });
 
       const dateString = new Date().toISOString().slice(0, 10);
-      const archiveUrl = URL.createObjectURL(archiveBlob);
-      const link = document.createElement('a');
-      link.href = archiveUrl;
-      link.setAttribute('download', `origami-project-${dateString}.origami`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(archiveUrl);
+      triggerBlobDownload(archiveBlob, `origami-project-${dateString}.origami`);
 
       showAlert('Project exported successfully.', { type: 'success', title: 'Export Complete' });
     } catch (error) {
@@ -835,13 +1016,14 @@ function MainApp() {
       }
 
       const mime = mediaBlob?.type?.toLowerCase() || '';
-      if (mime !== 'video/mp4') {
-        throw new Error('Analyze Video is restricted to silent MP4 videos inserted via Slide Media.');
+      if (!mime.startsWith('video/')) {
+        throw new Error('Analyze Video requires a supported video format.');
       }
 
+      // Check for audio track but don't strictly block it, as screen recordings may have mic/system audio.
       const hasAudioTrack = await detectAudioTrackInVideo(mediaSourceUrl);
-      if (hasAudioTrack === true) {
-        throw new Error('This MP4 contains an audio track. Analyze Video is only for silent MP4 videos.');
+      if (hasAudioTrack === true && mime !== 'video/webm') {
+        console.warn('This video contains an audio track. TTS may play simultaneously with original audio.');
       }
 
       updateAnalyzeProgress('Sending to Gemini', 10);
@@ -960,14 +1142,7 @@ function MainApp() {
         onProgress: (p) => setRenderProgress(p)
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'tech-tutorial.mp4');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, 'tech-tutorial.mp4');
     } catch (error) {
       console.error(error);
       if ((error as Error).message === 'Render aborted') {
@@ -1014,14 +1189,7 @@ function MainApp() {
         onProgress: (p) => setRenderProgress(p)
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'tech-tutorial-silent.mp4');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, 'tech-tutorial-silent.mp4');
     } catch (error) {
       console.error(error);
       if ((error as Error).message === 'Render aborted') {
@@ -1210,12 +1378,20 @@ function MainApp() {
         {slides.length === 0 ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
             <PDFUploader onUploadComplete={onUploadComplete} />
-            <button
-              onClick={handleImportProjectClick}
-              className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 bg-white/5 text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <Upload className="w-4 h-4" /> Import .origami Project
-            </button>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={handleImportProjectClick}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 bg-white/5 text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-colors shadow-lg"
+              >
+                <Upload className="w-4 h-4" /> Import .origami Project
+              </button>
+              <button
+                onClick={handleStartScreenRecord}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-branding-primary/30 bg-branding-primary/10 text-sm font-semibold text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/50 transition-colors shadow-lg shadow-branding-primary/10"
+              >
+                <Video className="w-4 h-4" /> Record Screen
+              </button>
+            </div>
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
                 Checking for saved session...
@@ -1238,6 +1414,8 @@ function MainApp() {
                       type: s.type,
                       mediaUrl: s.mediaUrl,
                       isTtsDisabled: false,
+                      zooms: s.zooms,
+                      cursorTrack: s.cursorTrack,
                       videoNarrationAnalysis: s.videoNarrationAnalysis ? {
                         scenes: s.videoNarrationAnalysis.scenes.map(scene => ({
                           audioUrl: scene.audioUrl,
@@ -1352,7 +1530,8 @@ function MainApp() {
                 onUpdateGlobalSettings={handlePartialGlobalSettings}
                 viewMode={slideEditorViewMode}
                 onViewModeChange={setSlideEditorViewMode}
-                  onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                onStartScreenRecord={handleStartScreenRecord}
               />
             )}
           </div>
@@ -1442,6 +1621,25 @@ function MainApp() {
         alt=""
         className="fixed inset-0 -z-50 w-full h-lvh object-cover opacity-40 blur-[2px] brightness-75 scale-105"
       />
+
+      {/* Floating Recording Indicator/Stop Button */}
+      {isRecording && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="flex items-center gap-4 px-6 py-3 bg-red-500/20 backdrop-blur-xl border border-red-500/50 rounded-full shadow-2xl shadow-red-500/20">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              <span className="text-red-100 font-bold text-sm tracking-wider uppercase">Recording</span>
+            </div>
+            <div className="w-px h-6 bg-red-500/30" />
+            <button
+              onClick={handleStopScreenRecord}
+              className="px-4 py-1.5 rounded-full bg-red-500 hover:bg-red-400 text-white font-extrabold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-transparent shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95"
+            >
+              Stop
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

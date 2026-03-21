@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, AlertCircle, Speech, Undo2, CheckSquare, Maximize2, Minimize2, Info, ChevronDown, ChevronUp, Library, LayoutGrid, List, Settings as SettingsIcon, Wrench } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -30,6 +30,7 @@ import { Dropdown } from './Dropdown';
 import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
 import { decrypt } from '../utils/secureStorage';
+import { ZoomTimelineEditor } from './ZoomTimelineEditor';
 
 export interface VideoNarrationSceneTrack {
   id: string;
@@ -59,6 +60,16 @@ export interface VideoNarrationAnalysisData {
   rawGeminiJson?: string;
 }
 
+export interface ZoomKeyframe {
+  id: string;
+  timestampStartSeconds: number;
+  durationSeconds: number;
+  type: 'fixed' | 'cursor';
+  targetX?: number; // 0-1 percentage
+  targetY?: number; // 0-1 percentage
+  zoomLevel: number;
+}
+
 export interface SlideData extends Partial<RenderedPage> {
   id: string;
   type: 'image' | 'video';
@@ -78,6 +89,8 @@ export interface SlideData extends Partial<RenderedPage> {
   isSelected?: boolean;
   audioSourceType?: 'tts' | 'recorded';
   videoNarrationAnalysis?: VideoNarrationAnalysisData;
+  cursorTrack?: { timeMs: number, x: number, y: number }[];
+  zooms?: ZoomKeyframe[];
 }
 
 export interface MusicSettings {
@@ -116,24 +129,8 @@ interface SlideEditorProps {
   viewMode: SlideEditorViewMode;
   onViewModeChange: (mode: SlideEditorViewMode) => void;
   onOpenSettings?: () => void;
+  onStartScreenRecord?: () => void;
 }
-
-function getMatchRanges(text: string, term: string) {
-  if (!term) return [];
-  const ranges = [];
-  const lowerText = text.toLowerCase();
-  const lowerTerm = term.toLowerCase();
-  let pos = 0;
-  while (true) {
-    const idx = lowerText.indexOf(lowerTerm, pos);
-    if (idx === -1) break;
-    ranges.push({ start: idx, end: idx + term.length });
-    pos = idx + term.length;
-  }
-  return ranges;
-}
-
-
 
 const ScriptEditorModal = ({
   isOpen,
@@ -224,7 +221,7 @@ const ScriptEditorModal = ({
             {/* Backdrop */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 w-full h-full m-0 px-6 py-6 !text-[16px] sm:!text-[18px] !font-sans !tracking-normal !leading-relaxed whitespace-pre-wrap overflow-y-auto break-words text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
+              className="absolute inset-0 w-full h-full m-0 px-6 py-6 text-[16px]! sm:text-[18px]! font-sans! tracking-normal! leading-relaxed! whitespace-pre-wrap overflow-y-auto wrap-break-word text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               aria-hidden="true"
               dir="ltr"
@@ -238,7 +235,7 @@ const ScriptEditorModal = ({
               value={script}
               onChange={(e) => onUpdate({ script: e.target.value })}
               onScroll={syncScroll}
-              className="absolute inset-0 w-full h-full m-0 px-6 py-6 bg-transparent text-white !text-[16px] sm:!text-[18px] !font-sans !tracking-normal !leading-relaxed whitespace-pre-wrap resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/30 overflow-y-auto break-words no-scrollbar"
+              className="absolute inset-0 w-full h-full m-0 px-6 py-6 bg-transparent text-white text-[16px]! sm:text-[18px]! font-sans! tracking-normal! leading-relaxed! whitespace-pre-wrap resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/30 overflow-y-auto wrap-break-word no-scrollbar"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               placeholder="Enter your script here..."
               spellCheck={false}
@@ -668,7 +665,7 @@ const SortableSlideItem = ({
         model,
         useWebLLM,
         webLlmModel
-      }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+      }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
 
       // Sometimes small models (like 2B) return the exact same text or fail to elaborate.
       // Automatically retry once if the text is identical (ignoring whitespace/punctuation).
@@ -681,7 +678,7 @@ const SortableSlideItem = ({
           model,
           useWebLLM,
           webLlmModel
-        }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+        }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
       }
 
       onUpdate(index, { script: transformed, originalScript: slide.script });
@@ -720,13 +717,6 @@ const SortableSlideItem = ({
 
   const handleTextChange = (newText: string) => {
     onUpdate(index, { script: newText });
-  };
-
-  const formatSeconds = (seconds: number): string => {
-    if (!Number.isFinite(seconds)) return '00:00.00';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds - (mins * 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toFixed(2).padStart(5, '0')}`;
   };
 
   const handleReplaceImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -867,7 +857,7 @@ const SortableSlideItem = ({
                 {isMobile && (
                   <button
                     onClick={() => setShowScriptEditor(true)}
-                    className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-branding-primary bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+                    className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-branding-primary bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
                     title="Open Focus Mode Editor"
                   >
                     <Maximize2 className="w-4 h-4" /> Focus Mode
@@ -876,7 +866,7 @@ const SortableSlideItem = ({
                 <button
                   onClick={handleTransform}
                   disabled={isTransforming || !slide.script.trim()}
-                  className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold bg-gradient-to-r from-branding-accent/20 to-branding-primary/20 hover:from-branding-accent/30 hover:to-branding-primary/30 border border-branding-accent/30 rounded-xl transition-all active:scale-[0.98] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold bg-linear-to-r from-branding-accent/20 to-branding-primary/20 hover:from-branding-accent/30 hover:to-branding-primary/30 border border-branding-accent/30 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   title="Use AI to transform raw PDF text into natural sentences"
                 >
                   {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -885,7 +875,7 @@ const SortableSlideItem = ({
                 <button
                   onClick={handleCopyScript}
                   disabled={!slide.script.trim()}
-                  className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Copy script to clipboard"
                 >
                   {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Clipboard className="w-4 h-4" />}
@@ -894,7 +884,7 @@ const SortableSlideItem = ({
                 {slide.originalScript && (
                   <button
                     onClick={handleRevertScript}
-                    className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all active:scale-[0.98] transition-colors"
+                    className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all active:scale-[0.98]"
                     title="Revert to original script"
                   >
                     <Undo2 className="w-4 h-4" /> Revert
@@ -905,7 +895,7 @@ const SortableSlideItem = ({
                     e.stopPropagation();
                     onDelete(index);
                   }}
-                  className="flex items-center justify-center gap-2 min-h-[44px] px-4 text-sm font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-all active:scale-[0.98] transition-colors"
+                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-all active:scale-[0.98]"
                   title="Delete Slide"
                 >
                   <Trash2 className="w-4 h-4" /> Delete
@@ -1009,7 +999,7 @@ const SortableSlideItem = ({
             {/* Backdrop (Highlights) */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 w-full h-full m-0 px-4 py-3 !font-sans !text-[16px] !tracking-normal !leading-[1.6] whitespace-pre-wrap overflow-y-auto break-words text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
+              className="absolute inset-0 w-full h-full m-0 px-4 py-3 font-sans! text-[16px]! tracking-normal! leading-[1.6]! whitespace-pre-wrap overflow-y-auto wrap-break-word text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               aria-hidden="true"
               dir="ltr"
@@ -1023,7 +1013,7 @@ const SortableSlideItem = ({
               value={slide.script}
               onChange={(e) => handleTextChange(e.target.value)}
               onScroll={syncScroll}
-              className="absolute inset-0 w-full h-full m-0 px-4 py-3 !font-sans !text-[16px] !tracking-normal !leading-[1.6] whitespace-pre-wrap bg-transparent text-white resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/20 overflow-y-auto break-words no-scrollbar"
+              className="absolute inset-0 w-full h-full m-0 px-4 py-3 font-sans! text-[16px]! tracking-normal! leading-[1.6]! whitespace-pre-wrap bg-transparent text-white resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/20 overflow-y-auto wrap-break-word no-scrollbar"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               placeholder="Write or edit your narration script..."
               spellCheck={false}
@@ -1082,7 +1072,9 @@ const SortableSlideItem = ({
             {/* Generate Button - hide if audio was recorded */}
             {slide.audioSourceType !== 'recorded' && (
               <button
-                onClick={() => onGenerate(index)}
+                onClick={() => (slide.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length
+                  ? onGenerateSceneAudio(index)
+                  : onGenerate(index))}
                 disabled={isGenerating || (!slide.script.trim() && !slide.videoNarrationAnalysis?.scenes?.length) || isRecording}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
                 title={slide.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length ? 'Generate scene-level TTS using the current alignment plan' : 'Generate AI narration from script text'}
@@ -1236,7 +1228,7 @@ const SortableSlideItem = ({
 
       {/* Recording Countdown Modal */}
       {isCountingDown && (
-        <div className="fixed inset-0 z-[100] isolation:isolate flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-100 isolation:isolate flex items-center justify-center p-4 animate-fade-in">
           {/* Backdrop */}
           <div
             className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm"
@@ -1330,18 +1322,49 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   globalSettings, // Destructure globalSettings
   onUpdateGlobalSettings,
   viewMode,
-  onViewModeChange,
-  onOpenSettings
+  onOpenSettings,
+  onStartScreenRecord
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isPreviewTTSPlaying, setIsPreviewTTSPlaying] = React.useState(false);
   const previewAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const [previewVideoTime, setPreviewVideoTime] = React.useState(0);
+  const [previewVideoDuration, setPreviewVideoDuration] = React.useState(1);
+  const previewVideoRef = React.useRef<HTMLVideoElement>(null);
   const [isBatchGenerating, setIsBatchGenerating] = React.useState(false);
   const [isBatchFixing, setIsBatchFixing] = React.useState(false);
   const batchGeneratingCancelledRef = React.useRef(false);
   const batchFixingCancelledRef = React.useRef(false);
   const [isCancellingBatch, setIsCancellingBatch] = React.useState<'generate' | 'fix' | null>(null);
+
+  const previewZoomStyle = React.useMemo(() => {
+    if (previewIndex === null || !slides[previewIndex]) return {};
+    const slide = slides[previewIndex];
+    if (slide.type !== 'video' || !slide.zooms || slide.zooms.length === 0) return {};
+
+    // Find the most recently-started zoom keyframe at or before the current time.
+    // A zoom persists from its start until the NEXT zoom begins (not just its duration).
+    const sorted = [...slide.zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+    const z = sorted.filter(k => k.timestampStartSeconds <= previewVideoTime).pop();
+
+    if (!z) return { transform: 'scale(1)', transition: 'transform 0.3s ease-out' };
+
+    let tx = z.targetX ?? 0.5;
+    let ty = z.targetY ?? 0.5;
+
+    if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
+      const cp = slide.cursorTrack.find(c => c.timeMs / 1000 >= previewVideoTime) || slide.cursorTrack[slide.cursorTrack.length - 1];
+      tx = cp.x;
+      ty = cp.y;
+    }
+
+    return {
+      transform: `scale(${z.zoomLevel})`,
+      transformOrigin: `${tx * 100}% ${ty * 100}%`,
+      transition: 'transform 1.0s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.5s ease-out'
+    };
+  }, [previewIndex, slides, previewVideoTime]);
 
   const [batchProgress, setBatchProgress] = React.useState<{ current: number; total: number } | null>(null);
   const [globalDelay, setGlobalDelay] = React.useState(0.5);
@@ -1355,43 +1378,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     const saved = localStorage.getItem('configureSlidesExpanded');
     return saved !== null ? saved === 'true' : true; // Default to expanded
   });
-
-  // Quick Start Guide collapse state
-  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({
-    1: false, 2: false, 3: false, 4: false
-  });
-
-  // Quick Start Guide steps data
-  const quickStartSteps = [
-    {
-      id: 1,
-      title: 'Edit Scripts with AI',
-      description: 'Refine slide scripts or use AI Fix Script to transform raw PDF text into natural, spoken sentences. Perfect for fixing fragmented text.',
-      color: 'purple',
-      icon: Wand2
-    },
-    {
-      id: 2,
-      title: 'Generate Voiceovers',
-      description: 'Create TTS audio for each slide using the Generate Audio button. Or use Generate All Audio in Batch Tools to process all slides at once.',
-      color: 'emerald',
-      icon: Mic
-    },
-    {
-      id: 3,
-      title: 'Customize Settings',
-      description: 'Optional: Configure voice selection, audio mixing, background music, and slide transitions using the tabs on the left.',
-      color: 'orange',
-      icon: Volume2
-    },
-    {
-      id: 4,
-      title: 'Export Your Video',
-      description: 'Preview your video in the Preview tab, then render your final MP4 with voiceovers or silent for custom audio recording.',
-      color: 'pink',
-      icon: VideoIcon
-    }
-  ] as const;
 
   // Detect mobile device
   useEffect(() => {
@@ -2123,7 +2109,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             model,
             useWebLLM,
             webLlmModel
-          }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+          }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
 
           const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
           if (normalize(transformed) === normalize(slide.script)) {
@@ -2134,7 +2120,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               model,
               useWebLLM,
               webLlmModel
-            }, slide.script, globalSettings?.aiFixScriptSystemPrompt);
+            }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
           }
           onUpdateSlide(slideIndex, { script: transformed, originalScript: slide.script });
           processedCount++;
@@ -2385,10 +2371,28 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 <div className="relative min-h-[52dvh] lg:min-h-0 w-full flex items-center justify-center overflow-hidden rounded-2xl bg-black/50 border border-white/10 shadow-2xl shadow-black/40 p-2 sm:p-3">
                   {slides[previewIndex].type === 'video' ? (
                     <video
+                      ref={previewVideoRef}
                       src={slides[previewIndex].mediaUrl}
                       className="w-full h-full object-contain rounded-xl"
+                      style={previewZoomStyle}
                       controls
+
                       autoPlay
+                      onTimeUpdate={(e) => setPreviewVideoTime(e.currentTarget.currentTime)}
+                      onLoadedMetadata={(e) => {
+                        const vid = e.currentTarget;
+                        if (vid.duration === Infinity) {
+                          vid.currentTime = 1e101;
+                          const onDurChange = () => {
+                            vid.currentTime = 0;
+                            vid.removeEventListener('durationchange', onDurChange);
+                            setPreviewVideoDuration(vid.duration);
+                          };
+                          vid.addEventListener('durationchange', onDurChange);
+                        } else {
+                          setPreviewVideoDuration(vid.duration);
+                        }
+                      }}
                     />
                   ) : (
                     <img
@@ -2409,12 +2413,29 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       value={slides[previewIndex].script}
                       onChange={(e) => onUpdateSlide(previewIndex, { script: e.target.value })}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full h-full min-h-[220px] resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm md:text-base text-white/85 font-medium leading-relaxed placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-branding-primary/40 focus:border-branding-primary/40"
+                        className="w-full h-full min-h-55 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm md:text-base text-white/85 font-medium leading-relaxed placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-branding-primary/40 focus:border-branding-primary/40"
                       placeholder="Write or edit your narration script..."
                     />
                   </div>
                 </aside>
               </div>
+
+              {slides[previewIndex].type === 'video' && (
+                <div className="w-[min(96vw,1800px)] mx-auto shrink-0 mb-4" onClick={(e) => e.stopPropagation()}>
+                  <ZoomTimelineEditor
+                    currentTime={previewVideoTime}
+                    duration={previewVideoDuration}
+                    zooms={slides[previewIndex].zooms || []}
+                    onUpdateZooms={(zooms) => onUpdateSlide(previewIndex, { zooms })}
+                    onSeek={(time) => {
+                      if (previewVideoRef.current && Number.isFinite(time)) {
+                        previewVideoRef.current.currentTime = time;
+                        setPreviewVideoTime(time);
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>,
           document.body
@@ -2484,12 +2505,47 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
             <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
               {slides[previewIndex].type === 'video' ? (
-                <video
-                  src={slides[previewIndex].mediaUrl}
-                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
-                  controls
-                  autoPlay
-                />
+                <div className="flex flex-col w-full h-full">
+                  <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-visible">
+                    <video
+                      ref={previewVideoRef}
+                      src={slides[previewIndex].mediaUrl}
+                      className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
+                      style={previewZoomStyle}
+                      controls
+                      autoPlay
+                      onTimeUpdate={(e) => setPreviewVideoTime(e.currentTarget.currentTime)}
+                      onLoadedMetadata={(e) => {
+                        const vid = e.currentTarget;
+                        if (vid.duration === Infinity) {
+                          vid.currentTime = 1e101;
+                          const onDurChange = () => {
+                            vid.currentTime = 0;
+                            vid.removeEventListener('durationchange', onDurChange);
+                            setPreviewVideoDuration(vid.duration);
+                          };
+                          vid.addEventListener('durationchange', onDurChange);
+                        } else {
+                          setPreviewVideoDuration(vid.duration);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+                    <ZoomTimelineEditor
+                      currentTime={previewVideoTime}
+                      duration={previewVideoDuration}
+                      zooms={slides[previewIndex].zooms || []}
+                      onUpdateZooms={(zooms) => onUpdateSlide(previewIndex, { zooms })}
+                      onSeek={(time) => {
+                        if (previewVideoRef.current && Number.isFinite(time)) {
+                          previewVideoRef.current.currentTime = time;
+                          setPreviewVideoTime(time);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
               ) : (
                 <img
                   src={slides[previewIndex].dataUrl}
@@ -2939,25 +2995,47 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <p className="text-base text-white/50">Manage assets and insert special slide types.</p>
                   </div>
 
-                  <div className="flex-1 p-10 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-8">
-                    <div className="w-24 h-24 rounded-full bg-branding-primary/10 flex items-center justify-center">
-                      <VideoIcon className="w-12 h-12 text-branding-primary" />
-                    </div>
-                    <div className="space-y-3 max-w-md">
-                      <h4 className="text-xl font-bold text-white">Insert Video or GIF Slide</h4>
-                      <p className="text-base text-white/60 leading-relaxed">
-                        Upload a video (MP4) or animated GIF to act as a standalone slide. Useful for intros, transitions, or visual demonstrations.
-                      </p>
+                  <div className="flex-1 space-y-4">
+                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-6">
+                      <div className="w-16 h-16 rounded-full bg-branding-primary/10 flex items-center justify-center">
+                        <VideoIcon className="w-8 h-8 text-branding-primary" />
+                      </div>
+                      <div className="space-y-2 max-w-sm">
+                        <h4 className="text-lg font-bold text-white">Upload Media File</h4>
+                        <p className="text-sm text-white/60 leading-relaxed">
+                          Insert an MP4 video or animated GIF as a standalone slide.
+                        </p>
+                      </div>
+
+                      <input type="file" ref={mediaInputRef} className="hidden" accept="video/mp4,image/gif" onChange={handleMediaUpload} />
+                      <button
+                        onClick={() => mediaInputRef.current?.click()}
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/25 bg-branding-primary text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-branding-primary/30 hover:bg-branding-primary/90 hover:border-white/40 hover:shadow-xl hover:shadow-branding-primary/40 active:scale-[0.98] transition-all"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Select File
+                      </button>
                     </div>
 
-                    <input type="file" ref={mediaInputRef} className="hidden" accept="video/mp4,image/gif" onChange={handleMediaUpload} />
-                    <button
-                      onClick={() => mediaInputRef.current?.click()}
-                      className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl border border-white/25 bg-branding-primary text-white font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-branding-primary/30 hover:bg-branding-primary/90 hover:border-white/40 hover:shadow-xl hover:shadow-branding-primary/40 active:scale-[0.98] active:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 transition-all"
-                    >
-                      <Upload className="w-4 h-4" />
-                      Select File to Insert
-                    </button>
+                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-6">
+                      <div className="w-16 h-16 rounded-full bg-branding-accent/10 flex items-center justify-center">
+                        <VideoIcon className="w-8 h-8 text-branding-accent" />
+                      </div>
+                      <div className="space-y-2 max-w-sm">
+                        <h4 className="text-lg font-bold text-white">Record Screen</h4>
+                        <p className="text-sm text-white/60 leading-relaxed">
+                          Capture your screen to create a new video slide instantly.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => onStartScreenRecord && onStartScreenRecord()}
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-branding-accent text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-branding-accent/30 hover:bg-branding-accent/90 focus:outline-none focus:ring-2 focus:ring-white/60 transition-all active:scale-[0.98]"
+                      >
+                        <VideoIcon className="w-4 h-4" />
+                        Start Recording
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -3019,7 +3097,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
       {/* Cancel Batch Modal */}
       {isCancellingBatch && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 animate-fade-in">
           {/* Backdrop */}
           <div className="absolute inset-0 z-0 bg-black/60 backdrop-blur-sm pointer-events-none" />
 

@@ -5,6 +5,7 @@ interface Slide {
   mediaUrl?: string;
   audioUrl?: string;
   duration?: number;
+  mediaDuration?: number;
   postAudioDelay?: number;
   type?: 'image' | 'video';
   transition?: 'none' | 'fade' | 'slide' | 'wipe' | 'blur' | 'zoom';
@@ -21,6 +22,20 @@ interface Slide {
       audioDurationSeconds?: number;
     }>;
   };
+  zooms?: Array<{
+    id: string;
+    timestampStartSeconds: number;
+    durationSeconds: number;
+    type: 'fixed' | 'cursor';
+    targetX?: number;
+    targetY?: number;
+    zoomLevel: number;
+  }>;
+  cursorTrack?: Array<{
+    timeMs: number;
+    x: number;
+    y: number;
+  }>;
 }
 
 interface MusicSettings {
@@ -220,15 +235,7 @@ export class BrowserVideoRenderer {
     let estimatedTotalDuration = 0;
 
     try {
-      // Add mandatory outro slide
-      const renderSlides: Slide[] = [...slides, {
-        mediaUrl: window.location.origin + '/outro-slide.jpg',
-        duration: 5,
-        postAudioDelay: 0,
-        type: 'image',
-        transition: 'fade',
-        isTtsDisabled: true,
-      }];
+      const renderSlides: Slide[] = [...slides];
 
       // Input Arguments Construction
       const inputArgs: string[] = [];
@@ -321,6 +328,71 @@ export class BrowserVideoRenderer {
         const vLabel = `v${i}`;
         const aLabel = `a${i}`;
 
+        // 1. Standardize dimensions first to prevent Zoom distortion
+        const preLabel = `vPre_${i}`;
+        videoFilterParts.push(`[${visualIdx}:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1[${preLabel}]`);
+        let baseVideoLabel = preLabel;
+
+        // 2. Apply Zooms first
+        if (slide.zooms && slide.zooms.length > 0) {
+          const zExprs: string[] = [];
+          const xExprs: string[] = [];
+          const yExprs: string[] = [];
+          const sortedZooms = [...slide.zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+          const zoomTimelineEnd = Math.max(
+            0.05,
+            slide.type === 'video'
+              ? (slide.mediaDuration ?? duration)
+              : duration
+          );
+          
+          for (let zoomIndex = 0; zoomIndex < sortedZooms.length; zoomIndex++) {
+            const z = sortedZooms[zoomIndex];
+            const t1 = z.timestampStartSeconds;
+            const nextZoom = sortedZooms[zoomIndex + 1];
+            const fallbackEnd = t1 + Math.max(z.durationSeconds, 1);
+            const naturalEnd = nextZoom ? nextZoom.timestampStartSeconds : Math.max(zoomTimelineEnd, fallbackEnd);
+            const t2 = Math.max(t1 + 0.001, naturalEnd);
+            zExprs.push(`if(between(it,${t1},${t2}),${z.zoomLevel}`);
+             
+            let txExpr = `${z.targetX ?? 0.5}`;
+            let tyExpr = `${z.targetY ?? 0.5}`;
+             
+            // Build a dynamic FFmpeg expression sampling the cursor position continuously (4 times a second)
+            if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
+              const samplesX: string[] = [];
+              const samplesY: string[] = [];
+              const step = 0.25; // Sample 4 times a second for smooth continuous panning
+              const sampleEnd = Math.min(t2, Math.max(zoomTimelineEnd, t1 + step));
+              for (let t = t1; t < sampleEnd; t += step) {
+                const cp = slide.cursorTrack.find(c => c.timeMs / 1000 >= t) || slide.cursorTrack[slide.cursorTrack.length - 1];
+                samplesX.push(`if(between(it,${t},${t+step}),${cp.x}`);
+                samplesY.push(`if(between(it,${t},${t+step}),${cp.y}`);
+              }
+              const finalCp = slide.cursorTrack[slide.cursorTrack.length - 1];
+              txExpr = samplesX.join(',') + `,${finalCp.x}` + ')'.repeat(samplesX.length);
+              tyExpr = samplesY.join(',') + `,${finalCp.y}` + ')'.repeat(samplesY.length);
+            }
+             
+            xExprs.push(`if(between(it,${t1},${t2}),${txExpr}`);
+            yExprs.push(`if(between(it,${t1},${t2}),${tyExpr}`);
+          }
+          
+          const targetZ = zExprs.join(',') + ',1' + ')'.repeat(zExprs.length);
+          const targetX = xExprs.join(',') + ',0.5' + ')'.repeat(xExprs.length);
+          const targetY = yExprs.join(',') + ',0.5' + ')'.repeat(yExprs.length);
+
+          // Exponential smoothing: 0.010 for zoom in (~7s), 0.005 for zoom out (~14s)
+          const zFormula = `max(1, pzoom + (${targetZ} - pzoom)*if(gt(${targetZ},pzoom),0.010,0.005))`;
+          // Panning slowed down significantly to 0.005 to accompany the 1s target sampling
+          const xFormula = `px + (((iw - iw/zoom)*${targetX}) - px)*0.005`;
+          const yFormula = `py + (((ih - ih/zoom)*${targetY}) - py)*0.005`;
+
+          const zoomLabel = `vZoom_${i}`;
+          videoFilterParts.push(`[${baseVideoLabel}]zoompan=z='${zFormula}':x='${xFormula}':y='${yFormula}':d=1:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:fps=${FPS}[${zoomLabel}]`);
+          baseVideoLabel = zoomLabel;
+        }
+
         // Video Filter
         const allTimedScenes = (slide.videoNarrationAnalysis?.scenes ?? [])
           .filter(scene => Number.isFinite(scene.timestampStartSeconds) && Number.isFinite(scene.durationSeconds) && Number.isFinite(scene.effectiveDurationSeconds))
@@ -341,7 +413,7 @@ export class BrowserVideoRenderer {
             sceneLabels.push(sceneLabel);
 
             videoFilterParts.push(
-              `[${visualIdx}:v]trim=start=${originalStart}:end=${originalEnd},setpts=PTS-STARTPTS,scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS},format=yuv420p[${baseLabel}]`
+              `[${baseVideoLabel}]trim=start=${originalStart}:end=${originalEnd},setpts=PTS-STARTPTS,fps=${FPS},format=yuv420p[${baseLabel}]`
             );
 
             if (effectiveDuration > originalDuration) {
@@ -375,12 +447,8 @@ export class BrowserVideoRenderer {
             videoFilterParts.push(`[${stitchedLabel}]trim=duration=${duration},setpts=PTS-STARTPTS[${vLabel}]`);
           }
         } else {
-          // Scale and Pad
-          let vFilter = `[${visualIdx}:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
-
-          // FPS & Format
-          vFilter += `,fps=${FPS},format=yuv420p`;
-
+          // No timed scenes just trim
+          let vFilter = `[${baseVideoLabel}]fps=${FPS},format=yuv420p`;
           vFilter += `,trim=duration=${duration},setpts=PTS-STARTPTS[${vLabel}]`;
           videoFilterParts.push(vFilter);
         }
@@ -546,6 +614,124 @@ export class BrowserVideoRenderer {
         try { await ffmpeg.deleteFile(file); } catch { /* ignore */ }
       }
       try { await ffmpeg.deleteFile('output.mp4'); } catch { /* ignore */ }
+    }
+  }  // end render()
+
+  /**
+   * Pre-renders a single video slide with its zoom/pan/cursor-follow effects baked in.
+   * Returns a processed Blob containing the zoomed/panned video (no audio).
+   * The caller should replace slide.mediaUrl with URL.createObjectURL(result).
+   */
+  async renderClip(slide: Slide, resolution: RenderResolution = '720p', onProgress?: (p: number) => void): Promise<Blob> {
+    if (!this.loaded || !this.ffmpeg) {
+      await this.load();
+    }
+    if (!this.ffmpeg) throw new Error('FFmpeg failed to initialize');
+    const ffmpeg = this.ffmpeg;
+    const { fetchFile } = await import('@ffmpeg/util');
+
+    const VIDEO_WIDTH = resolution === '720p' ? 1280 : 1920;
+    const VIDEO_HEIGHT = resolution === '720p' ? 720 : 1080;
+    const FPS = 30;
+    const cleanupFiles: string[] = [];
+
+    ffmpeg.on('progress', ({ progress }) => {
+      if (onProgress) onProgress(Math.round(progress * 100));
+    });
+
+    try {
+      if (!slide.mediaUrl) throw new Error('Slide has no mediaUrl to process');
+
+      // Write input video to FFmpeg FS
+      const ext = this.getSafeMediaExtension(slide.mediaUrl, 'video');
+      const inputFile = `clip_input.${ext}`;
+      await ffmpeg.writeFile(inputFile, await fetchFile(slide.mediaUrl));
+      cleanupFiles.push(inputFile);
+
+      const filterParts: string[] = [];
+
+      // 1. Scale to target resolution
+      filterParts.push(`[0:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1[vPre]`);
+
+      let baseLabel = 'vPre';
+
+      // 2. Apply zoompan if there are zoom keyframes
+      if (slide.zooms && slide.zooms.length > 0) {
+        const zExprs: string[] = [];
+        const xExprs: string[] = [];
+        const yExprs: string[] = [];
+        const sortedZooms = [...slide.zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+        const zoomTimelineEnd = Math.max(0.05, slide.mediaDuration ?? slide.duration ?? 5);
+
+        for (let zoomIndex = 0; zoomIndex < sortedZooms.length; zoomIndex++) {
+          const z = sortedZooms[zoomIndex];
+          const t1 = z.timestampStartSeconds;
+          // A zoom keyframe persists until the *next* one starts — for the clip render we use a large end sentinel
+          const nextZoom = sortedZooms[zoomIndex + 1];
+          const fallbackEnd = t1 + Math.max(z.durationSeconds, 1);
+          const naturalEnd = nextZoom ? nextZoom.timestampStartSeconds : Math.max(zoomTimelineEnd, fallbackEnd);
+          const t2 = Math.max(t1 + 0.001, naturalEnd);
+
+          zExprs.push(`if(between(it,${t1},${t2}),${z.zoomLevel}`);
+
+          let txExpr = `${z.targetX ?? 0.5}`;
+          let tyExpr = `${z.targetY ?? 0.5}`;
+
+          if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
+            const samplesX: string[] = [];
+            const samplesY: string[] = [];
+            const step = 0.25;
+            const sampleEnd = Math.min(t2, Math.max(zoomTimelineEnd, t1 + step));
+            for (let t = t1; t < sampleEnd; t += step) {
+              const cp = slide.cursorTrack.find(c => c.timeMs / 1000 >= t) || slide.cursorTrack[slide.cursorTrack.length - 1];
+              samplesX.push(`if(between(it,${t.toFixed(3)},${(t + step).toFixed(3)}),${cp.x}`);
+              samplesY.push(`if(between(it,${t.toFixed(3)},${(t + step).toFixed(3)}),${cp.y}`);
+            }
+            const finalCp = slide.cursorTrack[slide.cursorTrack.length - 1];
+            txExpr = samplesX.join(',') + `,${finalCp.x}` + ')'.repeat(samplesX.length);
+            tyExpr = samplesY.join(',') + `,${finalCp.y}` + ')'.repeat(samplesY.length);
+          }
+
+          xExprs.push(`if(between(it,${t1},${t2}),${txExpr}`);
+          yExprs.push(`if(between(it,${t1},${t2}),${tyExpr}`);
+        }
+
+        const targetZ = zExprs.join(',') + ',1' + ')'.repeat(zExprs.length);
+        const targetX = xExprs.join(',') + ',0.5' + ')'.repeat(xExprs.length);
+        const targetY = yExprs.join(',') + ',0.5' + ')'.repeat(yExprs.length);
+
+        const zFormula = `max(1, pzoom + (${targetZ} - pzoom)*if(gt(${targetZ},pzoom),0.010,0.005))`;
+        const xFormula = `px + (((iw - iw/zoom)*${targetX}) - px)*0.005`;
+        const yFormula = `py + (((ih - ih/zoom)*${targetY}) - py)*0.005`;
+
+        filterParts.push(`[${baseLabel}]zoompan=z='${zFormula}':x='${xFormula}':y='${yFormula}':d=1:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:fps=${FPS}[vZoom]`);
+        baseLabel = 'vZoom';
+      }
+
+      // 3. Final format pass — ensure output is compatible
+      filterParts.push(`[${baseLabel}]format=yuv420p[vout]`);
+
+      const complexFilter = filterParts.join(';');
+
+      await ffmpeg.exec([
+        '-i', inputFile,
+        '-filter_complex', complexFilter,
+        '-map', '[vout]',
+        '-an',              // strip audio — will be handled by the full render
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-threads', '0',
+        'clip_output.mp4'
+      ]);
+
+      const data = await ffmpeg.readFile('clip_output.mp4');
+      return new Blob([data as BlobPart], { type: 'video/mp4' });
+
+    } finally {
+      for (const f of cleanupFiles) {
+        try { await ffmpeg.deleteFile(f); } catch { /* ignore */ }
+      }
+      try { await ffmpeg.deleteFile('clip_output.mp4'); } catch { /* ignore */ }
     }
   }
 }

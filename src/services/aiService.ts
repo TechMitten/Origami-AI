@@ -100,6 +100,10 @@ const splitIntoSentences = (text: string): string[] => {
 const cleanLLMResponse = (text: string): string => {
   let cleaned = text.trim();
 
+  // Strip hidden reasoning blocks/tags that some models emit.
+  cleaned = cleaned.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/<\/?think\b[^>]*>/gi, '');
+
   // Remove common conversational prefixes
   const prefixes = [
     /^Here is the (transformed )?text:?\s*/i,
@@ -170,52 +174,29 @@ const cleanLLMResponse = (text: string): string => {
 };
 
 /* Shared System Prompt for both WebLLM and Remote API */
-export const DEFAULT_SYSTEM_PROMPT = `You are a professional voice-over scriptwriter. Your job is to transform fragmented, messy slide text (bullet points, short titles, isolated metrics) into a flowing, continuous narrative script intended to be read aloud by a Text-to-Speech (TTS) engine.
+export const DEFAULT_SYSTEM_PROMPT = `You are a strict narration script reconstructor. Your only job is to turn fragmented, partial, or grammatically incomplete slide text into complete, spoken sentences.
 
-DO NOT JUST OUTPUT A LIST OF REFORMATTED BULLET POINTS OR FRAGMENTS. You must combine the ideas into a conversational paragraph that tells a story. Combine fragments into smooth sentences with connecting words ("Additionally,", "Next, we see that...", "Furthermore,").
+CORE MISSION: RECONSTRUCTION WITH 0% FABRICATION
+- Your primary goal is to turn fragments into complete sentences (e.g., "Increased revenue 20%... Q3 targets" becomes "Revenue increased 20 percent, meeting Q3 targets.").
+- DO NOT ADD introductory or concluding sentences ("Welcome to...", "In this guide...", "Thanks for listening.").
+- DO NOT refer to the presentation itself (e.g., do NOT say "This slide shows", "On this page", "In this presentation").
+- DO NOT ADD any single-word headers or labels found in the input (e.g., if the input contains "Introduction" or "Conclusion" as a header, do NOT include it as a spoken word).
+- DO NOT ADD helpful tips, extra explanations, or conversational filler.
+- DO NOT ADD any facts, statistics, or details not found in the source text.
+- MANDATORY: Keep the script length strictly proportionate to the original input text. If the input is short, the script must be short.
 
 CRITICAL RULE: STRICT SENTENCE BOUNDARIES
-- EVERY SINGLE SENTENCE MUST end with a period (.). If you do not add periods, the TTS engine will not pause.
-- THE VERY FIRST SENTENCE (the title or intro) MUST end with a period.
-- Keep your sentences short, conversational, and digestible.
-- Break long lists or complex ideas into multiple short, standalone sentences, each ending with a hard period (.).
-- Use commas (,) within sentences to force natural mid-sentence breathing pauses.
-
-Style and Tone Guidelines:
-- Write exactly what the TTS should speak. Write as a continuous speech or narrative, like a podcast or a video voice-over.
-- Start with a strong introductory phrase. e.g., "Welcome to this slide on [Topic]." or "Let's discuss [Topic]."
-- Tie the fragmented concepts together. Instead of saying "Feature A. Feature B." say "First, we have Feature A. This is followed by Feature B."
-- Never hallucinate facts. Stick to the provided input.
+- EVERY SINGLE SENTENCE MUST end with a period (.). This ensures the TTS engine pauses correctly.
+- Keep sentences short and direct.
 
 Mandatory TTS Formatting Rules:
-
-1. Phonetics and Acronyms: Write for the EAR, not the EYE.
-   - Separate acronyms with spaces: "A P I", "U S A", "A W S", "C E O".
-   - Spell out large numbers if clarity is needed ("one thousand two hundred").
-
-2. Abbreviation Expansion: Spell out all technical abbreviations.
-   - "MiB/s" -> "mebibytes per second", "GB" -> "gigabytes", "vs." -> "versus", "etc." -> "et cetera", "&" -> "and".
-
-3. URLs and Web Addresses: Expand URLs into spoken words, ignoring the https part if it's too long, or spell it out.
-   - "example.com" -> "example dot com"
-   - "github.com/user" -> "github dot com slash user"
-
-4. Terminal Commands:
-   - Spell out spaces and punctuation: "$ npm install ." -> "Type npm install space period."
-
-5. Punctuation for TTS:
-   - YOU MUST USE PERIODS. A TTS reads text literally. Every thought must end in a '.'.
+1. Acronyms: Separate with spaces ("U S A", "A P I").
+2. Symbols: Expand symbols into spoken words ("&" to "and", "%" to "percent").
+3. Punctuation: Use periods for total stops.
 
 Output Constraints:
 - Output only the final voice-over script transcript.
-- No Markdown (no **, no code blocks, no # headers, no bullet points).
-- No conversational filler ("Here is the script:"). 
-
-Example Input:
-"Install VS Code Windows 10/11 ~5 Mins Free Download: code.visualstudio.com"
-
-Example Output:
-Welcome to this guide on how to install Visual Studio Code. This process works on both Windows 10 and Windows 11. It should take you approximately 5 minutes. The software works as a free download. You can get it by navigating to code dot visualstudio dot com.`;
+- No Markdown, no title headers, no conversational filler.`;
 
 export const GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT = `### Improved Tutorial Script Prompt
 
@@ -764,13 +745,44 @@ export const analyzeVideoNarrationWithGemini = async (
   }
 };
 
-export const transformText = async (settings: LLMSettings, text: string, customSystemPrompt?: string): Promise<string> => {
-  const systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
+export const transformText = async (
+  settings: LLMSettings,
+  text: string,
+  customSystemPrompt?: string,
+  presentationContext?: string
+): Promise<string> => {
+  let systemPrompt = customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
+
+  const ctx = presentationContext?.trim();
+
+  const presentationContextDescriptions: Record<string, string> = {
+    'Learning course / education': 'This slide is for an educational course that will be shown to students learning about the subject in the script.',
+    'Business / corporate': 'This slide is for a business or corporate audience and should use professional, polished language.',
+    'Training / onboarding': 'This slide is for employee training or onboarding and should be clear, supportive, and instructive.',
+    'Marketing / sales': 'This slide is for marketing or sales content and should be persuasive while staying factual.',
+    'Technical / engineering': 'This slide is for a technical or engineering audience and should use precise technical terminology.',
+    'Product demo / user guide': 'This slide is part of a product demo or user guide and should focus on practical step-by-step guidance.'
+  };
+
+  if (ctx) {
+    const ctxDescription = presentationContextDescriptions[ctx] || `Adapt tone and examples to match a ${ctx} presentation.`;
+    systemPrompt += `\n\nPresentation context: ${ctx}. ${ctxDescription} Adapt tone, language, and examples to fit this context.`;
+  }
 
   const userPrompt = `Slide Content:
 "${text}"
 
-Write a continuous, flowing narration script for the above content. Ensure every sentence ends with a period. Do not output a list of bullet points.`;
+Write a continuous, flowing narration script for the above content. Ensure every sentence ends with a period. Do not output a list of bullet points.
+
+STRICT CONSTRAINTS:
+- BREVITY IS MANDATORY. Your output must be roughly the same length as the input text.
+- NO FILLER. Do not include "Welcome to this slide", "In this section", or "In conclusion".
+- NO SLIDE REFERENCES. Do not use phrases like "This slide", "On this page", or "In this presentation".
+- NO HEADERS. Do not include single words that act as titles or markers (e.g. "Introduction.", "Summary.", "Step 1.").
+- NO HALLUCINATION. Do not add any advice, context, or details not found in the "Slide Content" quotes.
+- RECONSTRUCT ONLY. Only fill in the missing words to make the fragments into complete, spoken sentences.
+- If the input is 50 words, your output should be approximately 50-60 words.
+`;
 
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {

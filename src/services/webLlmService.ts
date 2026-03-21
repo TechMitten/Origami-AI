@@ -27,6 +27,7 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     { id: "gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 2B", size: "1.4GB", vram_required_MB: 2000, precision: 'f16' },
     { id: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC", name: "DeepSeek R1 Distill 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16' },
     { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 1.5B", size: "1GB", vram_required_MB: 2000, precision: 'f16' },
+    { id: "Qwen3-4B-q4f16_1-MLC", name: "Qwen 3 4B", size: "3.6GB", vram_required_MB: 5000, precision: 'f16' },
     { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", name: "Phi 3.5 Mini", size: "2.5GB", vram_required_MB: 3000, precision: 'f16' },
 
     // f32 models (better compatibility, slower, more memory)

@@ -69,6 +69,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
   );
+  const [aiFixScriptContext, setAiFixScriptContext] = useState<string>(
+    currentSettings?.aiFixScriptContext ?? ''
+  );
   const [recordingCountdownEnabled, setRecordingCountdownEnabled] = useState(currentSettings?.recordingCountdownEnabled ?? true);
   const [introFadeInEnabled, setIntroFadeInEnabled] = useState(currentSettings?.introFadeInEnabled ?? true);
   const [introFadeInDurationSec, setIntroFadeInDurationSec] = useState(currentSettings?.introFadeInDurationSec ?? 1);
@@ -458,6 +461,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useWebLLM,
       webLlmModel,
       aiFixScriptSystemPrompt: aiFixScriptSystemPrompt.trim() || undefined,
+      aiFixScriptContext: aiFixScriptContext.trim() || undefined,
       previewMode: 'modal',
       recordingCountdownEnabled
     };
@@ -1294,28 +1298,48 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               </div>
 
               <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="space-y-2">
                   <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                    <Sparkles className="w-4 h-4" /> System Prompt
+                    <Sparkles className="w-4 h-4" /> Presentation Context
                   </label>
-                  <button
-                    onClick={() => {
-                      setAiFixScriptSystemPrompt(DEFAULT_SYSTEM_PROMPT);
-                    }}
-                    className="text-[10px] text-white/40 hover:text-white underline transition-colors"
-                  >
-                    Reset to Default
-                  </button>
+                  <Dropdown
+                    options={[
+                      { id: '', name: 'None (Use standard system prompt)' },
+                      { id: 'Learning course / education', name: 'Learning course / education' },
+                      { id: 'Business / corporate', name: 'Business / corporate' },
+                      { id: 'Training / onboarding', name: 'Training / onboarding' },
+                      { id: 'Marketing / sales', name: 'Marketing / sales' },
+                      { id: 'Technical / engineering', name: 'Technical / engineering' },
+                      { id: 'Product demo / user guide', name: 'Product demo / user guide' },
+                    ]}
+                    value={aiFixScriptContext}
+                    onChange={setAiFixScriptContext}
+                    className="bg-black/20"
+                    placeholder="None (Use standard system prompt)"
+                  />
+                  <p className="text-[10px] text-white/30">
+                    Optional context to include in the system prompt (will be sent to the LLM along with the prompt text).
+                  </p>
                 </div>
+
                 <textarea
                   value={aiFixScriptSystemPrompt}
                   onChange={(e) => setAiFixScriptSystemPrompt(e.target.value)}
                   className="w-full h-64 px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all text-sm font-mono resize-y focus:border-branding-primary focus:ring-1 focus:ring-branding-primary"
                   placeholder="Enter the system prompt for AI Fix Script..."
                 />
-                <p className="text-[10px] text-white/30">
-                  This system prompt is used for the AI Fix Script feature. It works for both WebLLM and remote API.
-                </p>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setAiFixScriptSystemPrompt(DEFAULT_SYSTEM_PROMPT);
+                    }}
+                    className="text-[10px] font-bold text-white/40 hover:text-white transition-colors"
+                  >
+                    Reset to Default
+                  </button>
+                </div>
+
               </div>
             </div>
           ) : null}
