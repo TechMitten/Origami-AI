@@ -530,6 +530,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       }
     }
 
+    // If WebLLM was already loaded with a different model, unload first
+    const currentWebLlmModel = getCurrentWebLLMModel();
+    const shouldUnloadBeforeSwitch = useWebLLM && currentWebLlmModel && webLlmModel && webLlmModel !== currentWebLlmModel && isWebLLMLoaded();
+    if (shouldUnloadBeforeSwitch) {
+      setWebLlmDownloadProgress('Unloading current model...');
+      await unloadWebLLM();
+      setIsModelLoaded(false);
+      setCurrentLoadedModel(null);
+      setWebLlmDownloadProgress('');
+    }
+
     // Automatically load WebLLM model if switched/enabled
     if (useWebLLM && webLlmModel && webLlmModel !== getCurrentWebLLMModel()) {
       if (isDownloadingWebLlm) {
