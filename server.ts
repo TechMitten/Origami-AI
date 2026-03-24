@@ -156,20 +156,88 @@ async function createServer() {
 
   server.timeout = 900000;
 
+  // Track open connections so we can forcefully destroy them on shutdown
+  const connections = new Set<any>();
+  server.on('connection', (socket) => {
+    connections.add(socket);
+    socket.on('close', () => connections.delete(socket));
+  });
+
   // FIX #2: Graceful Shutdown to kill "Ghost" processes
   const handleShutdown = async () => {
     console.log('\n[Shutdown] Closing server and cleaning up processes...');
+    // Stop accepting new connections
     server.close(async () => {
-      if (vite) {
-        await vite.close();
+      try {
+        if (vite) await vite.close();
+      } catch (e) {
+        console.error('[Shutdown] Error closing vite:', e);
       }
-      console.log('[Shutdown] All processes closed. Goodbye!');
-      process.exit(0);
     });
+
+    // Destroy lingering sockets
+    for (const sock of connections) {
+      try { sock.destroy(); } catch (e) { /* ignore */ }
+    }
+
+    // If we still haven't exited after a short grace period, force exit
+    const forceKillMs = Number(process.env.FORCE_KILL_MS) || 10000;
+    setTimeout(() => {
+      console.warn('[Shutdown] Forcing exit after grace period.');
+      process.exit(0);
+    }, forceKillMs).unref();
+    console.log('[Shutdown] Shutdown sequence initiated.');
   };
 
   process.on('SIGINT', handleShutdown);
   process.on('SIGTERM', handleShutdown);
+
+  // Optional CPU monitor: set ENABLE_CPU_MONITOR=1 to enable (dev by default)
+  const enableCpuMonitor = process.env.ENABLE_CPU_MONITOR === '1' || process.env.NODE_ENV !== 'production';
+  if (enableCpuMonitor) {
+    (async () => {
+      try {
+        const pidusageMod = await import('pidusage');
+        const pidusage = pidusageMod.default || pidusageMod;
+        const maxCpu = Number(process.env.MAX_CPU) || 85;
+        const intervalMs = Number(process.env.CPU_CHECK_INTERVAL) || 2000;
+        const consecutiveLimit = Number(process.env.CPU_CONSECUTIVE) || 3;
+
+        let consecutive = 0;
+        const cpuTimer = setInterval(async () => {
+          try {
+            const stat = await pidusage(process.pid);
+            const cpu = stat.cpu || 0;
+            if (cpu >= maxCpu) {
+              consecutive += 1;
+              console.warn(`[CPU Monitor] High CPU ${cpu.toFixed(1)}% (threshold ${maxCpu}%) - ${consecutive}/${consecutiveLimit}`);
+            } else {
+              consecutive = 0;
+            }
+            if (consecutive >= consecutiveLimit) {
+              console.error('[CPU Monitor] CPU threshold exceeded repeatedly — initiating graceful shutdown.');
+              clearInterval(cpuTimer);
+              await handleShutdown();
+            }
+          } catch (err) {
+            // ignore monitoring errors
+          }
+        }, intervalMs);
+      } catch (e) {
+        console.warn('[CPU Monitor] pidusage not available; skipping CPU monitoring.');
+      }
+    })();
+  }
+
+  // Log and exit on uncaught errors to avoid stuck states
+  process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', err);
+    try { handleShutdown(); } catch { process.exit(1); }
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', reason);
+    try { handleShutdown(); } catch { process.exit(1); }
+  });
 }
 
 createServer();

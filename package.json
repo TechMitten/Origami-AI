@@ -7,12 +7,12 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' server.ts",
+    "dev": "node ./scripts/monitor-and-run.js --max-cpu=85 -- tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' server.ts",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "stop": "npx kill-port 3000",
-    "kill-all": "node -e \"const { exec } = require('child_process'); const p = process.platform; const cmd = p === 'win32' ? 'taskkill /F /IM node.exe' : 'killall -9 node'; exec(cmd, (err) => console.log(err ? 'No node processes found.' : 'All Node processes terminated.'));\""
+    "kill-all": "node ./scripts/kill-all.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -23,8 +23,6 @@
     "@huggingface/transformers": "^3.8.1",
     "@mlc-ai/web-llm": "^0.2.80",
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
     "clsx": "^2.1.1",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -41,7 +39,10 @@
     "react-router-dom": "^7.13.0",
     "tailwind-merge": "^3.4.0",
     "tesseract.js": "^7.0.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "concurrently": "^8.2.2",
+    "pidusage": "^3.0.2",
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",
@@ -49,6 +50,8 @@
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.18.0",
