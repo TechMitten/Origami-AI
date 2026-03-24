@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Trash2, Navigation, Move, ZoomIn, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Navigation, Move, ZoomIn, ChevronDown, Zap } from 'lucide-react';
 
-import type { ZoomKeyframe } from './SlideEditor';
+import type { ZoomKeyframe, AutoZoomConfig } from './SlideEditor';
 
 interface ZoomTimelineEditorProps {
   currentTime: number;
@@ -9,6 +9,10 @@ interface ZoomTimelineEditorProps {
   zooms: ZoomKeyframe[];
   onUpdateZooms: (zooms: ZoomKeyframe[]) => void;
   onSeek: (time: number) => void;
+  autoZoomConfig?: AutoZoomConfig;
+  onUpdateAutoZoomConfig?: (config: AutoZoomConfig) => void;
+  cursorData?: Array<{ timeMs: number; x: number; y: number }>;
+  interactionData?: Array<{ timeMs: number; type: string }>;
 }
 
 export const ZoomTimelineEditor: React.FC<ZoomTimelineEditorProps> = ({
@@ -16,10 +20,15 @@ export const ZoomTimelineEditor: React.FC<ZoomTimelineEditorProps> = ({
   duration,
   zooms,
   onUpdateZooms,
-  onSeek
+  onSeek,
+  autoZoomConfig = { enabled: false },
+  onUpdateAutoZoomConfig,
+  cursorData = [],
+  interactionData = [],
 }) => {
   const [selectedZoomId, setSelectedZoomId] = React.useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [showAutoZoomSettings, setShowAutoZoomSettings] = useState<boolean>(false);
 
   // Create a sorted copy of zooms
   const sortedZooms = useMemo(() => [...zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds), [zooms]);
@@ -62,10 +71,133 @@ export const ZoomTimelineEditor: React.FC<ZoomTimelineEditorProps> = ({
   };
 
   return (
-    <div className="w-full flex justify-between gap-4 p-4 bg-black/40 border border-white/10 rounded-2xl animate-fade-in shadow-xl select-none relative group mt-4">
+    <div className="w-full flex flex-col gap-4 p-4 bg-black/40 border border-white/10 rounded-2xl animate-fade-in shadow-xl select-none relative group">
+      
+      {/* Auto-Zoom Settings Section */}
+      <div className="flex flex-col gap-2 px-2">
+        <button
+          onClick={() => setShowAutoZoomSettings(!showAutoZoomSettings)}
+          className="flex items-center gap-2 text-[11px] font-bold text-white/60 hover:text-white transition-colors group"
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Auto-Zoom Settings</span>
+          <ChevronDown className={`w-3 h-3 transition-transform ml-auto ${showAutoZoomSettings ? '' : '-rotate-90'}`} />
+        </button>
+
+        {showAutoZoomSettings && (
+          <div className="bg-black/60 border border-white/10 rounded-lg p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            {/* Enable Auto-Zoom Toggle */}
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${autoZoomConfig?.enabled ? 'bg-branding-accent border-branding-accent' : 'border-white/20 bg-black/40 group-hover:border-white/40'}`}>
+                {autoZoomConfig?.enabled && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+              </div>
+              <input
+                type="checkbox"
+                className="hidden"
+                checked={autoZoomConfig?.enabled ?? false}
+                onChange={(e) => onUpdateAutoZoomConfig?.({
+                  ...autoZoomConfig,
+                  enabled: e.target.checked,
+                })}
+              />
+              <span className="text-[10px] font-semibold text-white/80 group-hover:text-white">
+                Auto-Zoom Out During Idle Periods
+              </span>
+            </label>
+
+            {autoZoomConfig?.enabled && (
+              <div className="space-y-2 border-t border-white/10 pt-2">
+                {/* Min Idle Duration */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[9px] text-white/60">
+                    <span>Min Idle Duration (ms)</span>
+                    <span className="font-mono">{autoZoomConfig?.minIdleDurationMs ?? 2000}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="500"
+                    max="5000"
+                    step="250"
+                    value={autoZoomConfig?.minIdleDurationMs ?? 2000}
+                    onChange={(e) => onUpdateAutoZoomConfig?.({
+                      ...autoZoomConfig,
+                      minIdleDurationMs: parseInt(e.target.value),
+                    })}
+                    className="w-full accent-branding-accent h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="text-[8px] text-white/40">Higher = requires longer inactivity</div>
+                </div>
+
+                {/* Min Cursor Movement */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[9px] text-white/60">
+                    <span>Min Cursor Movement</span>
+                    <span className="font-mono">{(autoZoomConfig?.minCursorMovement ?? 0.015).toFixed(3)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.005"
+                    max="0.1"
+                    step="0.005"
+                    value={autoZoomConfig?.minCursorMovement ?? 0.015}
+                    onChange={(e) => onUpdateAutoZoomConfig?.({
+                      ...autoZoomConfig,
+                      minCursorMovement: parseFloat(e.target.value),
+                    })}
+                    className="w-full accent-branding-accent h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="text-[8px] text-white/40">Movement threshold (0-1 screen)</div>
+                </div>
+
+                {/* Zoom Out Level */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[9px] text-white/60">
+                    <span>Zoom Out Level</span>
+                    <span className="font-mono">{(autoZoomConfig?.zoomOutLevel ?? 1.0).toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="2"
+                    step="0.1"
+                    value={autoZoomConfig?.zoomOutLevel ?? 1.0}
+                    onChange={(e) => onUpdateAutoZoomConfig?.({
+                      ...autoZoomConfig,
+                      zoomOutLevel: parseFloat(e.target.value),
+                    })}
+                    className="w-full accent-branding-accent h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="text-[8px] text-white/40">1.0 = fully zoomed out</div>
+                </div>
+
+                {/* Transition Duration */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[9px] text-white/60">
+                    <span>Transition Duration (ms)</span>
+                    <span className="font-mono">{autoZoomConfig?.transitionDurationMs ?? 500}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="100"
+                    max="2000"
+                    step="100"
+                    value={autoZoomConfig?.transitionDurationMs ?? 500}
+                    onChange={(e) => onUpdateAutoZoomConfig?.({
+                      ...autoZoomConfig,
+                      transitionDurationMs: parseInt(e.target.value),
+                    })}
+                    className="w-full accent-branding-accent h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="text-[8px] text-white/40">Smooth zoom in/out speed</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       
       {/* Timeline Track */}
-      <div className="flex-1 flex flex-col gap-2 relative mt-4 mb-2">
+      <div className="flex-1 flex flex-col gap-2 relative">
         <div 
           className="w-full h-3 bg-white/10 rounded-full cursor-pointer relative"
           onClick={(e) => {

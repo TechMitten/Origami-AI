@@ -76,6 +76,16 @@ export interface ZoomKeyframe {
   cursorDamping?: number;
   // Enable predictive cursor following (look ahead)
   predictiveCursor?: boolean;
+  // Auto-zoom-out on inactivity
+  autoZoomOut?: boolean; // Enable automatic zoom-out during idle periods
+}
+
+export interface AutoZoomConfig {
+  enabled: boolean;
+  minIdleDurationMs?: number; // Minimum idle time before zoom-out (default: 2000ms)
+  minCursorMovement?: number; // Min cursor movement distance to not count as idle (default: 0.015)
+  zoomOutLevel?: number; // Zoom level to return to during idle (default: 1.0)
+  transitionDurationMs?: number; // Duration of zoom-out/in transitions (default: 500ms)
 }
 
 export interface SlideData extends Partial<RenderedPage> {
@@ -98,7 +108,9 @@ export interface SlideData extends Partial<RenderedPage> {
   audioSourceType?: 'tts' | 'recorded';
   videoNarrationAnalysis?: VideoNarrationAnalysisData;
   cursorTrack?: { timeMs: number, x: number, y: number }[];
+  interactionData?: { timeMs: number, type: string }[];
   zooms?: ZoomKeyframe[];
+  autoZoomConfig?: AutoZoomConfig;
 }
 
 export interface MusicSettings {
@@ -2441,6 +2453,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         setPreviewVideoTime(time);
                       }
                     }}
+                    autoZoomConfig={slides[previewIndex].autoZoomConfig}
+                    onUpdateAutoZoomConfig={(config) => onUpdateSlide(previewIndex, { autoZoomConfig: config })}
+                    cursorData={slides[previewIndex].cursorTrack}
+                    interactionData={slides[previewIndex].cursorTrack ? [] : undefined}
                   />
                 </div>
               )}
@@ -2551,6 +2567,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                           setPreviewVideoTime(time);
                         }
                       }}
+                      autoZoomConfig={slides[previewIndex].autoZoomConfig}
+                      onUpdateAutoZoomConfig={(config) => onUpdateSlide(previewIndex, { autoZoomConfig: config })}
+                      cursorData={slides[previewIndex].cursorTrack}
+                      interactionData={slides[previewIndex].cursorTrack ? [] : undefined}
                     />
                   </div>
                 </div>

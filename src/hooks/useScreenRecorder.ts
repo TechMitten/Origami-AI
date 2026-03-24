@@ -173,13 +173,13 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mousedown', handleInteractionClick);
+    window.addEventListener('mousedown', handleInteractionClick, { capture: true });
     window.addEventListener('keypress', handleInteractionKey);
     window.addEventListener('wheel', handleInteractionWheel, { capture: true, passive: true });
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mousedown', handleInteractionClick);
+      window.removeEventListener('mousedown', handleInteractionClick, { capture: true });
       window.removeEventListener('keypress', handleInteractionKey);
       window.removeEventListener('wheel', handleInteractionWheel, { capture: true } as EventListenerOptions);
     };

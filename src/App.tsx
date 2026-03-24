@@ -102,7 +102,7 @@ function MainApp() {
     const autoZooms: NonNullable<SlideData['zooms']> = [];
     if (interactionData && interactionData.length > 0) {
       const KEYFRAME_LEAD_IN_SECONDS = 0.2;
-      const CLICK_CLUSTER_GAP_MS = 2000;
+      const CLICK_CLUSTER_GAP_MS = 3000; // 3-second window for clicks to trigger zoom
       const IDLE_ZOOM_OUT_MS = 1200;
       const CONTINUOUS_SCROLL_ZOOM_OUT_MS = 1000;
       const SCROLL_CHAIN_GAP_MS = 1500;
@@ -113,6 +113,7 @@ function MainApp() {
       let currentZoomStartMs: number | null = null;
       let lastInteractionMs: number | null = null;
       let clusterCount = 0;
+      let zoomClickCount = 0; // Track clicks separately for 2+ click requirement
       let avgX = 0;
       let avgY = 0;
 
@@ -156,6 +157,7 @@ function MainApp() {
         currentZoomStartMs = null;
         lastInteractionMs = null;
         clusterCount = 0;
+        zoomClickCount = 0;
         avgX = 0;
         avgY = 0;
         scrollStartMs = null;
@@ -170,29 +172,50 @@ function MainApp() {
           lastScrollMs = null;
 
           if (currentZoomStartMs === null || lastInteractionMs === null) {
-            currentZoomStartMs = point.timeMs;
-            lastInteractionMs = point.timeMs;
-            clusterCount = 1;
-            avgX = point.x;
-            avgY = point.y;
+            // Only start zoom attempt if this is a click (keypresses don't initiate zoom)
+            if (point.type === 'click') {
+              currentZoomStartMs = point.timeMs;
+              lastInteractionMs = point.timeMs;
+              clusterCount = 1;
+              zoomClickCount = 1;
+              avgX = point.x;
+              avgY = point.y;
+            }
             continue;
           }
 
+          // Within 3-second clustering window: extend the potential zoom
           if (point.timeMs - lastInteractionMs < CLICK_CLUSTER_GAP_MS) {
             clusterCount++;
+            if (point.type === 'click') {
+              zoomClickCount++;
+            }
             avgX = (avgX * (clusterCount - 1) + point.x) / clusterCount;
             avgY = (avgY * (clusterCount - 1) + point.y) / clusterCount;
             lastInteractionMs = point.timeMs;
             continue;
           }
 
-          finalizeCurrentZoom(Math.min(lastInteractionMs + IDLE_ZOOM_OUT_MS, point.timeMs), true);
+          // Beyond 3-second window: finalize if we had 2+ clicks
+          if (zoomClickCount >= 2) {
+            finalizeCurrentZoom(Math.min(lastInteractionMs + IDLE_ZOOM_OUT_MS, point.timeMs), true);
+          }
 
-          currentZoomStartMs = point.timeMs;
-          lastInteractionMs = point.timeMs;
-          clusterCount = 1;
-          avgX = point.x;
-          avgY = point.y;
+          // Reset zoom state
+          currentZoomStartMs = null;
+          lastInteractionMs = null;
+          clusterCount = 0;
+          zoomClickCount = 0;
+
+          // Try to start a new zoom if this point is a click
+          if (point.type === 'click') {
+            currentZoomStartMs = point.timeMs;
+            lastInteractionMs = point.timeMs;
+            clusterCount = 1;
+            zoomClickCount = 1;
+            avgX = point.x;
+            avgY = point.y;
+          }
         } else if (point.type === 'scroll' && currentZoomStartMs !== null && lastInteractionMs !== null) {
           if (scrollStartMs === null) {
             scrollStartMs = point.timeMs;
@@ -211,7 +234,8 @@ function MainApp() {
         }
       }
 
-      if (currentZoomStartMs !== null && lastInteractionMs !== null) {
+      // Finalize pending zoom only if we have 2+ clicks
+      if (currentZoomStartMs !== null && lastInteractionMs !== null && zoomClickCount >= 2) {
         finalizeCurrentZoom(lastInteractionMs + IDLE_ZOOM_OUT_MS, true);
       }
 
@@ -231,6 +255,14 @@ function MainApp() {
       duration: duration,
       postAudioDelay: globalSettings?.delay ?? 0.5,
       cursorTrack: cursorData.length > 0 ? cursorData : undefined,
+      interactionData: interactionData.length > 0 ? interactionData : undefined,
+      autoZoomConfig: {
+        enabled: false, // Users can enable this in UI
+        minIdleDurationMs: 2000,
+        minCursorMovement: 0.015,
+        zoomOutLevel: 1.0,
+        transitionDurationMs: 500,
+      },
       zooms: autoZooms.length > 0 ? autoZooms : undefined
     };
 
@@ -378,7 +410,7 @@ function MainApp() {
       if (cached.ffmpeg) renderer.load().catch(console.error);
 
       // Check if WebLLM should be pre-initialized
-      const webLLMPreinitialized = localStorage.getItem('webllm_preinitialized') === 'true';
+      // legacy flag removed - we don't need to read this value here
       const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
 
       // Only init WebLLM if enabled specifically in settings AND cached

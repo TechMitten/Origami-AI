@@ -1,4 +1,5 @@
 import type { FFmpeg } from '@ffmpeg/ffmpeg';
+import { generateAutoZoomKeyframes } from '../utils/autoZoomGeneration';
 
 interface Slide {
   dataUrl?: string;
@@ -30,12 +31,28 @@ interface Slide {
     targetX?: number;
     targetY?: number;
     zoomLevel: number;
+    easing?: string;
+    transitionSmoothing?: number;
+    cursorDamping?: number;
+    predictiveCursor?: boolean;
+    autoZoomOut?: boolean;
   }>;
   cursorTrack?: Array<{
     timeMs: number;
     x: number;
     y: number;
   }>;
+  interactionData?: Array<{
+    timeMs: number;
+    type: string;
+  }>;
+  autoZoomConfig?: {
+    enabled: boolean;
+    minIdleDurationMs?: number;
+    minCursorMovement?: number;
+    zoomOutLevel?: number;
+    transitionDurationMs?: number;
+  };
 }
 
 interface MusicSettings {
@@ -333,12 +350,30 @@ export class BrowserVideoRenderer {
         videoFilterParts.push(`[${visualIdx}:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1[${preLabel}]`);
         let baseVideoLabel = preLabel;
 
+        // AUTO-ZOOM: Generate auto-zoom-out keyframes for idle periods if enabled
+        let activeZooms = slide.zooms ?? [];
+        if (slide.autoZoomConfig?.enabled && slide.cursorTrack && slide.interactionData) {
+          activeZooms = generateAutoZoomKeyframes(
+            activeZooms,
+            slide.cursorTrack,
+            slide.interactionData,
+            Math.floor((slide.duration ?? 5) * 1000),
+            {
+              enabled: true,
+              minIdleDurationMs: slide.autoZoomConfig.minIdleDurationMs ?? 2000,
+              minCursorMovement: slide.autoZoomConfig.minCursorMovement ?? 0.015,
+              zoomOutLevel: slide.autoZoomConfig.zoomOutLevel ?? 1.0,
+              transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 500,
+            }
+          );
+        }
+
         // 2. Apply Zooms first - IMPROVED VERSION with easing and better interpolation
-        if (slide.zooms && slide.zooms.length > 0) {
+        if (activeZooms && activeZooms.length > 0) {
           const zExprs: string[] = [];
           const xExprs: string[] = [];
           const yExprs: string[] = [];
-          const sortedZooms = [...slide.zooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+          const sortedZooms = [...activeZooms].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
           const zoomTimelineEnd = Math.max(
             0.05,
             slide.type === 'video'
