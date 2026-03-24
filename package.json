@@ -7,10 +7,12 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' server.ts",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "stop": "npx kill-port 3000",
+    "kill-all": "node -e \"const { exec } = require('child_process'); const p = process.platform; const cmd = p === 'win32' ? 'taskkill /F /IM node.exe' : 'killall -9 node'; exec(cmd, (err) => console.log(err ? 'No node processes found.' : 'All Node processes terminated.'));\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

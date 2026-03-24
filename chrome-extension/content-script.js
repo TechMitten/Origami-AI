@@ -2,12 +2,7 @@ if (window.top === window && !window.__origamiAiBridgeInstalled) {
   window.__origamiAiBridgeInstalled = true;
   const REQUEST_SOURCE = 'origami-app-extension-bridge';
   const RESPONSE_SOURCE = 'origami-extension-app-bridge';
-  const SHARE_REMINDER_MESSAGE_TYPE = 'origami:show-share-reminder';
-  const REMINDER_BANNER_ID = 'origami-extension-share-reminder';
-  const REMINDER_BANNER_STYLE_ID = 'origami-extension-share-reminder-style';
-  const REMINDER_HIDE_DELAY_MS = 6500;
   let lastScrollAt = 0;
-  let reminderHideTimer = null;
 
   function normalizePoint(clientX, clientY) {
     const width = Math.max(window.innerWidth || 1, 1);
@@ -32,87 +27,6 @@ if (window.top === window && !window.__origamiAiBridgeInstalled) {
     }
     return Date.now();
   }
-
-  function ensureReminderStyle() {
-    if (document.getElementById(REMINDER_BANNER_STYLE_ID)) return;
-
-    const style = document.createElement('style');
-    style.id = REMINDER_BANNER_STYLE_ID;
-    style.textContent = `
-      #${REMINDER_BANNER_ID} {
-        position: fixed;
-        top: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 2147483647;
-        max-width: min(92vw, 680px);
-        padding: 12px 16px;
-        border-radius: 14px;
-        background: rgba(10, 10, 10, 0.92);
-        color: #ffffff;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
-        font: 600 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        letter-spacing: 0.01em;
-        backdrop-filter: blur(10px);
-      }
-
-      #${REMINDER_BANNER_ID}[hidden] {
-        display: none !important;
-      }
-
-      #${REMINDER_BANNER_ID} strong {
-        color: #ffd54f;
-        font-weight: 700;
-      }
-    `;
-
-    (document.head || document.documentElement).appendChild(style);
-  }
-
-  function ensureReminderBanner() {
-    ensureReminderStyle();
-
-    let banner = document.getElementById(REMINDER_BANNER_ID);
-    if (banner) return banner;
-
-    banner = document.createElement('div');
-    banner.id = REMINDER_BANNER_ID;
-    banner.hidden = true;
-    banner.innerHTML = `If Chrome shows <strong>"Start sharing this tab"</strong>, click it to keep recording this tab.`;
-    (document.body || document.documentElement).appendChild(banner);
-    return banner;
-  }
-
-  function hideShareReminder() {
-    const banner = document.getElementById(REMINDER_BANNER_ID);
-    if (banner) {
-      banner.hidden = true;
-    }
-    if (reminderHideTimer !== null) {
-      window.clearTimeout(reminderHideTimer);
-      reminderHideTimer = null;
-    }
-  }
-
-  function showShareReminder() {
-    const banner = ensureReminderBanner();
-    banner.hidden = false;
-
-    if (reminderHideTimer !== null) {
-      window.clearTimeout(reminderHideTimer);
-    }
-
-    reminderHideTimer = window.setTimeout(() => {
-      hideShareReminder();
-    }, REMINDER_HIDE_DELAY_MS);
-  }
-
-  chrome.runtime.onMessage.addListener((message) => {
-    if (!message || typeof message.type !== 'string') return;
-    if (message.type !== SHARE_REMINDER_MESSAGE_TYPE) return;
-    showShareReminder();
-  });
 
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;

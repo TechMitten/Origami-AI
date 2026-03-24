@@ -1,7 +1,6 @@
 const STATE_STORAGE_KEY = 'origami-session-state';
 const CONTENT_SCRIPT_FILE = 'content-script.js';
 const PERSIST_DEBOUNCE_MS = 750;
-const SHARE_REMINDER_MESSAGE_TYPE = 'origami:show-share-reminder';
 
 const state = {
   active: false,
@@ -162,30 +161,6 @@ async function injectContentScriptsIntoExistingTabs(controllerTabId) {
   );
 }
 
-async function sendShareReminder(tabId) {
-  if (typeof tabId !== 'number') return;
-
-  try {
-    await chrome.tabs.sendMessage(tabId, { type: SHARE_REMINDER_MESSAGE_TYPE });
-  } catch {
-    // The tab may still be loading or may not permit messaging yet.
-  }
-}
-
-async function maybeRemindForTab(tabId) {
-  await ensureStateHydrated();
-  if (!state.active) return;
-  if (typeof tabId !== 'number' || tabId === state.controllerTabId) return;
-
-  try {
-    const tab = await chrome.tabs.get(tabId);
-    if (!isInjectableUrl(tab?.url)) return;
-    await sendShareReminder(tabId);
-  } catch {
-    // Ignore tabs that disappear or are not accessible.
-  }
-}
-
 async function handleMessage(message, sender, sendResponse) {
   await ensureStateHydrated();
 
@@ -295,13 +270,4 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   if (state.active) {
     schedulePersist();
   }
-});
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  void maybeRemindForTab(activeInfo.tabId);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status !== 'complete' || !tab.active) return;
-  void maybeRemindForTab(tabId);
 });
