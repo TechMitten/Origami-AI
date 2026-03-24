@@ -17,6 +17,16 @@ export interface BrowserExtensionSessionData {
   };
 }
 
+export interface BrowserExtensionCaptureSource {
+  streamId: string;
+  sourceType: 'tab';
+  sourceTab?: {
+    id?: number;
+    title?: string;
+    url?: string;
+  };
+}
+
 interface BrowserExtensionResponse<T = unknown> {
   ok: boolean;
   payload?: T;
@@ -25,6 +35,28 @@ interface BrowserExtensionResponse<T = unknown> {
 
 const REQUEST_SOURCE = 'origami-app-extension-bridge';
 const RESPONSE_SOURCE = 'origami-extension-app-bridge';
+const EVENT_SOURCE = 'origami-extension-app-event';
+
+export interface BrowserExtensionStatus {
+  active: boolean;
+  recordingArmed?: boolean;
+  recordingActive?: boolean;
+}
+
+export interface BrowserExtensionStartFailure {
+  message: string;
+}
+
+export type BrowserExtensionEventType =
+  | 'stop-recording-requested'
+  | 'recording-source-ready'
+  | 'recording-start-failed';
+
+interface BrowserExtensionEventPayloadMap {
+  'stop-recording-requested': undefined;
+  'recording-source-ready': BrowserExtensionCaptureSource;
+  'recording-start-failed': BrowserExtensionStartFailure;
+}
 
 function nextRequestId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -81,15 +113,35 @@ function sendBridgeRequest<T = unknown>(
   });
 }
 
-export async function getBrowserExtensionStatus(): Promise<{ active: boolean }> {
-  return sendBridgeRequest<{ active: boolean }>('get-status');
+export async function getBrowserExtensionStatus(): Promise<BrowserExtensionStatus> {
+  return sendBridgeRequest<BrowserExtensionStatus>('get-status');
 }
 
-export async function startBrowserExtensionSession(): Promise<void> {
-  await sendBridgeRequest('start-session');
+export async function armBrowserExtensionRecording(): Promise<void> {
+  await sendBridgeRequest('arm-recording');
 }
 
 export async function stopBrowserExtensionSession(): Promise<BrowserExtensionSessionData> {
   return sendBridgeRequest<BrowserExtensionSessionData>('stop-session', undefined, 2000);
 }
 
+export function addBrowserExtensionEventListener<T extends BrowserExtensionEventType>(
+  eventType: T,
+  listener: (payload: BrowserExtensionEventPayloadMap[T]) => void
+): () => void {
+  if (typeof window === 'undefined') {
+    return () => undefined;
+  }
+
+  const handleMessage = (event: MessageEvent) => {
+    if (event.source !== window) return;
+    const data = event.data;
+    if (!data || data.source !== EVENT_SOURCE || data.eventType !== eventType) return;
+    listener(data.payload as BrowserExtensionEventPayloadMap[T]);
+  };
+
+  window.addEventListener('message', handleMessage);
+  return () => {
+    window.removeEventListener('message', handleMessage);
+  };
+}

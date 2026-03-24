@@ -29,7 +29,7 @@ import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
 import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
-import { useScreenRecorder } from './hooks/useScreenRecorder';
+import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { Video } from 'lucide-react';
 
 
@@ -71,7 +71,183 @@ function MainApp() {
   const [renderProgress, setRenderProgress] = useState<number>(0);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { isRecording, startRecording, stopRecording } = useScreenRecorder();
+  const handleScreenRecordFinalizeError = React.useCallback((error: Error) => {
+    console.error('Failed to save screen recording.', error);
+    showAlert('Failed to save screen recording.', { type: 'error', title: 'Recording Failed' });
+  }, [showAlert]);
+
+  const handleScreenRecordingComplete = React.useCallback(async ({ blob, cursorData, interactionData }: ScreenRecordResult) => {
+    const url = URL.createObjectURL(blob);
+    
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = url;
+    
+    const duration = await new Promise<number>((resolve) => {
+      video.onloadedmetadata = () => {
+        if (video.duration === Infinity) {
+          video.currentTime = 1e101;
+          video.ondurationchange = () => {
+            video.currentTime = 0;
+            video.ondurationchange = null;
+            resolve(video.duration);
+          };
+        } else {
+          resolve(video.duration);
+        }
+      };
+      video.onerror = () => resolve(5);
+    });
+
+    const autoZooms: NonNullable<SlideData['zooms']> = [];
+    if (interactionData && interactionData.length > 0) {
+      const KEYFRAME_LEAD_IN_SECONDS = 0.2;
+      const CLICK_CLUSTER_GAP_MS = 2000;
+      const IDLE_ZOOM_OUT_MS = 1200;
+      const CONTINUOUS_SCROLL_ZOOM_OUT_MS = 1000;
+      const SCROLL_CHAIN_GAP_MS = 1500;
+      const MIN_ZOOM_SEGMENT_MS = 150;
+      const RESET_EPSILON_SECONDS = 0.001;
+      const videoDurationMs = duration * 1000;
+
+      let currentZoomStartMs: number | null = null;
+      let lastInteractionMs: number | null = null;
+      let clusterCount = 0;
+      let avgX = 0;
+      let avgY = 0;
+
+      let scrollStartMs: number | null = null;
+      let lastScrollMs: number | null = null;
+
+      const pushZoomSegment = (startMs: number, endMs: number, x: number, y: number, interactions: number, includeReset: boolean) => {
+        const clampedStartMs = Math.max(0, startMs);
+        const clampedEndMs = Math.max(clampedStartMs + MIN_ZOOM_SEGMENT_MS, Math.min(endMs, videoDurationMs));
+        const startSec = Math.max(0, clampedStartMs / 1000 - KEYFRAME_LEAD_IN_SECONDS);
+        const endSec = Math.max(startSec + 0.05, clampedEndMs / 1000);
+        const zoomLvl = Math.min(2.0, 1.25 + (Math.max(interactions, 1) - 1) * 0.25);
+
+        autoZooms.push({
+          id: crypto.randomUUID(),
+          timestampStartSeconds: startSec,
+          durationSeconds: endSec - startSec,
+          type: 'cursor',
+          targetX: x,
+          targetY: y,
+          zoomLevel: zoomLvl
+        });
+
+        if (includeReset && endSec < duration) {
+          autoZooms.push({
+            id: crypto.randomUUID(),
+            timestampStartSeconds: Math.max(0, endSec - RESET_EPSILON_SECONDS),
+            durationSeconds: Math.max(0.05, duration - endSec),
+            type: 'fixed',
+            targetX: 0.5,
+            targetY: 0.5,
+            zoomLevel: 1
+          });
+        }
+      };
+
+      const finalizeCurrentZoom = (endMs: number, includeReset: boolean) => {
+        if (currentZoomStartMs === null || lastInteractionMs === null || clusterCount === 0) return;
+
+        pushZoomSegment(currentZoomStartMs, endMs, avgX, avgY, clusterCount, includeReset);
+        currentZoomStartMs = null;
+        lastInteractionMs = null;
+        clusterCount = 0;
+        avgX = 0;
+        avgY = 0;
+        scrollStartMs = null;
+        lastScrollMs = null;
+      };
+
+      for (let i = 0; i < interactionData.length; i++) {
+        const point = interactionData[i];
+
+        if (point.type === 'click' || point.type === 'keypress') {
+          scrollStartMs = null;
+          lastScrollMs = null;
+
+          if (currentZoomStartMs === null || lastInteractionMs === null) {
+            currentZoomStartMs = point.timeMs;
+            lastInteractionMs = point.timeMs;
+            clusterCount = 1;
+            avgX = point.x;
+            avgY = point.y;
+            continue;
+          }
+
+          if (point.timeMs - lastInteractionMs < CLICK_CLUSTER_GAP_MS) {
+            clusterCount++;
+            avgX = (avgX * (clusterCount - 1) + point.x) / clusterCount;
+            avgY = (avgY * (clusterCount - 1) + point.y) / clusterCount;
+            lastInteractionMs = point.timeMs;
+            continue;
+          }
+
+          finalizeCurrentZoom(Math.min(lastInteractionMs + IDLE_ZOOM_OUT_MS, point.timeMs), true);
+
+          currentZoomStartMs = point.timeMs;
+          lastInteractionMs = point.timeMs;
+          clusterCount = 1;
+          avgX = point.x;
+          avgY = point.y;
+        } else if (point.type === 'scroll' && currentZoomStartMs !== null && lastInteractionMs !== null) {
+          if (scrollStartMs === null) {
+            scrollStartMs = point.timeMs;
+            lastScrollMs = point.timeMs;
+            continue;
+          }
+
+          if (lastScrollMs !== null && point.timeMs - lastScrollMs > SCROLL_CHAIN_GAP_MS) {
+            scrollStartMs = point.timeMs;
+          }
+          lastScrollMs = point.timeMs;
+
+          if (point.timeMs - scrollStartMs >= CONTINUOUS_SCROLL_ZOOM_OUT_MS) {
+            finalizeCurrentZoom(Math.max(scrollStartMs + CONTINUOUS_SCROLL_ZOOM_OUT_MS, lastInteractionMs), true);
+          }
+        }
+      }
+
+      if (currentZoomStartMs !== null && lastInteractionMs !== null) {
+        finalizeCurrentZoom(lastInteractionMs + IDLE_ZOOM_OUT_MS, true);
+      }
+
+      autoZooms.sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
+    }
+
+    const newSlide: SlideData = {
+      id: crypto.randomUUID(),
+      type: 'video',
+      mediaUrl: url,
+      script: '',
+      transition: 'fade',
+      voice: globalSettings?.voice || 'af_heart',
+      isVideoMusicPaused: false,
+      isTtsDisabled: false,
+      mediaDuration: duration,
+      duration: duration,
+      postAudioDelay: globalSettings?.delay ?? 0.5,
+      cursorTrack: cursorData.length > 0 ? cursorData : undefined,
+      zooms: autoZooms.length > 0 ? autoZooms : undefined
+    };
+
+    setSlides(prev => [...prev, newSlide]);
+    setActiveTab('edit');
+  }, [globalSettings]);
+
+  const { isRecording, startRecording, stopRecording } = useScreenRecorder({
+    onRecordingComplete: handleScreenRecordingComplete,
+    onRecordingError: handleScreenRecordFinalizeError,
+    onRecordingPending: () => {
+      showAlert(
+        'Switch to the browser tab you want to record, then click the Origami extension icon to begin. Click the extension again or use Stop in the app to finish.',
+        { type: 'info', title: 'Ready To Record' }
+      );
+    },
+  });
 
   const handleStartScreenRecord = async () => {
     try {
@@ -85,169 +261,9 @@ function MainApp() {
 
   const handleStopScreenRecord = async () => {
     try {
-      const { blob, cursorData, interactionData } = await stopRecording();
-      const url = URL.createObjectURL(blob);
-      
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.src = url;
-      
-      const duration = await new Promise<number>((resolve) => {
-        video.onloadedmetadata = () => {
-          if (video.duration === Infinity) {
-            video.currentTime = 1e101;
-            video.ondurationchange = () => {
-              video.currentTime = 0;
-              video.ondurationchange = null;
-              resolve(video.duration);
-            };
-          } else {
-            resolve(video.duration);
-          }
-        };
-        video.onerror = () => resolve(5);
-      });
-
-      // Generate Auto Zooms from Interactions
-      const autoZooms: NonNullable<SlideData['zooms']> = [];
-      if (interactionData && interactionData.length > 0) {
-        const KEYFRAME_LEAD_IN_SECONDS = 0.2;
-        const CLICK_CLUSTER_GAP_MS = 2000;
-        const IDLE_ZOOM_OUT_MS = 1200;
-        const CONTINUOUS_SCROLL_ZOOM_OUT_MS = 1000;
-        const SCROLL_CHAIN_GAP_MS = 1500;
-        const MIN_ZOOM_SEGMENT_MS = 150;
-        const RESET_EPSILON_SECONDS = 0.001;
-        const videoDurationMs = duration * 1000;
-
-        let currentZoomStartMs: number | null = null;
-        let lastInteractionMs: number | null = null;
-        let clusterCount = 0;
-        let avgX = 0;
-        let avgY = 0;
-
-        let scrollStartMs: number | null = null;
-        let lastScrollMs: number | null = null;
-
-        const pushZoomSegment = (startMs: number, endMs: number, x: number, y: number, interactions: number, includeReset: boolean) => {
-          const clampedStartMs = Math.max(0, startMs);
-          const clampedEndMs = Math.max(clampedStartMs + MIN_ZOOM_SEGMENT_MS, Math.min(endMs, videoDurationMs));
-          const startSec = Math.max(0, clampedStartMs / 1000 - KEYFRAME_LEAD_IN_SECONDS);
-          const endSec = Math.max(startSec + 0.05, clampedEndMs / 1000);
-          const zoomLvl = Math.min(2.0, 1.25 + (Math.max(interactions, 1) - 1) * 0.25);
-
-          autoZooms.push({
-            id: crypto.randomUUID(),
-            timestampStartSeconds: startSec,
-            durationSeconds: endSec - startSec,
-            type: 'cursor',
-            targetX: x,
-            targetY: y,
-            zoomLevel: zoomLvl
-          });
-
-          if (includeReset && endSec < duration) {
-            autoZooms.push({
-              id: crypto.randomUUID(),
-              timestampStartSeconds: Math.max(0, endSec - RESET_EPSILON_SECONDS),
-              durationSeconds: Math.max(0.05, duration - endSec),
-              type: 'fixed',
-              targetX: 0.5,
-              targetY: 0.5,
-              zoomLevel: 1
-            });
-          }
-        };
-
-        const finalizeCurrentZoom = (endMs: number, includeReset: boolean) => {
-          if (currentZoomStartMs === null || lastInteractionMs === null || clusterCount === 0) return;
-
-          pushZoomSegment(currentZoomStartMs, endMs, avgX, avgY, clusterCount, includeReset);
-          currentZoomStartMs = null;
-          lastInteractionMs = null;
-          clusterCount = 0;
-          avgX = 0;
-          avgY = 0;
-          scrollStartMs = null;
-          lastScrollMs = null;
-        };
-
-        for (let i = 0; i < interactionData.length; i++) {
-          const point = interactionData[i];
-
-          if (point.type === 'click' || point.type === 'keypress') {
-            scrollStartMs = null;
-            lastScrollMs = null;
-
-            if (currentZoomStartMs === null || lastInteractionMs === null) {
-              currentZoomStartMs = point.timeMs;
-              lastInteractionMs = point.timeMs;
-              clusterCount = 1;
-              avgX = point.x;
-              avgY = point.y;
-              continue;
-            }
-
-            if (point.timeMs - lastInteractionMs < CLICK_CLUSTER_GAP_MS) {
-              clusterCount++;
-              avgX = (avgX * (clusterCount - 1) + point.x) / clusterCount;
-              avgY = (avgY * (clusterCount - 1) + point.y) / clusterCount;
-              lastInteractionMs = point.timeMs;
-              continue;
-            }
-
-            finalizeCurrentZoom(Math.min(lastInteractionMs + IDLE_ZOOM_OUT_MS, point.timeMs), true);
-
-            currentZoomStartMs = point.timeMs;
-            lastInteractionMs = point.timeMs;
-            clusterCount = 1;
-            avgX = point.x;
-            avgY = point.y;
-          } else if (point.type === 'scroll' && currentZoomStartMs !== null && lastInteractionMs !== null) {
-            if (scrollStartMs === null) {
-              scrollStartMs = point.timeMs;
-              lastScrollMs = point.timeMs;
-              continue;
-            }
-
-            if (lastScrollMs !== null && point.timeMs - lastScrollMs > SCROLL_CHAIN_GAP_MS) {
-              scrollStartMs = point.timeMs;
-            }
-            lastScrollMs = point.timeMs;
-
-            if (point.timeMs - scrollStartMs >= CONTINUOUS_SCROLL_ZOOM_OUT_MS) {
-              finalizeCurrentZoom(Math.max(scrollStartMs + CONTINUOUS_SCROLL_ZOOM_OUT_MS, lastInteractionMs), true);
-            }
-          }
-        }
-
-        if (currentZoomStartMs !== null && lastInteractionMs !== null) {
-          finalizeCurrentZoom(lastInteractionMs + IDLE_ZOOM_OUT_MS, true);
-        }
-
-        autoZooms.sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds);
-      }
-
-      const newSlide: SlideData = {
-        id: crypto.randomUUID(),
-        type: 'video',
-        mediaUrl: url,
-        script: '',
-        transition: 'fade',
-        voice: globalSettings?.voice || 'af_heart',
-        isVideoMusicPaused: false,
-        isTtsDisabled: false,
-        mediaDuration: duration,
-        duration: duration,
-        postAudioDelay: globalSettings?.delay ?? 0.5,
-        cursorTrack: cursorData.length > 0 ? cursorData : undefined,
-        zooms: autoZooms.length > 0 ? autoZooms : undefined
-      };
-
-      setSlides(prev => [...prev, newSlide]);
-      setActiveTab('edit');
+      await stopRecording();
     } catch (err) {
-      showAlert('Failed to save screen recording.', { type: 'error', title: 'Recording Failed' });
+      handleScreenRecordFinalizeError(err instanceof Error ? err : new Error('Failed to save screen recording.'));
     }
   };
 

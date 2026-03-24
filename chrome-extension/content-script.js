@@ -2,7 +2,21 @@ if (window.top === window && !window.__origamiAiBridgeInstalled) {
   window.__origamiAiBridgeInstalled = true;
   const REQUEST_SOURCE = 'origami-app-extension-bridge';
   const RESPONSE_SOURCE = 'origami-extension-app-bridge';
+  const EVENT_SOURCE = 'origami-extension-app-event';
   let lastScrollAt = 0;
+  let runtimeAvailable = true;
+  let runtimeUnavailableLogged = false;
+
+  function markRuntimeUnavailable(error) {
+    runtimeAvailable = false;
+    if (runtimeUnavailableLogged) return;
+    runtimeUnavailableLogged = true;
+    console.debug('Origami extension runtime is unavailable; refresh the page after reloading the extension.', error);
+  }
+
+  function canUseRuntime() {
+    return runtimeAvailable && !!chrome?.runtime?.id;
+  }
 
   function normalizePoint(clientX, clientY) {
     const width = Math.max(window.innerWidth || 1, 1);
@@ -14,10 +28,11 @@ if (window.top === window && !window.__origamiAiBridgeInstalled) {
   }
 
   function sendRuntimeMessage(type, payload) {
+    if (!canUseRuntime()) return;
     try {
       chrome.runtime.sendMessage({ type, payload });
     } catch (error) {
-      console.debug('Origami bridge runtime message failed.', error);
+      markRuntimeUnavailable(error);
     }
   }
 
@@ -46,7 +61,7 @@ if (window.top === window && !window.__origamiAiBridgeInstalled) {
 
     const messageType =
       data.action === 'get-status' ? 'origami:get-status'
-      : data.action === 'start-session' ? 'origami:start-session'
+      : data.action === 'arm-recording' ? 'origami:arm-recording'
       : data.action === 'stop-session' ? 'origami:stop-session'
       : null;
 
@@ -55,13 +70,60 @@ if (window.top === window && !window.__origamiAiBridgeInstalled) {
       return;
     }
 
-    chrome.runtime.sendMessage({ type: messageType, payload: data.payload }, (response) => {
-      if (chrome.runtime.lastError) {
-        respond({ ok: false, error: chrome.runtime.lastError.message || 'Origami extension bridge unavailable.' });
-        return;
-      }
-      respond(response || { ok: false, error: 'No response from Origami extension.' });
-    });
+    if (!canUseRuntime()) {
+      respond({ ok: false, error: 'Origami extension bridge unavailable. Reload the page after reloading the extension.' });
+      return;
+    }
+
+    try {
+      chrome.runtime.sendMessage({ type: messageType, payload: data.payload }, (response) => {
+        if (chrome.runtime.lastError) {
+          markRuntimeUnavailable(chrome.runtime.lastError.message);
+          respond({ ok: false, error: chrome.runtime.lastError.message || 'Origami extension bridge unavailable.' });
+          return;
+        }
+        respond(response || { ok: false, error: 'No response from Origami extension.' });
+      });
+    } catch (error) {
+      markRuntimeUnavailable(error);
+      respond({ ok: false, error: 'Origami extension bridge unavailable. Reload the page after reloading the extension.' });
+    }
+  });
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === 'origami:stop-recording-requested') {
+      window.postMessage(
+        {
+          source: EVENT_SOURCE,
+          eventType: 'stop-recording-requested',
+        },
+        '*'
+      );
+      return;
+    }
+
+    if (message?.type === 'origami:recording-source-ready') {
+      window.postMessage(
+        {
+          source: EVENT_SOURCE,
+          eventType: 'recording-source-ready',
+          payload: message.payload,
+        },
+        '*'
+      );
+      return;
+    }
+
+    if (message?.type === 'origami:recording-start-failed') {
+      window.postMessage(
+        {
+          source: EVENT_SOURCE,
+          eventType: 'recording-start-failed',
+          payload: message.payload,
+        },
+        '*'
+      );
+    }
   });
 
   window.addEventListener('mousemove', (event) => {
