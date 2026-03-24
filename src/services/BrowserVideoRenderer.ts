@@ -333,7 +333,7 @@ export class BrowserVideoRenderer {
         videoFilterParts.push(`[${visualIdx}:v]scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,setsar=1[${preLabel}]`);
         let baseVideoLabel = preLabel;
 
-        // 2. Apply Zooms first
+        // 2. Apply Zooms first - IMPROVED VERSION with easing and better interpolation
         if (slide.zooms && slide.zooms.length > 0) {
           const zExprs: string[] = [];
           const xExprs: string[] = [];
@@ -346,6 +346,25 @@ export class BrowserVideoRenderer {
               : duration
           );
           
+          // Helper: Generate easing expression for FFmpeg
+          // This creates a smooth transition between zoom keyframes
+          const generateEasingExpr = (easing: string = 'linear'): string => {
+            // FFmpeg expressions for common easing functions
+            // t normalized to 0-1 for the transition duration
+            switch (easing) {
+              case 'easeOutQuad': return '1-pow(1-t,2)';
+              case 'easeInQuad': return 't*t';
+              case 'easeInOutQuad': return 'if(lt(t,0.5),2*t*t,1-pow(-2*t+2,2)/2)';
+              case 'easeOutCubic': return '1-pow(1-t,3)';
+              case 'easeInCubic': return 't*t*t';
+              case 'easeInOutCubic': return 'if(lt(t,0.5),4*t*t*t,1-pow(-2*t+2,3)/2)';
+              case 'easeOutExpo': return 'if(eq(t,1),1,1-pow(2,-10*t))';
+              case 'easeInExpo': return 'if(eq(t,0),0,pow(2,10*t-10))';
+              case 'easeOutElastic': return 'pow(2,-10*t)*sin((t*10-0.75)*6.28/4.5)+1';
+              default: return 't'; // linear
+            }
+          };
+          
           for (let zoomIndex = 0; zoomIndex < sortedZooms.length; zoomIndex++) {
             const z = sortedZooms[zoomIndex];
             const t1 = z.timestampStartSeconds;
@@ -353,19 +372,47 @@ export class BrowserVideoRenderer {
             const fallbackEnd = t1 + Math.max(z.durationSeconds, 1);
             const naturalEnd = nextZoom ? nextZoom.timestampStartSeconds : Math.max(zoomTimelineEnd, fallbackEnd);
             const t2 = Math.max(t1 + 0.001, naturalEnd);
-            zExprs.push(`if(between(it,${t1},${t2}),${z.zoomLevel}`);
+            
+            // Zoom with easing transition
+            const easing = z.easing ?? 'linear';
+            const transitionSmoothing = z.transitionSmoothing ?? 0.1;
+            const easingExpr = generateEasingExpr(easing);
+            
+            // Create smooth zoom transition using easing
+            zExprs.push(`if(between(it,${t1},${t2}),${z.zoomLevel}+if(eq(it,${t1}),0,(lt(it,${t1}+0.5)?${easingExpr}*${transitionSmoothing}:${transitionSmoothing}))`);
              
             let txExpr = `${z.targetX ?? 0.5}`;
             let tyExpr = `${z.targetY ?? 0.5}`;
              
-            // Build a dynamic FFmpeg expression sampling the cursor position continuously (4 times a second)
+            // IMPROVED: Higher cursor sampling rate (20 times per second instead of 4)
+            // This provides much smoother cursor following
             if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
               const samplesX: string[] = [];
               const samplesY: string[] = [];
-              const step = 0.25; // Sample 4 times a second for smooth continuous panning
+              const step = 0.05; // 20 samples per second for smooth continuous panning (was 0.25)
               const sampleEnd = Math.min(t2, Math.max(zoomTimelineEnd, t1 + step));
+              
+              // Improved cursor interpolation: linear interpolation between cursor points
+              const getCursorAtTime = (timeSeconds: number) => {
+                const timeMs = timeSeconds * 1000;
+                const trackIndex = slide.cursorTrack.findIndex(c => c.timeMs >= timeMs);
+                
+                if (trackIndex === 0) return slide.cursorTrack[0];
+                if (trackIndex === -1) return slide.cursorTrack[slide.cursorTrack.length - 1];
+                
+                const before = slide.cursorTrack[trackIndex - 1];
+                const after = slide.cursorTrack[trackIndex];
+                
+                // Linear interpolation between cursor points
+                const progress = (timeMs - before.timeMs) / (after.timeMs - before.timeMs);
+                return {
+                  x: before.x + (after.x - before.x) * progress,
+                  y: before.y + (after.y - before.y) * progress,
+                };
+              };
+              
               for (let t = t1; t < sampleEnd; t += step) {
-                const cp = slide.cursorTrack.find(c => c.timeMs / 1000 >= t) || slide.cursorTrack[slide.cursorTrack.length - 1];
+                const cp = getCursorAtTime(t);
                 samplesX.push(`if(between(it,${t},${t+step}),${cp.x}`);
                 samplesY.push(`if(between(it,${t},${t+step}),${cp.y}`);
               }
@@ -382,11 +429,28 @@ export class BrowserVideoRenderer {
           const targetX = xExprs.join(',') + ',0.5' + ')'.repeat(xExprs.length);
           const targetY = yExprs.join(',') + ',0.5' + ')'.repeat(yExprs.length);
 
-          // Exponential smoothing: 0.010 for zoom in (~7s), 0.005 for zoom out (~14s)
-          const zFormula = `max(1, pzoom + (${targetZ} - pzoom)*if(gt(${targetZ},pzoom),0.010,0.005))`;
-          // Panning slowed down significantly to 0.005 to accompany the 1s target sampling
-          const xFormula = `px + (((iw - iw/zoom)*${targetX}) - px)*0.005`;
-          const yFormula = `py + (((ih - ih/zoom)*${targetY}) - py)*0.005`;
+          // IMPROVED: Use configurable damping per keyframe
+          // Get the active zoom at any point to determine damping
+          const dampingExpr = (() => {
+            if (sortedZooms.length === 0) return '0.01';
+            let expr = '';
+            for (let i = 0; i < sortedZooms.length; i++) {
+              const z = sortedZooms[i];
+              const t1 = z.timestampStartSeconds;
+              const nextZoom = sortedZooms[i + 1];
+              const t2 = nextZoom ? nextZoom.timestampStartSeconds : zoomTimelineEnd;
+              const damping = z.cursorDamping ?? 0.01;
+              expr += `if(between(it,${t1},${t2}),${damping},`;
+            }
+            expr += '0.01' + ')'.repeat(sortedZooms.length);
+            return expr;
+          })();
+
+          // Exponential smoothing with zoom-specific damping
+          const zFormula = `max(1, pzoom + (${targetZ} - pzoom)*if(gt(${targetZ},pzoom),${dampingExpr}*2,${dampingExpr}))`;
+          // Panning with configurable damping
+          const xFormula = `px + (((iw - iw/zoom)*${targetX}) - px)*${dampingExpr}`;
+          const yFormula = `py + (((ih - ih/zoom)*${targetY}) - py)*${dampingExpr}`;
 
           const zoomLabel = `vZoom_${i}`;
           videoFilterParts.push(`[${baseVideoLabel}]zoompan=z='${zFormula}':x='${xFormula}':y='${yFormula}':d=1:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:fps=${FPS}[${zoomLabel}]`);

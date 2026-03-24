@@ -68,6 +68,14 @@ export interface ZoomKeyframe {
   targetX?: number; // 0-1 percentage
   targetY?: number; // 0-1 percentage
   zoomLevel: number;
+  // New: Easing and smoothing improvements
+  easing?: 'linear' | 'easeInQuad' | 'easeOutQuad' | 'easeInOutQuad' | 'easeInCubic' | 'easeOutCubic' | 'easeInOutCubic' | 'easeInQuart' | 'easeOutQuart' | 'easeInOutQuart' | 'easeInExpo' | 'easeOutExpo' | 'easeInOutExpo' | 'easeOutElastic' | 'easeOutBounce';
+  // Smoothing factor for the transition into this zoom (0 = instant, 1 = very slow)
+  transitionSmoothing?: number;
+  // Damping for cursor following (0.005-0.015, higher = slower/smoother)
+  cursorDamping?: number;
+  // Enable predictive cursor following (look ahead)
+  predictiveCursor?: boolean;
 }
 
 export interface SlideData extends Partial<RenderedPage> {
