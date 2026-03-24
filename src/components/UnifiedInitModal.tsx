@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Download } from 'lucide-react';
-import { webLlmEvents } from '../services/webLlmService';
+import { Loader2, CheckCircle2, Download, Info } from 'lucide-react';
+import { webLlmEvents, AVAILABLE_WEB_LLM_MODELS, type ModelInfo } from '../services/webLlmService';
 import { ttsEvents, type ProgressEventDetail } from '../services/ttsService';
 import { videoEvents } from '../services/BrowserVideoRenderer';
 import type { InitProgressReport } from '@mlc-ai/web-llm';
@@ -19,6 +19,8 @@ interface UnifiedInitModalProps {
     webllm: boolean;
   };
   onComplete: () => void;
+  /** Called when user selects a WebLLM model (before initialization) */
+  onWebLLMModelSelect?: (modelId: string) => void;
 }
 
 interface ResourceStatus {
@@ -32,6 +34,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   resources,
   activeResources,
   onComplete,
+  onWebLLMModelSelect,
 }) => {
   const [status, setStatus] = useState<ResourceStatus>({
     // Pre-installed OR not being actively downloaded → already 'ready'
@@ -44,9 +47,30 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   const [ffmpegStatus, setFFmpegStatus] = useState<string>('');
   const [webllmProgress, setWebLLMProgress] = useState<InitProgressReport | null>(null);
   const [webllmMaxProgress, setWebLLMMaxProgress] = useState(0);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
+
+  const normalizeWebLLMProgress = (progress: number) => {
+    if (!Number.isFinite(progress)) return 0;
+    // WebLLM reports progress in [0,1], but some paths may surface percentage-like values.
+    if (progress > 1) return Math.min(progress / 100, 1);
+    return Math.max(progress, 0);
+  };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setSelectedModel(null);
+      setShowModelSelector(false);
+      setWebLLMProgress(null);
+      setWebLLMMaxProgress(0);
+      return;
+    }
+
+    // Show model selector if WebLLM is being initialized and no model is selected
+    if (activeResources?.webllm && !selectedModel) {
+      setShowModelSelector(true);
+    }
 
     // TTS Progress
     const handleTTSProgress = (e: Event) => {
@@ -79,11 +103,15 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
     // WebLLM Progress
     const handleWebLLMProgress = (e: Event) => {
       const report = (e as CustomEvent<InitProgressReport>).detail;
+      const normalizedProgress = normalizeWebLLMProgress(report.progress);
+      const reportText = report.text?.toLowerCase?.() || '';
+      const isComplete = normalizedProgress >= 1 || reportText.includes('complete');
+
       setWebLLMProgress(report);
-      setWebLLMMaxProgress(prev => Math.max(prev, report.progress));
+      setWebLLMMaxProgress(prev => Math.max(prev, normalizedProgress));
       setStatus(prev => ({ ...prev, webllm: 'initializing' }));
 
-      if (report.progress === 1) {
+      if (isComplete) {
         setTimeout(() => {
           setStatus(prev => ({ ...prev, webllm: 'ready' }));
           setWebLLMProgress(null);
@@ -91,19 +119,40 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       }
     };
 
+    const handleWebLLMComplete = () => {
+      setStatus(prev => ({ ...prev, webllm: 'ready' }));
+      setWebLLMProgress(null);
+      setWebLLMMaxProgress(1);
+    };
+
     ttsEvents.addEventListener('tts-progress', handleTTSProgress);
     videoEvents.addEventListener('video-progress', handleVideoProgress);
     webLlmEvents.addEventListener('webllm-init-progress', handleWebLLMProgress);
+    webLlmEvents.addEventListener('webllm-init-complete', handleWebLLMComplete);
 
     return () => {
       ttsEvents.removeEventListener('tts-progress', handleTTSProgress);
       videoEvents.removeEventListener('video-progress', handleVideoProgress);
       webLlmEvents.removeEventListener('webllm-init-progress', handleWebLLMProgress);
+      webLlmEvents.removeEventListener('webllm-init-complete', handleWebLLMComplete);
     };
-  }, [isOpen]);
+  }, [isOpen, activeResources?.webllm, selectedModel]);
 
   // Check if all *active* resources are ready (inactive/skipped ones are already 'ready' from init)
-  const allReady = status.tts === 'ready' && status.ffmpeg === 'ready' && status.webllm === 'ready';
+  // For WebLLM with model selection, we need to wait for both model selection AND initialization
+  const isWebLLMReady = !activeResources?.webllm || status.webllm === 'ready';
+  const isWebLLMWaiting = activeResources?.webllm && !selectedModel;
+  const allReady = !isWebLLMWaiting && status.tts === 'ready' && status.ffmpeg === 'ready' && isWebLLMReady;
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModel(modelId);
+    setShowModelSelector(false);
+    onWebLLMModelSelect?.(modelId);
+  };
+
+  const getModelDetails = (modelId: string): ModelInfo | undefined => {
+    return AVAILABLE_WEB_LLM_MODELS.find(m => m.id === modelId);
+  };
 
   useEffect(() => {
     if (allReady && isOpen) {
@@ -225,9 +274,49 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider">Ready</span>
                   )}
                 </div>
-                {status.webllm === 'initializing' && (
+                {showModelSelector && !selectedModel ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-white/70 mb-2">Select a model to download:</p>
+                    <div className="max-h-48 overflow-y-auto space-y-1.5">
+                      {AVAILABLE_WEB_LLM_MODELS.map((model) => (
+                        <div
+                          key={model.id}
+                          onClick={() => handleModelSelect(model.id)}
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded border border-white/10 cursor-pointer transition-all group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-white group-hover:text-purple-300 transition-colors truncate">
+                                {model.name} ({model.precision})
+                              </p>
+                              <p className="text-xs text-white/50">{model.size} • {model.vram_required_MB}MB VRAM</p>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedInfo(expandedInfo === model.id ? null : model.id);
+                              }}
+                              className="ml-2 text-white/40 hover:text-white/70"
+                            >
+                              <Info className="w-3 h-3" />
+                            </button>
+                          </div>
+                          {expandedInfo === model.id && (
+                            <div className="mt-1 pt-1 border-t border-white/10 text-xs text-white/60">
+                              <p className="mb-1">Model ID: {model.id}</p>
+                              <p className="text-white/50 text-xs">Click to select this model</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : selectedModel ? (
                   <div className="mt-2">
-                    {webllmProgress ? (
+                    <p className="text-xs text-white/70 mb-2">
+                      Selected: <span className="text-white font-medium">{getModelDetails(selectedModel)?.name} ({getModelDetails(selectedModel)?.precision})</span>
+                    </p>
+                    {status.webllm === 'initializing' && (
                       <>
                         <div className="flex items-center justify-end text-xs text-white/70 mb-1">
                           <span className="font-mono">{getProgressPercent()}%</span>
@@ -239,12 +328,12 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                           />
                         </div>
                       </>
-                    ) : (
-                      <div className="flex items-center gap-2 text-xs text-white/70">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span className="font-mono">Initializing...</span>
-                      </div>
                     )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-white/70">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="font-mono">Initializing...</span>
                   </div>
                 )}
               </div>

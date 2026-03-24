@@ -7,6 +7,13 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "permissions": ["scripting", "storage", "tabs"],
+  "icons": {
+    "16": "favicon-16x16.png",
+    "32": "favicon-32x32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -17,6 +24,10 @@
   ],
   "action": {
     "default_title": "Origami AI Bridge",
+    "default_icon": {
+      "16": "favicon-16x16.png",
+      "32": "favicon-32x32.png"
+    },
     "default_popup": "popup.html"
   },
   "host_permissions": ["<all_urls>"]

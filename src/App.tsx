@@ -109,7 +109,7 @@ function MainApp() {
       });
 
       // Generate Auto Zooms from Interactions
-      const autoZooms: any[] = [];
+      const autoZooms: NonNullable<SlideData['zooms']> = [];
       if (interactionData && interactionData.length > 0) {
         let currentZoomStartMs: number | null = null;
         let lastInteractionMs = 0;
@@ -139,7 +139,7 @@ function MainApp() {
                  avgX = (avgX * (clusterCount - 1) + point.x) / clusterCount;
                  avgY = (avgY * (clusterCount - 1) + point.y) / clusterCount;
                } else {
-                 // Chain keyframes! End the previous segment here and start a new one to scale deeper.
+                 // Chain keyframes: end the previous zoom segment and start a new one.
                  const startSec = Math.max(0, currentZoomStartMs / 1000 - 0.2);
                  const durationSec = (point.timeMs - currentZoomStartMs) / 1000;
                  const zoomLvl = Math.min(2.0, 1.25 + (clusterCount - 1) * 0.25);
@@ -352,11 +352,12 @@ function MainApp() {
       const webLLMPreinitialized = localStorage.getItem('webllm_preinitialized') === 'true';
       const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
 
-      // Only init WebLLM if enabled specifically in settings AND (cached OR pre-initialized)
+      // Only init WebLLM if enabled specifically in settings AND cached
+      // For first-time setup, wait for user to select model via UnifiedInitModal
       if (settings?.useWebLLM) {
         const model = settings.webLlmModel || DEFAULT_WEB_LLM_MODEL_ID;
 
-        if (cached.webllm) {
+        if (cached.webllm && model) {
           // Already cached, initialize with loading modal
           setIsWebLLMLoadingOpen(true);
           initWebLLM(model, (progress) => console.log('WebLLM Init:', progress))
@@ -365,13 +366,6 @@ function MainApp() {
               console.error(e);
               setIsWebLLMLoadingOpen(false);
             });
-        } else if (!webLLMPreinitialized && !hideSetupModal) {
-          // First time using WebLLM - show initialization modal
-          // This ensures users see the progress and understand it's a one-time process
-          setIsWebLLMInitModalOpen(true);
-
-          // Start initialization with progress tracking
-          initWebLLM(model, (progress) => console.log('WebLLM Pre-Init:', progress)).catch(console.error);
         }
       }
 
@@ -412,11 +406,12 @@ function MainApp() {
           if (pref.downloadFFmpeg && !cached.ffmpeg) renderer.load().catch(console.error);
 
           // Initialize WebLLM after TTS completes
+          // Note: Model selection will happen via UnifiedInitModal callback
           if (pref.enableWebLLM && !cached.webllm) {
+            // WebLLM initialization deferred to model selection via UnifiedInitModal
+            // Just ensure the preference is saved
             const model = settings?.webLlmModel || DEFAULT_WEB_LLM_MODEL_ID;
-            initWebLLM(model, () => {
-              // console.log('WebLLM Loading:', p);
-            }).catch(console.error);
+            await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: model });
           }
         } catch (e) {
           console.error("Invalid startup pref", e);
@@ -490,13 +485,10 @@ function MainApp() {
         return;
       }
 
-      // Enable WebLLM in settings with the default Gemma model.
-      // Fall back to the f32 variant when the GPU does not support f16 shaders.
+      // Enable WebLLM in settings without starting initialization
+      // Model selection and initialization will happen via UnifiedInitModal
       const defaultModel = getDefaultWebLlmModel(webgpuStatus.hasF16);
       await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: defaultModel });
-
-      // Start initialization
-      initWebLLM(defaultModel, (progress) => console.log('WebLLM Init:', progress)).catch(console.error);
     }
   };
 
@@ -529,6 +521,28 @@ function MainApp() {
       setSlides([]);
       setActiveTab('edit');
       setMusicSettings({ volume: 0.36 }); // Reset music settings on start over
+    }
+  };
+
+  const handleWebLLMModelSelect = async (modelId: string) => {
+    try {
+      // Save selected model to settings
+      await handlePartialGlobalSettings({ webLlmModel: modelId });
+      
+      // Initialize WebLLM with the selected model
+      initWebLLM(modelId, (progress) => console.log('WebLLM Init:', progress)).catch((error) => {
+        console.error('Failed to initialize WebLLM:', error);
+        showAlert(`Failed to initialize WebLLM: ${error instanceof Error ? error.message : String(error)}`, { 
+          type: 'error', 
+          title: 'WebLLM Initialization Failed' 
+        });
+      });
+    } catch (error) {
+      console.error('Error handling WebLLM model selection:', error);
+      showAlert(`Error selecting WebLLM model: ${error instanceof Error ? error.message : String(error)}`, { 
+        type: 'error', 
+        title: 'Model Selection Failed' 
+      });
     }
   };
 
@@ -1600,6 +1614,7 @@ function MainApp() {
           isOpen={isWebLLMInitModalOpen}
           resources={preinstalledResources}
           activeResources={activeDownloads}
+          onWebLLMModelSelect={handleWebLLMModelSelect}
           onComplete={() => {
             setIsWebLLMInitModalOpen(false);
             // Mark WebLLM as pre-initialized so we don't show this again
@@ -1624,7 +1639,7 @@ function MainApp() {
 
       {/* Floating Recording Indicator/Stop Button */}
       {isRecording && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 fade-in duration-300">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-100 animate-in slide-in-from-top-4 fade-in duration-300">
           <div className="flex items-center gap-4 px-6 py-3 bg-red-500/20 backdrop-blur-xl border border-red-500/50 rounded-full shadow-2xl shadow-red-500/20">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />

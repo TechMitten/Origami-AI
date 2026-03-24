@@ -15,14 +15,24 @@
       main {
         padding: 16px;
       }
-      .badge {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 700;
-        background: rgba(34, 197, 94, 0.16);
-        color: #bbf7d0;
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .header img {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        flex: 0 0 auto;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
+        color: #f8fafc;
+        letter-spacing: 0.01em;
       }
       p {
         margin: 12px 0 0;
@@ -38,7 +48,10 @@
   </head>
   <body>
     <main>
-      <div class="badge">Installed</div>
+      <div class="header">
+        <img src="favicon-32x32.png" alt="Origami" />
+        <h1>Origami Helper</h1>
+      </div>
       <p>Open the Origami AI app, start a screen recording, then switch to the browser tab you want to capture.</p>
       <p>This extension will stream browser-tab cursor, click, keypress, and scroll telemetry back to the app so it can generate zoom, pan, and follow effects from real in-page activity.</p>
       <p>Browser pages only. Native apps and the OS still require visual capture without DOM-level telemetry.</p>

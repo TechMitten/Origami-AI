@@ -55,8 +55,6 @@ export function useScreenRecorder() {
         surfaceSwitching?: 'include' | 'exclude';
         monitorTypeSurfaces?: 'include' | 'exclude';
       } = {
-        // Do not force a browser-only surface or bias toward the current tab.
-        // Let Chrome present the normal picker for any tab, window, or screen.
         video: {
           frameRate: { ideal: 30, max: 60 },
           width: { ideal: 1920 },
@@ -99,6 +97,7 @@ export function useScreenRecorder() {
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
       cursorDataRef.current = [];
+      interactionDataRef.current = [];
       startTimeRef.current = performance.now();
 
       mediaRecorder.ondataavailable = (e) => {
@@ -180,9 +179,6 @@ export function useScreenRecorder() {
         window.removeEventListener('wheel', handleInteractionWheel, { capture: true } as EventListenerOptions);
       };
 
-      mediaRecorder.start(100);
-      setIsRecording(true);
-
       try {
         await startBrowserExtensionSession();
         extensionSessionActiveRef.current = true;
@@ -190,6 +186,9 @@ export function useScreenRecorder() {
         extensionSessionActiveRef.current = false;
         console.info('Origami Chrome extension not available; using local interaction tracking only.', error);
       }
+
+      mediaRecorder.start(100);
+      setIsRecording(true);
     } catch (err) {
       await stopExtensionSessionSafely();
       console.error('Failed to start recording:', err);
@@ -210,24 +209,23 @@ export function useScreenRecorder() {
         setIsRecording(false);
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
         const extensionData = await stopExtensionSessionSafely();
-        const useExtensionData = !!extensionData && (
-          extensionData.cursorData.length > 0 || extensionData.interactionData.length > 0
-        );
-         
+        const resolvedCursorData = extensionData?.cursorData?.length
+          ? extensionData.cursorData
+          : [...cursorDataRef.current];
+        const resolvedInteractionData = extensionData?.interactionData?.length
+          ? extensionData.interactionData
+          : [...interactionDataRef.current];
+        
         // Cleanup tracks
         streamRef.current?.getTracks().forEach(track => track.stop());
         streamRef.current = null;
-         
+        
         resolve({
           blob,
-          cursorData: useExtensionData
-            ? extensionData.cursorData
-            : [...cursorDataRef.current],
-          interactionData: useExtensionData
-            ? extensionData.interactionData
-            : [...interactionDataRef.current]
+          cursorData: resolvedCursorData,
+          interactionData: resolvedInteractionData
         });
-         
+        
         recorder.removeEventListener('stop', handleStop);
       };
 
