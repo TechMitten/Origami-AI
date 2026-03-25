@@ -2595,7 +2595,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
               <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
               <Wrench className="w-5 h-5 text-branding-primary" />
-              Tool Box
+              Tools & Config
             </h2>
             <p className="text-sm text-white/70 font-medium pl-4.5">
               Manage {slides.length} slides, voice settings, and audio generation
@@ -2665,6 +2665,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 shrink-0">
                     <div className="space-y-2">
                       <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                        <Mic className="w-6 h-6" />
                         Voice Configuration
                       </h3>
                       <p className="text-base text-white/50 leading-relaxed">Choose the narrator voice for all slides.</p>
@@ -2699,6 +2700,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 <div className="max-w-7xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="shrink-0 space-y-2">
                     <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                      <Music className="w-6 h-6" />
                       Audio Mixing
                     </h3>
                     <p className="text-base text-white/50">Control global volume levels and background music.</p>
@@ -2708,7 +2710,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <div className="flex flex-col gap-8 h-full">
                       {/* TTS Volume */}
                       <div className="flex-1 space-y-4 p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
-                        <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-3">
+                        <label className="text-xs font-bold text-white/60 uppercase tracking-widest flex items-center gap-3">
                           <Speech className="w-4 h-4" /> Narrator Volume
                         </label>
                         <div className="space-y-4">
@@ -2733,7 +2735,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                       {/* Global Delay */}
                       <div className="flex-1 space-y-4 p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
-                        <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-3">
+                        <label className="text-xs font-bold text-white/60 uppercase tracking-widest flex items-center gap-3">
                           <Clock className="w-4 h-4" /> Slide Pacing
                         </label>
                         <div className="space-y-4">
@@ -2763,7 +2765,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     {/* Background Music */}
                     <div className="h-full space-y-4 p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
                       <div className="flex items-center justify-between shrink-0 mb-4">
-                        <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-3">
+                        <label className="text-xs font-bold text-white/60 uppercase tracking-widest flex items-center gap-3">
                           <Music className="w-4 h-4" /> Background Music
                         </label>
                         {musicSettings.url && (
@@ -2778,7 +2780,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                         {/* Volume Control - ALWAYS VISIBLE */}
                         <div className="space-y-4" title="Adjust background music volume">
-                          <div className="flex justify-between items-center text-xs font-bold text-white/40 uppercase">
+                          <div className="flex justify-between items-center text-xs font-bold text-white/60 uppercase">
                             <span>Music Volume</span>
                             <span>{Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%</span>
                           </div>

@@ -41,6 +41,7 @@ interface UseScreenRecorderOptions {
   onRecordingComplete?: (result: ScreenRecordResult) => void | Promise<void>;
   onRecordingError?: (error: Error) => void;
   onRecordingPending?: () => void;
+  onExtensionUnavailable?: () => void | Promise<void>;
 }
 
 function normalizeError(error: unknown): Error {
@@ -52,7 +53,7 @@ function isExtensionUnavailableError(error: Error): boolean {
 }
 
 export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
-  const { onRecordingComplete, onRecordingError, onRecordingPending } = options;
+  const { onRecordingComplete, onRecordingError, onRecordingPending, onExtensionUnavailable } = options;
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -391,28 +392,13 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
           throw normalizedError;
         }
 
-        console.info('Origami Chrome extension not available; falling back to browser-native screen capture.', normalizedError);
+        console.info('Origami Chrome extension not available.', normalizedError);
 
-        const displayMediaOptions: DisplayMediaStreamOptions & {
-          preferCurrentTab?: boolean;
-          selfBrowserSurface?: 'include' | 'exclude';
-          surfaceSwitching?: 'include' | 'exclude';
-          monitorTypeSurfaces?: 'include' | 'exclude';
-        } = {
-          video: {
-            frameRate: { ideal: 30, max: 60 },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-          audio: true,
-          preferCurrentTab: false,
-          selfBrowserSurface: 'include',
-          surfaceSwitching: 'include',
-          monitorTypeSurfaces: 'include',
-        };
+        // Trigger the extension unavailable callback instead of falling back
+        await onExtensionUnavailable?.();
 
-        displayStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
-        extensionSessionActiveRef.current = false;
+        // Throw an error to stop the recording process
+        throw new Error('Browser extension not available. Please install the Origami extension to enable screen recording.');
       }
 
       if (extensionSessionActiveRef.current) {

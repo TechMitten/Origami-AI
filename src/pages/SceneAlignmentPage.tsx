@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Clapperboard, Code2, Loader2, Sparkles, Check, X, Play, Pause, SkipBack, SkipForward, Maximize, ChevronUp, ChevronDown } from 'lucide-react';
-import backgroundImage from '../assets/images/background.png';
+import backgroundImage from '../assets/images/background.jpg';
 import type { SlideData, VideoNarrationSceneTrack, VideoNarrationAnalysisData } from '../components/SlideEditor';
 import { useVideoSceneSync } from '../hooks/useVideoSceneSync';
 

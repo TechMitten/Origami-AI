@@ -13,9 +13,11 @@ function cn(...inputs: ClassValue[]) {
 
 interface PDFUploaderProps {
   onUploadComplete: (pages: RenderedPage[]) => void;
+  onImportProject?: () => void;
+  onStartScreenRecord?: () => void;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onImportProject, onStartScreenRecord }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,6 +207,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
 
         {/* Record Screen Option */}
         <div
+          onClick={onStartScreenRecord}
           className={cn(
             "relative group cursor-pointer transition-all duration-200 overflow-hidden",
             "bg-[#0F1115] border border-white/10",
@@ -237,7 +240,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
               "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
               "bg-white/5 text-white/40 border-white/10 group-hover:bg-purple-500/5 group-hover:text-purple-400 group-hover:border-purple-500/20"
             )}>
-              Coming Soon
+              Start Recording
             </div>
           </div>
 
@@ -247,6 +250,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
 
         {/* Import Option */}
         <div
+          onClick={onImportProject}
           className={cn(
             "relative group cursor-pointer transition-all duration-200 overflow-hidden",
             "bg-[#0F1115] border border-white/10",
@@ -279,7 +283,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
               "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
               "bg-white/5 text-white/40 border-white/10 group-hover:bg-emerald-500/5 group-hover:text-emerald-400 group-hover:border-emerald-500/20"
             )}>
-              Coming Soon
+              Import .origami File
             </div>
           </div>
 

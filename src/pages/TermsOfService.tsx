@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileText, User, Shield, AlertTriangle, Eye, Ban, Share2, Building2, Scale } from 'lucide-react';
 import { Footer } from '../components/Footer';
-import backgroundImage from '../assets/images/background.png';
+import backgroundImage from '../assets/images/background.jpg';
 import appLogo from '../assets/images/app-logo2.png';
 
 export const TermsOfService: React.FC = () => {

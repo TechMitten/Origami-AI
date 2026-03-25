@@ -279,6 +279,36 @@ function MainApp() {
         { type: 'info', title: 'Ready To Record' }
       );
     },
+    onExtensionUnavailable: async () => {
+      const shouldRetry = await showConfirm(
+        <div className="space-y-3">
+          <p className="text-white/80">
+            The Origami browser extension was not detected. Screen recording requires the extension to be installed and enabled.
+          </p>
+          <div className="bg-white/5 rounded-lg p-3 space-y-2">
+            <p className="text-sm font-semibold text-white/90">To enable screen recording:</p>
+            <ol className="text-sm text-white/70 space-y-1 list-decimal list-inside">
+              <li>Install the Origami extension from the Chrome Web Store</li>
+              <li>Make sure the extension is enabled in your browser</li>
+              <li>Refresh this page and try again</li>
+            </ol>
+          </div>
+          <p className="text-xs text-white/60">
+            The extension enables enhanced screen recording with cursor tracking and interaction detection.
+          </p>
+        </div>,
+        {
+          type: 'warning',
+          title: 'Extension Not Detected',
+          confirmText: 'Refresh Page',
+          cancelText: 'Cancel'
+        }
+      );
+
+      if (shouldRetry) {
+        window.location.reload();
+      }
+    },
   });
 
   const handleStartScreenRecord = async () => {
@@ -1452,21 +1482,7 @@ function MainApp() {
       <main className={`mx-auto fade-transition ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`} key={activeTab}>
         {slides.length === 0 ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
-            <PDFUploader onUploadComplete={onUploadComplete} />
-            <div className="flex gap-4 mt-6">
-              <button
-                onClick={handleImportProjectClick}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 bg-white/5 text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 transition-colors shadow-lg"
-              >
-                <Upload className="w-4 h-4" /> Import .origami Project
-              </button>
-              <button
-                onClick={handleStartScreenRecord}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-branding-primary/30 bg-branding-primary/10 text-sm font-semibold text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/50 transition-colors shadow-lg shadow-branding-primary/10"
-              >
-                <Video className="w-4 h-4" /> Record Screen
-              </button>
-            </div>
+            <PDFUploader onUploadComplete={onUploadComplete} onImportProject={handleImportProjectClick} onStartScreenRecord={handleStartScreenRecord} />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
                 Checking for saved session...
