@@ -172,7 +172,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
     if (resourceStatus === 'downloading' || resourceStatus === 'loading' || resourceStatus === 'initializing') {
       return <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />;
     }
-    return <Download className="w-5 h-5 text-white/40" />;
+    return <Download className="w-5 h-5 text-white/30" />;
   };
 
   const getProgressPercent = () => {
@@ -180,34 +180,36 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="my-4 sm:my-0 bg-linear-to-b from-gray-900 to-gray-950 rounded-2xl border border-purple-500/30 shadow-2xl max-h-[90dvh] overflow-y-auto"
-        style={{ width: 'min(100%, clamp(320px, 90vw, 42rem))' }}>
+    <div className="fixed inset-0 z-50 flex sm:items-center items-start justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+      <div className="my-4 sm:my-0 bg-[#0F1115] rounded-lg border border-white/10 shadow-2xl max-h-[90dvh] overflow-y-auto"
+        style={{
+          width: 'min(100%, clamp(320px, 90vw, 42rem))',
+          fontFamily: '"Roboto", "Inter", system-ui, -apple-system, sans-serif',
+        }}>
         {/* Header */}
-        <div className="relative px-8 py-7 bg-linear-to-r from-purple-500/10 to-blue-500/10 border-b border-white/5">
+        <div className="relative px-6 py-5 border-b border-white/10">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full" />
-              <Download className="relative w-12 h-12 text-emerald-400" />
+              <img src="/favicon-32x32.png" alt="Origami" className="w-10 h-10" />
             </div>
             <div className="flex-1">
-              <h2 className="text-3xl font-bold text-white">
-                {allReady ? 'Setup Complete!' : 'One-time Setup'}
+              <h2 className="text-xl sm:text-2xl font-semibold text-white">
+                {allReady ? 'Setup Complete!' : 'Initial Setup'}
               </h2>
-              <p className="text-base text-white font-semibold mt-1.5">
+              <p className="text-sm text-white/60 mt-1">
                 {allReady ? 'Everything is ready to use' : 'Downloading and initializing local resources'}
               </p>
             </div>
             {allReady && (
-              <CheckCircle2 className="w-12 h-12 text-emerald-400 animate-in zoom-in duration-300" />
+              <CheckCircle2 className="w-10 h-10 text-emerald-400" />
             )}
           </div>
         </div>
 
         {/* Content */}
-        <div className="px-8 py-7 space-y-5">
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
-            <p className="text-base text-white leading-relaxed">
+        <div className="px-6 py-5 space-y-4">
+          <div className="bg-blue-500/5 border border-blue-500/10 p-4" style={{ borderRadius: '6px' }}>
+            <p className="text-sm text-white/80 leading-relaxed">
               {allReady ? (
                 <>All resources have been successfully initialized! You can now use all features completely offline.</>
               ) : (
@@ -220,26 +222,26 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
           </div>
 
           {/* Resource List */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* TTS */}
-            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10" style={{ borderRadius: '6px' }}>
               {getStatusIcon(status.tts)}
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-white font-semibold">Voice Narration (TTS)</span>
+                  <span className="text-white font-medium text-sm">Voice Narration (TTS)</span>
                   {status.tts === 'ready' && (
-                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider">Ready</span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 border border-emerald-500/20 font-medium">Ready</span>
                   )}
                 </div>
                 {ttsProgress && status.tts === 'downloading' && (
                   <div className="mt-2">
-                    <div className="flex items-center justify-between text-xs text-white/70 mb-1">
+                    <div className="flex items-center justify-between text-xs text-white/60 mb-1">
                       <span className="font-mono truncate">{ttsProgress.file}</span>
                       <span className="font-mono">{Math.round(ttsProgress.percent)}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                    <div className="w-full h-1 bg-black/40 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-cyan-400 transition-all duration-300"
+                        className="h-full bg-blue-400 transition-all duration-300"
                         style={{ width: `${Math.round(ttsProgress.percent)}%` }}
                       />
                     </div>
@@ -249,44 +251,45 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
             </div>
 
             {/* FFmpeg */}
-            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10" style={{ borderRadius: '6px' }}>
               {getStatusIcon(status.ffmpeg)}
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-white font-semibold">Video Creator (FFmpeg)</span>
+                  <span className="text-white font-medium text-sm">Video Creator (FFmpeg)</span>
                   {status.ffmpeg === 'ready' && (
-                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider">Ready</span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 border border-emerald-500/20 font-medium">Ready</span>
                   )}
                 </div>
                 {ffmpegStatus && status.ffmpeg === 'loading' && (
-                  <p className="text-xs text-white/70 mt-1 font-mono">{ffmpegStatus}</p>
+                  <p className="text-xs text-white/60 mt-1 font-mono">{ffmpegStatus}</p>
                 )}
               </div>
             </div>
 
             {/* WebLLM */}
-            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10" style={{ borderRadius: '6px' }}>
               {getStatusIcon(status.webllm)}
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-white font-semibold">AI Writing Assistant (WebLLM)</span>
+                  <span className="text-white font-medium text-sm">AI Writing Assistant (WebLLM)</span>
                   {status.webllm === 'ready' && (
-                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 uppercase tracking-wider">Ready</span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 border border-emerald-500/20 font-medium">Ready</span>
                   )}
                 </div>
                 {showModelSelector && !selectedModel ? (
                   <div className="mt-3 space-y-2">
-                    <p className="text-xs text-white/70 mb-2">Select a model to download:</p>
+                    <p className="text-xs text-white/60 mb-2">Select a model to download:</p>
                     <div className="max-h-48 overflow-y-auto space-y-1.5">
                       {AVAILABLE_WEB_LLM_MODELS.map((model) => (
                         <div
                           key={model.id}
                           onClick={() => handleModelSelect(model.id)}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded border border-white/10 cursor-pointer transition-all group"
+                          className="p-2 bg-white/10 hover:bg-white/15 border border-white/10 cursor-pointer transition-all group"
+                          style={{ borderRadius: '4px' }}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-white group-hover:text-purple-300 transition-colors truncate">
+                              <p className="text-xs font-medium text-white group-hover:text-blue-300 transition-colors truncate">
                                 {model.name} ({model.precision})
                               </p>
                               <p className="text-xs text-white/50">{model.size} • {model.vram_required_MB}MB VRAM</p>
@@ -313,17 +316,17 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                   </div>
                 ) : selectedModel ? (
                   <div className="mt-2">
-                    <p className="text-xs text-white/70 mb-2">
+                    <p className="text-xs text-white/60 mb-2">
                       Selected: <span className="text-white font-medium">{getModelDetails(selectedModel)?.name} ({getModelDetails(selectedModel)?.precision})</span>
                     </p>
                     {status.webllm === 'initializing' && (
                       <>
-                        <div className="flex items-center justify-end text-xs text-white/70 mb-1">
+                        <div className="flex items-center justify-end text-xs text-white/60 mb-1">
                           <span className="font-mono">{getProgressPercent()}%</span>
                         </div>
-                        <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                        <div className="w-full h-1 bg-black/40 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-cyan-400 transition-all duration-300"
+                            className="h-full bg-blue-400 transition-all duration-300"
                             style={{ width: `${getProgressPercent()}%` }}
                           />
                         </div>
@@ -331,7 +334,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-xs text-white/70">
+                  <div className="flex items-center gap-2 text-xs text-white/60">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     <span className="font-mono">Initializing...</span>
                   </div>
@@ -342,8 +345,8 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 bg-white/5 border-t border-white/5">
-          <p className="text-sm text-white text-center leading-relaxed">
+        <div className="px-6 py-4 bg-white/[0.02] border-t border-white/10">
+          <p className="text-xs text-white/60 text-center leading-relaxed">
             {allReady ? (
               <>This window will close automatically...</>
             ) : (
