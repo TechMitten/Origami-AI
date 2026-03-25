@@ -1,4 +1,4 @@
-import { generateWebLLMResponse, isWebLLMLoaded } from './webLlmService';
+import { ensureWebLLMReady, generateWebLLMResponse, getCurrentWebLLMModel, isWebLLMLoaded } from './webLlmService';
 
 export interface LLMSettings {
   apiKey: string;
@@ -789,9 +789,8 @@ STRICT CONSTRAINTS:
       throw new Error("WebLLM is enabled but no model is selected.");
     }
 
-    // Check if WebLLM is already initialized (it should be from the setup modal)
-    if (!isWebLLMLoaded()) {
-      throw new Error("WebLLM is not initialized. Please load a model in Settings (WebLLM tab) first.");
+    if (!isWebLLMLoaded() || getCurrentWebLLMModel() !== settings.webLlmModel) {
+      await ensureWebLLMReady(settings.webLlmModel);
     }
 
     try {

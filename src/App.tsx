@@ -70,6 +70,7 @@ function MainApp() {
   const [renderAbortController, setRenderAbortController] = useState<AbortController | null>(null);
   const [renderProgress, setRenderProgress] = useState<number>(0);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const skipNextAutoSaveRef = useRef(false);
 
   const handleScreenRecordFinalizeError = React.useCallback((error: Error) => {
     console.error('Failed to save screen recording.', error);
@@ -413,6 +414,18 @@ function MainApp() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleWebLLMDeviceLost = (event: Event) => {
+      const detail = (event as CustomEvent<{ message: string }>).detail;
+      showAlert(detail.message, { type: 'warning', title: 'WebLLM GPU Device Lost' });
+    };
+
+    webLlmEvents.addEventListener('webllm-device-lost', handleWebLLMDeviceLost);
+    return () => {
+      webLlmEvents.removeEventListener('webllm-device-lost', handleWebLLMDeviceLost);
+    };
+  }, [showAlert]);
+
   // Load state on mount
   React.useEffect(() => {
     const load = async () => {
@@ -421,6 +434,7 @@ function MainApp() {
       setGlobalSettings(settings);
 
       if (state && state.slides.length > 0) {
+        skipNextAutoSaveRef.current = true;
         setSlides(state.slides.map(enforceTtsEnabled));
       }
 
@@ -445,20 +459,9 @@ function MainApp() {
 
       // Only init WebLLM if enabled specifically in settings AND cached
       // For first-time setup, wait for user to select model via UnifiedInitModal
-      if (settings?.useWebLLM) {
-        const model = settings.webLlmModel || DEFAULT_WEB_LLM_MODEL_ID;
-
-        if (cached.webllm && model) {
-          // Already cached, initialize with loading modal
-          setIsWebLLMLoadingOpen(true);
-          initWebLLM(model, (progress) => console.log('WebLLM Init:', progress))
-            .then(() => setIsWebLLMLoadingOpen(false))
-            .catch((e) => {
-              console.error(e);
-              setIsWebLLMLoadingOpen(false);
-            });
-        }
-      }
+      // Do not eagerly initialize WebLLM on startup.
+      // Keeping a large GPU model resident while restoring projects and preparing render
+      // resources has caused tab instability on some systems. WebLLM is initialized on demand.
 
       // Check startup preferences
       const storedPref = localStorage.getItem('startup_resource_pref');
@@ -594,6 +597,11 @@ function MainApp() {
     }
 
     if (isRestoring || slides.length === 0) return;
+
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false;
+      return;
+    }
 
     const timeoutId = setTimeout(() => {
       saveState(slides, musicSettings);

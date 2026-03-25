@@ -9,6 +9,11 @@ export interface ModelInfo {
     precision: 'f16' | 'f32';
 }
 
+export interface WebLLMDeviceLostDetail {
+    modelId: string | null;
+    message: string;
+}
+
 export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
 export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
 
@@ -123,16 +128,55 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
 let engine: MLCEngine | null = null;
 let currentModelId: string | null = null;
 let pendingInitPromise: Promise<MLCEngine> | null = null;
+let pendingModelId: string | null = null;
 
 
 export const webLlmEvents = new EventTarget();
 
-export const unloadWebLLM = async () => {
-    if (engine) {
+const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    return String(error);
+};
+
+const isWebLLMDeviceLostError = (error: unknown): boolean => {
+    const message = getErrorMessage(error).toLowerCase();
+    return message.includes('device was lost')
+        || message.includes('gpudevicelostinfo')
+        || message.includes('valid external instance reference no longer exists')
+        || message.includes('operationerror');
+};
+
+const tearDownWebLLMEngine = async () => {
+    if (!engine) {
+        currentModelId = null;
+        return;
+    }
+
+    try {
         await engine.unload();
+    } catch {
+        // Ignore unload errors; the engine may already be in a bad state.
+    } finally {
         engine = null;
         currentModelId = null;
     }
+};
+
+const handleWebLLMDeviceLost = async (error: unknown): Promise<Error> => {
+    const originalMessage = getErrorMessage(error);
+    const modelId = currentModelId;
+    await tearDownWebLLMEngine();
+
+    const message = `WebLLM lost access to the GPU device and was unloaded. Reload WebLLM with a smaller model, or close other GPU-heavy features before trying again. Original error: ${originalMessage}`;
+    webLlmEvents.dispatchEvent(new CustomEvent<WebLLMDeviceLostDetail>('webllm-device-lost', {
+        detail: { modelId, message }
+    }));
+
+    return new Error(message);
+};
+
+export const unloadWebLLM = async () => {
+    await tearDownWebLLMEngine();
 };
 
 export const initWebLLM = async (
@@ -145,7 +189,7 @@ export const initWebLLM = async (
     }
 
     // If an initialization is already in progress for the same model, return that promise
-    if (pendingInitPromise && currentModelId === modelId) {
+    if (pendingInitPromise && pendingModelId === modelId) {
         return pendingInitPromise;
     }
 
@@ -153,6 +197,7 @@ export const initWebLLM = async (
     await patchWebGPU();
 
     // Start a new initialization
+    pendingModelId = modelId;
     pendingInitPromise = (async () => {
         try {
             if (engine) {
@@ -186,16 +231,28 @@ export const initWebLLM = async (
             return engine;
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);
+            if (isWebLLMDeviceLostError(error)) {
+                throw await handleWebLLMDeviceLost(error);
+            }
             engine = null;
             currentModelId = null;
             throw error;
         } finally {
             // Clear the pending promise so future calls can start fresh if needed
             pendingInitPromise = null;
+            pendingModelId = null;
         }
     })();
 
     return pendingInitPromise;
+};
+
+export const ensureWebLLMReady = async (modelId: string): Promise<MLCEngine> => {
+    if (engine && currentModelId === modelId) {
+        return engine;
+    }
+
+    return initWebLLM(modelId, () => { });
 };
 
 export const getWebLLMEngine = () => engine;
@@ -231,6 +288,10 @@ export const generateWebLLMResponse = async (
         return reply.choices[0].message.content || "";
     } catch (error) {
         console.error("WebLLM Generation Error:", error);
+
+        if (isWebLLMDeviceLostError(error)) {
+            throw await handleWebLLMDeviceLost(error);
+        }
 
         // BindingError: "Expected null or instance of VectorInt, got an instance of VectorInt"
         // This is a WASM cross-realm memory corruption that happens when the engine's internal
@@ -268,3 +329,4 @@ export const generateWebLLMResponse = async (
 
 export const isWebLLMLoaded = () => !!engine;
 export const getCurrentWebLLMModel = () => currentModelId;
+export const isWebLLMInitializing = () => !!pendingInitPromise;

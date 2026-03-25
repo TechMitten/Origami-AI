@@ -25,7 +25,6 @@ import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 
 import { transformText } from '../services/aiService';
-import { isWebLLMLoaded } from '../services/webLlmService';
 import { Dropdown } from './Dropdown';
 import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
@@ -2091,14 +2090,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (useWebLLM && !webLlmModel) {
       showAlert('Please select and load a WebLLM model in Settings (WebLLM tab) to use this feature.', { type: 'warning', title: 'WebLLM Not Configured' });
       return;
-    }
-
-    // Check if WebLLM is actually loaded (not just configured)
-    if (useWebLLM && webLlmModel) {
-      if (!isWebLLMLoaded()) {
-        showAlert('WebLLM model is not loaded. Please initialize it in Settings (WebLLM tab) first.', { type: 'warning', title: 'WebLLM Not Ready' });
-        return;
-      }
     }
 
     if (!await showConfirm(`This will sequentially update ${eligibleSlideIndexes.length} eligible slide script(s) using AI. Slide Media video slides are excluded. Continue?`, { title: 'Batch AI Fix', confirmText: 'Start Processing' })) {
