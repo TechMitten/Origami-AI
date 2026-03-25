@@ -91,6 +91,7 @@ export interface SlideData extends Partial<RenderedPage> {
   id: string;
   type: 'image' | 'video';
   mediaUrl?: string;
+  mediaMimeType?: string;
   mediaDuration?: number;
   isVideoMusicPaused?: boolean;
   script: string;
@@ -1662,6 +1663,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         id: crypto.randomUUID(),
         type: 'video',
         mediaUrl: isVideo ? url : undefined,
+        mediaMimeType: isVideo ? file.type : (isGif ? file.type : undefined),
         script: '', // Default empty script
         transition: 'fade',
         voice: AVAILABLE_VOICES[0].id,

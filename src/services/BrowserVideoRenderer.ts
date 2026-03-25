@@ -5,6 +5,7 @@ import { easingFunctions, type EasingType } from '../utils/easingFunctions';
 interface Slide {
   dataUrl?: string;
   mediaUrl?: string;
+  mediaMimeType?: string;
   audioUrl?: string;
   duration?: number;
   mediaDuration?: number;
@@ -97,6 +98,9 @@ interface PreparedImageSlide {
   transition: NonNullable<Slide['transition']>;
   canvas: HTMLCanvasElement | null;
   viewports: ViewportState[];
+  video?: HTMLVideoElement;
+  videoCanvas?: HTMLCanvasElement;
+  videoContext?: CanvasRenderingContext2D;
 }
 
 interface TimelineItem {
@@ -111,10 +115,35 @@ export class BrowserVideoRenderer {
   private aborted: boolean = false;
   private loadPromise: Promise<void> | null = null;
 
-  private getSafeMediaExtension(mediaUrl: string, slideType?: Slide['type']): string {
+  private getExtensionFromMimeType(mimeType?: string, slideType?: Slide['type']): string | null {
+    if (!mimeType) {
+      return null;
+    }
+
+    const normalized = mimeType.toLowerCase();
+    if (normalized.includes('webm')) return 'webm';
+    if (normalized.includes('mp4')) return 'mp4';
+    if (normalized.includes('quicktime')) return 'mov';
+    if (normalized.includes('x-matroska')) return 'mkv';
+    if (normalized.includes('mpeg')) return slideType === 'video' ? 'mp4' : 'mp3';
+    if (normalized.includes('ogg')) return 'ogg';
+    if (normalized.includes('gif')) return 'gif';
+    if (normalized.includes('webp')) return 'webp';
+    if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'jpg';
+    if (normalized.includes('png')) return 'png';
+
+    return null;
+  }
+
+  private getSafeMediaExtension(mediaUrl: string, mediaMimeType?: string, slideType?: Slide['type']): string {
     // blob: URLs and URLs with query strings can produce invalid virtual paths in FFmpeg FS.
     // Keep only a small whitelist of safe extensions and fall back by slide type.
     const fallback = slideType === 'video' ? 'mp4' : 'png';
+
+    const mimeExt = this.getExtensionFromMimeType(mediaMimeType, slideType);
+    if (mimeExt) {
+      return mimeExt;
+    }
 
     try {
       const parsed = new URL(mediaUrl, window.location.href);
@@ -249,6 +278,12 @@ export class BrowserVideoRenderer {
 
     return slides.some((slide) => {
       if (slide.type === 'video') {
+        // Allow video slides with common browser-playable formats through WebCodecs
+        const mime = (slide.mediaMimeType || '').toLowerCase();
+        if (mime.includes('webm') || mime.includes('mp4') || mime.includes('quicktime')) {
+          return false;
+        }
+        // Fall back to FFmpeg for unknown/exotic video formats
         return true;
       }
 
@@ -261,7 +296,7 @@ export class BrowserVideoRenderer {
         return true;
       }
 
-      const ext = this.getSafeMediaExtension(visualUrl, slide.type);
+      const ext = this.getSafeMediaExtension(visualUrl, slide.mediaMimeType, slide.type);
       return !['png', 'jpg', 'jpeg', 'webp'].includes(ext);
     });
   }
@@ -459,6 +494,146 @@ export class BrowserVideoRenderer {
     };
   }
 
+  private loadVideoElement(url: string): Promise<HTMLVideoElement> {
+    return new Promise<HTMLVideoElement>((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = 'anonymous';
+      video.src = url;
+
+      const onReady = () => {
+        cleanup();
+        if (video.duration === Infinity || Number.isNaN(video.duration)) {
+          // Force duration resolution for blob URLs
+          video.currentTime = 1e101;
+          video.ondurationchange = () => {
+            video.currentTime = 0;
+            video.onseeked = () => {
+              video.onseeked = null;
+              resolve(video);
+            };
+          };
+        } else {
+          resolve(video);
+        }
+      };
+
+      const onError = () => {
+        cleanup();
+        reject(new Error(`Failed to load video from ${url.substring(0, 60)}`));
+      };
+
+      const cleanup = () => {
+        video.removeEventListener('canplaythrough', onReady);
+        video.removeEventListener('error', onError);
+      };
+
+      video.addEventListener('canplaythrough', onReady, { once: true });
+      video.addEventListener('error', onError, { once: true });
+      video.load();
+    });
+  }
+
+  private seekVideo(video: HTMLVideoElement, timeSeconds: number): Promise<void> {
+    const target = this.clamp(timeSeconds, 0, video.duration || 0);
+    if (Math.abs(video.currentTime - target) < 0.001) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      video.onseeked = () => {
+        video.onseeked = null;
+        resolve();
+      };
+      video.currentTime = target;
+    });
+  }
+
+  private async prepareVideoSlide(
+    slide: Slide,
+    width: number,
+    height: number,
+    fps: number
+  ): Promise<PreparedImageSlide> {
+    const duration = this.getSlideDuration(slide);
+    const videoUrl = slide.mediaUrl ?? slide.dataUrl;
+
+    if (!videoUrl) {
+      // Fallback: treat as a blank image slide
+      return this.prepareImageSlide(slide, width, height, fps);
+    }
+
+    const video = await this.loadVideoElement(videoUrl);
+
+    // Create a staging canvas for blitting video frames
+    const videoCanvas = document.createElement('canvas');
+    videoCanvas.width = width;
+    videoCanvas.height = height;
+    const videoContext = videoCanvas.getContext('2d', { alpha: false });
+    if (!videoContext) {
+      throw new Error('Failed to create video staging canvas for WebCodecs rendering');
+    }
+
+    // Also create the compositing canvas (same as image slides)
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    let activeZooms = slide.zooms ?? [];
+    if (slide.autoZoomConfig?.enabled && slide.cursorTrack && slide.interactionData) {
+      activeZooms = generateAutoZoomKeyframes(
+        activeZooms,
+        slide.cursorTrack,
+        slide.interactionData,
+        Math.floor((slide.duration ?? 5) * 1000),
+        {
+          enabled: true,
+          minIdleDurationMs: slide.autoZoomConfig.minIdleDurationMs ?? 2000,
+          minCursorMovement: slide.autoZoomConfig.minCursorMovement ?? 0.015,
+          zoomOutLevel: slide.autoZoomConfig.zoomOutLevel ?? 1.0,
+          transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 500,
+        }
+      );
+    }
+
+    const frameCount = Math.max(2, Math.ceil(duration * fps) + 2);
+    const viewports: ViewportState[] = [];
+    let currentZoom = 1;
+    let currentX = 0.5;
+    let currentY = 0.5;
+
+    for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+      const timeSeconds = Math.min(duration, frameIndex / fps);
+      const target = this.getZoomTargetAtTime(slide, activeZooms, timeSeconds, duration);
+
+      currentZoom = Math.max(
+        1,
+        currentZoom + ((target.zoom - currentZoom) * (target.zoom > currentZoom ? target.damping * 2 : target.damping))
+      );
+      currentX += (target.x - currentX) * target.damping;
+      currentY += (target.y - currentY) * target.damping;
+
+      const sourceWidth = width / currentZoom;
+      const sourceHeight = height / currentZoom;
+      const sourceX = this.clamp((currentX * width) - (sourceWidth / 2), 0, width - sourceWidth);
+      const sourceY = this.clamp((currentY * height) - (sourceHeight / 2), 0, height - sourceHeight);
+
+      viewports.push({ sourceX, sourceY, sourceWidth, sourceHeight });
+    }
+
+    return {
+      duration,
+      transition: slide.transition || 'fade',
+      canvas,
+      viewports,
+      video,
+      videoCanvas,
+      videoContext,
+    };
+  }
+
   private drawSlideAtTime(
     context: CanvasRenderingContext2D,
     slide: PreparedImageSlide,
@@ -475,17 +650,20 @@ export class BrowserVideoRenderer {
     context.save();
     context.globalAlpha *= alpha;
 
-    if (!slide.canvas) {
+    if (!slide.canvas && !slide.video) {
       context.fillStyle = 'black';
       context.fillRect(destX, destY, destWidth, destHeight);
       context.restore();
       return;
     }
 
+    // For video slides, use the videoCanvas (updated each frame); for images, use the static canvas
+    const sourceCanvas = slide.video ? slide.videoCanvas! : slide.canvas!;
+
     const frameIndex = this.clamp(Math.floor(localTime * fps), 0, slide.viewports.length - 1);
     const viewport = slide.viewports[frameIndex];
     context.drawImage(
-      slide.canvas,
+      sourceCanvas,
       viewport.sourceX,
       viewport.sourceY,
       viewport.sourceWidth,
@@ -874,12 +1052,33 @@ export class BrowserVideoRenderer {
       context.fillRect(0, 0, width, height);
 
       const localTime = Math.max(0, timeSeconds - timelineItem.start);
+
+      // Update video canvas if the current or previous slide is a video
+      const updateVideoFrame = async (s: PreparedImageSlide, t: number) => {
+        if (s.video && s.videoContext && s.videoCanvas) {
+          const videoDuration = s.video.duration || s.duration;
+          const clampedTime = this.clamp(t, 0, videoDuration);
+          await this.seekVideo(s.video, clampedTime);
+          s.videoContext.fillStyle = 'black';
+          s.videoContext.fillRect(0, 0, width, height);
+          const vw = s.video.videoWidth || width;
+          const vh = s.video.videoHeight || height;
+          const scale = Math.min(width / vw, height / vh);
+          const dw = vw * scale;
+          const dh = vh * scale;
+          s.videoContext.drawImage(s.video, (width - dw) / 2, (height - dh) / 2, dw, dh);
+        }
+      };
+
       const isTransitionFrame = resolvedIndex > 0
         && slide.transition !== 'none'
         && timelineItem.transitionDuration > 0
         && timeSeconds < (timelineItem.start + timelineItem.transitionDuration);
 
       if (isTransitionFrame) {
+        const prevSlide = slides[resolvedIndex - 1];
+        await updateVideoFrame(prevSlide, prevSlide.duration);
+        await updateVideoFrame(slide, localTime);
         const transitionProgress = (timeSeconds - timelineItem.start) / timelineItem.transitionDuration;
         this.drawTransitionFrame(
           context,
@@ -893,6 +1092,7 @@ export class BrowserVideoRenderer {
           height
         );
       } else {
+        await updateVideoFrame(slide, localTime);
         this.drawSlideAtTime(context, slide, localTime, fps, width, height);
       }
 
@@ -1012,6 +1212,7 @@ export class BrowserVideoRenderer {
 
     signal?.addEventListener('abort', abortHandler);
 
+    let preparedSlides: PreparedImageSlide[] = [];
     try {
       const fps = 30;
       const width = resolution === '720p' ? 1280 : 1920;
@@ -1034,7 +1235,11 @@ export class BrowserVideoRenderer {
       }
 
       this.emitProgress(0, 'Preparing WebCodecs render...', onProgress);
-      const preparedSlides = await Promise.all(slides.map((slide) => this.prepareImageSlide(slide, width, height, fps)));
+      preparedSlides = await Promise.all(slides.map((slide) =>
+        slide.type === 'video'
+          ? this.prepareVideoSlide(slide, width, height, fps)
+          : this.prepareImageSlide(slide, width, height, fps)
+      ));
       this.ensureNotAborted(signal);
 
       const { items: timeline, totalDuration } = this.buildTimeline(preparedSlides);
@@ -1065,6 +1270,14 @@ export class BrowserVideoRenderer {
       }
       throw error;
     } finally {
+      // Clean up video elements to release media resources
+      for (const ps of preparedSlides) {
+        if (ps.video) {
+          ps.video.pause();
+          ps.video.removeAttribute('src');
+          ps.video.load();
+        }
+      }
       signal?.removeEventListener('abort', abortHandler);
     }
   }
@@ -1201,7 +1414,7 @@ export class BrowserVideoRenderer {
             throw new Error(`Failed to load image for slide ${i + 1}. Please try re-uploading the PDF. Details: ${(err as Error).message}`);
           }
         } else if (slide.mediaUrl) {
-          const ext = this.getSafeMediaExtension(slide.mediaUrl, slide.type);
+          const ext = this.getSafeMediaExtension(slide.mediaUrl, slide.mediaMimeType, slide.type);
           const fname = `visual_${i}.${ext}`;
           await ffmpeg.writeFile(fname, await fetchFile(slide.mediaUrl));
           cleanupFiles.push(fname);
@@ -1281,7 +1494,9 @@ export class BrowserVideoRenderer {
           );
         }
 
-        // 2. Apply Zooms first - IMPROVED VERSION with easing and better interpolation
+        // 2. Apply Zooms first.
+        // Use a conservative FFmpeg expression set here; the more complex easing expression
+        // path was emitting invalid filter syntax for video slides and breaking exports.
         if (activeZooms && activeZooms.length > 0) {
           const zExprs: string[] = [];
           const xExprs: string[] = [];
@@ -1293,26 +1508,7 @@ export class BrowserVideoRenderer {
               ? (slide.mediaDuration ?? duration)
               : duration
           );
-          
-          // Helper: Generate easing expression for FFmpeg
-          // This creates a smooth transition between zoom keyframes
-          const generateEasingExpr = (easing: string = 'linear'): string => {
-            // FFmpeg expressions for common easing functions
-            // t normalized to 0-1 for the transition duration
-            switch (easing) {
-              case 'easeOutQuad': return '1-pow(1-t,2)';
-              case 'easeInQuad': return 't*t';
-              case 'easeInOutQuad': return 'if(lt(t,0.5),2*t*t,1-pow(-2*t+2,2)/2)';
-              case 'easeOutCubic': return '1-pow(1-t,3)';
-              case 'easeInCubic': return 't*t*t';
-              case 'easeInOutCubic': return 'if(lt(t,0.5),4*t*t*t,1-pow(-2*t+2,3)/2)';
-              case 'easeOutExpo': return 'if(eq(t,1),1,1-pow(2,-10*t))';
-              case 'easeInExpo': return 'if(eq(t,0),0,pow(2,10*t-10))';
-              case 'easeOutElastic': return 'pow(2,-10*t)*sin((t*10-0.75)*6.28/4.5)+1';
-              default: return 't'; // linear
-            }
-          };
-          
+
           for (let zoomIndex = 0; zoomIndex < sortedZooms.length; zoomIndex++) {
             const z = sortedZooms[zoomIndex];
             const t1 = z.timestampStartSeconds;
@@ -1320,39 +1516,30 @@ export class BrowserVideoRenderer {
             const fallbackEnd = t1 + Math.max(z.durationSeconds, 1);
             const naturalEnd = nextZoom ? nextZoom.timestampStartSeconds : Math.max(zoomTimelineEnd, fallbackEnd);
             const t2 = Math.max(t1 + 0.001, naturalEnd);
-            
-            // Zoom with easing transition
-            const easing = z.easing ?? 'linear';
-            const transitionSmoothing = z.transitionSmoothing ?? 0.1;
-            const easingExpr = generateEasingExpr(easing);
-            
-            // Create smooth zoom transition using easing
-            zExprs.push(`if(between(it,${t1},${t2}),${z.zoomLevel}+if(eq(it,${t1}),0,(lt(it,${t1}+0.5)?${easingExpr}*${transitionSmoothing}:${transitionSmoothing}))`);
-             
+
+            zExprs.push(`if(between(it,${t1},${t2}),${z.zoomLevel}`);
+
             let txExpr = `${z.targetX ?? 0.5}`;
             let tyExpr = `${z.targetY ?? 0.5}`;
-             
-            // IMPROVED: Higher cursor sampling rate (20 times per second instead of 4)
-            // This provides much smoother cursor following
+
             if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
               const samplesX: string[] = [];
               const samplesY: string[] = [];
-              const step = 0.05; // 20 samples per second for smooth continuous panning (was 0.25)
+              const step = 0.05;
               const sampleEnd = Math.min(t2, Math.max(zoomTimelineEnd, t1 + step));
-              
-              // Improved cursor interpolation: linear interpolation between cursor points
+
               const getCursorAtTime = (timeSeconds: number) => {
                 const timeMs = timeSeconds * 1000;
                 const trackIndex = slide.cursorTrack.findIndex(c => c.timeMs >= timeMs);
-                
+
                 if (trackIndex === 0) return slide.cursorTrack[0];
                 if (trackIndex === -1) return slide.cursorTrack[slide.cursorTrack.length - 1];
-                
+
                 const before = slide.cursorTrack[trackIndex - 1];
                 const after = slide.cursorTrack[trackIndex];
-                
-                // Linear interpolation between cursor points
-                const progress = (timeMs - before.timeMs) / (after.timeMs - before.timeMs);
+
+                const delta = Math.max(1, after.timeMs - before.timeMs);
+                const progress = (timeMs - before.timeMs) / delta;
                 return {
                   x: before.x + (after.x - before.x) * progress,
                   y: before.y + (after.y - before.y) * progress,
@@ -1368,37 +1555,18 @@ export class BrowserVideoRenderer {
               txExpr = samplesX.join(',') + `,${finalCp.x}` + ')'.repeat(samplesX.length);
               tyExpr = samplesY.join(',') + `,${finalCp.y}` + ')'.repeat(samplesY.length);
             }
-             
+
             xExprs.push(`if(between(it,${t1},${t2}),${txExpr}`);
             yExprs.push(`if(between(it,${t1},${t2}),${tyExpr}`);
           }
-          
+
           const targetZ = zExprs.join(',') + ',1' + ')'.repeat(zExprs.length);
           const targetX = xExprs.join(',') + ',0.5' + ')'.repeat(xExprs.length);
           const targetY = yExprs.join(',') + ',0.5' + ')'.repeat(yExprs.length);
 
-          // IMPROVED: Use configurable damping per keyframe
-          // Get the active zoom at any point to determine damping
-          const dampingExpr = (() => {
-            if (sortedZooms.length === 0) return '0.01';
-            let expr = '';
-            for (let i = 0; i < sortedZooms.length; i++) {
-              const z = sortedZooms[i];
-              const t1 = z.timestampStartSeconds;
-              const nextZoom = sortedZooms[i + 1];
-              const t2 = nextZoom ? nextZoom.timestampStartSeconds : zoomTimelineEnd;
-              const damping = z.cursorDamping ?? 0.01;
-              expr += `if(between(it,${t1},${t2}),${damping},`;
-            }
-            expr += '0.01' + ')'.repeat(sortedZooms.length);
-            return expr;
-          })();
-
-          // Exponential smoothing with zoom-specific damping
-          const zFormula = `max(1, pzoom + (${targetZ} - pzoom)*if(gt(${targetZ},pzoom),${dampingExpr}*2,${dampingExpr}))`;
-          // Panning with configurable damping
-          const xFormula = `px + (((iw - iw/zoom)*${targetX}) - px)*${dampingExpr}`;
-          const yFormula = `py + (((ih - ih/zoom)*${targetY}) - py)*${dampingExpr}`;
+          const zFormula = `max(1, pzoom + (${targetZ} - pzoom)*if(gt(${targetZ},pzoom),0.010,0.005))`;
+          const xFormula = `px + (((iw - iw/zoom)*${targetX}) - px)*0.005`;
+          const yFormula = `py + (((ih - ih/zoom)*${targetY}) - py)*0.005`;
 
           const zoomLabel = `vZoom_${i}`;
           videoFilterParts.push(`[${baseVideoLabel}]zoompan=z='${zFormula}':x='${xFormula}':y='${yFormula}':d=1:s=${VIDEO_WIDTH}x${VIDEO_HEIGHT}:fps=${FPS}[${zoomLabel}]`);
@@ -1614,6 +1782,9 @@ export class BrowserVideoRenderer {
 
       // Read result
       const data = await ffmpeg.readFile('output.mp4');
+      if (!(data instanceof Uint8Array) || data.byteLength === 0) {
+        throw new Error('FFmpeg produced an empty output video.');
+      }
       const blob = new Blob([data as BlobPart], { type: 'video/mp4' });
       return blob;
 
@@ -1659,7 +1830,7 @@ export class BrowserVideoRenderer {
       if (!slide.mediaUrl) throw new Error('Slide has no mediaUrl to process');
 
       // Write input video to FFmpeg FS
-      const ext = this.getSafeMediaExtension(slide.mediaUrl, 'video');
+      const ext = this.getSafeMediaExtension(slide.mediaUrl, slide.mediaMimeType, 'video');
       const inputFile = `clip_input.${ext}`;
       await ffmpeg.writeFile(inputFile, await fetchFile(slide.mediaUrl));
       cleanupFiles.push(inputFile);
@@ -1741,6 +1912,9 @@ export class BrowserVideoRenderer {
       ]);
 
       const data = await ffmpeg.readFile('clip_output.mp4');
+      if (!(data instanceof Uint8Array) || data.byteLength === 0) {
+        throw new Error('FFmpeg produced an empty clip output.');
+      }
       return new Blob([data as BlobPart], { type: 'video/mp4' });
 
     } finally {

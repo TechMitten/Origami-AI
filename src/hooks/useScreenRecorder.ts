@@ -44,6 +44,23 @@ interface UseScreenRecorderOptions {
   onExtensionUnavailable?: () => void | Promise<void>;
 }
 
+function getPreferredRecordingMimeType(): string {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return 'video/webm';
+  }
+
+  const candidates = [
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8',
+    'video/webm;codecs=vp9',
+    'video/webm',
+  ];
+
+  const supported = candidates.find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
+  return supported || 'video/webm';
+}
+
 function normalizeError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
@@ -63,6 +80,7 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
   const chunksRef = useRef<BlobPart[]>([]);
   const stopPromiseRef = useRef<Promise<ScreenRecordResult> | null>(null);
   const localInteractionCleanupRef = useRef<(() => void) | null>(null);
+  const recordingMimeTypeRef = useRef<string>('video/webm');
   
   // Cursor tracking
   const cursorDataRef = useRef<CursorPoint[]>([]);
@@ -301,7 +319,7 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
       const handleStop = async () => {
         try {
           setIsRecording(false);
-          const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+          const blob = new Blob(chunksRef.current, { type: recordingMimeTypeRef.current || 'video/webm' });
           const extensionData = await stopExtensionSessionSafely();
           const resolvedCursorData = extensionData?.cursorData?.length
             ? extensionData.cursorData
@@ -410,7 +428,9 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
       sourceStreamsRef.current = sourceStreams;
       audioContextRef.current = audioContext;
 
-      const mediaRecorder = new MediaRecorder(finalStream, { mimeType: 'video/webm' });
+      const recordingMimeType = getPreferredRecordingMimeType();
+      recordingMimeTypeRef.current = recordingMimeType;
+      const mediaRecorder = new MediaRecorder(finalStream, { mimeType: recordingMimeType });
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
