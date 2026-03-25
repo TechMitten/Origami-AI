@@ -8,13 +8,6 @@
 [![License](https://img.shields.io/github/license/IslandApps/Origami-AI)](LICENSE) 
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen)](https://nodejs.org/)
 
-**[Try the Hosted Demo](https://origami.techmitten.com)** | **[Watch the Full Video](https://youtu.be/h1nrUA4TPfs)**
-
-
-<a href="https://youtu.be/h1nrUA4TPfs" target="_blank" rel="noopener">
-	<img src="screenshots/demo.gif" alt="Origami demo GIF" width="720" style="box-shadow: 0 12px 30px rgba(0,0,0,0.25); border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;" />
-</a>
-
 </div>
 
 <p>&nbsp;</p>
@@ -33,7 +26,6 @@
 	- [Analyze Video and Scene Alignment](#analyze-video-and-scene-alignment)
 	- [Video Rendering](#video-rendering)
 - [Getting Started](#getting-started)
-	- [Option A - Hosted (No Setup)](#option-a---hosted-no-setup)
 	- [Option B - Run Locally](#option-b---run-locally)
 	- [Option C - Docker](#option-c---docker)
 	- [Available Scripts](#available-scripts)
@@ -122,10 +114,6 @@ Traditional video creation from presentations is often a choice between **tediou
 - Render cancellation support
 
 ## Getting Started
-
-### Option A - Hosted (No Setup)
-
-Visit **[https://origami.techmitten.com](https://origami.techmitten.com)**. No install required.
 
 ### Option B - Run Locally
 
