@@ -57,6 +57,10 @@ Origami AI is a web application that converts static PDF presentations into poli
 
 ## Why Origami?
 
+### Why the name
+
+Origami is the art of folding paper into new shapes. This app does something similar with PDFs: it turns flat slides into cinematic videos by adding voice-over, camera moves (zoom, pan, tilt), transitions, and sound. The result is a more engaging presentation of the original material.
+
 Traditional video creation from presentations is often a choice between **tedious manual labor** or **expensive AI subscriptions**. Origami AI offers a third way: a fully automated, local-first studio that lives in your browser.
 
 * **🎬 Static to Cinematic:** Don't just show slides; tell a story. Origami automatically extracts context from your PDFs and crafts a narrative script that flows naturally.
