@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench, Camera } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -3020,13 +3020,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 <div className="max-w-4xl w-full mx-auto flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="shrink-0 space-y-2">
                     <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                      <Camera className="w-6 h-6" />
                       Slide Media
                     </h3>
                     <p className="text-base text-white/50">Manage assets and insert special slide types.</p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-5">
                       <div className="w-16 h-16 rounded-full bg-branding-primary/10 flex items-center justify-center">
                         <VideoIcon className="w-8 h-8 text-branding-primary" />
                       </div>
@@ -3047,7 +3048,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       </button>
                     </div>
 
-                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-5">
                       <div className="w-16 h-16 rounded-full bg-branding-accent/10 flex items-center justify-center">
                         <VideoIcon className="w-8 h-8 text-branding-accent" />
                       </div>
