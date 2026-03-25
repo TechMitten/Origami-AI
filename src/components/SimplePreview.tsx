@@ -694,7 +694,7 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
             <div className="w-px h-4 bg-white/10 hidden sm:block" />
 
             {/* Slide Counter */}
-            <span className="text-xs font-mono font-bold text-white/40 hidden sm:inline">
+            <span className="text-[11px] font-mono font-bold text-white/40 hidden sm:inline">
               SLIDE {currentSlideIndex + 1} <span className="text-white/20">/</span> {slides.length}
             </span>
 

@@ -367,7 +367,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
     : '1.5rem';
 
   const pageContent = (
-    <div className="fixed inset-0 z-[9999] text-white flex flex-col overflow-hidden" style={{ backgroundColor: '#09090b', zoom: ZOOM }}>
+    <div className="fixed inset-0 z-9999 text-white flex flex-col overflow-hidden" style={{ backgroundColor: '#09090b', zoom: ZOOM }}>
       <img
         src={backgroundImage}
         alt=""
@@ -516,7 +516,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
               )}
             </section>
 
-            <section className="min-w-0 xl:max-w-[420px] xl:justify-self-end">
+            <section className="min-w-0 xl:max-w-105 xl:justify-self-end">
               {scenes.length === 0 ? (
                 <div className="flex items-center justify-center min-h-[40vh] rounded-xl border border-dashed border-white/10 bg-white/3 text-white/30 text-sm">
                   No scenes found. Try re-analyzing the video.
@@ -609,7 +609,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
       </div>
 
       {showDebug && analysis?.rawGeminiJson && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-10000 flex items-center justify-center p-4">
           <button
             aria-label="Close debug modal"
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -628,7 +628,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                 <X className="w-4 h-4" /> Close
               </button>
             </div>
-            <pre className="overflow-auto max-h-[calc(85vh-64px)] p-4 text-[11px] leading-relaxed text-white/70 whitespace-pre-wrap break-words font-mono">
+            <pre className="overflow-auto max-h-[calc(85vh-64px)] p-4 text-[11px] leading-relaxed text-white/70 whitespace-pre-wrap wrap-break-word font-mono">
               {analysis.rawGeminiJson}
             </pre>
           </div>
@@ -707,7 +707,7 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
           <textarea
             value={scene.narrationText}
             onChange={(e) => onEdit(scene.id, { narrationText: e.target.value })}
-            className="w-full flex-1 min-h-[9rem] px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-none leading-relaxed"
+            className="w-full flex-1 min-h-36 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-none leading-relaxed"
             placeholder="What should the narrator say during this scene?"
           />
         </div>
@@ -719,13 +719,13 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
           <textarea
             value={scene.onScreenAction}
             readOnly
-            className="w-full flex-1 min-h-[7rem] px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-[11px] text-white/70 focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-none leading-relaxed"
+            className="w-full flex-1 min-h-28 px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-[11px] text-white/70 focus:outline-none focus:border-indigo-400/50 focus:bg-indigo-500/3 transition-colors resize-none leading-relaxed"
             placeholder="What is happening visually in this scene?"
           />
         </div>
 
         <div className="flex items-center justify-between pt-0.5 shrink-0">
-          <div className="flex items-center gap-2 min-w-[120px]">
+          <div className="flex items-center gap-2 min-w-30">
             {scene.audioDurationSeconds ? (
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold">
                 <Check className="w-3 h-3" /> {scene.audioDurationSeconds.toFixed(2)}s audio
@@ -744,7 +744,7 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
             >
               <ChevronUp className="w-4 h-4" />
             </button>
-            <div className="w-[1px] h-3 bg-white/10" />
+            <div className="w-px h-3 bg-white/10" />
             <button
               onClick={onNavigateNext}
               disabled={!onNavigateNext}
@@ -758,7 +758,7 @@ const SceneCard: React.FC<SceneCardProps> = ({ scene, sceneNumber, onEdit, onTim
           <button
             onClick={() => onGenerateSceneTTS(scene.id)}
             disabled={anyGenerating}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-branding-primary/10 border border-branding-primary/25 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-bold min-w-[120px] justify-center"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-branding-primary/10 border border-branding-primary/25 text-branding-primary hover:bg-branding-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-bold min-w-30 justify-center"
             title={scene.audioUrl ? 'Regenerate TTS audio for this scene only' : 'Generate TTS audio for this scene only'}
           >
             {isGeneratingTTS ? (

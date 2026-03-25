@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List, Upload } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List, Upload, Check } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
@@ -653,6 +653,11 @@ function MainApp() {
     if (await showConfirm(`Are you sure you want to delete the ${selectedCount} selected slides?`, { type: 'error', title: 'Delete Selected', confirmText: 'Delete' })) {
       setSlides(prev => prev.filter(s => !s.isSelected));
     }
+  };
+
+  const handleSelectAllSlides = () => {
+    // Mark every slide as selected
+    setSlides(prev => prev.map(s => ({ ...s, isSelected: true })));
   };
 
   const handleExportProject = async () => {
@@ -1472,6 +1477,17 @@ function MainApp() {
                     </button>
                     {slides.some(s => s.isSelected) && (
                       <>
+                        {slides.some(s => s.isSelected) && slides.some(s => !s.isSelected) && (
+                          <>
+                            <div className="h-px bg-white/10 my-1" />
+                            <button
+                              onClick={() => { handleSelectAllSlides(); setIsActionsMenuOpen(false); }}
+                              className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
+                            >
+                              <Check className="w-4 h-4" /> Select All ({slides.length})
+                            </button>
+                          </>
+                        )}
                         <div className="h-px bg-white/10 my-1" />
                         <button
                           onClick={() => { handleDeleteSelected(); setIsActionsMenuOpen(false); }}
@@ -1556,7 +1572,6 @@ function MainApp() {
                           `}
                         >
                           {res}
-                          {res === '720p' && <span className="ml-1 text-[10px] opacity-70">(Faster)</span>}
                         </button>
                       ))}
                     </div>

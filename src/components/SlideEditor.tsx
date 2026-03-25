@@ -812,7 +812,7 @@ const SortableSlideItem = ({
           </div>
           {/* Prominent slide number display */}
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-branding-primary">{index + 1}</span>
+            <span className="text-xl font-bold text-branding-primary">{index + 1}</span>
             <span className="text-sm font-medium text-white/30">/ {slidesLength}</span>
           </div>
         </div>
