@@ -1,7 +1,7 @@
 <div align="center">
 
 
-<img src="screenshots/logo.png" alt="Origami AI Logo" width="300" />
+<img src="logo/logo.png" alt="Origami AI Logo" width="300" />
 
 [![GitHub stars](https://img.shields.io/github/stars/IslandApps/Origami-AI?style=social)](https://github.com/IslandApps/Origami-AI/stargazers) 
 [![Issues](https://img.shields.io/github/issues/IslandApps/Origami-AI)](https://github.com/IslandApps/Origami-AI/issues) 
@@ -19,31 +19,31 @@
 - [Overview](#overview)
 - [Why Origami?](#why-origami)
 - [Key Features](#key-features)
-	- [PDF Processing](#pdf-processing)
-	- [AI-Powered Narration](#ai-powered-narration)
-	- [Text-to-Speech](#text-to-speech)
-	- [Video Editor](#video-editor)
-	- [Analyze Video and Scene Alignment](#analyze-video-and-scene-alignment)
-	- [Video Rendering](#video-rendering)
+  - [PDF Processing](#pdf-processing)
+  - [AI-Powered Narration](#ai-powered-narration)
+  - [Text-to-Speech](#text-to-speech)
+  - [Video Editor](#video-editor)
+  - [Analyze Video and Scene Alignment](#analyze-video-and-scene-alignment)
+  - [Video Rendering](#video-rendering)
 - [Getting Started](#getting-started)
-	- [Option B - Run Locally](#option-b---run-locally)
-	- [Option C - Docker](#option-c---docker)
-	- [Available Scripts](#available-scripts)
+  - [Option B - Run Locally](#option-b---run-locally)
+  - [Option C - Docker](#option-c---docker)
+  - [Available Scripts](#available-scripts)
 - [Requirements](#requirements)
-	- [Prerequisites](#prerequisites)
-	- [Browser Compatibility](#browser-compatibility)
-	- [System Requirements](#system-requirements)
+  - [Prerequisites](#prerequisites)
+  - [Browser Compatibility](#browser-compatibility)
+  - [System Requirements](#system-requirements)
 - [How It Works](#how-it-works)
 - [Configuration](#configuration)
-	- [Settings](#settings)
-		- [General](#general)
-		- [TTS Model](#tts-model)
-		- [WebLLM](#webllm)
-		- [API](#api)
-		- [AI Prompt](#ai-prompt)
-	- [Configure Slides (In-App)](#configure-slides-in-app)
-	- [Analyze Video Workflow (In-App)](#analyze-video-workflow-in-app)
-	- [WebGPU Setup](#webgpu-setup)
+  - [Settings](#settings)
+    - [General](#general)
+    - [TTS Model](#tts-model)
+    - [WebLLM](#webllm)
+    - [API](#api)
+    - [AI Prompt](#ai-prompt)
+  - [Configure Slides (In-App)](#configure-slides-in-app)
+  - [Analyze Video Workflow (In-App)](#analyze-video-workflow-in-app)
+  - [WebGPU Setup](#webgpu-setup)
 - [Project Backup and Restore](#project-backup-and-restore)
 - [Troubleshooting](#troubleshooting)
 - [Tech Stack](#tech-stack)
@@ -242,32 +242,33 @@ Settings are grouped under **General**, **API**, **TTS Model**, **WebLLM**, and 
 #### AI Prompt
 - Customize Script Fix System Prompt
 
+
 ### Configure Slides (In-App)
 
 The slide editor includes five tabs:
 
 - Overview
-	- Script edit/focus modes
-	- AI Fix Script
-	- Copy/Revert, preview, select/delete, reorder, list/grid
+  - Script edit/focus modes
+  - AI Fix Script
+  - Copy/Revert, preview, select/delete, reorder, list/grid
 - Voice Settings
-	- Global voice preview and apply-all
-	- Per-slide voice, TTS generation/regeneration, voice recording
-	- Per-slide delay and apply-all delay
+  - Global voice preview and apply-all
+  - Per-slide voice, TTS generation/regeneration, voice recording
+  - Per-slide delay and apply-all delay
 - Audio Mixing
-	- Default music and volume
-	- Per-slide music playback, seek, loop, visualizer
-	- Video music toggle for video slides
+  - Default music and volume
+  - Per-slide music playback, seek, loop, visualizer
+  - Video music toggle for video slides
 - Batch Tools
-	- Generate All Audio, Fix All Scripts, Revert All Scripts, Find & Replace
-	- Batch progress/cancel support
+  - Generate All Audio, Fix All Scripts, Revert All Scripts, Find & Replace
+  - Batch progress/cancel support
 - Slide Media
-	- Replace slide image/media (PDF/JPG/PNG)
-	- Upload MP4/GIF slides (duration auto-detected)
-	- Media preview and duration-aware export behavior
-	- Analyze Video (silent MP4 only) to generate editable scene narration plans
-	- Open Scene Alignment Editor to edit timestamps, durations, and narration per scene
-	- Generate TTS per scene or all scenes with timeline stretch recalculation
+  - Replace slide image/media (PDF/JPG/PNG)
+  - Upload MP4/GIF slides (duration auto-detected)
+  - Media preview and duration-aware export behavior
+  - Analyze Video (silent MP4 only) to generate editable scene narration plans
+  - Open Scene Alignment Editor to edit timestamps, durations, and narration per scene
+  - Generate TTS per scene or all scenes with timeline stretch recalculation
 
 AI actions require either a configured API provider or a loaded WebLLM model.
 
