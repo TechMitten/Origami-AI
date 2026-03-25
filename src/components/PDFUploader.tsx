@@ -1,7 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { FileText, Loader2 } from 'lucide-react';
-import uploadIllustration from '../assets/images/app-logo.png';
+import { FileText, Loader2, Video, Import } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -109,102 +108,189 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete }) =>
   });
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-0">
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-15px) rotate(1deg); }
-        }
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-      `}</style>
-      <div
-        {...getRootProps()}
-        className={cn(
-          "relative group cursor-pointer transition-all duration-500",
-          "border-2 border-dashed rounded-3xl px-8 py-8 sm:px-20 sm:py-10 text-center overflow-hidden",
-          "backdrop-blur-md bg-white/2",
-          isDragActive 
-            ? "border-cyan-500/50 bg-cyan-500/10 scale-[1.02]" 
-            : "border-white/10 hover:border-purple-500/40 hover:bg-white/4"
-        )}
-      >
-        <input {...getInputProps()} />
-        
-        <div className="flex flex-col items-center relative z-10">
-          {isProcessing ? (
-            <div className="w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center -mb-4">
-              <Loader2 className="w-12 h-12 sm:w-16 sm:h-16 text-cyan-400 animate-spin" />
-            </div>
-          ) : (
-            <div className={cn(
-              "relative transition-transform duration-700 ease-out animate-float",
-              isDragActive ? "scale-110" : "group-hover:scale-105"
-            )}>
-              <img 
-                src={uploadIllustration} 
-                alt="Logo"
-                className="w-48 h-48 sm:w-64 sm:h-64 -mb-6 sm:-mb-8 object-contain drop-shadow-[0_0_50px_rgba(34,211,238,0.2)]" 
-              />
-              {/* Extra glow layer */}
-              <div className="absolute inset-0 bg-linear-to-b from-cyan-500/20 to-purple-500/20 blur-[60px] -z-10 opacity-50" />
-            </div>
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-0" style={{ fontFamily: '"Roboto", "Inter", system-ui, -apple-system, sans-serif' }}>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2">
+          Create Your Video
+        </h2>
+        <p className="text-sm text-white/60">
+          Choose how you want to start your project
+        </p>
+      </div>
+
+      {/* Three Equal-Sized Options */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        {/* Upload PDF Option */}
+        <div
+          {...getRootProps()}
+          className={cn(
+            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
+            "bg-[#0F1115] border border-white/10",
+            "hover:border-blue-500/30 hover:bg-white/[0.02]",
+            "rounded-lg",
+            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
+            "min-h-[280px] sm:min-h-[320px]",
+            isDragActive && "border-blue-500/50 bg-blue-500/5"
           )}
-          
-          <h3 className={cn(
-            "text-2xl sm:text-3xl font-black mb-3 tracking-tighter italic uppercase text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 pr-2",
-            isProcessing && "animate-pulse"
+        >
+          <input {...getInputProps()} />
+
+          {/* Icon */}
+          <div className={cn(
+            "mb-4 p-4 rounded-xl transition-all duration-200",
+            isDragActive ? "bg-blue-500/10" : "bg-white/5 group-hover:bg-blue-500/5"
           )}>
-            {isProcessing
-              ? (ocrStatus === 'initializing' ? 'Initializing OCR...'
-                : ocrStatus === 'processing' ? 'OCR Processing...'
-                : 'Processing...')
-              : isDragActive ? 'Release to Fold' : 'Upload PDF'}
+            {isProcessing ? (
+              <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400 animate-spin" />
+            ) : (
+              <FileText className={cn(
+                "w-8 h-8 sm:w-10 sm:h-10 transition-colors duration-200",
+                isDragActive ? "text-blue-400" : "text-white/50 group-hover:text-blue-400"
+              )} />
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className={cn(
+            "text-lg sm:text-xl font-medium text-white mb-2 transition-colors duration-200",
+            isDragActive && "text-blue-300"
+          )}>
+            Upload PDF
           </h3>
 
-          <p className="text-white/40 mb-8 max-w-xs mx-auto font-medium text-xs sm:text-sm">
-            {isProcessing
-              ? (ocrStatus === 'initializing'
-                ? 'Enabling OCR for scanned PDF...'
-                : ocrStatus === 'processing'
-                ? `Processing page ${ocrCurrentPage}${ocrTotalPages > 0 ? `/${ocrTotalPages}` : ''}${ocrProgress > 0 ? ` - ${ocrProgress}%` : ''}...`
-                : 'Turning your PDF into a cinematic tutorial.')
-              : 'Drag & drop your presentation or click to browse.'}
+          {/* Description */}
+          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
+            {isDragActive
+              ? 'Release to upload'
+              : 'Drag & drop your presentation or click to browse'
+            }
           </p>
 
-          {/* OCR Progress Bar */}
-          {isProcessing && ocrStatus === 'processing' && (
-            <div className="w-full max-w-xs mx-auto mb-6">
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-cyan-400 to-purple-600 transition-all duration-300 ease-out"
-                  style={{ width: `${ocrProgress}%` }}
-                />
+          {/* Status Badge */}
+          {isProcessing && (
+            <div className="mt-auto">
+              <div className="w-full max-w-[180px] mx-auto">
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-blue-400 transition-all duration-300"
+                    style={{ width: `${ocrProgress}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-white/40 text-center">
+                  {ocrStatus === 'processing'
+                    ? `Processing ${ocrCurrentPage}/${ocrTotalPages} - ${ocrProgress}%`
+                    : 'Processing...'}
+                </p>
               </div>
-              <p className="text-white/40 text-xs mt-2 text-center">
-                OCR: {ocrProgress}% complete
-              </p>
             </div>
           )}
 
           {!isProcessing && (
-            <div className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 group-hover:text-white/80 group-hover:border-white/20 transition-all">
-              <FileText className="w-3.5 h-3.5" />
-              <span>Select Document</span>
+            <div className="mt-auto">
+              <div className={cn(
+                "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
+                isDragActive
+                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                  : "bg-white/5 text-white/40 border-white/10 group-hover:bg-blue-500/5 group-hover:text-blue-400 group-hover:border-blue-500/20"
+              )}>
+                Select PDF File
+              </div>
             </div>
           )}
+
+          {/* Subtle hover glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
 
-        {/* Dynamic Background Glow */}
-        <div className={cn(
-          "absolute inset-0 -z-10 transition-opacity duration-700 blur-[100px]",
-          isDragActive ? "opacity-40 bg-cyan-500/20" : "opacity-0 group-hover:opacity-20 bg-purple-500/20"
-        )} />
+        {/* Record Screen Option */}
+        <div
+          className={cn(
+            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
+            "bg-[#0F1115] border border-white/10",
+            "hover:border-purple-500/30 hover:bg-white/[0.02]",
+            "rounded-lg",
+            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
+            "min-h-[280px] sm:min-h-[320px]"
+          )}
+        >
+          {/* Icon */}
+          <div className={cn(
+            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-purple-500/5"
+          )}>
+            <Video className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-purple-400 transition-colors duration-200" />
+          </div>
+
+          {/* Title */}
+          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-purple-300 transition-colors duration-200">
+            Record Screen
+          </h3>
+
+          {/* Description */}
+          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
+            Capture your screen as a video tutorial or presentation
+          </p>
+
+          {/* Badge */}
+          <div className="mt-auto">
+            <div className={cn(
+              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
+              "bg-white/5 text-white/40 border-white/10 group-hover:bg-purple-500/5 group-hover:text-purple-400 group-hover:border-purple-500/20"
+            )}>
+              Coming Soon
+            </div>
+          </div>
+
+          {/* Subtle hover glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        </div>
+
+        {/* Import Option */}
+        <div
+          className={cn(
+            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
+            "bg-[#0F1115] border border-white/10",
+            "hover:border-emerald-500/30 hover:bg-white/[0.02]",
+            "rounded-lg",
+            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
+            "min-h-[280px] sm:min-h-[320px]"
+          )}
+        >
+          {/* Icon */}
+          <div className={cn(
+            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-emerald-500/5"
+          )}>
+            <Import className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-emerald-400 transition-colors duration-200" />
+          </div>
+
+          {/* Title */}
+          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-emerald-300 transition-colors duration-200">
+            Import
+          </h3>
+
+          {/* Description */}
+          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
+            Import existing slides, images, or video content
+          </p>
+
+          {/* Badge */}
+          <div className="mt-auto">
+            <div className={cn(
+              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
+              "bg-white/5 text-white/40 border-white/10 group-hover:bg-emerald-500/5 group-hover:text-emerald-400 group-hover:border-emerald-500/20"
+            )}>
+              Coming Soon
+            </div>
+          </div>
+
+          {/* Subtle hover glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        </div>
       </div>
 
+      {/* Error Message */}
       {error && (
-        <div className="mt-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2">
+        <div className="mt-6 p-4 rounded-lg bg-red-500/5 border border-red-500/10 text-red-400 text-xs font-medium text-center animate-in fade-in slide-in-from-top-2">
           {error}
         </div>
       )}
