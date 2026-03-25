@@ -2607,7 +2607,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
         </button>
 
         {isConfigureSlidesExpanded && (
-          <div className={`mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-175`}>
+          <div className={`mt-8 border-t border-white/5 bg-black/20 rounded-2xl overflow-hidden flex flex-col md:flex-row`}>
             {/* Left Navigation */}
             <div className="md:w-72 border-b md:border-b-0 md:border-r border-white/5 bg-white/5 flex flex-row md:flex-col shrink-0 overflow-x-auto md:overflow-visible py-4 sm:py-6 no-scrollbar snap-x">
               {/* Overview tab removed */}
@@ -3017,7 +3017,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               )}
 
               {activeTab === 'media' && (
-                <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="max-w-4xl w-full mx-auto flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="shrink-0 space-y-2">
                     <h3 className="text-xl font-bold text-white flex items-center gap-3">
                       Slide Media
@@ -3025,7 +3025,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <p className="text-base text-white/50">Manage assets and insert special slide types.</p>
                   </div>
 
-                  <div className="flex-1 space-y-4">
+                  <div className="space-y-4">
                     <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-6">
                       <div className="w-16 h-16 rounded-full bg-branding-primary/10 flex items-center justify-center">
                         <VideoIcon className="w-8 h-8 text-branding-primary" />
