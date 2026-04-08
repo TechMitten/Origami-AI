@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { FileText, Loader2, Video, Import } from 'lucide-react';
+import { BrainCircuit, FileText, Import, Loader2, Video } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -15,9 +15,10 @@ interface PDFUploaderProps {
   onUploadComplete: (pages: RenderedPage[]) => void;
   onImportProject?: () => void;
   onStartScreenRecord?: () => void;
+  onOpenAssistant?: () => void;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onImportProject, onStartScreenRecord }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onImportProject, onStartScreenRecord, onOpenAssistant }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,7 +123,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
       </div>
 
       {/* Three Equal-Sized Options */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
         {/* Upload PDF Option */}
         <div
           {...getRootProps()}
@@ -289,6 +290,44 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
 
           {/* Subtle hover glow */}
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        </div>
+
+        {/* Assistant Option */}
+        <div
+          onClick={onOpenAssistant}
+          className={cn(
+            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
+            "bg-[#0F1115] border border-white/10",
+            "hover:border-cyan-500/30 hover:bg-white/[0.02]",
+            "rounded-lg",
+            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
+            "min-h-[280px] sm:min-h-[320px]"
+          )}
+        >
+          <div className={cn(
+            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-cyan-500/5"
+          )}>
+            <BrainCircuit className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-cyan-300 transition-colors duration-200" />
+          </div>
+
+          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-cyan-200 transition-colors duration-200">
+            AI Assistant
+          </h3>
+
+          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">
+            Open the WebLLM-powered chat workspace for writing, brainstorming, and revisions
+          </p>
+
+          <div className="mt-auto">
+            <div className={cn(
+              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
+              "bg-white/5 text-white/40 border-white/10 group-hover:bg-cyan-500/5 group-hover:text-cyan-300 group-hover:border-cyan-500/20"
+            )}>
+              Open Assistant
+            </div>
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
       </div>
 

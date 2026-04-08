@@ -20,7 +20,12 @@ interface UnifiedInitModalProps {
   };
   onComplete: () => void;
   /** Called when user selects a WebLLM model (before initialization) */
-  onWebLLMModelSelect?: (modelId: string) => void;
+  onWebLLMModelSelect?: (modelId: string) => void | Promise<void>;
+  webGpuSupport?: {
+    supported: boolean;
+    hasF16: boolean;
+    error?: string;
+  } | null;
 }
 
 interface ResourceStatus {
@@ -35,6 +40,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   activeResources,
   onComplete,
   onWebLLMModelSelect,
+  webGpuSupport,
 }) => {
   const [status, setStatus] = useState<ResourceStatus>({
     // Pre-installed OR not being actively downloaded → already 'ready'
@@ -50,6 +56,14 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
+  const [webllmError, setWebllmError] = useState<string | null>(null);
+
+  const compatibleModels = AVAILABLE_WEB_LLM_MODELS.filter((model) => {
+    if (!webGpuSupport) return true;
+    if (!webGpuSupport.supported) return false;
+    if (!webGpuSupport.hasF16 && model.precision === 'f16') return false;
+    return true;
+  });
 
   const normalizeWebLLMProgress = (progress: number) => {
     if (!Number.isFinite(progress)) return 0;
@@ -64,6 +78,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       setShowModelSelector(false);
       setWebLLMProgress(null);
       setWebLLMMaxProgress(0);
+      setWebllmError(null);
       return;
     }
 
@@ -109,6 +124,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
 
       setWebLLMProgress(report);
       setWebLLMMaxProgress(prev => Math.max(prev, normalizedProgress));
+      setWebllmError(null);
       setStatus(prev => ({ ...prev, webllm: 'initializing' }));
 
       if (isComplete) {
@@ -144,10 +160,20 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   const isWebLLMWaiting = activeResources?.webllm && !selectedModel;
   const allReady = !isWebLLMWaiting && status.tts === 'ready' && status.ffmpeg === 'ready' && isWebLLMReady;
 
-  const handleModelSelect = (modelId: string) => {
+  const handleModelSelect = async (modelId: string) => {
     setSelectedModel(modelId);
     setShowModelSelector(false);
-    onWebLLMModelSelect?.(modelId);
+    setWebllmError(null);
+    setStatus(prev => ({ ...prev, webllm: 'initializing' }));
+
+    try {
+      await onWebLLMModelSelect?.(modelId);
+    } catch (error) {
+      setStatus(prev => ({ ...prev, webllm: 'pending' }));
+      setSelectedModel(null);
+      setShowModelSelector(true);
+      setWebllmError(error instanceof Error ? error.message : 'Failed to initialize the selected model.');
+    }
   };
 
   const getModelDetails = (modelId: string): ModelInfo | undefined => {
@@ -278,12 +304,22 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                 </div>
                 {showModelSelector && !selectedModel ? (
                   <div className="mt-3 space-y-2">
+                    {webGpuSupport && !webGpuSupport.supported && (
+                      <div className="rounded border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-100">
+                        {webGpuSupport.error || 'WebGPU is not available on this device.'}
+                      </div>
+                    )}
+                    {webllmError && (
+                      <div className="rounded border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-100">
+                        {webllmError}
+                      </div>
+                    )}
                     <p className="text-xs text-white/60 mb-2">Select a model to download:</p>
                     <div className="max-h-48 overflow-y-auto space-y-1.5">
-                      {AVAILABLE_WEB_LLM_MODELS.map((model) => (
+                      {compatibleModels.map((model) => (
                         <div
                           key={model.id}
-                          onClick={() => handleModelSelect(model.id)}
+                          onClick={() => void handleModelSelect(model.id)}
                           className="p-2 bg-white/10 hover:bg-white/15 border border-white/10 cursor-pointer transition-all group"
                           style={{ borderRadius: '4px' }}
                         >
@@ -312,6 +348,11 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                           )}
                         </div>
                       ))}
+                      {compatibleModels.length === 0 && (
+                        <div className="rounded border border-white/10 bg-white/5 p-3 text-xs text-white/60">
+                          No compatible WebLLM models are available for this device.
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : selectedModel ? (
@@ -319,6 +360,11 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     <p className="text-xs text-white/60 mb-2">
                       Selected: <span className="text-white font-medium">{getModelDetails(selectedModel)?.name} ({getModelDetails(selectedModel)?.precision})</span>
                     </p>
+                    {webllmError && (
+                      <div className="mb-2 rounded border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-100">
+                        {webllmError}
+                      </div>
+                    )}
                     {status.webllm === 'initializing' && (
                       <>
                         <div className="flex items-center justify-end text-xs text-white/60 mb-1">

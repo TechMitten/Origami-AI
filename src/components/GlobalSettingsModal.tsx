@@ -355,7 +355,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : webLlmModel);
     } catch (e) {
       console.error(e);
-      setWebLlmDownloadProgress('Download failed. Check console.');
+      setWebLlmDownloadProgress(e instanceof Error ? e.message : 'Download failed.');
       setWebLlmPhase('downloading');
     } finally {
       setIsDownloadingWebLlm(false);

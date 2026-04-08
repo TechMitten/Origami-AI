@@ -61,6 +61,18 @@ export interface GlobalSettings {
   recordingCountdownEnabled?: boolean;
 }
 
+export interface AssistantChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: number;
+}
+
+export interface AssistantChatState {
+  messages: AssistantChatMessage[];
+  lastSaved: number;
+}
+
 // OCR Cache interfaces
 export interface OCRCacheEntry {
   pdfFingerprint: string;
@@ -400,6 +412,77 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
   } catch (err) {
     console.error("[Storage] Failed to load global settings from IndexedDB", err);
     return null;
+  }
+};
+
+export const saveAssistantChatState = async (messages: AssistantChatMessage[]): Promise<void> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put({
+        messages,
+        lastSaved: Date.now(),
+      } satisfies AssistantChatState, 'assistantChatState');
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  } catch (err) {
+    console.error('[Storage] Failed to save assistant chat state', err);
+  }
+};
+
+export const loadAssistantChatState = async (): Promise<AssistantChatState | null> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get('assistantChatState');
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        if (!request.result) {
+          resolve(null);
+          return;
+        }
+
+        const state = request.result as AssistantChatState;
+        resolve({
+          ...state,
+          messages: Array.isArray(state.messages)
+            ? state.messages.filter((message) =>
+              message
+              && typeof message.id === 'string'
+              && (message.role === 'user' || message.role === 'assistant')
+              && typeof message.content === 'string'
+              && typeof message.createdAt === 'number'
+            )
+            : [],
+        });
+      };
+    });
+  } catch (err) {
+    console.error('[Storage] Failed to load assistant chat state', err);
+    return null;
+  }
+};
+
+export const clearAssistantChatState = async (): Promise<void> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete('assistantChatState');
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  } catch (err) {
+    console.error('[Storage] Failed to clear assistant chat state', err);
   }
 };
 

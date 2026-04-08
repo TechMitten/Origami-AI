@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 
 import { PDFUploader } from './components/PDFUploader';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
@@ -29,13 +29,17 @@ import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
 import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
+import { AssistantPage } from './pages/AssistantPage';
+import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { Video } from 'lucide-react';
+import { AppModeSwitcher } from './components/AppModeSwitcher';
 
 
 
 
 function MainApp() {
+  const navigate = useNavigate();
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [generatingSlides, setGeneratingSlides] = useState<Set<number>>(new Set());
   const [analyzingSlides, setAnalyzingSlides] = useState<Set<number>>(new Set());
@@ -55,6 +59,7 @@ function MainApp() {
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false); // For subsequent cached loading
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
+  const [startupWebGpuSupport, setStartupWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
   const [slideEditorViewMode, setSlideEditorViewMode] = useState<'list' | 'grid'>(() => {
@@ -469,19 +474,33 @@ function MainApp() {
       if (storedPref) { // User said "Remember my choice"
         try {
           const pref = JSON.parse(storedPref);
+          const wantsInitialWebLLM = !!pref.enableWebLLM && !cached.webllm;
+          let webgpuStatus: Awaited<ReturnType<typeof checkWebGPUSupport>> | null = null;
+          let shouldEnableInitialWebLLM = wantsInitialWebLLM;
+
+          if (wantsInitialWebLLM) {
+            webgpuStatus = await checkWebGPUSupport();
+            setStartupWebGpuSupport(webgpuStatus);
+
+            if (!webgpuStatus.supported) {
+              shouldEnableInitialWebLLM = false;
+              setIsWebGPUModalOpen(true);
+            }
+          }
+
           // We only need to init things that were NOT cached but user WANTED.
           // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
 
           // Check if we need to show unified init modal
           const needsInit = (!cached.tts && pref.downloadTTS) ||
             (!cached.ffmpeg && pref.downloadFFmpeg) ||
-            (!cached.webllm && pref.enableWebLLM);
+            shouldEnableInitialWebLLM;
 
           if (needsInit && !hideSetupModal) {
             setActiveDownloads({
               tts: !cached.tts && !!pref.downloadTTS,
               ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
-              webllm: !cached.webllm && !!pref.enableWebLLM,
+              webllm: shouldEnableInitialWebLLM,
             });
             setIsWebLLMInitModalOpen(true);
           }
@@ -502,10 +521,10 @@ function MainApp() {
 
           // Initialize WebLLM after TTS completes
           // Note: Model selection will happen via UnifiedInitModal callback
-          if (pref.enableWebLLM && !cached.webllm) {
+          if (shouldEnableInitialWebLLM) {
             // WebLLM initialization deferred to model selection via UnifiedInitModal
             // Just ensure the preference is saved
-            const model = settings?.webLlmModel || DEFAULT_WEB_LLM_MODEL_ID;
+            const model = settings?.webLlmModel || getDefaultWebLlmModel(webgpuStatus?.hasF16 ?? true);
             await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: model });
           }
         } catch (e) {
@@ -535,6 +554,19 @@ function MainApp() {
 
     const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
     const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
+    const wantsWebLLM = !!selection.enableWebLLM && !cached.webllm;
+    let webgpuStatus: Awaited<ReturnType<typeof checkWebGPUSupport>> | null = null;
+    let shouldEnableWebLLM = wantsWebLLM;
+
+    if (wantsWebLLM) {
+      webgpuStatus = await checkWebGPUSupport();
+      setStartupWebGpuSupport(webgpuStatus);
+
+      if (!webgpuStatus.supported) {
+        shouldEnableWebLLM = false;
+        setIsWebGPUModalOpen(true);
+      }
+    }
 
     // Save the "don't show again" preference
     if (dontShowAgain) {
@@ -544,13 +576,13 @@ function MainApp() {
     // Check if we need to show unified init modal
     const needsInit = (!cached.tts && selection.downloadTTS) ||
       (!cached.ffmpeg && selection.downloadFFmpeg) ||
-      (!cached.webllm && selection.enableWebLLM);
+      shouldEnableWebLLM;
 
     if (needsInit && !hideSetupModal) {
       setActiveDownloads({
         tts: !cached.tts && !!selection.downloadTTS,
         ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
-        webllm: !cached.webllm && !!selection.enableWebLLM,
+        webllm: shouldEnableWebLLM,
       });
       setIsWebLLMInitModalOpen(true);
     }
@@ -571,15 +603,7 @@ function MainApp() {
       renderer.load().catch(console.error);
     }
 
-    if (selection.enableWebLLM && !cached.webllm) {
-      // Check WebGPU support first
-      const webgpuStatus = await checkWebGPUSupport();
-      if (!webgpuStatus.supported) {
-        // Show WebGPU instructions modal
-        setIsWebGPUModalOpen(true);
-        return;
-      }
-
+    if (shouldEnableWebLLM && webgpuStatus) {
       // Enable WebLLM in settings without starting initialization
       // Model selection and initialization will happen via UnifiedInitModal
       const defaultModel = getDefaultWebLlmModel(webgpuStatus.hasF16);
@@ -628,21 +652,16 @@ function MainApp() {
     try {
       // Save selected model to settings
       await handlePartialGlobalSettings({ webLlmModel: modelId });
-      
-      // Initialize WebLLM with the selected model
-      initWebLLM(modelId, (progress) => console.log('WebLLM Init:', progress)).catch((error) => {
-        console.error('Failed to initialize WebLLM:', error);
-        showAlert(`Failed to initialize WebLLM: ${error instanceof Error ? error.message : String(error)}`, { 
-          type: 'error', 
-          title: 'WebLLM Initialization Failed' 
-        });
-      });
+
+      // Initialize WebLLM with the selected model and let the setup modal track progress.
+      await initWebLLM(modelId, (progress) => console.log('WebLLM Init:', progress));
     } catch (error) {
       console.error('Error handling WebLLM model selection:', error);
-      showAlert(`Error selecting WebLLM model: ${error instanceof Error ? error.message : String(error)}`, { 
+      await showAlert(`Error selecting WebLLM model: ${error instanceof Error ? error.message : String(error)}`, { 
         type: 'error', 
         title: 'Model Selection Failed' 
       });
+      throw error;
     }
   };
 
@@ -1401,6 +1420,8 @@ function MainApp() {
 
         {/* Right: Tools & Actions */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <AppModeSwitcher className="mr-1" />
+
           {/* Global Tools */}
           <div className="flex items-center gap-1">
             <a
@@ -1508,7 +1529,12 @@ function MainApp() {
       <main className={`mx-auto fade-transition ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`} key={activeTab}>
         {slides.length === 0 ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
-            <PDFUploader onUploadComplete={onUploadComplete} onImportProject={handleImportProjectClick} onStartScreenRecord={handleStartScreenRecord} />
+            <PDFUploader
+              onUploadComplete={onUploadComplete}
+              onImportProject={handleImportProjectClick}
+              onStartScreenRecord={handleStartScreenRecord}
+              onOpenAssistant={() => navigate('/assistant')}
+            />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
                 Checking for saved session...
@@ -1716,6 +1742,7 @@ function MainApp() {
           isOpen={isWebLLMInitModalOpen}
           resources={preinstalledResources}
           activeResources={activeDownloads}
+          webGpuSupport={startupWebGpuSupport}
           onWebLLMModelSelect={handleWebLLMModelSelect}
           onComplete={() => {
             setIsWebLLMInitModalOpen(false);
@@ -1766,6 +1793,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainApp />} />
+        <Route path="/assistant" element={<AssistantPage />} />
+        <Route path="/issue-reporter" element={<IssueReporterPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
       </Routes>

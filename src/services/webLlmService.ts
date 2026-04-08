@@ -1,5 +1,10 @@
 
-import type { InitProgressCallback, MLCEngine } from "@mlc-ai/web-llm";
+import type {
+    ChatCompletionChunk,
+    ChatCompletionMessageParam,
+    InitProgressCallback,
+    MLCEngine
+} from "@mlc-ai/web-llm";
 
 export interface ModelInfo {
     id: string;
@@ -13,6 +18,14 @@ export interface WebLLMDeviceLostDetail {
     modelId: string | null;
     message: string;
 }
+
+export interface WebLLMChatRequestOptions {
+    temperature?: number;
+    maxTokens?: number;
+    resetChat?: boolean;
+}
+
+export type WebLLMChatMessage = ChatCompletionMessageParam;
 
 export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
 export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
@@ -47,64 +60,52 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getNavigator = () => navigator as any;
 
-// Monkey-patch WebGPU to add maxComputeInvocationsPerWorkgroup
+const WEBLLM_MIN_LIMITS = {
+    maxBufferSize: 1 << 28, // 256MB fallback used by WebLLM
+    maxStorageBufferBindingSize: 1 << 27, // 128MB fallback used by WebLLM
+    maxComputeWorkgroupStorageSize: 32 << 10,
+    maxStorageBuffersPerShaderStage: 10,
+    maxComputeInvocationsPerWorkgroup: 256,
+};
+
+const formatMiB = (bytes: number): string => `${Math.round(bytes / (1 << 20))}MB`;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getWebLLMCompatibilityError = (adapter: any): string | null => {
+    const limits = adapter?.limits;
+    if (!limits) {
+        return "Unable to inspect WebGPU device limits for WebLLM compatibility.";
+    }
+
+    if (typeof limits.maxBufferSize === 'number' && limits.maxBufferSize < WEBLLM_MIN_LIMITS.maxBufferSize) {
+        return `This GPU reports maxBufferSize ${formatMiB(limits.maxBufferSize)}, but WebLLM needs at least ${formatMiB(WEBLLM_MIN_LIMITS.maxBufferSize)}.`;
+    }
+
+    if (typeof limits.maxStorageBufferBindingSize === 'number' && limits.maxStorageBufferBindingSize < WEBLLM_MIN_LIMITS.maxStorageBufferBindingSize) {
+        return `This GPU reports maxStorageBufferBindingSize ${formatMiB(limits.maxStorageBufferBindingSize)}, but WebLLM needs at least ${formatMiB(WEBLLM_MIN_LIMITS.maxStorageBufferBindingSize)}.`;
+    }
+
+    if (typeof limits.maxComputeWorkgroupStorageSize === 'number' && limits.maxComputeWorkgroupStorageSize < WEBLLM_MIN_LIMITS.maxComputeWorkgroupStorageSize) {
+        return `This GPU reports maxComputeWorkgroupStorageSize ${limits.maxComputeWorkgroupStorageSize}, but WebLLM needs at least ${WEBLLM_MIN_LIMITS.maxComputeWorkgroupStorageSize}.`;
+    }
+
+    if (typeof limits.maxStorageBuffersPerShaderStage === 'number' && limits.maxStorageBuffersPerShaderStage < WEBLLM_MIN_LIMITS.maxStorageBuffersPerShaderStage) {
+        return `This GPU reports maxStorageBuffersPerShaderStage ${limits.maxStorageBuffersPerShaderStage}, but WebLLM needs at least ${WEBLLM_MIN_LIMITS.maxStorageBuffersPerShaderStage}.`;
+    }
+
+    if (typeof limits.maxComputeInvocationsPerWorkgroup === 'number' && limits.maxComputeInvocationsPerWorkgroup < WEBLLM_MIN_LIMITS.maxComputeInvocationsPerWorkgroup) {
+        return `This GPU reports maxComputeInvocationsPerWorkgroup ${limits.maxComputeInvocationsPerWorkgroup}, but WebLLM needs at least ${WEBLLM_MIN_LIMITS.maxComputeInvocationsPerWorkgroup}.`;
+    }
+
+    return null;
+};
+
+// WebLLM now negotiates GPU limits internally. Avoid overriding requestDevice()
+// because forcing fixed limits can cause all model downloads to fail on some GPUs.
 let gpuPatched = false;
 const patchWebGPU = () => {
     if (gpuPatched) return;
-    const nav = getNavigator();
-    if (!nav.gpu) return;
-
-    try {
-        // Patch requestAdapter globally so ALL adapters get the fix
-        const originalRequestAdapter = nav.gpu.requestAdapter.bind(nav.gpu);
-        nav.gpu.requestAdapter = async (options?: any) => {
-            const adapter = await originalRequestAdapter(options);
-            if (!adapter) return adapter;
-
-            // Patch this adapter's requestDevice method
-            const originalRequestDevice = adapter.requestDevice.bind(adapter);
-            adapter.requestDevice = async (descriptor?: any) => {
-                const enhancedDescriptor = descriptor ? { ...descriptor } : {};
-
-                // Ensure requiredLimits exists and includes maxComputeInvocationsPerWorkgroup
-                if (!enhancedDescriptor.requiredLimits) {
-                    enhancedDescriptor.requiredLimits = {};
-                }
-
-                // Only add if not already specified (some adapters may have different limits)
-                if (enhancedDescriptor.requiredLimits.maxComputeInvocationsPerWorkgroup === undefined) {
-                    enhancedDescriptor.requiredLimits.maxComputeInvocationsPerWorkgroup = 1024;
-                }
-
-                // Monkey-patch max storage bound to prevent FATAL memory allocation crashes.
-                // TVM requests ~37.7MB allocations for f32 KV caching, exceeding the default 28MB buffer limits.
-                // TEMPORARILY DISABLED for performance testing - this may be causing 60-second slowdowns
-                // const targetMemoryLimit = 256 * 1024 * 1024; // Request 256MB buffer allowance
-
-                // if (adapter.limits?.maxStorageBufferBindingSize) {
-                //     enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize = Math.max(
-                //         enhancedDescriptor.requiredLimits.maxStorageBufferBindingSize || 0,
-                //         Math.min(adapter.limits.maxStorageBufferBindingSize, targetMemoryLimit)
-                //     );
-                // }
-
-                // if (adapter.limits?.maxBufferSize) {
-                //     enhancedDescriptor.requiredLimits.maxBufferSize = Math.max(
-                //         enhancedDescriptor.requiredLimits.maxBufferSize || 0,
-                //         Math.min(adapter.limits.maxBufferSize, targetMemoryLimit)
-                //     );
-                // }
-
-                return originalRequestDevice(enhancedDescriptor);
-            };
-
-            return adapter;
-        };
-        gpuPatched = true;
-        console.log('[WebGPU] Applied maxComputeInvocationsPerWorkgroup patch (1024)');
-    } catch (e) {
-        console.warn('[WebGPU] Failed to patch GPU:', e);
-    }
+    gpuPatched = true;
 };
 
 export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16: boolean; error?: string }> => {
@@ -117,6 +118,12 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
         if (!adapter) {
             return { supported: false, hasF16: false, error: "No WebGPU adapter found. Your GPU might not be compatible or hardware acceleration is disabled." };
         }
+
+        const compatibilityError = getWebLLMCompatibilityError(adapter);
+        if (compatibilityError) {
+            return { supported: false, hasF16: false, error: compatibilityError };
+        }
+
         // Check for f16 support
         const hasF16 = adapter.features.has('shader-f16');
         return { supported: true, hasF16 };
@@ -138,12 +145,39 @@ const getErrorMessage = (error: unknown): string => {
     return String(error);
 };
 
+const normalizeMessageContent = (content: unknown): string => {
+    if (typeof content === 'string') {
+        return content;
+    }
+
+    if (Array.isArray(content)) {
+        return content.map((part) => {
+            if (typeof part === 'string') {
+                return part;
+            }
+
+            if (part && typeof part === 'object' && 'text' in part && typeof part.text === 'string') {
+                return part.text;
+            }
+
+            return '';
+        }).join('');
+    }
+
+    return '';
+};
+
 const isWebLLMDeviceLostError = (error: unknown): boolean => {
     const message = getErrorMessage(error).toLowerCase();
     return message.includes('device was lost')
         || message.includes('gpudevicelostinfo')
         || message.includes('valid external instance reference no longer exists')
         || message.includes('operationerror');
+};
+
+const isBindingError = (error: unknown): boolean => {
+    const errorMsg = getErrorMessage(error);
+    return errorMsg.includes('BindingError') || errorMsg.includes('VectorInt');
 };
 
 const tearDownWebLLMEngine = async () => {
@@ -256,6 +290,130 @@ export const ensureWebLLMReady = async (modelId: string): Promise<MLCEngine> => 
 };
 
 export const getWebLLMEngine = () => engine;
+
+const rebuildWebLLMEngine = async (modelId: string): Promise<MLCEngine> => {
+    if (engine) {
+        try {
+            await engine.unload();
+        } catch {
+            // Ignore unload errors; the engine is already in a bad state.
+        }
+    }
+
+    engine = null;
+    currentModelId = null;
+
+    const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
+    const newEngine = await CreateMLCEngine(modelId, {
+        initProgressCallback: () => { },
+    });
+
+    engine = newEngine;
+    currentModelId = modelId;
+    return newEngine;
+};
+
+export const generateWebLLMChatResponse = async (
+    messages: ChatCompletionMessageParam[],
+    options: WebLLMChatRequestOptions = {},
+    _isRetry = false
+): Promise<string> => {
+    if (!engine) {
+        throw new Error("WebLLM Engine not initialized. Please load a model first.");
+    }
+
+    const {
+        temperature = 0.7,
+        maxTokens = 1024,
+        resetChat = true
+    } = options;
+
+    try {
+        if (resetChat) {
+            await engine.resetChat();
+        }
+
+        const reply = await engine.chat.completions.create({
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+            stream: false,
+        });
+
+        return normalizeMessageContent(reply.choices[0]?.message?.content);
+    } catch (error) {
+        console.error("WebLLM Chat Generation Error:", error);
+
+        if (isWebLLMDeviceLostError(error)) {
+            throw await handleWebLLMDeviceLost(error);
+        }
+
+        if (isBindingError(error) && !_isRetry && currentModelId) {
+            const modelToReload = currentModelId;
+            console.warn("[WebLLM] Detected WASM BindingError, rebuilding engine and retrying chat once...");
+            await rebuildWebLLMEngine(modelToReload);
+            return generateWebLLMChatResponse(messages, options, true);
+        }
+
+        throw error;
+    }
+};
+
+export async function* streamWebLLMChatResponse(
+    messages: ChatCompletionMessageParam[],
+    options: WebLLMChatRequestOptions = {},
+    _isRetry = false
+): AsyncGenerator<string, void, void> {
+    if (!engine) {
+        throw new Error("WebLLM Engine not initialized. Please load a model first.");
+    }
+
+    const {
+        temperature = 0.7,
+        maxTokens = 1024,
+        resetChat = true
+    } = options;
+
+    let yieldedAnyContent = false;
+
+    try {
+        if (resetChat) {
+            await engine.resetChat();
+        }
+
+        const stream = await engine.chat.completions.create({
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+            stream: true,
+        }) as AsyncIterable<ChatCompletionChunk>;
+
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            const text = normalizeMessageContent(delta);
+            if (!text) continue;
+
+            yieldedAnyContent = true;
+            yield text;
+        }
+    } catch (error) {
+        console.error("WebLLM Streaming Error:", error);
+
+        if (isWebLLMDeviceLostError(error)) {
+            throw await handleWebLLMDeviceLost(error);
+        }
+
+        if (!yieldedAnyContent && isBindingError(error) && !_isRetry && currentModelId) {
+            const modelToReload = currentModelId;
+            console.warn("[WebLLM] Detected WASM BindingError before streaming output, rebuilding engine and retrying once...");
+            await rebuildWebLLMEngine(modelToReload);
+            yield* streamWebLLMChatResponse(messages, options, true);
+            return;
+        }
+
+        throw error;
+    }
+}
 
 export const generateWebLLMResponse = async (
     messages: any,

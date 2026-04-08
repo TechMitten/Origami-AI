@@ -27,6 +27,17 @@ export interface VideoNarrationAnalysis {
   rawJson?: string;
 }
 
+export interface GifIssueAnalysis {
+  issueTitle: string;
+  issueSummary: string;
+  observedBehavior: string;
+  expectedBehavior: string;
+  reproductionSteps: string[];
+  technicalClues: string[];
+  recommendedPrompt: string;
+  rawJson?: string;
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -226,6 +237,29 @@ Act as a professional technical scriptwriter for a high-end YouTube tutorial cha
       "duration_seconds": 10
     }
   ]
+}`;
+
+export const GEMINI_GIF_ISSUE_ANALYSIS_SYSTEM_PROMPT = `You are a senior debugging assistant helping developers describe bugs precisely for an agentic AI.
+
+Analyze the attached animated GIF carefully and describe only what is visually supported by the recording plus any user-supplied context.
+
+Rules:
+- Do not invent stack traces, code paths, browser names, frameworks, or root causes unless they are explicitly visible or stated in the user context.
+- Focus on the exact broken behavior, the sequence of actions, and the mismatch between expected and actual results.
+- Be concrete about UI changes, freezes, flicker, wrong navigation, misaligned elements, disabled buttons, unexpected reloads, missing updates, duplicated actions, or timing issues.
+- Write the final prompt in first person as if the developer will paste it directly into another AI chat.
+- The final prompt must explicitly mention that an animated GIF is attached.
+- Keep the final prompt practical and ready to paste.
+
+Return strictly valid JSON only with this exact shape:
+{
+  "issue_title": "short bug title",
+  "issue_summary": "2-4 sentence summary of the problem",
+  "observed_behavior": "what is visibly happening",
+  "expected_behavior": "what should happen instead",
+  "reproduction_steps": ["step 1", "step 2"],
+  "technical_clues": ["clue 1", "clue 2"],
+  "recommended_prompt": "ready-to-paste prompt for an agentic AI"
 }`;
 
 const toChatCompletionsEndpoint = (baseUrl: string): string => {
@@ -490,6 +524,69 @@ const parseVideoNarrationAnalysis = (rawContent: string): VideoNarrationAnalysis
   };
 };
 
+const parseStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => String(entry ?? '').trim())
+    .filter(Boolean);
+};
+
+const parseGifIssueAnalysis = (rawContent: string): GifIssueAnalysis => {
+  const cleaned = stripCodeFence(rawContent);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error('Gemini returned invalid JSON for GIF issue analysis.');
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('GIF issue analysis payload is not a JSON object.');
+  }
+
+  const issueTitle = String(parsed.issue_title || parsed.issueTitle || 'Observed bug').trim();
+  const issueSummary = String(parsed.issue_summary || parsed.issueSummary || '').trim();
+  const observedBehavior = String(parsed.observed_behavior || parsed.observedBehavior || '').trim();
+  const expectedBehavior = String(parsed.expected_behavior || parsed.expectedBehavior || '').trim();
+  const reproductionSteps = parseStringArray(parsed.reproduction_steps || parsed.reproductionSteps);
+  const technicalClues = parseStringArray(parsed.technical_clues || parsed.technicalClues);
+  const recommendedPrompt = String(parsed.recommended_prompt || parsed.recommendedPrompt || '').trim();
+
+  if (!issueSummary) {
+    throw new Error('GIF issue analysis is missing issue_summary.');
+  }
+
+  if (!observedBehavior) {
+    throw new Error('GIF issue analysis is missing observed_behavior.');
+  }
+
+  if (!expectedBehavior) {
+    throw new Error('GIF issue analysis is missing expected_behavior.');
+  }
+
+  if (reproductionSteps.length === 0) {
+    throw new Error('GIF issue analysis is missing reproduction_steps.');
+  }
+
+  if (!recommendedPrompt) {
+    throw new Error('GIF issue analysis is missing recommended_prompt.');
+  }
+
+  return {
+    issueTitle,
+    issueSummary,
+    observedBehavior,
+    expectedBehavior,
+    reproductionSteps,
+    technicalClues,
+    recommendedPrompt,
+  };
+};
+
 const isGoogleGeminiEndpoint = (baseUrl: string): boolean => {
   return /generativelanguage\.googleapis\.com/i.test(baseUrl);
 };
@@ -504,14 +601,51 @@ const getGeminiApiKey = (settings: LLMSettings): string => {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+interface GeminiUploadProgressLabels {
+  uploading: string;
+  uploaded: string;
+  processing: string;
+  processed: string;
+  generate: string;
+  parse: string;
+}
+
+const DEFAULT_GEMINI_UPLOAD_LABELS: GeminiUploadProgressLabels = {
+  uploading: 'Uploading media',
+  uploaded: 'Media uploaded',
+  processing: 'Processing media',
+  processed: 'Media processed',
+  generate: 'Generating structured output',
+  parse: 'Parsing JSON output',
+};
+
+const GEMINI_VIDEO_UPLOAD_LABELS: GeminiUploadProgressLabels = {
+  uploading: 'Uploading video',
+  uploaded: 'Video uploaded',
+  processing: 'Processing video',
+  processed: 'Video processed',
+  generate: 'Generating script JSON',
+  parse: 'Parsing JSON output',
+};
+
+const GEMINI_GIF_UPLOAD_LABELS: GeminiUploadProgressLabels = {
+  uploading: 'Uploading GIF',
+  uploaded: 'GIF uploaded',
+  processing: 'Processing GIF',
+  processed: 'GIF processed',
+  generate: 'Writing debugging prompt',
+  parse: 'Parsing prompt output',
+};
+
 const uploadGeminiFile = async (
   apiKey: string,
   file: Blob,
   mimeType: string,
   displayName: string,
-  onProgress?: (update: VideoAnalysisProgress) => void
+  onProgress?: (update: VideoAnalysisProgress) => void,
+  labels: GeminiUploadProgressLabels = DEFAULT_GEMINI_UPLOAD_LABELS
 ): Promise<GeminiFileResource> => {
-  onProgress?.({ stage: 'Uploading video', progress: 12 });
+  onProgress?.({ stage: labels.uploading, progress: 12 });
   const startResp = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: {
@@ -538,7 +672,7 @@ const uploadGeminiFile = async (
     throw new Error('Gemini upload URL was not returned by the API.');
   }
 
-  onProgress?.({ stage: 'Uploading video', progress: 20 });
+  onProgress?.({ stage: labels.uploading, progress: 20 });
 
   const finalizeResp = await fetch(uploadUrl, {
     method: 'POST',
@@ -561,7 +695,7 @@ const uploadGeminiFile = async (
     throw new Error('Gemini upload response did not include file metadata.');
   }
 
-  onProgress?.({ stage: 'Video uploaded', progress: 28 });
+  onProgress?.({ stage: labels.uploaded, progress: 28 });
 
   return uploaded;
 };
@@ -569,13 +703,14 @@ const uploadGeminiFile = async (
 const waitForGeminiFileActive = async (
   apiKey: string,
   fileName: string,
-  onProgress?: (update: VideoAnalysisProgress) => void
+  onProgress?: (update: VideoAnalysisProgress) => void,
+  labels: GeminiUploadProgressLabels = DEFAULT_GEMINI_UPLOAD_LABELS
 ): Promise<GeminiFileResource> => {
   const cleanName = fileName.startsWith('files/') ? fileName : fileName.replace(/^\/+/, '');
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/${cleanName}?key=${encodeURIComponent(apiKey)}`;
 
   const maxAttempts = 45;
-  onProgress?.({ stage: 'Processing video', progress: 30 });
+  onProgress?.({ stage: labels.processing, progress: 30 });
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const resp = await fetch(endpoint);
     if (!resp.ok) {
@@ -588,19 +723,19 @@ const waitForGeminiFileActive = async (
     const state = (resource.state || '').toUpperCase();
 
     if (state === 'ACTIVE') {
-      onProgress?.({ stage: 'Video processed', progress: 70 });
+      onProgress?.({ stage: labels.processed, progress: 70 });
       return resource;
     }
     if (state === 'FAILED') {
-      throw new Error('Gemini failed to process the uploaded video file.');
+      throw new Error('Gemini failed to process the uploaded media file.');
     }
 
     const processProgress = Math.min(69, 30 + Math.floor(((attempt + 1) / maxAttempts) * 39));
-    onProgress?.({ stage: 'Processing video', progress: processProgress });
+    onProgress?.({ stage: labels.processing, progress: processProgress });
     await sleep(2000);
   }
 
-  throw new Error('Gemini video processing timed out. Try a shorter clip and retry.');
+  throw new Error('Gemini media processing timed out. Try a shorter clip and retry.');
 };
 
 const deleteGeminiFile = async (apiKey: string, fileName: string): Promise<void> => {
@@ -610,15 +745,17 @@ const deleteGeminiFile = async (apiKey: string, fileName: string): Promise<void>
   }).catch(() => undefined);
 };
 
-const generateGeminiVideoAnalysis = async (
+const generateGeminiFileAnalysis = async (
   apiKey: string,
   model: string,
   fileUri: string,
   mimeType: string,
+  systemPrompt: string,
   userPrompt: string,
-  onProgress?: (update: VideoAnalysisProgress) => void
+  onProgress?: (update: VideoAnalysisProgress) => void,
+  labels: GeminiUploadProgressLabels = DEFAULT_GEMINI_UPLOAD_LABELS
 ): Promise<string> => {
-  onProgress?.({ stage: 'Generating script JSON', progress: 76 });
+  onProgress?.({ stage: labels.generate, progress: 76 });
   const normalizedModel = normalizeModelForRequest(model.trim());
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(normalizedModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
@@ -629,7 +766,7 @@ const generateGeminiVideoAnalysis = async (
     },
     body: JSON.stringify({
       systemInstruction: {
-        parts: [{ text: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT }]
+        parts: [{ text: systemPrompt }]
       },
       contents: [
         {
@@ -649,15 +786,15 @@ const generateGeminiVideoAnalysis = async (
 
   if (!resp.ok) {
     const errorData = await resp.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Gemini video analysis request failed: ${resp.statusText}`);
+    throw new Error(errorData.error?.message || `Gemini media analysis request failed: ${resp.statusText}`);
   }
 
   const data = await resp.json();
   const text = data.candidates?.[0]?.content?.parts?.find((p: any) => typeof p?.text === 'string')?.text || '';
   if (!text.trim()) {
-    throw new Error('Gemini did not return any text output for video analysis.');
+    throw new Error('Gemini did not return any text output for media analysis.');
   }
-  onProgress?.({ stage: 'Parsing JSON output', progress: 84 });
+  onProgress?.({ stage: labels.parse, progress: 84 });
   return text;
 };
 
@@ -724,19 +861,127 @@ export const analyzeVideoNarrationWithGemini = async (
       context.mediaBlob,
       mimeType,
       context.fileNameHint || 'slide-media-video',
-      context.onProgress
+      context.onProgress,
+      GEMINI_VIDEO_UPLOAD_LABELS
     );
-    const activeFile = await waitForGeminiFileActive(apiKey, uploadedFile.name, context.onProgress);
+    const activeFile = await waitForGeminiFileActive(apiKey, uploadedFile.name, context.onProgress, GEMINI_VIDEO_UPLOAD_LABELS);
 
-    const first = await generateGeminiVideoAnalysis(apiKey, model, activeFile.uri, mimeType, userPrompt, context.onProgress);
+    const first = await generateGeminiFileAnalysis(
+      apiKey,
+      model,
+      activeFile.uri,
+      mimeType,
+      GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
+      userPrompt,
+      context.onProgress,
+      GEMINI_VIDEO_UPLOAD_LABELS
+    );
     try {
       context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
       return { ...parseVideoNarrationAnalysis(first), rawJson: stripCodeFence(first) };
     } catch {
       const repairPrompt = `${userPrompt}\n\nYour previous response was invalid JSON. Return only valid JSON matching the requested schema.`;
-      const repaired = await generateGeminiVideoAnalysis(apiKey, model, activeFile.uri, mimeType, repairPrompt, context.onProgress);
+      const repaired = await generateGeminiFileAnalysis(
+        apiKey,
+        model,
+        activeFile.uri,
+        mimeType,
+        GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
+        repairPrompt,
+        context.onProgress,
+        GEMINI_VIDEO_UPLOAD_LABELS
+      );
       context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
       return { ...parseVideoNarrationAnalysis(repaired), rawJson: stripCodeFence(repaired) };
+    }
+  } finally {
+    if (uploadedFile?.name) {
+      await deleteGeminiFile(apiKey, uploadedFile.name);
+    }
+  }
+};
+
+export const analyzeGifIssueWithGemini = async (
+  settings: LLMSettings,
+  context: {
+    mediaBlob: Blob;
+    mediaMimeType?: string;
+    fileNameHint?: string;
+    mediaDurationSeconds?: number;
+    userGoal?: string;
+    extraContext?: string;
+    onProgress?: (update: VideoAnalysisProgress) => void;
+  }
+): Promise<GifIssueAnalysis> => {
+  if (!settings.apiKey?.trim()) {
+    throw new Error('Missing API key for Gemini GIF issue analysis.');
+  }
+
+  if (!context.mediaBlob) {
+    throw new Error('A GIF file is required for issue analysis.');
+  }
+
+  if (!isGoogleGeminiEndpoint(settings.baseUrl)) {
+    throw new Error('GIF issue analysis requires a Google Gemini endpoint. Set Base URL to generativelanguage.googleapis.com and retry.');
+  }
+
+  const model = settings.model?.trim() || 'gemini-2.5-flash-lite';
+  const apiKey = getGeminiApiKey(settings);
+  const mimeType = context.mediaMimeType?.trim() || context.mediaBlob.type || 'image/gif';
+
+  context.onProgress?.({ stage: 'Preparing request', progress: 5 });
+
+  const userPrompt = [
+    'Analyze the attached animated GIF and produce the best possible bug report wording for an agentic AI.',
+    context.fileNameHint ? `GIF file hint: ${context.fileNameHint}` : '',
+    Number.isFinite(context.mediaDurationSeconds) ? `Approximate GIF duration (seconds): ${context.mediaDurationSeconds}` : '',
+    context.userGoal?.trim() ? `What I was trying to do: ${context.userGoal.trim()}` : '',
+    context.extraContext?.trim() ? `Extra context: ${context.extraContext.trim()}` : '',
+    'Return strictly valid JSON only. Do not include markdown fences.',
+    'Use EXACT keys: issue_title, issue_summary, observed_behavior, expected_behavior, reproduction_steps, technical_clues, recommended_prompt.',
+  ].filter(Boolean).join('\n');
+
+  let uploadedFile: GeminiFileResource | null = null;
+
+  try {
+    uploadedFile = await uploadGeminiFile(
+      apiKey,
+      context.mediaBlob,
+      mimeType,
+      context.fileNameHint || 'origami-issue-report',
+      context.onProgress,
+      GEMINI_GIF_UPLOAD_LABELS
+    );
+    const activeFile = await waitForGeminiFileActive(apiKey, uploadedFile.name, context.onProgress, GEMINI_GIF_UPLOAD_LABELS);
+
+    const first = await generateGeminiFileAnalysis(
+      apiKey,
+      model,
+      activeFile.uri,
+      mimeType,
+      GEMINI_GIF_ISSUE_ANALYSIS_SYSTEM_PROMPT,
+      userPrompt,
+      context.onProgress,
+      GEMINI_GIF_UPLOAD_LABELS
+    );
+
+    try {
+      context.onProgress?.({ stage: 'Prompt ready', progress: 92 });
+      return { ...parseGifIssueAnalysis(first), rawJson: stripCodeFence(first) };
+    } catch {
+      const repairPrompt = `${userPrompt}\n\nYour previous response was invalid JSON. Return only valid JSON matching the requested schema.`;
+      const repaired = await generateGeminiFileAnalysis(
+        apiKey,
+        model,
+        activeFile.uri,
+        mimeType,
+        GEMINI_GIF_ISSUE_ANALYSIS_SYSTEM_PROMPT,
+        repairPrompt,
+        context.onProgress,
+        GEMINI_GIF_UPLOAD_LABELS
+      );
+      context.onProgress?.({ stage: 'Prompt ready', progress: 92 });
+      return { ...parseGifIssueAnalysis(repaired), rawJson: stripCodeFence(repaired) };
     }
   } finally {
     if (uploadedFile?.name) {
