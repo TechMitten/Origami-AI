@@ -173,8 +173,10 @@ const formatChatTimestamp = (timestamp: number): string => (
 export const AssistantPage: React.FC = () => {
   const { showAlert, showConfirm } = useModal();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messageCountRef = useRef(0);
 
   const [chatSessions, setChatSessions] = useState<AssistantChatSession[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -333,8 +335,18 @@ export const AssistantPage: React.FC = () => {
   }, [chatSessions, currentChatId, isBootstrapping]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages]);
+    // Only scroll when a new message is added to the conversation, not when existing message content updates
+    // This prevents scroll jank during streaming text generation
+    if (messages.length > messageCountRef.current) {
+      messageCountRef.current = messages.length;
+      // Use setTimeout to ensure DOM is updated before scrolling
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      }, 0);
+    } else if (messages.length === 0) {
+      messageCountRef.current = 0;
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -595,19 +607,23 @@ export const AssistantPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-branding-dark px-4 pb-2 pt-6 text-white sm:px-6 lg:px-8">
-      <header className="relative z-50 mx-auto mb-4 flex w-full max-w-6xl flex-col gap-3 rounded-3xl border border-white/10 bg-black/20 px-4 py-4 backdrop-blur-xl sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl shadow-lg shadow-cyan-500/10">
-            <img src={appLogo} alt="Origami" className="h-full w-full rounded-xl object-cover" />
+      <header className="relative z-50 mx-auto mb-4 w-full max-w-6xl rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl sm:px-5">
+        <div className="flex flex-col gap-4 px-4 py-4">
+          {/* Top row: Logo + Title on left, Mode switcher on right */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl shadow-lg shadow-cyan-500/10">
+                <img src={appLogo} alt="Origami" className="h-full w-full rounded-xl object-cover" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-cyan-300/60">Origami</p>
+                <h1 className="text-2xl font-black tracking-tight text-white">AI Assistant</h1>
+              </div>
+            </div>
+            <AppModeSwitcher className="shrink-0" />
           </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-cyan-300/60">Origami</p>
-            <h1 className="text-2xl font-black tracking-tight text-white">AI Assistant</h1>
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <AppModeSwitcher className="self-start lg:self-center" />
+          {/* Bottom row: Model badge and controls */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/60">
               <Bot className="h-4 w-4 text-cyan-300" />
@@ -729,7 +745,7 @@ export const AssistantPage: React.FC = () => {
             </aside>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="custom-scrollbar flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+              <div className="custom-scrollbar flex-1 overflow-y-auto px-4 py-5 sm:px-6" ref={messagesContainerRef}>
             {isBootstrapping ? (
               <div className="flex h-full items-center justify-center">
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-white/70">
