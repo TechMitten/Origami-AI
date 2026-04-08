@@ -57,6 +57,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
   const [webllmError, setWebllmError] = useState<string | null>(null);
+  const [capabilityFilter, setCapabilityFilter] = useState<'all' | 'vision' | 'text'>('all');
 
   const compatibleModels = AVAILABLE_WEB_LLM_MODELS.filter((model) => {
     if (!webGpuSupport) return true;
@@ -64,6 +65,21 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
     if (!webGpuSupport.hasF16 && model.precision === 'f16') return false;
     return true;
   });
+  const filteredCompatibleModels = compatibleModels.filter((model) => {
+    if (capabilityFilter === 'vision') return !!model.capabilities?.includes('vision');
+    if (capabilityFilter === 'text') return !model.capabilities?.includes('vision');
+    return true;
+  });
+  const groupedCompatibleModels = [
+    {
+      title: 'Vision Models',
+      models: filteredCompatibleModels.filter((model) => model.capabilities?.includes('vision')),
+    },
+    {
+      title: 'Text Models',
+      models: filteredCompatibleModels.filter((model) => !model.capabilities?.includes('vision')),
+    },
+  ].filter((group) => group.models.length > 0);
 
   const normalizeWebLLMProgress = (progress: number) => {
     if (!Number.isFinite(progress)) return 0;
@@ -79,6 +95,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       setWebLLMProgress(null);
       setWebLLMMaxProgress(0);
       setWebllmError(null);
+      setCapabilityFilter('all');
       return;
     }
 
@@ -315,8 +332,43 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                       </div>
                     )}
                     <p className="text-xs text-white/60 mb-2">Select a model to download:</p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <button
+                        onClick={() => setCapabilityFilter('all')}
+                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'all' ? 'border-white bg-white text-black' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
+                      >
+                        <span className="block text-xs font-bold uppercase tracking-[0.18em]">All</span>
+                        <span className={`block text-[10px] ${capabilityFilter === 'all' ? 'text-black/60' : 'text-white/40'}`}>Show everything</span>
+                      </button>
+                      <button
+                        onClick={() => setCapabilityFilter('vision')}
+                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'vision' ? 'border-white bg-white text-black' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
+                      >
+                        <span className="block text-xs font-bold uppercase tracking-[0.18em]">Vision</span>
+                        <span className={`block text-[10px] ${capabilityFilter === 'vision' ? 'text-black/60' : 'text-white/40'}`}>Image-capable</span>
+                      </button>
+                      <button
+                        onClick={() => setCapabilityFilter('text')}
+                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'text' ? 'border-white bg-white text-black' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
+                      >
+                        <span className="block text-xs font-bold uppercase tracking-[0.18em]">Text</span>
+                        <span className={`block text-[10px] ${capabilityFilter === 'text' ? 'text-black/60' : 'text-white/40'}`}>Writing only</span>
+                      </button>
+                    </div>
+                    {groupedCompatibleModels.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {groupedCompatibleModels.map((group) => (
+                          <span
+                            key={group.title}
+                            className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/45"
+                          >
+                            {group.title}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="max-h-48 overflow-y-auto space-y-1.5">
-                      {compatibleModels.map((model) => (
+                      {filteredCompatibleModels.map((model) => (
                         <div
                           key={model.id}
                           onClick={() => void handleModelSelect(model.id)}
@@ -329,6 +381,9 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                                 {model.name} ({model.precision})
                               </p>
                               <p className="text-xs text-white/50">{model.size} • {model.vram_required_MB}MB VRAM</p>
+                              <p className="text-[11px] text-white/35">
+                                {model.capabilities?.includes('vision') ? 'Vision + text' : 'Text only'}
+                              </p>
                             </div>
                             <button
                               onClick={(e) => {
@@ -348,9 +403,9 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                           )}
                         </div>
                       ))}
-                      {compatibleModels.length === 0 && (
+                      {filteredCompatibleModels.length === 0 && (
                         <div className="rounded border border-white/10 bg-white/5 p-3 text-xs text-white/60">
-                          No compatible WebLLM models are available for this device.
+                          No compatible WebLLM models match the current capability filter.
                         </div>
                       )}
                     </div>

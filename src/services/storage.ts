@@ -61,11 +61,18 @@ export interface GlobalSettings {
   recordingCountdownEnabled?: boolean;
 }
 
+export interface AssistantImageAttachment {
+  dataUrl: string;
+  mimeType: string;
+  name: string;
+}
+
 export interface AssistantChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   createdAt: number;
+  imageAttachment?: AssistantImageAttachment;
 }
 
 export interface AssistantChatState {
@@ -453,13 +460,26 @@ export const loadAssistantChatState = async (): Promise<AssistantChatState | nul
         resolve({
           ...state,
           messages: Array.isArray(state.messages)
-            ? state.messages.filter((message) =>
-              message
-              && typeof message.id === 'string'
-              && (message.role === 'user' || message.role === 'assistant')
-              && typeof message.content === 'string'
-              && typeof message.createdAt === 'number'
-            )
+            ? state.messages
+              .filter((message) =>
+                message
+                && typeof message.id === 'string'
+                && (message.role === 'user' || message.role === 'assistant')
+                && typeof message.content === 'string'
+                && typeof message.createdAt === 'number'
+              )
+              .map((message) => ({
+                ...message,
+                imageAttachment: (
+                  message.imageAttachment
+                  && typeof message.imageAttachment === 'object'
+                  && typeof message.imageAttachment.dataUrl === 'string'
+                  && typeof message.imageAttachment.mimeType === 'string'
+                  && typeof message.imageAttachment.name === 'string'
+                )
+                  ? message.imageAttachment
+                  : undefined,
+              }))
             : [],
         });
       };

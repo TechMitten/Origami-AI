@@ -213,6 +213,14 @@ export const IssueReporterPage: React.FC = () => {
   });
 
   const handleStartRecording = async () => {
+    if (!userGoal.trim()) {
+      showAlert('Describe the issue in your own words first so Gemini can use your explanation together with the recording.', {
+        type: 'warning',
+        title: 'Description Required',
+      });
+      return;
+    }
+
     try {
       resetAnalysis();
       await startRecording();
@@ -233,6 +241,14 @@ export const IssueReporterPage: React.FC = () => {
 
   const handleAnalyze = async () => {
     const currentCapture = captureRef.current;
+    if (!userGoal.trim()) {
+      showAlert('Describe the issue in your own words before generating the prompt.', {
+        type: 'warning',
+        title: 'Description Required',
+      });
+      return;
+    }
+
     if (!currentCapture?.videoBlob) {
       showAlert('Record an issue before asking Gemini to analyze it.', {
         type: 'warning',
@@ -370,24 +386,24 @@ export const IssueReporterPage: React.FC = () => {
           <div className="grid gap-4 border-b border-white/10 px-5 py-5 sm:grid-cols-3 sm:px-6">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 inline-flex rounded-xl border border-orange-300/20 bg-orange-400/10 p-2 text-orange-200">
-                <Video className="h-5 w-5" />
+                <Bug className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-black text-white">1. Record the issue</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Capture the exact browser behavior that is breaking so you do not have to translate it manually.</p>
+              <h3 className="text-lg font-black text-white">1. Describe the issue</h3>
+              <p className="mt-2 text-sm leading-6 text-white/60">Write what you expected, what actually happened, and any useful context in your own words first.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 inline-flex rounded-xl border border-cyan-300/20 bg-cyan-400/10 p-2 text-cyan-200">
-                <Sparkles className="h-5 w-5" />
+                <Video className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-black text-white">2. Let Gemini analyze</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Gemini watches the WebM clip, extracts the visible problem, and writes a structured explanation.</p>
+              <h3 className="text-lg font-black text-white">2. Record the issue</h3>
+              <p className="mt-2 text-sm leading-6 text-white/60">Capture the exact behavior on screen so Gemini can compare your description against what the recording shows.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 inline-flex rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-2 text-emerald-200">
-                <WandSparkles className="h-5 w-5" />
+                <Sparkles className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-black text-white">3. Paste the finished prompt</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Copy the generated prompt, attach the WebM clip, and drop both into your agentic AI chat.</p>
+              <h3 className="text-lg font-black text-white">3. Let Gemini analyze both</h3>
+              <p className="mt-2 text-sm leading-6 text-white/60">Gemini reads your description and watches the WebM clip before drafting the final prompt you can paste into your AI chat.</p>
             </div>
           </div>
 
@@ -410,15 +426,47 @@ export const IssueReporterPage: React.FC = () => {
               )}
 
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Step 1</p>
+                <h3 className="mt-1 text-xl font-black text-white">Describe the issue in your own words</h3>
+                <p className="mt-3 text-sm leading-7 text-white/55">
+                  Gemini will combine this explanation with the screen recording, so focus on what you were trying to do, what went wrong, and anything that seems important.
+                </p>
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-white/45">
+                      What is the issue?
+                    </label>
+                    <textarea
+                      value={userGoal}
+                      onChange={(event) => setUserGoal(event.target.value)}
+                      placeholder="Example: I click Save on the settings form, the button shows a loading state for a second, then the page refreshes and my changes are gone. I expected the form to save and stay on the same page."
+                      className="min-h-[140px] w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-orange-300/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-white/45">
+                      Extra technical notes
+                    </label>
+                    <textarea
+                      value={extraContext}
+                      onChange={(event) => setExtraContext(event.target.value)}
+                      placeholder="Example: React app, happens after optimistic update, only in Chrome."
+                      className="min-h-[92px] w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-orange-300/40"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Capture</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Record a full screen, window, or tab</h3>
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Step 2</p>
+                    <h3 className="mt-1 text-xl font-black text-white">Record the issue on screen</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={handleStartRecording}
-                      disabled={isRecording}
+                      disabled={isRecording || !userGoal.trim()}
                       className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Video className="h-4 w-4" />
@@ -437,8 +485,14 @@ export const IssueReporterPage: React.FC = () => {
                 </div>
 
                 <p className="mt-3 text-sm leading-7 text-white/55">
-                  Use the browser picker to capture your full screen, a specific app window, or a browser tab. Short clips work best for AI analysis and keep the WebM upload lightweight.
+                  Use the browser picker to capture your full screen, a specific app window, or a browser tab. The description above is required first so Gemini can compare your words against the recording.
                 </p>
+
+                {!userGoal.trim() && (
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+                    Write the issue description first to unlock recording.
+                  </div>
+                )}
 
                 {capture && (
                   <div className="mt-5 grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2">
@@ -452,35 +506,6 @@ export const IssueReporterPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </div>
-
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Optional Context</p>
-                <h3 className="mt-1 text-xl font-black text-white">Help Gemini understand the intent</h3>
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-white/45">
-                      What were you trying to do?
-                    </label>
-                    <textarea
-                      value={userGoal}
-                      onChange={(event) => setUserGoal(event.target.value)}
-                      placeholder="Example: Save the settings form and stay on the same page."
-                      className="min-h-[92px] w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-orange-300/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-white/45">
-                      Relevant stack or extra notes
-                    </label>
-                    <textarea
-                      value={extraContext}
-                      onChange={(event) => setExtraContext(event.target.value)}
-                      placeholder="Example: React app, happens after optimistic update, only in Chrome."
-                      className="min-h-[92px] w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-orange-300/40"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -518,12 +543,12 @@ export const IssueReporterPage: React.FC = () => {
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Analysis</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Generate the debugging prompt</h3>
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Step 3</p>
+                    <h3 className="mt-1 text-xl font-black text-white">Analyze your words and the recording together</h3>
                   </div>
                   <button
                     onClick={handleAnalyze}
-                    disabled={!capture?.videoBlob || isAnalyzing}
+                    disabled={!capture?.videoBlob || !userGoal.trim() || isAnalyzing}
                     className="inline-flex items-center gap-2 rounded-2xl bg-orange-300 px-4 py-2.5 text-sm font-black text-slate-950 transition-all disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -598,7 +623,7 @@ export const IssueReporterPage: React.FC = () => {
                   </div>
                 ) : (
                   <p className="mt-4 text-sm leading-7 text-white/50">
-                    Once the recording is ready, Origami will ask Gemini to describe the visible bug and build a paste-ready prompt for your AI debugger.
+                    Once your description and recording are ready, Origami will ask Gemini to reason over both inputs and build a paste-ready prompt for your AI debugger.
                   </p>
                 )}
               </div>

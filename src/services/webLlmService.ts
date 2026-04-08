@@ -12,6 +12,7 @@ export interface ModelInfo {
     size?: string;
     vram_required_MB?: number;
     precision: 'f16' | 'f32';
+    capabilities?: Array<'text' | 'vision'>;
 }
 
 export interface WebLLMDeviceLostDetail {
@@ -39,22 +40,34 @@ export const getDefaultWebLlmModel = (hasF16: boolean = true): string => {
 // f16 models are faster and use less memory, f32 models have better compatibility
 export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     // f16 models (faster, lower memory, requires good GPU support)
-    { id: "Llama-3.2-3B-Instruct-q4f16_1-MLC", name: "Llama 3.2 3B", size: "1.7GB", vram_required_MB: 2500, precision: 'f16' },
-    { id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", name: "Llama 3.2 1B", size: "800MB", vram_required_MB: 1500, precision: 'f16' },
-    { id: "Llama-3.1-8B-Instruct-q4f16_1-MLC", name: "Llama 3.1 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16' },
-    { id: "gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 2B", size: "1.4GB", vram_required_MB: 2000, precision: 'f16' },
-    { id: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC", name: "DeepSeek R1 Distill 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16' },
-    { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 1.5B", size: "1GB", vram_required_MB: 2000, precision: 'f16' },
-    { id: "Qwen3-4B-q4f16_1-MLC", name: "Qwen 3 4B", size: "3.6GB", vram_required_MB: 5000, precision: 'f16' },
-    { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", name: "Phi 3.5 Mini", size: "2.5GB", vram_required_MB: 3000, precision: 'f16' },
+    { id: "Llama-3.2-3B-Instruct-q4f16_1-MLC", name: "Llama 3.2 3B", size: "1.7GB", vram_required_MB: 2500, precision: 'f16', capabilities: ['text'] },
+    { id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", name: "Llama 3.2 1B", size: "800MB", vram_required_MB: 1500, precision: 'f16', capabilities: ['text'] },
+    { id: "Llama-3.1-8B-Instruct-q4f16_1-MLC", name: "Llama 3.1 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16', capabilities: ['text'] },
+    { id: "gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 2B", size: "1.4GB", vram_required_MB: 2000, precision: 'f16', capabilities: ['text'] },
+    { id: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC", name: "DeepSeek R1 Distill 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16', capabilities: ['text'] },
+    { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 1.5B", size: "1GB", vram_required_MB: 2000, precision: 'f16', capabilities: ['text'] },
+    { id: "Qwen3-4B-q4f16_1-MLC", name: "Qwen 3 4B", size: "3.6GB", vram_required_MB: 5000, precision: 'f16', capabilities: ['text'] },
+    { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", name: "Phi 3.5 Mini", size: "2.5GB", vram_required_MB: 3000, precision: 'f16', capabilities: ['text'] },
+    { id: "Phi-3.5-vision-instruct-q4f16_1-MLC", name: "Phi 3.5 Vision", size: "3.9GB", vram_required_MB: 3952, precision: 'f16', capabilities: ['text', 'vision'] },
 
     // f32 models (better compatibility, slower, more memory)
-    { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 3B", size: "2.0GB", vram_required_MB: 3000, precision: 'f32' },
-    { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 1B", size: "1.0GB", vram_required_MB: 1800, precision: 'f32' },
-    { id: "gemma-2-2b-it-q4f32_1-MLC", name: "Gemma 2 2B", size: "1.7GB", vram_required_MB: 2500, precision: 'f32' },
-    { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", name: "Qwen 2.5 1.5B", size: "1.2GB", vram_required_MB: 2300, precision: 'f32' },
-    { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", name: "Phi 3.5 Mini", size: "3.0GB", vram_required_MB: 3500, precision: 'f32' },
+    { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 3B", size: "2.0GB", vram_required_MB: 3000, precision: 'f32', capabilities: ['text'] },
+    { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 1B", size: "1.0GB", vram_required_MB: 1800, precision: 'f32', capabilities: ['text'] },
+    { id: "gemma-2-2b-it-q4f32_1-MLC", name: "Gemma 2 2B", size: "1.7GB", vram_required_MB: 2500, precision: 'f32', capabilities: ['text'] },
+    { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", name: "Qwen 2.5 1.5B", size: "1.2GB", vram_required_MB: 2300, precision: 'f32', capabilities: ['text'] },
+    { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", name: "Phi 3.5 Mini", size: "3.0GB", vram_required_MB: 3500, precision: 'f32', capabilities: ['text'] },
+    { id: "Phi-3.5-vision-instruct-q4f32_1-MLC", name: "Phi 3.5 Vision", size: "5.9GB", vram_required_MB: 5880, precision: 'f32', capabilities: ['text', 'vision'] },
 ];
+
+export const getWebLlmModelInfo = (modelId: string | null | undefined): ModelInfo | undefined => {
+    if (!modelId) return undefined;
+    return AVAILABLE_WEB_LLM_MODELS.find((model) => model.id === modelId);
+};
+
+export const webLlmModelSupportsVision = (modelId: string | null | undefined): boolean => {
+    const model = getWebLlmModelInfo(modelId);
+    return !!model?.capabilities?.includes('vision');
+};
 
 // WebGPU types are often not included by default in standard lib yet
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

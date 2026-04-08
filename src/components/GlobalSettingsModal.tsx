@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, type ModelInfo } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -20,6 +20,17 @@ interface GlobalSettingsModalProps {
   initialTab?: 'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt';
   onShowWebGPUModal?: () => void;
 }
+
+const getWebLlmOptionLabel = (model: ModelInfo): string => {
+  const capabilityLabel = model.capabilities?.includes('vision') ? 'Vision' : 'Text';
+  const recommendedLabel = model.name.includes('Gemma 2')
+    ? ' * Recommended'
+    : (model.capabilities?.includes('vision') && model.precision === 'f16')
+      ? ' * Best local vision'
+      : '';
+
+  return `${model.name} (${model.precision.toUpperCase()}) - ${model.size} - ${capabilityLabel}${recommendedLabel}`;
+};
 
 export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   isOpen,
@@ -53,6 +64,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmProgressPercent, setWebLlmProgressPercent] = useState(0);
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
   const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
+  const [capabilityFilter, setCapabilityFilter] = useState<'all' | 'vision' | 'text'>('all');
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
@@ -110,7 +122,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       const currentModelId = getCurrentWebLLMModel();
       if (currentModelId) {
         const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === currentModelId);
-        setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : currentModelId);
+        setCurrentLoadedModel(modelInfo ? getWebLlmOptionLabel(modelInfo) : currentModelId);
       } else {
         setCurrentLoadedModel(null);
       }
@@ -134,6 +146,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   const [availableModels, setAvailableModels] = useState<{ id: string, name: string }[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+
+  const filteredWebLlmModels = AVAILABLE_WEB_LLM_MODELS.filter((model) => {
+    if (webGpuSupport?.supported && !webGpuSupport.hasF16 && model.precision === 'f16') return false;
+    if (precisionFilter !== 'all' && model.precision !== precisionFilter) return false;
+    if (capabilityFilter === 'vision') return !!model.capabilities?.includes('vision');
+    if (capabilityFilter === 'text') return !model.capabilities?.includes('vision');
+    return true;
+  });
 
   // Backup keys state to allow switching
   const [storedGeminiKey, setStoredGeminiKey] = useState(() => {
@@ -1052,6 +1072,43 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     {/* Precision Explanation - Removed per user request */}
                   </div>
 
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                        Model Type
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <button
+                        onClick={() => setCapabilityFilter('all')}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'all' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                      >
+                        <span className="text-sm font-bold">All Types</span>
+                        <span className={`text-[10px] ${capabilityFilter === 'all' ? 'text-black/60' : 'text-white/40'}`}>
+                          Show everything
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setCapabilityFilter('vision')}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'vision' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                      >
+                        <span className="text-sm font-bold">Vision</span>
+                        <span className={`text-[10px] ${capabilityFilter === 'vision' ? 'text-black/60' : 'text-white/40'}`}>
+                          Image-capable
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setCapabilityFilter('text')}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'text' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                      >
+                        <span className="text-sm font-bold">Text</span>
+                        <span className={`text-[10px] ${capabilityFilter === 'text' ? 'text-black/60' : 'text-white/40'}`}>
+                          Writing only
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Model Selection */}
                   <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
                     <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
@@ -1060,14 +1117,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <div className="flex-1">
                       <div className="space-y-4">
                         <Dropdown
-                          options={AVAILABLE_WEB_LLM_MODELS
-                            .filter(m => {
-                              // Hide f16 models if not supported
-                              if (webGpuSupport?.supported && !webGpuSupport.hasF16 && m.precision === 'f16') return false;
-                              return precisionFilter === 'all' || m.precision === precisionFilter;
-                            })
+                          options={filteredWebLlmModels
                             .map(m => ({
                               id: m.id,
+                              group: m.capabilities?.includes('vision') ? 'Vision Models' : 'Text Models',
                               name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}${m.name.includes('Gemma 2') ? ' ★ (Recommended)' : ''}`
                             }))}
                           value={webLlmModel}
@@ -1077,10 +1130,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                           className="bg-black/20"
                         />
 
+                        {filteredWebLlmModels.length === 0 && (
+                          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
+                            No WebLLM models match the current precision and capability filters.
+                          </div>
+                        )}
+
                         {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel) && (
-                          <div className="flex items-center gap-2 text-[10px] text-white/40">
-                            <Activity className="w-3 h-3" />
-                            Est. VRAM Usage: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB
+                          <div className="flex flex-wrap items-center gap-3 text-[10px] text-white/40">
+                            <div className="flex items-center gap-2">
+                              <Activity className="w-3 h-3" />
+                              Est. VRAM Usage: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB
+                            </div>
+                            <div>
+                              Mode: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.capabilities?.includes('vision') ? 'Vision + text' : 'Text only'}
+                            </div>
                           </div>
                         )}
 

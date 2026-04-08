@@ -3,12 +3,14 @@ import {
   Bot,
   BrainCircuit,
   Github,
+  ImagePlus,
   Loader2,
   MessageSquareText,
   RefreshCw,
   Send,
   Settings,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 
 import appLogo from '../assets/images/app-logo2.png';
@@ -21,7 +23,7 @@ import { MobileWarningModal } from '../components/MobileWarningModal';
 import { WebGPUInstructionsModal } from '../components/WebGPUInstructionsModal';
 import { WebLLMLoadingModal } from '../components/WebLLMLoadingModal';
 import { useModal } from '../context/ModalContext';
-import type { AssistantChatMessage, GlobalSettings } from '../services/storage';
+import type { AssistantChatMessage, AssistantImageAttachment, GlobalSettings } from '../services/storage';
 import {
   loadAssistantChatState,
   loadGlobalSettings,
@@ -32,9 +34,11 @@ import {
   AVAILABLE_WEB_LLM_MODELS,
   checkWebGPUSupport,
   getCurrentWebLLMModel,
+  getWebLlmModelInfo,
   initWebLLM,
   isWebLLMLoaded,
   streamWebLLMChatResponse,
+  webLlmModelSupportsVision,
   webLlmEvents,
   type WebLLMChatMessage
 } from '../services/webLlmService';
@@ -55,6 +59,8 @@ const EMPTY_STATE_PROMPTS = [
   'Help me outline a short tutorial video.',
   'Turn these bullets into a conversational explanation.',
 ];
+
+const MAX_ASSISTANT_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   isEnabled: true,
@@ -83,20 +89,37 @@ const getModelName = (modelId: string | null | undefined): string | null => {
   return AVAILABLE_WEB_LLM_MODELS.find((model) => model.id === modelId)?.name || modelId;
 };
 
-const createUserMessage = (content: string): AssistantChatMessage => ({
+const createUserMessage = (content: string, imageAttachment?: AssistantImageAttachment): AssistantChatMessage => ({
   id: crypto.randomUUID(),
   role: 'user',
   content,
   createdAt: Date.now(),
+  imageAttachment,
+});
+
+const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (typeof reader.result === 'string') {
+      resolve(reader.result);
+      return;
+    }
+    reject(new Error('Unable to read the selected image.'));
+  };
+  reader.onerror = () => reject(reader.error || new Error('Unable to read the selected image.'));
+  reader.readAsDataURL(file);
 });
 
 export const AssistantPage: React.FC = () => {
   const { showAlert, showConfirm } = useModal();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [pendingImage, setPendingImage] = useState<AssistantImageAttachment | null>(null);
+  const [isReadingImage, setIsReadingImage] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [loadedModelId, setLoadedModelId] = useState<string | null>(() => getCurrentWebLLMModel());
@@ -109,6 +132,8 @@ export const AssistantPage: React.FC = () => {
   const configuredModelId = globalSettings.webLlmModel || null;
   const configuredModelName = getModelName(configuredModelId);
   const loadedModelName = getModelName(loadedModelId);
+  const activeModelInfo = getWebLlmModelInfo(loadedModelId || configuredModelId);
+  const activeModelSupportsVision = webLlmModelSupportsVision(loadedModelId || configuredModelId);
   const hasConversation = messages.length > 0;
   const isConfiguredForAssistant = Boolean(globalSettings.useWebLLM && configuredModelId);
 
@@ -250,17 +275,65 @@ export const AssistantPage: React.FC = () => {
 
     setMessages([]);
     setInput('');
+    setPendingImage(null);
     await saveAssistantChatState([]);
+  };
+
+  const handleImageSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      await showAlert('Choose a PNG, JPG, WebP, or another standard image format.', {
+        type: 'warning',
+        title: 'Unsupported File',
+      });
+      return;
+    }
+
+    if (file.size > MAX_ASSISTANT_IMAGE_BYTES) {
+      await showAlert('Choose an image under 8 MB so it can be sent to the local vision model reliably.', {
+        type: 'warning',
+        title: 'Image Too Large',
+      });
+      return;
+    }
+
+    setIsReadingImage(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setPendingImage({
+        dataUrl,
+        mimeType: file.type || 'image/png',
+        name: file.name,
+      });
+    } catch (error) {
+      await showAlert(error instanceof Error ? error.message : 'Unable to load that image.', {
+        type: 'error',
+        title: 'Image Load Failed',
+      });
+    } finally {
+      setIsReadingImage(false);
+    }
   };
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isSending) return;
+    if ((!trimmed && !pendingImage) || isSending || isReadingImage) return;
 
     const modelId = await ensureAssistantReady();
     if (!modelId) return;
 
-    const userMessage = createUserMessage(trimmed);
+    if (pendingImage && !webLlmModelSupportsVision(modelId)) {
+      await showAlert('The selected WebLLM model is text-only. Switch to Phi 3.5 Vision to analyze screenshots locally.', {
+        type: 'warning',
+        title: 'Vision Model Required',
+      });
+      return;
+    }
+
+    const userMessage = createUserMessage(trimmed, pendingImage || undefined);
     const assistantMessageId = crypto.randomUUID();
     const placeholderMessage: AssistantChatMessage = {
       id: assistantMessageId,
@@ -272,6 +345,7 @@ export const AssistantPage: React.FC = () => {
     const nextMessages = [...messages, userMessage, placeholderMessage];
     setMessages(nextMessages);
     setInput('');
+    setPendingImage(null);
     setIsSending(true);
 
     const chatMessages: WebLLMChatMessage[] = [
@@ -280,7 +354,20 @@ export const AssistantPage: React.FC = () => {
         .filter((message) => message.id !== assistantMessageId)
         .map((message) => ({
           role: message.role,
-          content: message.content,
+          content: message.imageAttachment
+            ? [
+              {
+                type: 'text' as const,
+                text: message.content || 'Please analyze this screenshot and help me with what is shown.',
+              },
+              {
+                type: 'image_url' as const,
+                image_url: {
+                  url: message.imageAttachment.dataUrl,
+                },
+              },
+            ]
+            : message.content,
         })),
     ];
 
@@ -442,6 +529,7 @@ export const AssistantPage: React.FC = () => {
                     <h3 className="text-3xl font-black tracking-tight text-white">How can I help?</h3>
                     <p className="mt-3 max-w-2xl text-sm text-white/55 sm:text-base">
                       Ask for rewrites, summaries, brainstorming, planning, or help drafting tutorials and presentations.
+                      {activeModelSupportsVision ? ' You can also attach a screenshot for the local vision model to inspect.' : ''}
                     </p>
 
                     <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
@@ -485,8 +573,26 @@ export const AssistantPage: React.FC = () => {
                                 Thinking...
                               </div>
                             ) : (
-                              <div className="whitespace-pre-wrap text-sm leading-7 text-white/90">
-                                {message.content}
+                              <div className="space-y-3">
+                                {message.imageAttachment && (
+                                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                                    <img
+                                      src={message.imageAttachment.dataUrl}
+                                      alt={message.imageAttachment.name}
+                                      className="max-h-80 w-full object-contain"
+                                    />
+                                    <div className="border-t border-white/10 px-3 py-2 text-[11px] text-white/50">
+                                      {message.imageAttachment.name}
+                                    </div>
+                                  </div>
+                                )}
+                                {message.content ? (
+                                  <div className="whitespace-pre-wrap text-sm leading-7 text-white/90">
+                                    {message.content}
+                                  </div>
+                                ) : message.imageAttachment ? (
+                                  <div className="text-sm text-white/60">Attached screenshot</div>
+                                ) : null}
                               </div>
                             )}
                           </div>
@@ -503,6 +609,35 @@ export const AssistantPage: React.FC = () => {
 
           <div className="border-t border-white/10 bg-black/20 p-4 sm:p-5">
             <div className="mx-auto w-full max-w-4xl rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-3 shadow-inner shadow-black/20">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelection}
+                className="hidden"
+              />
+
+              {pendingImage && (
+                <div className="mb-3 flex items-start gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-3">
+                  <img
+                    src={pendingImage.dataUrl}
+                    alt={pendingImage.name}
+                    className="h-20 w-24 rounded-xl object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-cyan-50">{pendingImage.name}</p>
+                    <p className="mt-1 text-xs text-cyan-100/70">This screenshot will be sent to the local vision model with your message.</p>
+                  </div>
+                  <button
+                    onClick={() => setPendingImage(null)}
+                    className="rounded-lg border border-cyan-300/20 bg-black/20 p-2 text-cyan-100/70 transition-colors hover:text-cyan-50"
+                    title="Remove screenshot"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -510,29 +645,42 @@ export const AssistantPage: React.FC = () => {
                 onKeyDown={handleComposerKeyDown}
                 placeholder={
                   isConfiguredForAssistant
-                    ? 'Message Origami Assistant...'
+                    ? activeModelSupportsVision
+                      ? 'Message Origami Assistant or attach a screenshot...'
+                      : 'Message Origami Assistant...'
                     : 'Open Settings to choose and load a WebLLM model first.'
                 }
-                disabled={isBootstrapping || isSending}
+                disabled={isBootstrapping || isSending || isReadingImage}
                 className="max-h-[220px] min-h-[60px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-7 text-white outline-none placeholder:text-white/35"
               />
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs text-white/40">
                   {loadedModelName
-                    ? `Running locally with ${loadedModelName}.`
+                    ? `Running locally with ${loadedModelName}${activeModelInfo?.capabilities?.includes('vision') ? ' (vision enabled).' : '.'}`
                     : configuredModelName
                       ? `${configuredModelName} is selected. Send a message to load it.`
                       : 'No WebLLM model selected yet.'}
                 </div>
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isSending || isBootstrapping}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Send
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!activeModelSupportsVision || isSending || isBootstrapping || isReadingImage}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                    title={activeModelSupportsVision ? 'Attach a screenshot' : 'Select a vision-capable model to attach screenshots'}
+                  >
+                    {isReadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                    Screenshot
+                  </button>
+                  <button
+                    onClick={handleSend}
+                    disabled={(!input.trim() && !pendingImage) || isSending || isBootstrapping || isReadingImage}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Send
+                  </button>
+                </div>
               </div>
             </div>
           </div>

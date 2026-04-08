@@ -11,6 +11,7 @@ function cn(...inputs: ClassValue[]) {
 interface DropdownOption {
   id: string;
   name: string;
+  group?: string;
 }
 
 interface DropdownProps {
@@ -27,6 +28,19 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const selectedOption = options.find(o => o.id === value);
+  const groupedOptions = options.reduce<Array<{ group?: string; options: DropdownOption[] }>>((groups, option) => {
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup.group === option.group) {
+      lastGroup.options.push(option);
+      return groups;
+    }
+
+    groups.push({
+      group: option.group,
+      options: [option],
+    });
+    return groups;
+  }, []);
 
   const updatePosition = () => {
     if (menuRef.current && containerRef.current) {
@@ -111,21 +125,30 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
           }}
         >
           <div className="max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar">
-            {options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => {
-                  onChange(option.id);
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-3 min-h-11 text-sm transition-colors hover:bg-white/5",
-                  option.id === value ? "text-branding-primary font-bold bg-branding-primary/5" : "text-white/80 hover:text-white"
+            {groupedOptions.map((group, groupIndex) => (
+              <div key={`${group.group || 'ungrouped'}-${groupIndex}`}>
+                {group.group && (
+                  <div className="px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/35">
+                    {group.group}
+                  </div>
                 )}
-              >
-                {option.name}
-              </button>
+                {group.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(option.id);
+                      setIsOpen(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-4 py-3 min-h-11 text-sm transition-colors hover:bg-white/5",
+                      option.id === value ? "text-branding-primary font-bold bg-branding-primary/5" : "text-white/80 hover:text-white"
+                    )}
+                  >
+                    {option.name}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>,

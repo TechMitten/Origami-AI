@@ -935,8 +935,9 @@ export const analyzeIssueCaptureWithGemini = async (
     'Analyze the attached screen-recorded video clip and produce the best possible bug report wording for an agentic AI.',
     context.fileNameHint ? `Recording file hint: ${context.fileNameHint}` : '',
     Number.isFinite(context.mediaDurationSeconds) ? `Approximate recording duration (seconds): ${context.mediaDurationSeconds}` : '',
-    context.userGoal?.trim() ? `What I was trying to do: ${context.userGoal.trim()}` : '',
+    context.userGoal?.trim() ? `Developer's own description of the issue: ${context.userGoal.trim()}` : '',
     context.extraContext?.trim() ? `Extra context: ${context.extraContext.trim()}` : '',
+    'Use the developer description as an important input, but verify the wording against what is actually visible in the recording.',
     'Return strictly valid JSON only. Do not include markdown fences.',
     'Use EXACT keys: issue_title, issue_summary, observed_behavior, expected_behavior, reproduction_steps, technical_clues, recommended_prompt.',
   ].filter(Boolean).join('\n');
