@@ -61,7 +61,8 @@ export interface GlobalSettings {
   recordingCountdownEnabled?: boolean;
 }
 
-export interface AssistantImageAttachment {
+export interface AssistantChatAttachment {
+  kind: 'image' | 'video';
   dataUrl: string;
   mimeType: string;
   name: string;
@@ -72,12 +73,35 @@ export interface AssistantChatMessage {
   role: 'user' | 'assistant';
   content: string;
   createdAt: number;
-  imageAttachment?: AssistantImageAttachment;
+  attachment?: AssistantChatAttachment;
 }
 
 export interface AssistantChatState {
   messages: AssistantChatMessage[];
   lastSaved: number;
+}
+
+export interface AssistantChatSession {
+  id: string;
+  title: string;
+  messages: AssistantChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AssistantChatSessionSummary {
+  id: string;
+  title: string;
+  preview: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+  hasAttachment: boolean;
+}
+
+export interface AssistantChatWorkspace {
+  sessions: AssistantChatSession[];
+  currentChatId: string | null;
 }
 
 // OCR Cache interfaces
@@ -422,19 +446,367 @@ export const loadGlobalSettings = async (): Promise<GlobalSettings | null> => {
   }
 };
 
+const ASSISTANT_CHAT_SESSIONS_KEY = 'assistantChatSessions';
+const ASSISTANT_CHAT_LIST_LOCAL_STORAGE_KEY = 'origami_assistant_chat_list_v1';
+const ASSISTANT_CURRENT_CHAT_ID_LOCAL_STORAGE_KEY = 'origami_assistant_current_chat_id_v1';
+
+const isAssistantAttachment = (attachment: unknown): attachment is AssistantChatAttachment => (
+  !!attachment
+  && typeof attachment === 'object'
+  && (((attachment as AssistantChatAttachment).kind === 'image') || ((attachment as AssistantChatAttachment).kind === 'video'))
+  && typeof (attachment as AssistantChatAttachment).dataUrl === 'string'
+  && typeof (attachment as AssistantChatAttachment).mimeType === 'string'
+  && typeof (attachment as AssistantChatAttachment).name === 'string'
+);
+
+const sanitizeAssistantMessages = (messages: unknown): AssistantChatMessage[] => (
+  Array.isArray(messages)
+    ? messages
+      .filter((message) =>
+        message
+        && typeof message === 'object'
+        && typeof (message as AssistantChatMessage).id === 'string'
+        && (((message as AssistantChatMessage).role === 'user') || ((message as AssistantChatMessage).role === 'assistant'))
+        && typeof (message as AssistantChatMessage).content === 'string'
+        && typeof (message as AssistantChatMessage).createdAt === 'number'
+      )
+      .map((message) => {
+        const candidate = message as AssistantChatMessage & {
+          imageAttachment?: { dataUrl?: string; mimeType?: string; name?: string };
+        };
+        const legacyImageAttachment = candidate.imageAttachment
+          && typeof candidate.imageAttachment.dataUrl === 'string'
+          && typeof candidate.imageAttachment.mimeType === 'string'
+          && typeof candidate.imageAttachment.name === 'string'
+          ? {
+            kind: 'image' as const,
+            dataUrl: candidate.imageAttachment.dataUrl,
+            mimeType: candidate.imageAttachment.mimeType,
+            name: candidate.imageAttachment.name,
+          }
+          : undefined;
+
+        return {
+          id: candidate.id,
+          role: candidate.role,
+          content: candidate.content,
+          createdAt: candidate.createdAt,
+          attachment: isAssistantAttachment(candidate.attachment)
+            ? candidate.attachment
+            : legacyImageAttachment,
+        };
+      })
+    : []
+);
+
+export const createAssistantChatTitle = (messages: AssistantChatMessage[]): string => {
+  const firstUserMessage = messages.find((message) => message.role === 'user' && (message.content.trim() || message.attachment));
+  if (!firstUserMessage) return 'New Chat';
+
+  const text = firstUserMessage.content.trim();
+  if (text) {
+    return text.length > 48 ? `${text.slice(0, 45).trimEnd()}...` : text;
+  }
+
+  if (firstUserMessage.attachment?.kind === 'video') {
+    return `WebM: ${firstUserMessage.attachment.name}`;
+  }
+
+  if (firstUserMessage.attachment) {
+    return `Image: ${firstUserMessage.attachment.name}`;
+  }
+
+  return 'New Chat';
+};
+
+const createAssistantChatPreview = (messages: AssistantChatMessage[]): string => {
+  const firstFilledMessage = messages.find((message) => message.content.trim() || message.attachment);
+  if (!firstFilledMessage) return 'Empty conversation';
+
+  const text = firstFilledMessage.content.trim();
+  if (text) {
+    return text.length > 88 ? `${text.slice(0, 85).trimEnd()}...` : text;
+  }
+
+  if (firstFilledMessage.attachment?.kind === 'video') return `Attached WebM: ${firstFilledMessage.attachment.name}`;
+  if (firstFilledMessage.attachment) return `Attached image: ${firstFilledMessage.attachment.name}`;
+  return 'Empty conversation';
+};
+
+const sanitizeAssistantSession = (session: unknown): AssistantChatSession | null => {
+  if (!session || typeof session !== 'object') return null;
+
+  const candidate = session as AssistantChatSession;
+  if (typeof candidate.id !== 'string') return null;
+
+  const messages = sanitizeAssistantMessages(candidate.messages);
+  const createdAt = typeof candidate.createdAt === 'number' ? candidate.createdAt : Date.now();
+  const updatedAt = typeof candidate.updatedAt === 'number' ? candidate.updatedAt : createdAt;
+  const title = typeof candidate.title === 'string' && candidate.title.trim()
+    ? candidate.title.trim()
+    : createAssistantChatTitle(messages);
+
+  return {
+    id: candidate.id,
+    title,
+    messages,
+    createdAt,
+    updatedAt,
+  };
+};
+
+const buildAssistantChatSessionSummary = (session: AssistantChatSession): AssistantChatSessionSummary => ({
+  id: session.id,
+  title: session.title,
+  preview: createAssistantChatPreview(session.messages),
+  createdAt: session.createdAt,
+  updatedAt: session.updatedAt,
+  messageCount: session.messages.length,
+  hasAttachment: session.messages.some((message) => Boolean(message.attachment)),
+});
+
+const readAssistantChatListFromLocalStorage = (): {
+  summaries: AssistantChatSessionSummary[];
+  currentChatId: string | null;
+} => {
+  try {
+    const rawList = localStorage.getItem(ASSISTANT_CHAT_LIST_LOCAL_STORAGE_KEY);
+    const rawCurrentChatId = localStorage.getItem(ASSISTANT_CURRENT_CHAT_ID_LOCAL_STORAGE_KEY);
+    const parsedList = rawList ? JSON.parse(rawList) : [];
+
+    const summaries = Array.isArray(parsedList)
+      ? parsedList
+        .filter((summary) =>
+          summary
+          && typeof summary === 'object'
+          && typeof (summary as AssistantChatSessionSummary).id === 'string'
+          && typeof (summary as AssistantChatSessionSummary).title === 'string'
+          && typeof (summary as AssistantChatSessionSummary).preview === 'string'
+          && typeof (summary as AssistantChatSessionSummary).createdAt === 'number'
+          && typeof (summary as AssistantChatSessionSummary).updatedAt === 'number'
+          && typeof (summary as AssistantChatSessionSummary).messageCount === 'number'
+          && typeof (summary as AssistantChatSessionSummary).hasAttachment === 'boolean'
+        )
+        .map((summary) => summary as AssistantChatSessionSummary)
+      : [];
+
+    return {
+      summaries,
+      currentChatId: rawCurrentChatId || null,
+    };
+  } catch (error) {
+    console.warn('[Storage] Failed to read assistant chat list from localStorage', error);
+    return {
+      summaries: [],
+      currentChatId: null,
+    };
+  }
+};
+
+const writeAssistantChatListToLocalStorage = (
+  summaries: AssistantChatSessionSummary[],
+  currentChatId: string | null,
+) => {
+  try {
+    localStorage.setItem(ASSISTANT_CHAT_LIST_LOCAL_STORAGE_KEY, JSON.stringify(summaries));
+    if (currentChatId) {
+      localStorage.setItem(ASSISTANT_CURRENT_CHAT_ID_LOCAL_STORAGE_KEY, currentChatId);
+    } else {
+      localStorage.removeItem(ASSISTANT_CURRENT_CHAT_ID_LOCAL_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('[Storage] Failed to write assistant chat list to localStorage', error);
+  }
+};
+
+const reorderAssistantSessions = (
+  sessions: AssistantChatSession[],
+  summaries: AssistantChatSessionSummary[],
+): AssistantChatSession[] => {
+  if (!summaries.length) {
+    return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  const sessionsById = new Map(sessions.map((session) => [session.id, session]));
+  const orderedSessions: AssistantChatSession[] = [];
+
+  summaries.forEach((summary) => {
+    const match = sessionsById.get(summary.id);
+    if (!match) return;
+    orderedSessions.push(match);
+    sessionsById.delete(summary.id);
+  });
+
+  const remainingSessions = [...sessionsById.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  return [...orderedSessions, ...remainingSessions];
+};
+
+const loadAssistantChatSessionsFromIndexedDb = async (): Promise<AssistantChatSession[]> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(ASSISTANT_CHAT_SESSIONS_KEY);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const storedSessions = Array.isArray(request.result) ? request.result : [];
+      resolve(
+        storedSessions
+          .map((session) => sanitizeAssistantSession(session))
+          .filter((session): session is AssistantChatSession => Boolean(session))
+      );
+    };
+  });
+};
+
+const persistAssistantChatSessionsToIndexedDb = async (sessions: AssistantChatSession[]): Promise<void> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(sessions, ASSISTANT_CHAT_SESSIONS_KEY);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+const removeLegacyAssistantChatState = async (): Promise<void> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.delete('assistantChatState');
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+};
+
+const loadLegacyAssistantChatState = async (): Promise<AssistantChatState | null> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get('assistantChatState');
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      if (!request.result) {
+        resolve(null);
+        return;
+      }
+
+      const state = request.result as AssistantChatState;
+      resolve({
+        ...state,
+        messages: sanitizeAssistantMessages(state.messages),
+      });
+    };
+  });
+};
+
+export const saveAssistantChatWorkspace = async (workspace: AssistantChatWorkspace): Promise<void> => {
+  try {
+    const sessions = workspace.sessions
+      .map((session) => sanitizeAssistantSession(session))
+      .filter((session): session is AssistantChatSession => Boolean(session))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    const validCurrentChatId = sessions.some((session) => session.id === workspace.currentChatId)
+      ? workspace.currentChatId
+      : (sessions[0]?.id ?? null);
+
+    await persistAssistantChatSessionsToIndexedDb(sessions);
+    writeAssistantChatListToLocalStorage(
+      sessions.map(buildAssistantChatSessionSummary),
+      validCurrentChatId,
+    );
+  } catch (err) {
+    console.error('[Storage] Failed to save assistant chat workspace', err);
+  }
+};
+
+export const loadAssistantChatWorkspace = async (): Promise<AssistantChatWorkspace> => {
+  try {
+    const [{ summaries, currentChatId }, sessionsFromDb] = await Promise.all([
+      Promise.resolve(readAssistantChatListFromLocalStorage()),
+      loadAssistantChatSessionsFromIndexedDb(),
+    ]);
+
+    if (sessionsFromDb.length > 0) {
+      const orderedSessions = reorderAssistantSessions(sessionsFromDb, summaries);
+      const normalizedCurrentChatId = orderedSessions.some((session) => session.id === currentChatId)
+        ? currentChatId
+        : (orderedSessions[0]?.id ?? null);
+
+      writeAssistantChatListToLocalStorage(
+        orderedSessions.map(buildAssistantChatSessionSummary),
+        normalizedCurrentChatId,
+      );
+
+      return {
+        sessions: orderedSessions,
+        currentChatId: normalizedCurrentChatId,
+      };
+    }
+
+    const legacyState = await loadLegacyAssistantChatState();
+    if (legacyState?.messages?.length) {
+      const migratedSession: AssistantChatSession = {
+        id: crypto.randomUUID(),
+        title: createAssistantChatTitle(legacyState.messages),
+        messages: legacyState.messages,
+        createdAt: legacyState.messages[0]?.createdAt ?? legacyState.lastSaved,
+        updatedAt: legacyState.lastSaved,
+      };
+
+      const workspace = {
+        sessions: [migratedSession],
+        currentChatId: migratedSession.id,
+      } satisfies AssistantChatWorkspace;
+
+      await saveAssistantChatWorkspace(workspace);
+      await removeLegacyAssistantChatState();
+      return workspace;
+    }
+
+    return {
+      sessions: [],
+      currentChatId: null,
+    };
+  } catch (err) {
+    console.error('[Storage] Failed to load assistant chat workspace', err);
+    return {
+      sessions: [],
+      currentChatId: null,
+    };
+  }
+};
+
 export const saveAssistantChatState = async (messages: AssistantChatMessage[]): Promise<void> => {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put({
-        messages,
-        lastSaved: Date.now(),
-      } satisfies AssistantChatState, 'assistantChatState');
+    const now = Date.now();
+    const workspace = await loadAssistantChatWorkspace();
+    const existingSession = workspace.currentChatId
+      ? workspace.sessions.find((session) => session.id === workspace.currentChatId)
+      : null;
+    const sessionId = existingSession?.id || crypto.randomUUID();
+    const nextSession: AssistantChatSession = {
+      id: sessionId,
+      title: createAssistantChatTitle(messages),
+      messages,
+      createdAt: existingSession?.createdAt ?? now,
+      updatedAt: now,
+    };
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+    await saveAssistantChatWorkspace({
+      sessions: [
+        nextSession,
+        ...workspace.sessions.filter((session) => session.id !== sessionId),
+      ],
+      currentChatId: sessionId,
     });
   } catch (err) {
     console.error('[Storage] Failed to save assistant chat state', err);
@@ -443,47 +815,17 @@ export const saveAssistantChatState = async (messages: AssistantChatMessage[]): 
 
 export const loadAssistantChatState = async (): Promise<AssistantChatState | null> => {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get('assistantChatState');
+    const workspace = await loadAssistantChatWorkspace();
+    const currentSession = workspace.currentChatId
+      ? workspace.sessions.find((session) => session.id === workspace.currentChatId)
+      : workspace.sessions[0];
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        if (!request.result) {
-          resolve(null);
-          return;
-        }
+    if (!currentSession) return null;
 
-        const state = request.result as AssistantChatState;
-        resolve({
-          ...state,
-          messages: Array.isArray(state.messages)
-            ? state.messages
-              .filter((message) =>
-                message
-                && typeof message.id === 'string'
-                && (message.role === 'user' || message.role === 'assistant')
-                && typeof message.content === 'string'
-                && typeof message.createdAt === 'number'
-              )
-              .map((message) => ({
-                ...message,
-                imageAttachment: (
-                  message.imageAttachment
-                  && typeof message.imageAttachment === 'object'
-                  && typeof message.imageAttachment.dataUrl === 'string'
-                  && typeof message.imageAttachment.mimeType === 'string'
-                  && typeof message.imageAttachment.name === 'string'
-                )
-                  ? message.imageAttachment
-                  : undefined,
-              }))
-            : [],
-        });
-      };
-    });
+    return {
+      messages: currentSession.messages,
+      lastSaved: currentSession.updatedAt,
+    };
   } catch (err) {
     console.error('[Storage] Failed to load assistant chat state', err);
     return null;
@@ -492,14 +834,24 @@ export const loadAssistantChatState = async (): Promise<AssistantChatState | nul
 
 export const clearAssistantChatState = async (): Promise<void> => {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete('assistantChatState');
+    const workspace = await loadAssistantChatWorkspace();
+    if (!workspace.currentChatId) return;
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+    const now = Date.now();
+    const nextSessions = workspace.sessions.map((session) => (
+      session.id === workspace.currentChatId
+        ? {
+          ...session,
+          title: 'New Chat',
+          messages: [],
+          updatedAt: now,
+        }
+        : session
+    ));
+
+    await saveAssistantChatWorkspace({
+      sessions: nextSessions,
+      currentChatId: workspace.currentChatId,
     });
   } catch (err) {
     console.error('[Storage] Failed to clear assistant chat state', err);

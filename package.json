@@ -10,6 +10,7 @@
     "dev": "node ./scripts/monitor-and-run.js --max-cpu=85 -- tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' server.ts",
     "build": "vite build",
     "lint": "eslint .",
+    "postinstall": "node ./scripts/patch-web-llm.js",
     "preview": "vite preview",
     "stop": "npx kill-port 3000",
     "kill-all": "node ./scripts/kill-all.js"
