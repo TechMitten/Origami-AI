@@ -9,8 +9,7 @@ import {
   Settings,
   Sparkles,
   Square,
-  Video,
-  WandSparkles
+  Video
 } from 'lucide-react';
 
 import appLogo from '../assets/images/app-logo2.png';
