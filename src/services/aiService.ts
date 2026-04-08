@@ -27,7 +27,7 @@ export interface VideoNarrationAnalysis {
   rawJson?: string;
 }
 
-export interface GifIssueAnalysis {
+export interface IssueCaptureAnalysis {
   issueTitle: string;
   issueSummary: string;
   observedBehavior: string;
@@ -239,16 +239,16 @@ Act as a professional technical scriptwriter for a high-end YouTube tutorial cha
   ]
 }`;
 
-export const GEMINI_GIF_ISSUE_ANALYSIS_SYSTEM_PROMPT = `You are a senior debugging assistant helping developers describe bugs precisely for an agentic AI.
+export const GEMINI_ISSUE_CAPTURE_ANALYSIS_SYSTEM_PROMPT = `You are a senior debugging assistant helping developers describe bugs precisely for an agentic AI.
 
-Analyze the attached animated GIF carefully and describe only what is visually supported by the recording plus any user-supplied context.
+Analyze the attached screen-recorded video clip carefully and describe only what is visually supported by the recording plus any user-supplied context.
 
 Rules:
 - Do not invent stack traces, code paths, browser names, frameworks, or root causes unless they are explicitly visible or stated in the user context.
 - Focus on the exact broken behavior, the sequence of actions, and the mismatch between expected and actual results.
 - Be concrete about UI changes, freezes, flicker, wrong navigation, misaligned elements, disabled buttons, unexpected reloads, missing updates, duplicated actions, or timing issues.
 - Write the final prompt in first person as if the developer will paste it directly into another AI chat.
-- The final prompt must explicitly mention that an animated GIF is attached.
+- The final prompt must explicitly mention that a screen-recorded video clip is attached.
 - Keep the final prompt practical and ready to paste.
 
 Return strictly valid JSON only with this exact shape:
@@ -534,18 +534,18 @@ const parseStringArray = (value: unknown): string[] => {
     .filter(Boolean);
 };
 
-const parseGifIssueAnalysis = (rawContent: string): GifIssueAnalysis => {
+const parseIssueCaptureAnalysis = (rawContent: string): IssueCaptureAnalysis => {
   const cleaned = stripCodeFence(rawContent);
 
   let parsed: any;
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error('Gemini returned invalid JSON for GIF issue analysis.');
+    throw new Error('Gemini returned invalid JSON for issue capture analysis.');
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('GIF issue analysis payload is not a JSON object.');
+    throw new Error('Issue capture analysis payload is not a JSON object.');
   }
 
   const issueTitle = String(parsed.issue_title || parsed.issueTitle || 'Observed bug').trim();
@@ -557,23 +557,23 @@ const parseGifIssueAnalysis = (rawContent: string): GifIssueAnalysis => {
   const recommendedPrompt = String(parsed.recommended_prompt || parsed.recommendedPrompt || '').trim();
 
   if (!issueSummary) {
-    throw new Error('GIF issue analysis is missing issue_summary.');
+    throw new Error('Issue capture analysis is missing issue_summary.');
   }
 
   if (!observedBehavior) {
-    throw new Error('GIF issue analysis is missing observed_behavior.');
+    throw new Error('Issue capture analysis is missing observed_behavior.');
   }
 
   if (!expectedBehavior) {
-    throw new Error('GIF issue analysis is missing expected_behavior.');
+    throw new Error('Issue capture analysis is missing expected_behavior.');
   }
 
   if (reproductionSteps.length === 0) {
-    throw new Error('GIF issue analysis is missing reproduction_steps.');
+    throw new Error('Issue capture analysis is missing reproduction_steps.');
   }
 
   if (!recommendedPrompt) {
-    throw new Error('GIF issue analysis is missing recommended_prompt.');
+    throw new Error('Issue capture analysis is missing recommended_prompt.');
   }
 
   return {
@@ -594,7 +594,7 @@ const isGoogleGeminiEndpoint = (baseUrl: string): boolean => {
 const getGeminiApiKey = (settings: LLMSettings): string => {
   const apiKey = settings.apiKey?.trim();
   if (!apiKey) {
-    throw new Error('Missing API key for Gemini video analysis.');
+    throw new Error('Missing API key for Gemini media analysis.');
   }
   return apiKey;
 };
@@ -628,11 +628,11 @@ const GEMINI_VIDEO_UPLOAD_LABELS: GeminiUploadProgressLabels = {
   parse: 'Parsing JSON output',
 };
 
-const GEMINI_GIF_UPLOAD_LABELS: GeminiUploadProgressLabels = {
-  uploading: 'Uploading GIF',
-  uploaded: 'GIF uploaded',
-  processing: 'Processing GIF',
-  processed: 'GIF processed',
+const GEMINI_ISSUE_CAPTURE_UPLOAD_LABELS: GeminiUploadProgressLabels = {
+  uploading: 'Uploading recording',
+  uploaded: 'Recording uploaded',
+  processing: 'Processing recording',
+  processed: 'Recording processed',
   generate: 'Writing debugging prompt',
   parse: 'Parsing prompt output',
 };
@@ -901,7 +901,7 @@ export const analyzeVideoNarrationWithGemini = async (
   }
 };
 
-export const analyzeGifIssueWithGemini = async (
+export const analyzeIssueCaptureWithGemini = async (
   settings: LLMSettings,
   context: {
     mediaBlob: Blob;
@@ -912,29 +912,29 @@ export const analyzeGifIssueWithGemini = async (
     extraContext?: string;
     onProgress?: (update: VideoAnalysisProgress) => void;
   }
-): Promise<GifIssueAnalysis> => {
+): Promise<IssueCaptureAnalysis> => {
   if (!settings.apiKey?.trim()) {
-    throw new Error('Missing API key for Gemini GIF issue analysis.');
+    throw new Error('Missing API key for Gemini issue capture analysis.');
   }
 
   if (!context.mediaBlob) {
-    throw new Error('A GIF file is required for issue analysis.');
+    throw new Error('A screen recording is required for issue analysis.');
   }
 
   if (!isGoogleGeminiEndpoint(settings.baseUrl)) {
-    throw new Error('GIF issue analysis requires a Google Gemini endpoint. Set Base URL to generativelanguage.googleapis.com and retry.');
+    throw new Error('Issue capture analysis requires a Google Gemini endpoint. Set Base URL to generativelanguage.googleapis.com and retry.');
   }
 
   const model = settings.model?.trim() || 'gemini-2.5-flash-lite';
   const apiKey = getGeminiApiKey(settings);
-  const mimeType = context.mediaMimeType?.trim() || context.mediaBlob.type || 'image/gif';
+  const mimeType = context.mediaMimeType?.trim() || context.mediaBlob.type || 'video/webm';
 
   context.onProgress?.({ stage: 'Preparing request', progress: 5 });
 
   const userPrompt = [
-    'Analyze the attached animated GIF and produce the best possible bug report wording for an agentic AI.',
-    context.fileNameHint ? `GIF file hint: ${context.fileNameHint}` : '',
-    Number.isFinite(context.mediaDurationSeconds) ? `Approximate GIF duration (seconds): ${context.mediaDurationSeconds}` : '',
+    'Analyze the attached screen-recorded video clip and produce the best possible bug report wording for an agentic AI.',
+    context.fileNameHint ? `Recording file hint: ${context.fileNameHint}` : '',
+    Number.isFinite(context.mediaDurationSeconds) ? `Approximate recording duration (seconds): ${context.mediaDurationSeconds}` : '',
     context.userGoal?.trim() ? `What I was trying to do: ${context.userGoal.trim()}` : '',
     context.extraContext?.trim() ? `Extra context: ${context.extraContext.trim()}` : '',
     'Return strictly valid JSON only. Do not include markdown fences.',
@@ -950,24 +950,24 @@ export const analyzeGifIssueWithGemini = async (
       mimeType,
       context.fileNameHint || 'origami-issue-report',
       context.onProgress,
-      GEMINI_GIF_UPLOAD_LABELS
+      GEMINI_ISSUE_CAPTURE_UPLOAD_LABELS
     );
-    const activeFile = await waitForGeminiFileActive(apiKey, uploadedFile.name, context.onProgress, GEMINI_GIF_UPLOAD_LABELS);
+    const activeFile = await waitForGeminiFileActive(apiKey, uploadedFile.name, context.onProgress, GEMINI_ISSUE_CAPTURE_UPLOAD_LABELS);
 
     const first = await generateGeminiFileAnalysis(
       apiKey,
       model,
       activeFile.uri,
       mimeType,
-      GEMINI_GIF_ISSUE_ANALYSIS_SYSTEM_PROMPT,
+      GEMINI_ISSUE_CAPTURE_ANALYSIS_SYSTEM_PROMPT,
       userPrompt,
       context.onProgress,
-      GEMINI_GIF_UPLOAD_LABELS
+      GEMINI_ISSUE_CAPTURE_UPLOAD_LABELS
     );
 
     try {
       context.onProgress?.({ stage: 'Prompt ready', progress: 92 });
-      return { ...parseGifIssueAnalysis(first), rawJson: stripCodeFence(first) };
+      return { ...parseIssueCaptureAnalysis(first), rawJson: stripCodeFence(first) };
     } catch {
       const repairPrompt = `${userPrompt}\n\nYour previous response was invalid JSON. Return only valid JSON matching the requested schema.`;
       const repaired = await generateGeminiFileAnalysis(
@@ -975,13 +975,13 @@ export const analyzeGifIssueWithGemini = async (
         model,
         activeFile.uri,
         mimeType,
-        GEMINI_GIF_ISSUE_ANALYSIS_SYSTEM_PROMPT,
+        GEMINI_ISSUE_CAPTURE_ANALYSIS_SYSTEM_PROMPT,
         repairPrompt,
         context.onProgress,
-        GEMINI_GIF_UPLOAD_LABELS
+        GEMINI_ISSUE_CAPTURE_UPLOAD_LABELS
       );
       context.onProgress?.({ stage: 'Prompt ready', progress: 92 });
-      return { ...parseGifIssueAnalysis(repaired), rawJson: stripCodeFence(repaired) };
+      return { ...parseIssueCaptureAnalysis(repaired), rawJson: stripCodeFence(repaired) };
     }
   } finally {
     if (uploadedFile?.name) {

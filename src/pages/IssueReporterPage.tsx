@@ -6,7 +6,6 @@ import {
   Download,
   Github,
   Loader2,
-  RefreshCw,
   Settings,
   Sparkles,
   Square,
@@ -23,8 +22,7 @@ import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
 import { useModal } from '../context/ModalContext';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
-import { analyzeGifIssueWithGemini, type GifIssueAnalysis } from '../services/aiService';
-import { convertVideoBlobToGif } from '../services/gifProcessingService';
+import { analyzeIssueCaptureWithGemini, type IssueCaptureAnalysis } from '../services/aiService';
 import type { GlobalSettings } from '../services/storage';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/storage';
 import { decrypt } from '../utils/secureStorage';
@@ -39,19 +37,12 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   previewMode: 'modal',
 };
 
-interface ProgressState {
-  stage: string;
-  progress: number;
-}
-
 interface CaptureState {
   fileBase: string;
   recordedAt: number;
   durationSeconds: number;
   videoBlob: Blob;
   videoUrl: string;
-  gifBlob: Blob | null;
-  gifUrl: string | null;
 }
 
 const getConfiguredGeminiSettings = () => {
@@ -122,17 +113,15 @@ const downloadBlob = (blob: Blob, filename: string) => {
 };
 
 export const IssueReporterPage: React.FC = () => {
-  const { showAlert, showConfirm } = useModal();
+  const { showAlert } = useModal();
   const captureRef = useRef<CaptureState | null>(null);
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [capture, setCapture] = useState<CaptureState | null>(null);
-  const [gifProgress, setGifProgress] = useState<ProgressState | null>(null);
-  const [analysisProgress, setAnalysisProgress] = useState<ProgressState | null>(null);
-  const [isConvertingGif, setIsConvertingGif] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState<{ stage: string; progress: number } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<GifIssueAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<IssueCaptureAnalysis | null>(null);
   const [promptDraft, setPromptDraft] = useState('');
   const [userGoal, setUserGoal] = useState('');
   const [extraContext, setExtraContext] = useState('');
@@ -141,9 +130,6 @@ export const IssueReporterPage: React.FC = () => {
   const clearCaptureUrls = useCallback((value: CaptureState | null) => {
     if (!value) return;
     URL.revokeObjectURL(value.videoUrl);
-    if (value.gifUrl) {
-      URL.revokeObjectURL(value.gifUrl);
-    }
   }, []);
 
   const replaceCapture = useCallback((next: CaptureState | null) => {
@@ -160,38 +146,6 @@ export const IssueReporterPage: React.FC = () => {
     setAnalysisProgress(null);
     setCopiedPrompt(false);
   }, []);
-
-  const convertCaptureToGif = useCallback(async (baseCapture: CaptureState) => {
-    setIsConvertingGif(true);
-    setGifProgress({ stage: 'Preparing GIF', progress: 2 });
-
-    try {
-      const gifBlob = await convertVideoBlobToGif(baseCapture.videoBlob, {
-        onProgress: (update) => {
-          setGifProgress({
-            stage: update.stage,
-            progress: Math.max(0, Math.min(100, Math.round(update.progress))),
-          });
-        },
-      });
-
-      const gifUrl = URL.createObjectURL(gifBlob);
-      const nextCapture: CaptureState = {
-        ...baseCapture,
-        gifBlob,
-        gifUrl,
-      };
-
-      replaceCapture(nextCapture);
-      setGifProgress({ stage: 'GIF ready', progress: 100 });
-      return nextCapture;
-    } catch (error) {
-      setGifProgress(null);
-      throw error;
-    } finally {
-      setIsConvertingGif(false);
-    }
-  }, [replaceCapture]);
 
   useEffect(() => {
     let isMounted = true;
@@ -233,13 +187,10 @@ export const IssueReporterPage: React.FC = () => {
       durationSeconds,
       videoBlob: blob,
       videoUrl,
-      gifBlob: null,
-      gifUrl: null,
     };
 
     replaceCapture(nextCapture);
-    await convertCaptureToGif(nextCapture);
-  }, [convertCaptureToGif, replaceCapture, resetAnalysis]);
+  }, [replaceCapture, resetAnalysis]);
 
   const handleRecordingError = useCallback((error: Error) => {
     console.error('Failed to capture issue recording.', error);
@@ -250,44 +201,20 @@ export const IssueReporterPage: React.FC = () => {
   }, [showAlert]);
 
   const { isRecording, startRecording, stopRecording } = useScreenRecorder({
+    captureMode: 'display',
     onRecordingComplete: handleRecordingComplete,
     onRecordingError: handleRecordingError,
     onRecordingPending: () => {
       showAlert(
-        'Switch to the browser tab you want to record, then click the Origami extension icon to begin. Use Stop in Origami or the extension when you are done.',
-        { type: 'info', title: 'Ready To Record' }
+        'Choose Entire Screen, a window, or a browser tab in the system picker, then start the recording. Use Stop in Origami or your browser capture controls when you are done.',
+        { type: 'info', title: 'Choose What To Record' }
       );
-    },
-    onExtensionUnavailable: async () => {
-      const shouldRetry = await showConfirm(
-        <div className="space-y-3">
-          <p className="text-white/80">
-            The Origami browser extension was not detected. Issue capture uses the extension to start tab recording reliably.
-          </p>
-          <ol className="list-decimal list-inside space-y-1 rounded-lg bg-white/5 p-3 text-sm text-white/70">
-            <li>Install the Origami extension in Chrome</li>
-            <li>Make sure it is enabled</li>
-            <li>Refresh this page and try again</li>
-          </ol>
-        </div>,
-        {
-          type: 'warning',
-          title: 'Extension Not Detected',
-          confirmText: 'Refresh Page',
-          cancelText: 'Cancel',
-        }
-      );
-
-      if (shouldRetry) {
-        window.location.reload();
-      }
     },
   });
 
   const handleStartRecording = async () => {
     try {
       resetAnalysis();
-      setGifProgress(null);
       await startRecording();
     } catch (error) {
       if (error instanceof Error && error.message !== 'Permission denied') {
@@ -304,34 +231,12 @@ export const IssueReporterPage: React.FC = () => {
     }
   };
 
-  const handleRetryGif = async () => {
-    if (!capture) return;
-
-    const retryCapture: CaptureState = {
-      ...capture,
-      gifBlob: null,
-      gifUrl: null,
-    };
-
-    replaceCapture(retryCapture);
-    resetAnalysis();
-
-    try {
-      await convertCaptureToGif(retryCapture);
-    } catch (error) {
-      showAlert(error instanceof Error ? error.message : 'Failed to convert the recording into a GIF.', {
-        type: 'error',
-        title: 'GIF Conversion Failed',
-      });
-    }
-  };
-
   const handleAnalyze = async () => {
     const currentCapture = captureRef.current;
-    if (!currentCapture?.gifBlob) {
-      showAlert('Record an issue and wait for the GIF to finish generating before analyzing it.', {
+    if (!currentCapture?.videoBlob) {
+      showAlert('Record an issue before asking Gemini to analyze it.', {
         type: 'warning',
-        title: 'GIF Required',
+        title: 'Recording Required',
       });
       return;
     }
@@ -346,7 +251,7 @@ export const IssueReporterPage: React.FC = () => {
     }
 
     if (!/generativelanguage\.googleapis\.com/i.test(settings.baseUrl)) {
-      showAlert('GIF issue analysis uses Gemini file uploads, so the Base URL must point to the Google Gemini endpoint.', {
+      showAlert('Issue video analysis uses Gemini file uploads, so the Base URL must point to the Google Gemini endpoint.', {
         type: 'warning',
         title: 'Gemini Endpoint Required',
       });
@@ -358,7 +263,7 @@ export const IssueReporterPage: React.FC = () => {
     setCopiedPrompt(false);
 
     try {
-      const result = await analyzeGifIssueWithGemini(
+      const result = await analyzeIssueCaptureWithGemini(
         {
           apiKey: settings.apiKey,
           baseUrl: settings.baseUrl,
@@ -366,9 +271,9 @@ export const IssueReporterPage: React.FC = () => {
           useWebLLM: false,
         },
         {
-          mediaBlob: currentCapture.gifBlob,
-          mediaMimeType: 'image/gif',
-          fileNameHint: `${currentCapture.fileBase}.gif`,
+          mediaBlob: currentCapture.videoBlob,
+          mediaMimeType: currentCapture.videoBlob.type || 'video/webm',
+          fileNameHint: `${currentCapture.fileBase}.webm`,
           mediaDurationSeconds: currentCapture.durationSeconds,
           userGoal,
           extraContext,
@@ -385,7 +290,7 @@ export const IssueReporterPage: React.FC = () => {
       setPromptDraft(result.recommendedPrompt);
       setAnalysisProgress({ stage: 'Prompt ready', progress: 100 });
     } catch (error) {
-      showAlert(error instanceof Error ? error.message : 'Failed to analyze the GIF.', {
+      showAlert(error instanceof Error ? error.message : 'Failed to analyze the recording.', {
         type: 'error',
         title: 'Gemini Analysis Failed',
       });
@@ -458,7 +363,7 @@ export const IssueReporterPage: React.FC = () => {
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-orange-300/65">Capture To Prompt</p>
             <h2 className="mt-1 text-2xl font-black text-white sm:text-3xl">Record the issue, generate the wording, paste it into your AI chat.</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-white/60 sm:text-base">
-              Origami records the visual bug, converts it into a shareable GIF, and asks Gemini to turn the behavior into a precise debugging prompt you can paste alongside the attachment.
+              Origami records the visual bug as a WebM clip and asks Gemini to turn the behavior into a precise debugging prompt you can paste alongside the attachment.
             </p>
           </div>
 
@@ -475,14 +380,14 @@ export const IssueReporterPage: React.FC = () => {
                 <Sparkles className="h-5 w-5" />
               </div>
               <h3 className="text-lg font-black text-white">2. Let Gemini analyze</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Gemini watches the GIF, extracts the visible problem, and writes a structured explanation.</p>
+              <p className="mt-2 text-sm leading-6 text-white/60">Gemini watches the WebM clip, extracts the visible problem, and writes a structured explanation.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-3 inline-flex rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-2 text-emerald-200">
                 <WandSparkles className="h-5 w-5" />
               </div>
               <h3 className="text-lg font-black text-white">3. Paste the finished prompt</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Copy the generated prompt, attach the GIF, and drop both into your agentic AI chat.</p>
+              <p className="mt-2 text-sm leading-6 text-white/60">Copy the generated prompt, attach the WebM clip, and drop both into your agentic AI chat.</p>
             </div>
           </div>
 
@@ -490,7 +395,7 @@ export const IssueReporterPage: React.FC = () => {
             <div className="space-y-6">
               {!isGeminiConfigured || !isGeminiEndpointValid ? (
                 <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-50">
-                  <p className="font-semibold">Configure Gemini in Settings before analyzing issue GIFs.</p>
+                  <p className="font-semibold">Configure Gemini in Settings before analyzing issue recordings.</p>
                   <p className="mt-2 text-amber-50/75">
                     This feature uses Gemini file uploads, so you need a Gemini API key and the Google Gemini base URL selected in the API tab.
                   </p>
@@ -508,15 +413,15 @@ export const IssueReporterPage: React.FC = () => {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Capture</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Record a browser-tab issue</h3>
+                    <h3 className="mt-1 text-xl font-black text-white">Record a full screen, window, or tab</h3>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={handleStartRecording}
-                      disabled={isRecording || isConvertingGif}
+                      disabled={isRecording}
                       className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {isConvertingGif ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                      <Video className="h-4 w-4" />
                       {capture ? 'Record Again' : 'Record Issue'}
                     </button>
                     {isRecording && (
@@ -532,39 +437,18 @@ export const IssueReporterPage: React.FC = () => {
                 </div>
 
                 <p className="mt-3 text-sm leading-7 text-white/55">
-                  Use the Origami extension to start recording the browser tab with the bug. Short clips work best for AI analysis and produce smaller GIFs.
+                  Use the browser picker to capture your full screen, a specific app window, or a browser tab. Short clips work best for AI analysis and keep the WebM upload lightweight.
                 </p>
 
-                {gifProgress && (
-                  <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-white">{gifProgress.stage}</p>
-                      <span className="text-xs font-mono text-white/55">{gifProgress.progress}%</span>
-                    </div>
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-linear-to-r from-orange-400 via-amber-300 to-cyan-300 transition-all duration-300"
-                        style={{ width: `${gifProgress.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
                 {capture && (
-                  <div className="mt-5 grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-3">
+                  <div className="mt-5 grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2">
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Duration</p>
                       <p className="mt-1 text-sm font-semibold text-white">{formatDuration(capture.durationSeconds)}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Original</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">WebM Size</p>
                       <p className="mt-1 text-sm font-semibold text-white">{formatBytes(capture.videoBlob.size)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">GIF</p>
-                      <p className="mt-1 text-sm font-semibold text-white">
-                        {capture.gifBlob ? formatBytes(capture.gifBlob.size) : 'Generating...'}
-                      </p>
                     </div>
                   </div>
                 )}
@@ -605,51 +489,30 @@ export const IssueReporterPage: React.FC = () => {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Preview</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Generated GIF attachment</h3>
+                    <h3 className="mt-1 text-xl font-black text-white">Recorded WebM attachment</h3>
                   </div>
                   <div className="flex gap-2">
-                    {capture?.gifBlob && (
-                      <button
-                        onClick={() => downloadBlob(capture.gifBlob, `${capture.fileBase}.gif`)}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
-                      >
-                        <Download className="h-4 w-4" />
-                        GIF
-                      </button>
-                    )}
                     {capture?.videoBlob && (
                       <button
                         onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
                         className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
                       >
                         <Download className="h-4 w-4" />
-                        Original
+                        WebM
                       </button>
                     )}
                   </div>
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/40">
-                  {capture?.gifUrl ? (
-                    <img src={capture.gifUrl} alt="Recorded bug report GIF" className="aspect-video w-full object-contain" />
-                  ) : capture?.videoUrl ? (
+                  {capture?.videoUrl ? (
                     <video src={capture.videoUrl} controls className="aspect-video w-full bg-black object-contain" />
                   ) : (
                     <div className="flex aspect-video items-center justify-center px-6 text-center text-sm text-white/45">
-                      Record an issue and Origami will render a GIF preview here.
+                      Record an issue and Origami will render the WebM preview here.
                     </div>
                   )}
                 </div>
-
-                {capture && !capture.gifBlob && !isConvertingGif && (
-                  <button
-                    onClick={handleRetryGif}
-                    className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/70 transition-colors hover:text-white"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Retry GIF Conversion
-                  </button>
-                )}
               </div>
 
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
@@ -660,11 +523,11 @@ export const IssueReporterPage: React.FC = () => {
                   </div>
                   <button
                     onClick={handleAnalyze}
-                    disabled={!capture?.gifBlob || isConvertingGif || isAnalyzing}
+                    disabled={!capture?.videoBlob || isAnalyzing}
                     className="inline-flex items-center gap-2 rounded-2xl bg-orange-300 px-4 py-2.5 text-sm font-black text-slate-950 transition-all disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {analysis ? 'Regenerate Prompt' : 'Analyze GIF'}
+                    {analysis ? 'Regenerate Prompt' : 'Analyze Recording'}
                   </button>
                 </div>
 
@@ -735,7 +598,7 @@ export const IssueReporterPage: React.FC = () => {
                   </div>
                 ) : (
                   <p className="mt-4 text-sm leading-7 text-white/50">
-                    Once the GIF is ready, Origami will ask Gemini to describe the visible bug and build a paste-ready prompt for your AI debugger.
+                    Once the recording is ready, Origami will ask Gemini to describe the visible bug and build a paste-ready prompt for your AI debugger.
                   </p>
                 )}
               </div>
@@ -758,13 +621,13 @@ export const IssueReporterPage: React.FC = () => {
                 <Copy className="h-4 w-4" />
                 {copiedPrompt ? 'Copied' : 'Copy Prompt'}
               </button>
-              {capture?.gifBlob && (
+              {capture?.videoBlob && (
                 <button
-                  onClick={() => downloadBlob(capture.gifBlob, `${capture.fileBase}.gif`)}
+                  onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/70 transition-colors hover:text-white"
                 >
                   <Download className="h-4 w-4" />
-                  Download GIF
+                  Download WebM
                 </button>
               )}
             </div>
@@ -778,7 +641,7 @@ export const IssueReporterPage: React.FC = () => {
           />
 
           <p className="mt-4 text-sm leading-7 text-white/50">
-            Suggested flow: click <span className="font-semibold text-white/75">Copy Prompt</span>, attach the downloaded GIF in your AI chat, then paste this message so the agent sees both the exact visual behavior and a clear written description.
+            Suggested flow: click <span className="font-semibold text-white/75">Copy Prompt</span>, attach the downloaded WebM clip in your AI chat, then paste this message so the agent sees both the exact visual behavior and a clear written description.
           </p>
         </section>
       </main>

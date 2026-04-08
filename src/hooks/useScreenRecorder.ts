@@ -38,6 +38,7 @@ interface ChromeDesktopTrackConstraints extends MediaTrackConstraints {
 }
 
 interface UseScreenRecorderOptions {
+  captureMode?: 'extension-tab' | 'display';
   onRecordingComplete?: (result: ScreenRecordResult) => void | Promise<void>;
   onRecordingError?: (error: Error) => void;
   onRecordingPending?: () => void;
@@ -70,7 +71,13 @@ function isExtensionUnavailableError(error: Error): boolean {
 }
 
 export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
-  const { onRecordingComplete, onRecordingError, onRecordingPending, onExtensionUnavailable } = options;
+  const {
+    captureMode = 'extension-tab',
+    onRecordingComplete,
+    onRecordingError,
+    onRecordingPending,
+    onExtensionUnavailable
+  } = options;
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -273,6 +280,23 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
     });
   }, []);
 
+  const createDisplayStreamFromPicker = useCallback(async (): Promise<MediaStream> => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error('This browser does not support native screen recording.');
+    }
+
+    const displayStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        frameRate: { ideal: 60, max: 60 },
+        width: { ideal: 1920, max: 3840 },
+        height: { ideal: 1080, max: 2160 },
+      } as MediaTrackConstraints,
+      audio: true,
+    });
+
+    return displayStream;
+  }, []);
+
   const waitForExtensionCaptureSource = useCallback((timeoutMs = 60000): Promise<BrowserExtensionCaptureSource> => {
     return new Promise((resolve, reject) => {
       const cleanupCallbacks: Array<() => void> = [];
@@ -398,28 +422,30 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
 
       let displayStream: MediaStream | null = null;
 
-      try {
-        await armBrowserExtensionRecording();
-        extensionSessionActiveRef.current = true;
+      if (captureMode === 'display') {
         onRecordingPending?.();
-        const captureSource = await waitForExtensionCaptureSource();
-        displayStream = await createDisplayStreamFromExtension(captureSource);
-      } catch (error) {
-        const normalizedError = normalizeError(error);
-        if (!isExtensionUnavailableError(normalizedError)) {
-          throw normalizedError;
+        displayStream = await createDisplayStreamFromPicker();
+      } else {
+        try {
+          await armBrowserExtensionRecording();
+          extensionSessionActiveRef.current = true;
+          onRecordingPending?.();
+          const captureSource = await waitForExtensionCaptureSource();
+          displayStream = await createDisplayStreamFromExtension(captureSource);
+        } catch (error) {
+          const normalizedError = normalizeError(error);
+          if (!isExtensionUnavailableError(normalizedError)) {
+            throw normalizedError;
+          }
+
+          console.info('Origami Chrome extension not available.', normalizedError);
+
+          await onExtensionUnavailable?.();
+          throw new Error('Browser extension not available. Please install the Origami extension to enable screen recording.');
         }
-
-        console.info('Origami Chrome extension not available.', normalizedError);
-
-        // Trigger the extension unavailable callback instead of falling back
-        await onExtensionUnavailable?.();
-
-        // Throw an error to stop the recording process
-        throw new Error('Browser extension not available. Please install the Origami extension to enable screen recording.');
       }
 
-      if (extensionSessionActiveRef.current) {
+      if (captureMode === 'extension-tab' && extensionSessionActiveRef.current) {
         preserveCapturedTabAudioPlayback(displayStream);
       }
 
@@ -460,8 +486,10 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
       throw normalizeError(err);
     }
   }, [
+    captureMode,
     attachLocalInteractionListeners,
     cleanupCaptureResources,
+    createDisplayStreamFromPicker,
     createDisplayStreamFromExtension,
     finalizeExternalStop,
     mixWithMicrophone,
