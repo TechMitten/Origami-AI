@@ -15,9 +15,7 @@ import {
   X
 } from 'lucide-react';
 
-import appLogo from '../assets/images/app-logo2.png';
 import backgroundImage from '../assets/images/background.png';
-import { AppModeSwitcher } from '../components/AppModeSwitcher';
 import { DuplicateTabModal } from '../components/DuplicateTabModal';
 import { Footer } from '../components/Footer';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
@@ -31,6 +29,7 @@ import type {
   AssistantChatSession,
   GlobalSettings
 } from '../services/storage';
+import { PageHeader } from '../components/PageHeader';
 import {
   createAssistantChatTitle,
   loadAssistantChatWorkspace,
@@ -511,10 +510,14 @@ export const AssistantPage: React.FC = () => {
       { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
       ...nextMessages
         .filter((message) => message.id !== assistantMessageId)
-        .map((message) => ({
-          role: message.role,
-          content: buildChatMessageContent(message),
-        })),
+        .map((message) => {
+          if (message.role === 'user') {
+            return { role: 'user', content: buildChatMessageContent(message) } as WebLLMChatMessage;
+          }
+
+          // assistant messages should have simple string content
+          return { role: 'assistant', content: message.content } as WebLLMChatMessage;
+        }),
     ];
 
     try {
@@ -569,7 +572,7 @@ export const AssistantPage: React.FC = () => {
             <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="space-y-2">
               <p className="font-semibold">WebGPU is required for the local assistant.</p>
-              <p className="text-red-100/80">{webGpuSupport.error || 'This browser or device does not currently support WebGPU.'}</p>
+              <p className="text-red-100/80">{webGpuSupport?.error || 'This browser or device does not currently support WebGPU.'}</p>
               <button
                 onClick={() => setIsWebGPUModalOpen(true)}
                 className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-red-100 transition-colors hover:bg-red-500/20"
@@ -606,25 +609,13 @@ export const AssistantPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-branding-dark px-4 pb-2 pt-6 text-white sm:px-6 lg:px-8">
-      <header className="relative z-50 mx-auto mb-4 w-full max-w-6xl rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl sm:px-5">
-        <div className="flex flex-col gap-4 px-4 py-4">
-          {/* Top row: Logo + Title on left, Mode switcher on right */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl shadow-lg shadow-cyan-500/10">
-                <img src={appLogo} alt="Origami" className="h-full w-full rounded-xl object-cover" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-cyan-300/60">Origami</p>
-                <h1 className="text-2xl font-black tracking-tight text-white">AI Assistant</h1>
-              </div>
-            </div>
-            <AppModeSwitcher className="shrink-0" />
-          </div>
-
-          {/* Bottom row: Model badge and controls */}
-          <div className="flex flex-wrap items-center gap-2">
+    <div className="min-h-screen bg-branding-dark text-white">
+      <PageHeader
+        title="AI Assistant"
+        onSettings={() => setIsSettingsOpen(true)}
+        showHelp={false}
+        rightContent={
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/60">
               <Bot className="h-4 w-4 text-cyan-300" />
               <span>{loadedModelName || configuredModelName || 'Setup required'}</span>
@@ -642,12 +633,12 @@ export const AssistantPage: React.FC = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
-              New Chat
+              <span className="hidden sm:inline">New Chat</span>
             </button>
             <button
               onClick={() => void handleClearChat()}
               disabled={!hasConversation || isSending}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Trash2 className="h-4 w-4" />
               Clear Chat
@@ -662,10 +653,11 @@ export const AssistantPage: React.FC = () => {
               <Github className="h-5 w-5" />
             </a>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="mx-auto flex max-w-6xl flex-col pb-8">
+      <div className="px-4 pb-2 sm:px-6 lg:px-8">
+        <main className="mx-auto flex max-w-6xl flex-col pb-8">
         <section className="flex min-h-[78vh] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b0f14]/90 shadow-2xl shadow-black/30 backdrop-blur-2xl">
           <div className="border-b border-white/10 px-5 py-4 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -953,6 +945,7 @@ export const AssistantPage: React.FC = () => {
           </div>
         </section>
       </main>
+      </div>
 
       <Footer />
 

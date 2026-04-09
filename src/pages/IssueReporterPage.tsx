@@ -12,17 +12,16 @@ import {
   Video
 } from 'lucide-react';
 
-import appLogo from '../assets/images/app-logo2.png';
 import backgroundImage from '../assets/images/background.png';
 import orgIssueLogo from '../assets/images/orgissue.png';
 import SoftAurora from '../components/SoftAurora';
-import { AppModeSwitcher } from '../components/AppModeSwitcher';
 import { DuplicateTabModal } from '../components/DuplicateTabModal';
 import { Footer } from '../components/Footer';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
 import { useModal } from '../context/ModalContext';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
+import { PageHeader } from '../components/PageHeader';
 import { analyzeIssueCaptureWithGemini, type IssueCaptureAnalysis } from '../services/aiService';
 import type { GlobalSettings } from '../services/storage';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/storage';
@@ -334,21 +333,12 @@ export const IssueReporterPage: React.FC = () => {
         className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-40 blur-[2px] brightness-75"
       />
 
-      {/* Sticky header */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-black/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 sm:px-8">
-          <div className="flex items-center gap-3.5">
-            <div className="h-10 w-10 shrink-0 rounded-xl shadow-lg shadow-orange-500/20">
-              <img src={appLogo} alt="Origami" className="h-full w-full rounded-xl object-cover" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-300/70">Origami AI</p>
-              <h1 className="text-lg font-black tracking-tight text-white leading-none">Issue Reporter</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <AppModeSwitcher className="hidden sm:flex" />
+      <PageHeader
+        title="Issue Reporter"
+        onSettings={() => setIsSettingsOpen(true)}
+        showHelp={false}
+        rightContent={
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {capture && (
               <button
                 onClick={handleStartOver}
@@ -381,10 +371,10 @@ export const IssueReporterPage: React.FC = () => {
               <Github className="h-4 w-4" />
             </a>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="mx-auto max-w-5xl px-6 pb-20 pt-10 sm:px-8">
+      <main className="mx-auto max-w-5xl px-6 pb-20 sm:px-8">
 
         {/* Hero with animated background */}
         <div className="mb-10 relative rounded-3xl overflow-hidden shadow-2xl shadow-black/40" style={{
@@ -527,6 +517,9 @@ export const IssueReporterPage: React.FC = () => {
                   Use the browser screen-share picker. Click Stop once the issue is demonstrated.
                 </p>
               </div>
+
+              {/* Separator */}
+              <div className="my-5 h-0.5 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
 
               <div className="flex flex-col gap-3">
                 <button
