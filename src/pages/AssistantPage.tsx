@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   Bot,
   BrainCircuit,
@@ -820,8 +821,30 @@ export const AssistantPage: React.FC = () => {
                                   </div>
                                 )}
                                 {message.content ? (
-                                  <div className="whitespace-pre-wrap text-sm leading-7 text-white/90">
-                                    {message.content}
+                                  <div className="prose prose-invert max-w-none text-sm leading-7 text-white/90">
+                                    <ReactMarkdown
+                                      components={{
+                                        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                        ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                                        ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                                        li: ({ node, ...props }) => <li className="ml-0" {...props} />,
+                                        blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-cyan-400/30 pl-3 italic text-white/75 mb-2" {...props} />,
+                                        code: ({ node, inline, ...props }) => 
+                                          inline 
+                                            ? <code className="bg-black/30 rounded px-1.5 py-0.5 font-mono text-xs text-cyan-200" {...props} />
+                                            : <code className="block bg-black/30 rounded px-3 py-2 font-mono text-xs text-cyan-200 overflow-x-auto mb-2" {...props} />,
+                                        pre: ({ node, ...props }) => <pre className="bg-black/30 rounded p-3 overflow-x-auto mb-2" {...props} />,
+                                        h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0" {...props} />,
+                                        h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                                        h3: ({ node, ...props }) => <h3 className="text-base font-bold mb-2 mt-2 first:mt-0" {...props} />,
+                                        strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
+                                        em: ({ node, ...props }) => <em className="italic" {...props} />,
+                                        a: ({ node, ...props }) => <a className="text-cyan-300 underline hover:text-cyan-200" {...props} />,
+                                        hr: ({ node, ...props }) => <hr className="border-white/10 my-3" {...props} />,
+                                      }}
+                                    >
+                                      {message.content}
+                                    </ReactMarkdown>
                                   </div>
                                 ) : message.attachment ? (
                                   <div className="text-sm text-white/60">
