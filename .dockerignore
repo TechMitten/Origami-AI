@@ -1,16 +1,42 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
+temp_render
+
+# Git
 .git
 .gitignore
+
+# Environment
 .env
+.env.local
+.env.production
+.env.development
+
+# Documentation (safe to exclude from builds)
 README.md
 LICENSE
+docs
+
+# Screenshots and media
 screenshots
-temp_render
-*.log
+logo
+
+# IDE
 .vscode
 .idea
 .DS_Store
+
+# Testing
 coverage
 npm-debug.log
-secureStorage.ts
+*.log
+
+# Memory and AI tools
+.claude
+memory
+
+# Development files
+chrome-extension

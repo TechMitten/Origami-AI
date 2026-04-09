@@ -1,10 +1,12 @@
+# syntax=docker/dockerfile:1.4
+
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 # Install all dependencies (including devDependencies like 'vite')
 # We need 'vite' because server.ts uses a static import for it in strict ESM mode
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
