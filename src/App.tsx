@@ -1461,6 +1461,7 @@ function MainApp() {
               onImportProject={handleImportProjectClick}
               onStartScreenRecord={handleStartScreenRecord}
               onOpenAssistant={() => navigate('/assistant')}
+              onOpenIssueReporter={() => navigate('/issue-reporter')}
             />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">

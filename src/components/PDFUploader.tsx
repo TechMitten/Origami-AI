@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { BrainCircuit, FileText, Import, Loader2, Video } from 'lucide-react';
+import { BrainCircuit, FileText, Loader2, Palette, AlertCircle } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -16,9 +16,10 @@ interface PDFUploaderProps {
   onImportProject?: () => void;
   onStartScreenRecord?: () => void;
   onOpenAssistant?: () => void;
+  onOpenIssueReporter?: () => void;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onImportProject, onStartScreenRecord, onOpenAssistant }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onImportProject, onStartScreenRecord, onOpenAssistant, onOpenIssueReporter }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,7 +116,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
       {/* Header */}
       <div className="text-center mb-8">
         <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2">
-          Create Your Video
+          Let's Get Started
         </h2>
         <p className="text-sm text-white/60">
           Choose how you want to start your project
@@ -123,8 +124,8 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
       </div>
 
       {/* Three Equal-Sized Options */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {/* Upload PDF Option */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {/* Studio Option - Upload PDF */}
         <div
           {...getRootProps()}
           className={cn(
@@ -147,7 +148,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
             {isProcessing ? (
               <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400 animate-spin" />
             ) : (
-              <FileText className={cn(
+              <Palette className={cn(
                 "w-8 h-8 sm:w-10 sm:h-10 transition-colors duration-200",
                 isDragActive ? "text-blue-400" : "text-white/50 group-hover:text-blue-400"
               )} />
@@ -159,14 +160,14 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
             "text-lg sm:text-xl font-medium text-white mb-2 transition-colors duration-200",
             isDragActive && "text-blue-300"
           )}>
-            Upload PDF
+            Studio
           </h3>
 
           {/* Description */}
           <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
             {isDragActive
               ? 'Release to upload'
-              : 'Drag & drop your presentation or click to browse'
+              : 'Create videos from 2D content with AI narration'
             }
           </p>
 
@@ -206,92 +207,6 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
 
-        {/* Record Screen Option */}
-        <div
-          onClick={onStartScreenRecord}
-          className={cn(
-            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
-            "bg-[#0F1115] border border-white/10",
-            "hover:border-purple-500/30 hover:bg-white/[0.02]",
-            "rounded-lg",
-            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
-            "min-h-[280px] sm:min-h-[320px]"
-          )}
-        >
-          {/* Icon */}
-          <div className={cn(
-            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-purple-500/5"
-          )}>
-            <Video className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-purple-400 transition-colors duration-200" />
-          </div>
-
-          {/* Title */}
-          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-purple-300 transition-colors duration-200">
-            Record Screen
-          </h3>
-
-          {/* Description */}
-          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
-            Capture your screen as a video tutorial or presentation
-          </p>
-
-          {/* Badge */}
-          <div className="mt-auto">
-            <div className={cn(
-              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
-              "bg-white/5 text-white/40 border-white/10 group-hover:bg-purple-500/5 group-hover:text-purple-400 group-hover:border-purple-500/20"
-            )}>
-              Start Recording
-            </div>
-          </div>
-
-          {/* Subtle hover glow */}
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
-
-        {/* Import Option */}
-        <div
-          onClick={onImportProject}
-          className={cn(
-            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
-            "bg-[#0F1115] border border-white/10",
-            "hover:border-emerald-500/30 hover:bg-white/[0.02]",
-            "rounded-lg",
-            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
-            "min-h-[280px] sm:min-h-[320px]"
-          )}
-        >
-          {/* Icon */}
-          <div className={cn(
-            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-emerald-500/5"
-          )}>
-            <Import className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-emerald-400 transition-colors duration-200" />
-          </div>
-
-          {/* Title */}
-          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-emerald-300 transition-colors duration-200">
-            Import
-          </h3>
-
-          {/* Description */}
-          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
-            Import existing slides, images, or video content
-          </p>
-
-          {/* Badge */}
-          <div className="mt-auto">
-            <div className={cn(
-              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
-              "bg-white/5 text-white/40 border-white/10 group-hover:bg-emerald-500/5 group-hover:text-emerald-400 group-hover:border-emerald-500/20"
-            )}>
-              Import .origami File
-            </div>
-          </div>
-
-          {/* Subtle hover glow */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
-
         {/* Assistant Option */}
         <div
           onClick={onOpenAssistant}
@@ -328,6 +243,44 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
           </div>
 
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        </div>
+
+        {/* Issue Reporter Option */}
+        <div
+          onClick={onOpenIssueReporter}
+          className={cn(
+            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
+            "bg-[#0F1115] border border-white/10",
+            "hover:border-amber-500/30 hover:bg-white/[0.02]",
+            "rounded-lg",
+            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
+            "min-h-[280px] sm:min-h-[320px]"
+          )}
+        >
+          <div className={cn(
+            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-amber-500/5"
+          )}>
+            <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-amber-300 transition-colors duration-200" />
+          </div>
+
+          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-amber-200 transition-colors duration-200">
+            Issue Reporter
+          </h3>
+
+          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">
+            Report bugs or suggest features to help improve Origami AI
+          </p>
+
+          <div className="mt-auto">
+            <div className={cn(
+              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
+              "bg-white/5 text-white/40 border-white/10 group-hover:bg-amber-500/5 group-hover:text-amber-300 group-hover:border-amber-500/20"
+            )}>
+              Report Issue
+            </div>
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
       </div>
 
