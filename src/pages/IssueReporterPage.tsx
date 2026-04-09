@@ -324,7 +324,7 @@ export const IssueReporterPage: React.FC = () => {
   const isGeminiEndpointValid = /generativelanguage\.googleapis\.com/i.test(geminiSettings.baseUrl);
 
   return (
-    <div className="min-h-screen bg-branding-dark text-white pt-8">
+    <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8">
       {/* Background */}
       <img
         src={backgroundImage}

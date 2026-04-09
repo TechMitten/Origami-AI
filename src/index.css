@@ -164,3 +164,7 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
 .transparent-scrollbar {
   scrollbar-color: transparent transparent;
 }
+
+.page-zoom-130 {
+  zoom: 130%;
+}

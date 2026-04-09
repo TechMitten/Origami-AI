@@ -37,7 +37,6 @@ interface PageHeaderProps {
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
-  title,
   showBack = false,
   leftContent,
   centerContent,
@@ -75,11 +74,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
             <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
-          {title && (
-            <h1 className="hidden sm:block text-xl sm:text-2xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
-              {title}
-            </h1>
-          )}
+          <h1 className="hidden sm:block text-xl sm:text-2xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
+            ORIGAMI
+          </h1>
         </div>
       )}
 

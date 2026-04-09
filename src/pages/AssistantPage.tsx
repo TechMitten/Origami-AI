@@ -607,7 +607,7 @@ export const AssistantPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-branding-dark text-white pt-8">
+    <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8">
       <PageHeader
         title="AI Assistant"
         onSettings={() => setIsSettingsOpen(true)}
