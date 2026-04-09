@@ -18,12 +18,12 @@ async function createServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "blob:", "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://umami.techmitten.com", "https://static.cloudflareinsights.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "blob:", "https://umami.techmitten.com", "https://static.cloudflareinsights.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         mediaSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "data:", "https://unpkg.com", "https://www.google-analytics.com"],
+        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "data:", "https://unpkg.com"],
         workerSrc: ["'self'", "blob:"],
       },
     },
@@ -118,7 +118,13 @@ async function createServer() {
       server: { 
         middlewareMode: true,
         watch: {
-          ignored: ['**/node_modules/**', '**/dist/**', '**/public/music/**']
+          ignored: ['**/node_modules/**', '**/dist/**', '**/public/music/**'],
+          awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 1000 },
+        },
+        hmr: {
+          protocol: 'ws',
+          host: 'localhost',
+          port: 24678,
         }
       },
       appType: 'spa',
@@ -192,16 +198,17 @@ async function createServer() {
   process.on('SIGINT', handleShutdown);
   process.on('SIGTERM', handleShutdown);
 
-  // Optional CPU monitor: set ENABLE_CPU_MONITOR=1 to enable (dev by default)
-  const enableCpuMonitor = process.env.ENABLE_CPU_MONITOR === '1' || process.env.NODE_ENV !== 'production';
+  // Optional CPU monitor: DISABLED by default in dev to reduce CPU overhead
+  // Set ENABLE_CPU_MONITOR=1 explicitly to enable
+  const enableCpuMonitor = process.env.ENABLE_CPU_MONITOR === '1';
   if (enableCpuMonitor) {
     (async () => {
       try {
         const pidusageMod = await import('pidusage');
         const pidusage = pidusageMod.default || pidusageMod;
         const maxCpu = Number(process.env.MAX_CPU) || 85;
-        const intervalMs = Number(process.env.CPU_CHECK_INTERVAL) || 2000;
-        const consecutiveLimit = Number(process.env.CPU_CONSECUTIVE) || 3;
+        const intervalMs = Number(process.env.CPU_CHECK_INTERVAL) || 5000; // Increased from 2000ms
+        const consecutiveLimit = Number(process.env.CPU_CONSECUTIVE) || 5; // Increased from 3
 
         let consecutive = 0;
         const cpuTimer = setInterval(async () => {

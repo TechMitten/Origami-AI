@@ -26,6 +26,17 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "credentialless",
     },
+    // Optimize HMR and file watching for lower CPU usage
+    middlewareMode: true,
+    watch: {
+      usePolling: false, // Use native fs events instead of polling
+      ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.log'],
+    },
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 24678,
+    },
   },
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],

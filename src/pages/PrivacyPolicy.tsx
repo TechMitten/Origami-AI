@@ -124,7 +124,7 @@ export const PrivacyPolicy: React.FC = () => {
 
               <div>
                 <h3 className="text-base font-bold text-white mb-3">B. Analytics Data</h3>
-                <p className="mb-3">We use analytics tools (including <strong>Google Analytics</strong> and <strong>Umami</strong>) to understand how the Service is used:</p>
+                <p className="mb-3">We use analytics tools (including <strong>Umami</strong>) to understand how the Service is used:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   {['Pages viewed and actions', 'Device and browser info', 'Referring/exit pages', 'General usage metrics'].map((item, i) => (
                     <div key={i} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
@@ -214,7 +214,7 @@ export const PrivacyPolicy: React.FC = () => {
                 <ul className="space-y-2 ml-4">
                   <li className="flex items-start gap-2">
                     <span className="text-branding-secondary mt-1">•</span>
-                    <span>Analytics providers (e.g., Google Analytics, Umami)</span>
+                    <span>Analytics providers (e.g., Umami)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-branding-secondary mt-1">•</span>

@@ -7,13 +7,13 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "node ./scripts/monitor-and-run.js --max-cpu=85 -- tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' server.ts",
+    "dev": "tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' --ignore '.git/**' server.ts",
     "build": "vite build",
     "lint": "eslint .",
-    "postinstall": "node ./scripts/patch-web-llm.js",
+    "postinstall": "echo 'postinstall script skipped (scripts/ removed)'; exit 0",
     "preview": "vite preview",
     "stop": "npx kill-port 3000",
-    "kill-all": "node ./scripts/kill-all.js"
+    "kill-all": "echo 'kill-all script removed; use platform tools (taskkill/killall) if necessary'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

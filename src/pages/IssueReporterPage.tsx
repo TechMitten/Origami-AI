@@ -212,14 +212,6 @@ export const IssueReporterPage: React.FC = () => {
   });
 
   const handleStartRecording = async () => {
-    if (!userGoal.trim()) {
-      showAlert('Describe the issue in your own words first so Gemini can use your explanation together with the recording.', {
-        type: 'warning',
-        title: 'Description Required',
-      });
-      return;
-    }
-
     try {
       resetAnalysis();
       await startRecording();
@@ -240,14 +232,6 @@ export const IssueReporterPage: React.FC = () => {
 
   const handleAnalyze = async () => {
     const currentCapture = captureRef.current;
-    if (!userGoal.trim()) {
-      showAlert('Describe the issue in your own words before generating the prompt.', {
-        type: 'warning',
-        title: 'Description Required',
-      });
-      return;
-    }
-
     if (!currentCapture?.videoBlob) {
       showAlert('Record an issue before asking Gemini to analyze it.', {
         type: 'warning',
@@ -333,341 +317,359 @@ export const IssueReporterPage: React.FC = () => {
   const isGeminiEndpointValid = /generativelanguage\.googleapis\.com/i.test(geminiSettings.baseUrl);
 
   return (
-    <div className="min-h-screen bg-branding-dark px-4 pb-2 pt-6 text-white sm:px-6 lg:px-8">
-      <header className="relative z-50 mx-auto mb-4 flex w-full max-w-6xl flex-col gap-3 rounded-3xl border border-white/10 bg-black/20 px-4 py-4 backdrop-blur-xl sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl shadow-lg shadow-orange-500/10">
-            <img src={appLogo} alt="Origami" className="h-full w-full rounded-xl object-cover" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-orange-300/70">Origami</p>
-            <h1 className="text-2xl font-black tracking-tight text-white">Issue Reporter</h1>
-          </div>
-        </div>
+    <div className="min-h-screen bg-branding-dark text-white" style={{ zoom: 1.4 }}>
+      {/* Background */}
+      <img
+        src={backgroundImage}
+        alt=""
+        className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-40 blur-[2px] brightness-75"
+      />
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <AppModeSwitcher className="self-start lg:self-center" />
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/60">
-              <Bug className="h-4 w-4 text-orange-300" />
-              <span>{isGeminiConfigured ? geminiSettings.model : 'Setup required'}</span>
+      {/* Sticky header */}
+      <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-black/60 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4 sm:px-8">
+          <div className="flex items-center gap-3.5">
+            <div className="h-10 w-10 shrink-0 rounded-xl shadow-lg shadow-orange-500/20">
+              <img src={appLogo} alt="Origami" className="h-full w-full rounded-xl object-cover" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-300/70">Origami AI</p>
+              <h1 className="text-lg font-black tracking-tight text-white leading-none">Issue Reporter</h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <AppModeSwitcher className="hidden sm:flex" />
+            <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:inline-flex">
+              <Bug className="h-3.5 w-3.5 text-orange-300" />
+              <span className="text-xs font-bold text-white/70">
+                {isGeminiConfigured ? geminiSettings.model : 'Not configured'}
+              </span>
             </div>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-white/70 transition-colors hover:text-white"
+              className="rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-white/60 transition-all hover:bg-white/12 hover:text-white"
               title="Open Settings"
             >
-              <Settings className="h-5 w-5" />
+              <Settings className="h-4 w-4" />
             </button>
             <a
               href="https://github.com/IslandApps/Origami-AI"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-white/70 transition-colors hover:text-white"
+              className="rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-white/60 transition-all hover:bg-white/12 hover:text-white"
               title="View on GitHub"
             >
-              <Github className="h-5 w-5" />
+              <Github className="h-4 w-4" />
             </a>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-6xl flex-col gap-6 pb-8">
-        <section className="overflow-hidden rounded-[2rem] border border-orange-400/10 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.14),transparent_34%),linear-gradient(180deg,rgba(11,15,20,0.95),rgba(11,15,20,0.9))] shadow-2xl shadow-black/30 backdrop-blur-2xl">
-          <div className="border-b border-white/10 px-5 py-5 sm:px-6">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-orange-300/65">Capture To Prompt</p>
-            <h2 className="mt-1 text-2xl font-black text-white sm:text-3xl">Record the issue, generate the wording, paste it into your AI chat.</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-white/60 sm:text-base">
-              Origami records the visual bug as a WebM clip and asks Gemini to turn the behavior into a precise debugging prompt you can paste alongside the attachment.
-            </p>
-          </div>
+      <main className="mx-auto max-w-5xl px-6 pb-20 pt-10 sm:px-8">
 
-          <div className="grid gap-4 border-b border-white/10 px-5 py-5 sm:grid-cols-3 sm:px-6">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="mb-3 inline-flex rounded-xl border border-orange-300/20 bg-orange-400/10 p-2 text-orange-200">
-                <Bug className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-black text-white">1. Describe the issue</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Write what you expected, what actually happened, and any useful context in your own words first.</p>
+        {/* Hero */}
+        <div className="mb-10">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/12 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-orange-300">
+            <Bug className="h-3.5 w-3.5" />
+            Capture · Analyze · Prompt
+          </div>
+          <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+            Record the issue,<br />
+            <span className="text-orange-300">generate the prompt.</span>
+          </h2>
+          <p className="mt-5 max-w-lg text-base leading-8 text-white/65">
+            Origami records your visual bug as a WebM clip and asks Gemini to transform it into a precise debugging prompt — ready to paste alongside the attachment in any AI chat.
+          </p>
+        </div>
+
+        {/* Config warning */}
+        {(!isGeminiConfigured || !isGeminiEndpointValid) && (
+          <div className="mb-6 flex items-start gap-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-5">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/15">
+              <Settings className="h-4 w-4 text-amber-300" />
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="mb-3 inline-flex rounded-xl border border-cyan-300/20 bg-cyan-400/10 p-2 text-cyan-200">
-                <Video className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-black text-white">2. Record the issue</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Capture the exact behavior on screen so Gemini can compare your description against what the recording shows.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="mb-3 inline-flex rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-2 text-emerald-200">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-black text-white">3. Let Gemini analyze both</h3>
-              <p className="mt-2 text-sm leading-6 text-white/60">Gemini reads your description and watches the WebM clip before drafting the final prompt you can paste into your AI chat.</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-amber-100">Gemini API not configured</p>
+              <p className="mt-1.5 text-sm leading-6 text-amber-200/70">
+                This feature requires a Gemini API key and the Google Gemini base URL.{' '}
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="font-semibold text-amber-200 underline underline-offset-2 transition-colors hover:text-amber-100"
+                >
+                  Open Settings → API
+                </button>
+              </p>
             </div>
           </div>
+        )}
 
-          <div className="grid gap-6 px-5 py-6 lg:grid-cols-[1.1fr_0.9fr] sm:px-6">
-            <div className="space-y-6">
-              {!isGeminiConfigured || !isGeminiEndpointValid ? (
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-50">
-                  <p className="font-semibold">Configure Gemini in Settings before analyzing issue recordings.</p>
-                  <p className="mt-2 text-amber-50/75">
-                    This feature uses Gemini file uploads, so you need a Gemini API key and the Google Gemini base URL selected in the API tab.
-                  </p>
+        {/* ── Row 1: Describe + Record ── */}
+        <div className="rounded-3xl border border-white/25 bg-black/30 p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md">
+          <div className="flex flex-col gap-6 lg:flex-row lg:gap-10">
+
+            {/* Describe fields */}
+            <div className="flex-1">
+              <div className="mb-5 flex items-center gap-3.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-black text-white/70">
+                  1
                 </div>
-              ) : (
-                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/8 px-4 py-4 text-sm text-emerald-50">
-                  <p className="font-semibold">Gemini is ready.</p>
-                  <p className="mt-2 text-emerald-50/75">
-                    Current model: <span className="font-mono text-emerald-100">{geminiSettings.model}</span>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-lg font-black text-white">Describe the bug</h3>
+                    <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs font-bold text-white/70">
+                      Optional
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-white/70">Give Gemini context before it watches the recording</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2.5 block text-xs font-bold uppercase tracking-[0.18em] text-white/75">
+                    What should happen?
+                  </label>
+                  <textarea
+                    aria-label="What should happen (optional)"
+                    value={userGoal}
+                    onChange={(event) => setUserGoal(event.target.value)}
+                    placeholder="Example: Clicking Save should keep me on the page with my changes applied."
+                    className="min-h-[108px] w-full resize-none rounded-2xl border border-white/30 bg-black/40 px-4 py-3.5 text-sm leading-7 text-white outline-none transition-all placeholder:text-white/40 focus:border-orange-300/50 focus:bg-black/50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2.5 block text-xs font-bold uppercase tracking-[0.18em] text-white/75">
+                    What is happening instead?
+                  </label>
+                  <textarea
+                    value={extraContext}
+                    onChange={(event) => setExtraContext(event.target.value)}
+                    placeholder="Example: The page reloads and all my changes are gone."
+                    className="min-h-[108px] w-full resize-none rounded-2xl border border-white/30 bg-black/40 px-4 py-3.5 text-sm leading-7 text-white outline-none transition-all placeholder:text-white/40 focus:border-orange-300/50 focus:bg-black/50"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden w-px self-stretch bg-white/[0.07] lg:block" />
+
+            {/* Record */}
+            <div className="flex w-full flex-col justify-between lg:w-64">
+              <div className="mb-8 flex items-center gap-3.5">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all ${capture ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/70'}`}>
+                  {capture ? <CheckCircle2 className="h-4 w-4" /> : '2'}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Record</h3>
+                  <p className="mt-1 text-sm text-white/70">Screen, window, or tab</p>
+                </div>
+              </div>
+
+              <p className="mb-8 text-sm leading-7 text-white/70">
+                Use the browser screen-share picker. Click Stop once the issue is demonstrated.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleStartRecording}
+                  disabled={isRecording}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition-all hover:bg-orange-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Video className="h-4 w-4" />
+                  {capture ? 'Re-record' : 'Record'}
+                </button>
+                {isRecording && (
+                  <button
+                    onClick={handleStopRecording}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/15 px-5 py-4 text-sm font-black text-red-200 transition-all hover:bg-red-500/25"
+                  >
+                    <Square className="h-4 w-4 fill-current" />
+                    Stop
+                  </button>
+                )}
+              </div>
+
+              {capture && (
+                <div className="mt-auto pt-8 flex flex-col gap-1.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3.5">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span className="text-xs font-bold uppercase tracking-[0.15em]">Captured</span>
+                  </div>
+                  <p className="text-sm text-white/80">
+                    {formatDuration(capture.durationSeconds)} · {formatBytes(capture.videoBlob.size)}
                   </p>
                 </div>
               )}
-
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Step 1</p>
-                <h3 className="mt-1 text-xl font-black text-white">Describe the issue in your own words</h3>
-                <p className="mt-3 text-sm leading-7 text-white/55">
-                  Gemini will combine this explanation with the screen recording, so focus on what you were trying to do, what went wrong, and anything that seems important.
-                </p>
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-white/45">
-                      What is the issue?
-                    </label>
-                    <textarea
-                      value={userGoal}
-                      onChange={(event) => setUserGoal(event.target.value)}
-                      placeholder="Example: I click Save on the settings form, the button shows a loading state for a second, then the page refreshes and my changes are gone. I expected the form to save and stay on the same page."
-                      className="min-h-[140px] w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-orange-300/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-white/45">
-                      Extra technical notes
-                    </label>
-                    <textarea
-                      value={extraContext}
-                      onChange={(event) => setExtraContext(event.target.value)}
-                      placeholder="Example: React app, happens after optimistic update, only in Chrome."
-                      className="min-h-[92px] w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-orange-300/40"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Step 2</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Record the issue on screen</h3>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleStartRecording}
-                      disabled={isRecording || !userGoal.trim()}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Video className="h-4 w-4" />
-                      {capture ? 'Record Again' : 'Record Issue'}
-                    </button>
-                    {isRecording && (
-                      <button
-                        onClick={handleStopRecording}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-2.5 text-sm font-black text-red-100 transition-colors hover:bg-red-500/20"
-                      >
-                        <Square className="h-4 w-4" />
-                        Stop
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <p className="mt-3 text-sm leading-7 text-white/55">
-                  Use the browser picker to capture your full screen, a specific app window, or a browser tab. The description above is required first so Gemini can compare your words against the recording.
-                </p>
-
-                {!userGoal.trim() && (
-                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-                    Write the issue description first to unlock recording.
-                  </div>
-                )}
-
-                {capture && (
-                  <div className="mt-5 grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Duration</p>
-                      <p className="mt-1 text-sm font-semibold text-white">{formatDuration(capture.durationSeconds)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">WebM Size</p>
-                      <p className="mt-1 text-sm font-semibold text-white">{formatBytes(capture.videoBlob.size)}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Preview</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Recorded WebM attachment</h3>
-                  </div>
-                  <div className="flex gap-2">
-                    {capture?.videoBlob && (
-                      <button
-                        onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
-                      >
-                        <Download className="h-4 w-4" />
-                        WebM
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/40">
-                  {capture?.videoUrl ? (
-                    <video src={capture.videoUrl} controls className="aspect-video w-full bg-black object-contain" />
-                  ) : (
-                    <div className="flex aspect-video items-center justify-center px-6 text-center text-sm text-white/45">
-                      Record an issue and Origami will render the WebM preview here.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-inner shadow-black/20">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Step 3</p>
-                    <h3 className="mt-1 text-xl font-black text-white">Analyze your words and the recording together</h3>
-                  </div>
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={!capture?.videoBlob || !userGoal.trim() || isAnalyzing}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-orange-300 px-4 py-2.5 text-sm font-black text-slate-950 transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {analysis ? 'Regenerate Prompt' : 'Analyze Recording'}
-                  </button>
-                </div>
-
-                {analysisProgress && (
-                  <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-white">{analysisProgress.stage}</p>
-                      <span className="text-xs font-mono text-white/55">{analysisProgress.progress}%</span>
-                    </div>
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-linear-to-r from-cyan-300 via-emerald-300 to-orange-300 transition-all duration-300"
-                        style={{ width: `${analysisProgress.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {analysis ? (
-                  <div className="mt-5 space-y-5">
-                    <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/8 p-4">
-                      <div className="flex items-center gap-2 text-emerald-100">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-xs font-bold uppercase tracking-[0.18em]">Prompt Ready</span>
-                      </div>
-                      <h4 className="mt-2 text-lg font-black text-white">{analysis.issueTitle}</h4>
-                      <p className="mt-2 text-sm leading-7 text-white/70">{analysis.issueSummary}</p>
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Observed</p>
-                        <p className="mt-2 text-sm leading-7 text-white/75">{analysis.observedBehavior}</p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Expected</p>
-                        <p className="mt-2 text-sm leading-7 text-white/75">{analysis.expectedBehavior}</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Reproduction Steps</p>
-                      <div className="mt-3 space-y-2">
-                        {analysis.reproductionSteps.map((step, index) => (
-                          <div key={`${step}-${index}`} className="rounded-xl bg-white/[0.03] px-3 py-2 text-sm text-white/75">
-                            <span className="mr-2 font-black text-orange-200">{index + 1}.</span>
-                            {step}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {analysis.technicalClues.length > 0 && (
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/40">Visual Clues</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {analysis.technicalClues.map((clue, index) => (
-                            <span
-                              key={`${clue}-${index}`}
-                              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/75"
-                            >
-                              {clue}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm leading-7 text-white/50">
-                    Once your description and recording are ready, Origami will ask Gemini to reason over both inputs and build a paste-ready prompt for your AI debugger.
-                  </p>
-                )}
-              </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-[2rem] border border-white/10 bg-[#0b0f14]/90 p-5 shadow-2xl shadow-black/30 backdrop-blur-2xl sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/45">Paste-Ready Output</p>
-              <h2 className="mt-1 text-2xl font-black text-white">Final prompt for your agentic AI</h2>
+        {/* ── Row 2: Recording preview + Analyze ── */}
+        <div className="mt-5 rounded-3xl border border-white/25 bg-black/30 p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md">
+          {/* Header */}
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all ${analysis ? 'bg-orange-500/20 text-orange-300' : 'bg-white/10 text-white/70'}`}>
+                {analysis ? <Sparkles className="h-4 w-4" /> : '3'}
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">Recording preview</h3>
+                <p className="mt-1 text-sm text-white/70">Review your capture, then analyze with Gemini</p>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleCopyPrompt}
-                disabled={!promptDraft.trim()}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Copy className="h-4 w-4" />
-                {copiedPrompt ? 'Copied' : 'Copy Prompt'}
-              </button>
+            <div className="flex shrink-0 gap-2.5">
               {capture?.videoBlob && (
                 <button
                   onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/70 transition-colors hover:text-white"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.07] px-4 py-2.5 text-sm font-bold text-white/70 transition-all hover:bg-white/12 hover:text-white"
                 >
                   <Download className="h-4 w-4" />
-                  Download WebM
+                  WebM
                 </button>
               )}
+              <button
+                onClick={handleAnalyze}
+                disabled={!capture?.videoBlob || isAnalyzing}
+                className="inline-flex items-center gap-2 rounded-2xl bg-orange-400 px-5 py-2.5 text-sm font-black text-slate-950 transition-all hover:bg-orange-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {analysis ? 'Regenerate' : 'Analyze'}
+              </button>
             </div>
           </div>
 
+          {/* Video player */}
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/50">
+            {capture?.videoUrl ? (
+              <video src={capture.videoUrl} controls className="aspect-video w-full bg-black object-contain" />
+            ) : (
+              <div className="flex aspect-video flex-col items-center justify-center gap-4 text-center">
+                <div className="rounded-2xl bg-white/10 p-5">
+                  <Video className="h-8 w-8 text-white/50" />
+                </div>
+                <p className="max-w-[200px] text-sm leading-6 text-white/65">
+                  Record an issue and the preview will appear here
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          {analysisProgress && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">{analysisProgress.stage}</p>
+                <span className="font-mono text-xs font-bold text-white/75">{analysisProgress.progress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-cyan-400 via-emerald-400 to-orange-400 transition-all duration-300"
+                  style={{ width: `${analysisProgress.progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Analysis results */}
+          {analysis && (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.08] p-6">
+                <div className="mb-3 flex items-center gap-2 text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-xs font-bold uppercase tracking-[0.2em]">Analysis complete</span>
+                </div>
+                <h4 className="text-xl font-black text-white">{analysis.issueTitle}</h4>
+                <p className="mt-2 text-sm leading-7 text-white/80">{analysis.issueSummary}</p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/70">Observed behavior</p>
+                  <p className="text-sm leading-7 text-white/85">{analysis.observedBehavior}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/70">Expected behavior</p>
+                  <p className="text-sm leading-7 text-white/85">{analysis.expectedBehavior}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-white/70">Reproduction steps</p>
+                <div className="space-y-2.5">
+                  {analysis.reproductionSteps.map((step, index) => (
+                    <div key={`${step}-${index}`} className="flex items-start gap-3.5 rounded-xl bg-white/[0.05] px-4 py-3.5">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-orange-500/25 text-xs font-black text-orange-300">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm leading-6 text-white/85">{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {analysis.technicalClues.length > 0 && (
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+                  <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-white/70">Visual clues</p>
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.technicalClues.map((clue, index) => (
+                      <span
+                        key={`${clue}-${index}`}
+                        className="rounded-full border border-white/15 bg-white/[0.07] px-3.5 py-1.5 text-sm font-semibold text-white/70"
+                      >
+                        {clue}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Row 3: Box 4 — Paste-ready prompt ── */}
+        <div className="mt-5 rounded-3xl border border-white/25 bg-black/30 p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-black text-white/70">
+                4
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">Paste-ready AI prompt</h3>
+                <p className="mt-1 text-sm text-white/70">Copy and paste alongside your WebM into any AI chat</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2.5">
+              {capture?.videoBlob && (
+                <button
+                  onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.07] px-4 py-2.5 text-sm font-bold text-white/70 transition-all hover:bg-white/12 hover:text-white"
+                >
+                  <Download className="h-4 w-4" />
+                  WebM
+                </button>
+              )}
+              <button
+                onClick={handleCopyPrompt}
+                disabled={!promptDraft.trim()}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-black text-black transition-all hover:bg-orange-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Copy className="h-4 w-4" />
+                {copiedPrompt ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
           <textarea
             value={promptDraft}
             onChange={(event) => setPromptDraft(event.target.value)}
-            placeholder="Your generated debugging prompt will appear here."
-            className="mt-5 min-h-[240px] w-full rounded-[1.75rem] border border-white/10 bg-black/20 px-5 py-4 text-sm leading-7 text-white outline-none transition-colors placeholder:text-white/30 focus:border-cyan-300/35"
+            placeholder="Your generated debugging prompt will appear here after analysis in step 3."
+            className="min-h-[220px] w-full resize-none rounded-2xl border border-white/30 bg-black/40 px-5 py-4 text-sm leading-7 text-white outline-none transition-all placeholder:text-white/40 focus:border-orange-300/50 focus:bg-black/50"
           />
-
-          <p className="mt-4 text-sm leading-7 text-white/50">
-            Suggested flow: click <span className="font-semibold text-white/75">Copy Prompt</span>, attach the downloaded WebM clip in your AI chat, then paste this message so the agent sees both the exact visual behavior and a clear written description.
+          <p className="mt-4 text-sm leading-7 text-white/65">
+            Suggested flow: click <span className="font-semibold text-white/90">Copy</span>, attach the downloaded WebM in your AI chat, then paste this prompt so the agent sees both the visual behavior and a written description.
           </p>
-        </section>
+        </div>
+
       </main>
 
       <Footer />
@@ -685,20 +687,15 @@ export const IssueReporterPage: React.FC = () => {
       <DuplicateTabModal />
       <MobileWarningModal />
 
-      <img
-        src={backgroundImage}
-        alt=""
-        className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-40 blur-[2px] brightness-75"
-      />
-
+      {/* Recording indicator pill */}
       {isRecording && (
         <div className="fixed left-1/2 top-6 z-100 -translate-x-1/2 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-4 rounded-full border border-red-500/50 bg-red-500/20 px-6 py-3 shadow-2xl shadow-red-500/20 backdrop-blur-xl">
+          <div className="flex items-center gap-4 rounded-full border border-red-500/40 bg-red-500/15 px-6 py-3 shadow-2xl shadow-red-500/20 backdrop-blur-xl">
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full animate-pulse bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
               <span className="text-sm font-bold uppercase tracking-wider text-red-100">Recording</span>
             </div>
-            <div className="h-6 w-px bg-red-500/30" />
+            <div className="h-5 w-px bg-red-500/25" />
             <button
               onClick={handleStopRecording}
               className="rounded-full bg-red-500 px-4 py-1.5 text-sm font-extrabold text-white shadow-lg shadow-red-500/30 transition-all hover:scale-105 hover:bg-red-400 active:scale-95"
