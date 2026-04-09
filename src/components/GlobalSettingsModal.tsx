@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Key, Sparkles, Play, Square, Activity, RefreshCw, Globe, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, type ModelInfo } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
-import { encrypt, decrypt } from '../utils/secureStorage';
+
 import type { InitProgressReport } from '@mlc-ai/web-llm';
 import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
 
@@ -17,7 +17,7 @@ interface GlobalSettingsModalProps {
   onClose: () => void;
   currentSettings: GlobalSettings | null;
   onSave: (settings: GlobalSettings) => Promise<void>;
-  initialTab?: 'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt';
+  initialTab?: 'general' | 'tts' | 'webllm' | 'ai-prompt';
   onShowWebGPUModal?: () => void;
 }
 
@@ -41,7 +41,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   onShowWebGPUModal
 }) => {
   const { showAlert } = useModal();
-  const normalizeFetchedModelId = (raw: string): string => raw.replace(/^models\//, '');
   const [isEnabled, setIsEnabled] = useState(currentSettings?.isEnabled ?? false);
   const [voice, setVoice] = useState(currentSettings?.voice ?? AVAILABLE_VOICES[0].id);
   const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
@@ -49,13 +48,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.36);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'tts' | 'webllm' | 'ai-prompt'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'tts' | 'webllm' | 'ai-prompt'>(initialTab ?? 'general');
   const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q4');
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
 
-  const [model, setModel] = useState('');
 
   // WebLLM State
   const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
@@ -144,9 +140,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
 
-  const [availableModels, setAvailableModels] = useState<{ id: string, name: string }[]>([]);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
-
   const filteredWebLlmModels = AVAILABLE_WEB_LLM_MODELS.filter((model) => {
     if (webGpuSupport?.supported && !webGpuSupport.hasF16 && model.precision === 'f16') return false;
     if (precisionFilter !== 'all' && model.precision !== precisionFilter) return false;
@@ -155,155 +148,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     return true;
   });
 
-  // Backup keys state to allow switching
-  const [storedGeminiKey, setStoredGeminiKey] = useState(() => {
-    const saved = localStorage.getItem('google_api_key_backup');
-    // If we are currently using google, prefer the active key as the latest 'truth'
-    if (localStorage.getItem('llm_base_url')?.includes('googleapis')) {
-      const key = localStorage.getItem('llm_api_key');
-      return key ? decrypt(key) : (saved ? decrypt(saved) : '');
-    }
-    return saved ? decrypt(saved) : '';
-  });
 
-  const [storedOpenRouterKey, setStoredOpenRouterKey] = useState(() => {
-    const saved = localStorage.getItem('openrouter_api_key_backup');
-    if (localStorage.getItem('llm_base_url')?.includes('openrouter')) {
-      const key = localStorage.getItem('llm_api_key');
-      return key ? decrypt(key) : (saved ? decrypt(saved) : '');
-    }
-    return saved ? decrypt(saved) : '';
-  });
-
-  const handleUseGemini = () => {
-    // Save current OpenRouter key if we are switching FROM OpenRouter
-    if (baseUrl.includes('openrouter')) {
-      setStoredOpenRouterKey(apiKey);
-    }
-
-    setBaseUrl('https://generativelanguage.googleapis.com/v1beta/openai/');
-    setApiKey(storedGeminiKey); // Restore Gemini Key
-
-    // Reset/Default Model for Gemini
-    if (!model || !model.startsWith('gemini')) {
-      setModel('gemini-2.0-flash-exp');
-    }
-    setAvailableModels([]); // Clear OpenRouter/Fetched models
-  };
-
-  const handleUseOpenRouter = () => {
-    // Save current Gemini key if we are switching FROM Google/Gemini
-    if (baseUrl.includes('googleapis') || baseUrl === '') {
-      setStoredGeminiKey(apiKey);
-    }
-
-    setBaseUrl('https://openrouter.ai/api/v1');
-    setApiKey(storedOpenRouterKey); // Restore OR Key (or empty if none)
-    setModel(''); // Clear model name
-    setAvailableModels([]); // Clear any previous models
-  };
-
-  const handleUseCustom = () => {
-    // Save keys if we are switching away from a known provider
-    if (baseUrl.includes('googleapis')) {
-      setStoredGeminiKey(apiKey);
-    } else if (baseUrl.includes('openrouter')) {
-      setStoredOpenRouterKey(apiKey);
-    }
-
-    setBaseUrl('');
-    setApiKey('');
-    setModel('');
-    setAvailableModels([]);
-  };
-
-  const handleUseOllama = () => {
-    // Save keys if we are switching away from a known provider
-    if (baseUrl.includes('googleapis')) {
-      setStoredGeminiKey(apiKey);
-    } else if (baseUrl.includes('openrouter')) {
-      setStoredOpenRouterKey(apiKey);
-    }
-
-    setBaseUrl('http://localhost:11434/v1/');
-    setApiKey('ollama');
-    setModel('');
-    setAvailableModels([]);
-  };
-
-  const handleFetchModels = async () => {
-    if (!baseUrl || !apiKey) {
-      showAlert("Please enter both Base URL and API Key first.", { type: 'warning', title: 'Missing API Credentials' });
-      return;
-    }
-
-    setIsFetchingModels(true);
-    try {
-      // Handle trailing slash
-      const url = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
-
-      const headers: Record<string, string> = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      };
-
-      // OpenRouter specific headers (optional but good practice)
-      // We conditionally add these because strict CORS on local endpoints (like Ollama) 
-      // might reject requests with custom headers if they aren't explicitly allowed.
-      if (baseUrl.includes('openrouter')) {
-        headers['HTTP-Referer'] = window.location.origin;
-        headers['X-Title'] = 'Island Applications';
-      }
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Fetched models response:", data);
-
-      let rawModels: { id?: string; name?: string }[] = [];
-
-      // Handle various response formats from "OpenAI-compatible" endpoints
-      if (data.data && Array.isArray(data.data)) {
-        rawModels = data.data;
-      } else if (data.models && Array.isArray(data.models)) {
-        rawModels = data.models;
-      } else if (Array.isArray(data)) {
-        rawModels = data;
-      }
-
-      if (rawModels.length > 0) {
-        const models = rawModels
-          .map((m) => ({
-            id: normalizeFetchedModelId(m.id || m.name || 'unknown'),
-            name: normalizeFetchedModelId(m.name || m.id || 'Unknown Model')
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-
-        setAvailableModels(models);
-
-        // If no model is currently selected (or the current one isn't in the list), select the first one
-        if (!model || !models.find(m => m.id === model)) {
-          setModel(models[0].id);
-        }
-      } else {
-        console.warn("No models found in response", data);
-        showAlert("No models found. Ensure your local LLM server has models installed and running.", { type: 'warning', title: 'No Models Found' });
-        setAvailableModels([]);
-      }
-    } catch (error) {
-      console.error("Error fetching models:", error);
-      showAlert("Failed to fetch models. Please check your Base URL and API Key.", { type: 'error', title: 'Details Incorrect' });
-    } finally {
-      setIsFetchingModels(false);
-    }
-  };
 
 
 
@@ -435,15 +280,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   }, [previewAudio]);
 
-  React.useEffect(() => {
-    if (isOpen) {
-      const key = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key');
-      setApiKey(key ? decrypt(key) : '');
-      setBaseUrl(localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/');
-      setModel(localStorage.getItem('llm_model') || 'gemini-2.5-flash');
-    }
-  }, [isOpen]);
-
   const [existingMusicBlob, setExistingMusicBlob] = useState<Blob | null>(currentSettings?.music?.blob ?? null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -535,19 +371,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         }
 
         // Save settings and close after TTS reload
-        localStorage.setItem('llm_api_key', encrypt(apiKey));
-        localStorage.setItem('llm_base_url', baseUrl);
-        localStorage.setItem('llm_model', model);
-        if (baseUrl.includes('googleapis')) {
-          localStorage.setItem('google_api_key_backup', encrypt(apiKey));
-          if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
-        } else if (baseUrl.includes('openrouter')) {
-          localStorage.setItem('openrouter_api_key_backup', encrypt(apiKey));
-          if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
-        } else {
-          if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
-          if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
-        }
         await onSave(settings);
         onClose();
         return;
@@ -583,24 +406,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       if (webLlmModel !== getCurrentWebLLMModel()) {
         return;
       }
-    }
-
-    localStorage.setItem('llm_api_key', encrypt(apiKey));
-    localStorage.setItem('llm_base_url', baseUrl);
-    localStorage.setItem('llm_model', model);
-
-    // Persist backup keys
-    // If we are currently enabled as one provider, ensure its backup is also updated to the latest key
-    if (baseUrl.includes('googleapis')) {
-      localStorage.setItem('google_api_key_backup', encrypt(apiKey));
-      if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
-    } else if (baseUrl.includes('openrouter')) {
-      localStorage.setItem('openrouter_api_key_backup', encrypt(apiKey));
-      if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
-    } else {
-      // Fallback: save whatever we have in state
-      if (storedGeminiKey) localStorage.setItem('google_api_key_backup', encrypt(storedGeminiKey));
-      if (storedOpenRouterKey) localStorage.setItem('openrouter_api_key_backup', encrypt(storedOpenRouterKey));
     }
 
     await onSave(settings);
@@ -658,12 +463,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
           >
             <Settings className="w-4 h-4" /> General
-          </button>
-          <button
-            onClick={() => setActiveTab('api')}
-            className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-          >
-            <Key className="w-4 h-4" /> API
           </button>
           <button
             onClick={() => setActiveTab('tts')}
@@ -1221,135 +1020,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
                 </>
               )}
-            </div>
-          ) : activeTab === 'api' ? (
-            <div className="space-y-6">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
-                <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-white">Remote API Configuration</h3>
-                  {/* <p className="text-xs text-white/60 leading-relaxed">
-                       Configure your API credentials for remote AI services (Gemini, OpenAI, etc.)
-                    </p> */}
-                </div>
-              </div>
-              {/* Base URL */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                    Base URL
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleUseGemini}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${baseUrl.includes('googleapis')
-                        ? 'bg-white/20 border-white/50 text-white shadow-lg'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-                        }`}
-                    >
-                      <Sparkles className="w-3 h-3" /> Gemini
-                    </button>
-                    <button
-                      onClick={handleUseOpenRouter}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${baseUrl.includes('openrouter')
-                        ? 'bg-white/20 border-white/50 text-white shadow-lg'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-                        }`}
-                    >
-                      <Globe className="w-3 h-3" /> OpenRouter
-                    </button>
-                    <button
-                      onClick={handleUseOllama}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${baseUrl.includes('localhost:11434')
-                        ? 'bg-white/20 border-white/50 text-white shadow-lg'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-                        }`}
-                    >
-                      <Cpu className="w-3 h-3" /> Ollama
-                    </button>
-                    <button
-                      onClick={handleUseCustom}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-colors uppercase tracking-wider border ${(!baseUrl.includes('googleapis') && !baseUrl.includes('openrouter') && !baseUrl.includes('localhost:11434'))
-                        ? 'bg-white/10 border-white/50 text-white shadow-lg shadow-white/10'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-                        }`}
-                    >
-                      <Settings className="w-3 h-3" /> Custom
-                    </button>
-                  </div>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://api.openai.com/v1"
-                    className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary"
-                  />
-                </div>
-              </div>
-
-              {/* Model Name */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                    Model Name
-                  </label>
-                  <button
-                    onClick={handleFetchModels}
-                    disabled={isFetchingModels || !apiKey || !baseUrl}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-white/60 hover:text-white transition-colors uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isFetchingModels ? 'animate-spin' : ''}`} />
-                    {isFetchingModels ? 'Fetching...' : 'Fetch Models'}
-                  </button>
-                </div>
-
-                <div className="relative">
-                  {availableModels.length > 0 ? (
-                    <div className="relative">
-                      <Dropdown
-                        options={availableModels}
-                        value={model}
-                        onChange={(val) => setModel(val)}
-                        className="bg-black/20 font-mono text-sm"
-                      />
-                      <div className="absolute -bottom-5 right-0 text-[10px] text-white/30">
-                        {availableModels.length} models available
-                      </div>
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      placeholder="gpt-4o, gemini-1.5-pro, etc."
-                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* API Key */}
-              <div className="space-y-4">
-                <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                  <Key className="w-4 h-4" /> API Key
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white outline-none transition-all font-mono text-sm"
-                  />
-                </div>
-                <p className="text-[10px] text-white/30">
-                  Your key is stored locally in your browser and is never sent to our servers.
-                </p>
-              </div>
             </div>
           ) : activeTab === 'ai-prompt' ? (
             <div className="space-y-6">

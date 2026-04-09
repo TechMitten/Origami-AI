@@ -55,7 +55,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
   return (
     <header
-      className={`relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl transition-all duration-500 ${className}`.trim()}
+      className={`relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-8 max-w-7xl transition-all duration-500 ${className}`.trim()}
     >
       {/* Left Content */}
       {leftContent ? (

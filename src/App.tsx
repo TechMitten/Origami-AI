@@ -18,7 +18,6 @@ import backgroundImage from './assets/images/background.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { analyzeVideoNarrationWithGemini } from './services/aiService';
-import { decrypt } from './utils/secureStorage';
 import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { UnifiedInitModal } from './components/UnifiedInitModal';
@@ -1131,14 +1130,13 @@ function MainApp() {
         throw new Error('Analyze Video is only available for MP4 Slide Media video uploads. GIF/image media is not supported.');
       }
 
-      const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
-      const apiKey = decrypt(storedApiKey);
-      const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+      const apiKey = import.meta.env.VITE_LLM_API_KEY || '';
+      const baseUrl = localStorage.getItem('llm_base_url') || import.meta.env.VITE_LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/';
       const configuredModel = localStorage.getItem('llm_model') || '';
-      const model = configuredModel || 'gemini-2.5-flash-lite';
+      const model = configuredModel || import.meta.env.VITE_LLM_MODEL || 'gemini-2.5-flash-lite';
 
       if (!apiKey.trim()) {
-        throw new Error('Please configure your Gemini API key in Settings before analyzing video slides.');
+        throw new Error('API key is not configured. Set VITE_LLM_API_KEY in your .env file.');
       }
 
       let mediaBlob: Blob | undefined;

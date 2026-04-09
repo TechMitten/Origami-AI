@@ -2,6 +2,9 @@
 
 interface ImportMetaEnv {
   readonly VITE_POLLINATIONS_API_KEY: string
+  readonly VITE_LLM_API_KEY: string
+  readonly VITE_LLM_BASE_URL: string
+  readonly VITE_LLM_MODEL: string
 }
 
 interface ImportMeta {

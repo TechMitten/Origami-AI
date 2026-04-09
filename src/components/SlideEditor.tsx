@@ -28,7 +28,6 @@ import { transformText } from '../services/aiService';
 import { Dropdown } from './Dropdown';
 import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
-import { decrypt } from '../utils/secureStorage';
 import { ZoomTimelineEditor } from './ZoomTimelineEditor';
 
 export interface VideoNarrationSceneTrack {
@@ -651,15 +650,9 @@ const SortableSlideItem = ({
     const useWebLLM = globalSettings?.useWebLLM;
     const webLlmModel = globalSettings?.webLlmModel;
 
-    const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
-    const apiKey = decrypt(storedApiKey);
-    const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
-    const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
-
-    if (!useWebLLM && !apiKey) {
-      showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning', title: 'Missing Usage' });
-      return;
-    }
+    const apiKey = import.meta.env.VITE_LLM_API_KEY || '';
+    const baseUrl = localStorage.getItem('llm_base_url') || import.meta.env.VITE_LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    const model = localStorage.getItem('llm_model') || import.meta.env.VITE_LLM_MODEL || 'gemini-2.5-flash';
 
     if (useWebLLM && !webLlmModel) {
       showAlert('Please select and load a WebLLM model in Settings (WebLLM tab) to use this feature.', { type: 'warning', title: 'WebLLM Not Configured' });
@@ -2074,10 +2067,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       .filter(({ slide }) => !isSlideMediaVideo(slide))
       .map(({ index }) => index);
 
-    const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
-    const apiKey = decrypt(storedApiKey);
-    const baseUrl = localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/';
-    const model = localStorage.getItem('llm_model') || 'gemini-2.5-flash';
+    const apiKey = import.meta.env.VITE_LLM_API_KEY || '';
+    const baseUrl = localStorage.getItem('llm_base_url') || import.meta.env.VITE_LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    const model = localStorage.getItem('llm_model') || import.meta.env.VITE_LLM_MODEL || 'gemini-2.5-flash';
 
     if (eligibleSlideIndexes.length === 0) {
       showAlert('No eligible slides found. Slide Media video slides are excluded from batch AI fix.', { type: 'info', title: 'Nothing to Process' });
@@ -2085,7 +2077,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     }
 
     if (!useWebLLM && !apiKey) {
-      showAlert('Please configure your LLM settings (Base URL, Model, API Key) in Settings (API Keys tab) to use this feature.', { type: 'warning' });
+      showAlert('Please configure your LLM settings in the .env file to use this feature.', { type: 'warning' });
       return;
     }
 

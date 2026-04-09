@@ -5,7 +5,6 @@ import {
   Copy,
   Download,
   Loader2,
-  Settings,
   Sparkles,
   Square,
   Video
@@ -24,7 +23,6 @@ import { PageHeader } from '../components/PageHeader';
 import { analyzeIssueCaptureWithGemini, type IssueCaptureAnalysis } from '../services/aiService';
 import type { GlobalSettings } from '../services/storage';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/storage';
-import { decrypt } from '../utils/secureStorage';
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   isEnabled: true,
@@ -45,11 +43,10 @@ interface CaptureState {
 }
 
 const getConfiguredGeminiSettings = () => {
-  const storedApiKey = localStorage.getItem('llm_api_key') || localStorage.getItem('gemini_api_key') || '';
   return {
-    apiKey: decrypt(storedApiKey),
-    baseUrl: localStorage.getItem('llm_base_url') || 'https://generativelanguage.googleapis.com/v1beta/openai/',
-    model: localStorage.getItem('llm_model') || 'gemini-2.5-flash-lite',
+    apiKey: import.meta.env.VITE_LLM_API_KEY || '',
+    baseUrl: localStorage.getItem('llm_base_url') || import.meta.env.VITE_LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    model: localStorage.getItem('llm_model') || import.meta.env.VITE_LLM_MODEL || 'gemini-2.5-flash-lite',
   };
 };
 
@@ -319,10 +316,6 @@ export const IssueReporterPage: React.FC = () => {
     resetAnalysis();
   }, [replaceCapture, resetAnalysis]);
 
-  const geminiSettings = getConfiguredGeminiSettings();
-  const isGeminiConfigured = geminiSettings.apiKey.trim().length > 0;
-  const isGeminiEndpointValid = /generativelanguage\.googleapis\.com/i.test(geminiSettings.baseUrl);
-
   return (
     <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8">
       {/* Background */}
@@ -344,14 +337,7 @@ export const IssueReporterPage: React.FC = () => {
             <Sparkles className="h-4 w-4" /> Start Over
           </button>
         ) : undefined}
-        rightContent={
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:inline-flex">
-            <Bug className="h-3.5 w-3.5 text-orange-300" />
-            <span className="text-xs font-bold text-white/70">
-              {isGeminiConfigured ? geminiSettings.model : 'Not configured'}
-            </span>
-          </div>
-        }
+        rightContent={undefined}
       />
 
       <main className="mx-auto max-w-5xl px-6 pb-20 sm:px-8">
@@ -408,27 +394,6 @@ export const IssueReporterPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Config warning */}
-        {(!isGeminiConfigured || !isGeminiEndpointValid) && (
-          <div className="mb-6 flex items-start gap-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-5">
-            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/15">
-              <Settings className="h-4 w-4 text-amber-300" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-amber-100">Gemini API not configured</p>
-              <p className="mt-1.5 text-sm leading-6 text-amber-200/70">
-                This feature requires a Gemini API key and the Google Gemini base URL.{' '}
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="font-semibold text-amber-200 underline underline-offset-2 transition-colors hover:text-amber-100"
-                >
-                  Open Settings → API
-                </button>
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* ── Row 1: Describe + Record ── */}
         <div className="rounded-3xl border border-white/25 bg-black/30 p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md">
@@ -711,7 +676,7 @@ export const IssueReporterPage: React.FC = () => {
           onClose={() => setIsSettingsOpen(false)}
           currentSettings={globalSettings}
           onSave={saveIssueReporterSettings}
-          initialTab="api"
+          initialTab="general"
         />
       )}
 
