@@ -15,6 +15,7 @@ import {
 import appLogo from '../assets/images/app-logo2.png';
 import backgroundImage from '../assets/images/background.png';
 import orgIssueLogo from '../assets/images/orgissue.png';
+import SoftAurora from '../components/SoftAurora';
 import { AppModeSwitcher } from '../components/AppModeSwitcher';
 import { DuplicateTabModal } from '../components/DuplicateTabModal';
 import { Footer } from '../components/Footer';
@@ -385,23 +386,56 @@ export const IssueReporterPage: React.FC = () => {
 
       <main className="mx-auto max-w-5xl px-6 pb-20 pt-10 sm:px-8">
 
-        {/* Hero */}
-        <div className="mb-10 flex items-start justify-between gap-6 lg:gap-10">
-          <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/12 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-orange-300">
-              <Bug className="h-3.5 w-3.5" />
-              Capture · Analyze · Prompt
-            </div>
-            <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-              Record the issue,<br />
-              <span className="text-orange-300">generate the prompt.</span>
-            </h2>
-            <p className="mt-5 max-w-lg text-base leading-8 text-white/65">
-              Origami records your visual bug as a WebM clip and asks Gemini to transform it into a precise debugging prompt — ready to paste alongside the attachment in any AI chat.
-            </p>
+        {/* Hero with animated background */}
+        <div className="mb-10 relative rounded-3xl overflow-hidden shadow-2xl shadow-black/40" style={{
+          boxShadow: '0 0 60px rgba(0, 0, 0, 0.5), inset 0 0 60px rgba(0, 0, 0, 0.3)'
+        }}>
+          {/* Animated background */}
+          <div className="absolute inset-0 z-0">
+            <SoftAurora
+              speed={0.6}
+              scale={1.5}
+              brightness={1}
+              color1="#f7f7f7"
+              color2="#e100ff"
+              noiseFrequency={2.5}
+              noiseAmplitude={1}
+              bandHeight={0.5}
+              bandSpread={1}
+              octaveDecay={0.1}
+              layerOffset={0}
+              colorSpeed={1}
+              enableMouseInteraction
+              mouseInfluence={0.25}
+            />
           </div>
-          <div className="hidden shrink-0 lg:flex">
-            <img src={orgIssueLogo} alt="Issue Reporter" className="h-64 w-64 object-contain" />
+
+          {/* Dark overlay */}
+          <div className="absolute inset-0 z-5 bg-black/60" />
+
+          {/* Edge fade gradient - smoother transition */}
+          <div className="absolute inset-0 z-6 rounded-3xl" style={{
+            background: 'radial-gradient(ellipse 120% 120% at center, transparent 20%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0.7) 100%)'
+          }} />
+
+          {/* Content overlay */}
+          <div className="relative z-10 flex items-start justify-between gap-6 lg:gap-10 p-8 lg:p-12">
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/12 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-orange-300">
+                <Bug className="h-3.5 w-3.5" />
+                Capture · Analyze · Prompt
+              </div>
+              <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+                Record the issue,<br />
+                <span className="text-orange-400">generate the prompt.</span>
+              </h2>
+              <p className="mt-5 max-w-lg text-base leading-8 text-white/65">
+                Origami records your visual bug as a video clip and uses AI to transform it into a precise debugging prompt — ready to paste alongside the attachment in any AI chat.
+              </p>
+            </div>
+            <div className="hidden shrink-0 lg:flex">
+              <img src={orgIssueLogo} alt="Issue Reporter" className="h-56 w-56 object-contain" />
+            </div>
           </div>
         </div>
 
@@ -443,7 +477,7 @@ export const IssueReporterPage: React.FC = () => {
                       Optional
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-white/70">Give Gemini context before it watches the recording</p>
+                  <p className="mt-1 text-sm text-white/70">Give Origami context before it watches the recording</p>
                 </div>
               </div>
               <div className="space-y-4">
@@ -478,19 +512,21 @@ export const IssueReporterPage: React.FC = () => {
 
             {/* Record */}
             <div className="flex w-full flex-col justify-between lg:w-64">
-              <div className="mb-8 flex items-center gap-3.5">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all ${capture ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/70'}`}>
-                  {capture ? <CheckCircle2 className="h-4 w-4" /> : '2'}
+              <div>
+                <div className="mb-4 flex items-center gap-3.5">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all ${capture ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/70'}`}>
+                    {capture ? <CheckCircle2 className="h-4 w-4" /> : '2'}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">Record</h3>
+                    <p className="mt-1 text-sm text-white/70">Screen, window, or tab</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-black text-white">Record</h3>
-                  <p className="mt-1 text-sm text-white/70">Screen, window, or tab</p>
-                </div>
-              </div>
 
-              <p className="mb-8 text-sm leading-7 text-white/70">
-                Use the browser screen-share picker. Click Stop once the issue is demonstrated.
-              </p>
+                <p className="mb-5 text-sm leading-7 text-white/70">
+                  Use the browser screen-share picker. Click Stop once the issue is demonstrated.
+                </p>
+              </div>
 
               <div className="flex flex-col gap-3">
                 <button
@@ -513,7 +549,7 @@ export const IssueReporterPage: React.FC = () => {
               </div>
 
               {capture && (
-                <div className="mt-auto pt-8 flex flex-col gap-1.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3.5">
+                <div className="mt-4 flex flex-col gap-1.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3.5">
                   <div className="flex items-center gap-2 text-emerald-400">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                     <span className="text-xs font-bold uppercase tracking-[0.15em]">Captured</span>
