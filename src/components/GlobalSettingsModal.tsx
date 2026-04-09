@@ -299,6 +299,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     // If enabled, validations could be added here if needed
 
     const settings: GlobalSettings = {
+      ...currentSettings,
       isEnabled,
       voice,
       delay,

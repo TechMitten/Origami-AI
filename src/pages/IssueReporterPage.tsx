@@ -6,7 +6,6 @@ import {
   Download,
   Loader2,
   Sparkles,
-  Square,
   Video
 } from 'lucide-react';
 
@@ -32,6 +31,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   introFadeInEnabled: true,
   introFadeInDurationSec: 1,
   previewMode: 'modal',
+  issueReporterRecordingPromptEnabled: true,
 };
 
 interface CaptureState {
@@ -41,6 +41,31 @@ interface CaptureState {
   videoBlob: Blob;
   videoUrl: string;
 }
+
+const RecordingPromptContent: React.FC<{ onHideChange: (value: boolean) => void }> = ({ onHideChange }) => {
+  const [hidePrompt, setHidePrompt] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <p>
+        Choose Entire Screen, a window, or a browser tab in the system picker, then start the recording. Use Stop in Origami or your browser capture controls when you are done.
+      </p>
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/75 transition-colors hover:bg-white/10">
+        <input
+          type="checkbox"
+          checked={hidePrompt}
+          onChange={(event) => {
+            const { checked } = event.target;
+            setHidePrompt(checked);
+            onHideChange(checked);
+          }}
+          className="h-4 w-4 rounded border-white/20 bg-transparent text-cyan-400 focus:ring-cyan-400/50"
+        />
+        <span>Never show this again</span>
+      </label>
+    </div>
+  );
+};
 
 const getConfiguredGeminiSettings = () => {
   return {
@@ -109,11 +134,13 @@ const downloadBlob = (blob: Blob, filename: string) => {
 };
 
 export const IssueReporterPage: React.FC = () => {
-  const { showAlert } = useModal();
+  const { showAlert, showConfirm } = useModal();
   const captureRef = useRef<CaptureState | null>(null);
+  const hideRecordingPromptChoiceRef = useRef(false);
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [capture, setCapture] = useState<CaptureState | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState<{ stage: string; progress: number } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -168,9 +195,14 @@ export const IssueReporterPage: React.FC = () => {
     return () => window.clearTimeout(timeoutId);
   }, [copiedPrompt]);
 
+  const persistGlobalSettings = useCallback(async (overrides: Partial<GlobalSettings>) => {
+    const nextSettings = { ...globalSettings, ...overrides };
+    await saveGlobalSettings(nextSettings);
+    setGlobalSettings(nextSettings);
+  }, [globalSettings]);
+
   const saveIssueReporterSettings = async (settings: GlobalSettings) => {
-    await saveGlobalSettings(settings);
-    setGlobalSettings(settings);
+    await persistGlobalSettings(settings);
   };
 
   const handleRecordingComplete = useCallback(async ({ blob }: { blob: Blob }) => {
@@ -200,15 +232,12 @@ export const IssueReporterPage: React.FC = () => {
     captureMode: 'display',
     onRecordingComplete: handleRecordingComplete,
     onRecordingError: handleRecordingError,
-    onRecordingPending: () => {
-      showAlert(
-        'Choose Entire Screen, a window, or a browser tab in the system picker, then start the recording. Use Stop in Origami or your browser capture controls when you are done.',
-        { type: 'info', title: 'Choose What To Record' }
-      );
-    },
   });
 
-  const handleStartRecording = async () => {
+  const beginRecording = useCallback(async () => {
+    if (isStartingRecording) return;
+
+    setIsStartingRecording(true);
     try {
       resetAnalysis();
       await startRecording();
@@ -216,7 +245,43 @@ export const IssueReporterPage: React.FC = () => {
       if (error instanceof Error && error.message !== 'Permission denied') {
         showAlert(error.message, { type: 'error', title: 'Recording Failed' });
       }
+    } finally {
+      setIsStartingRecording(false);
     }
+  }, [isStartingRecording, resetAnalysis, showAlert, startRecording]);
+
+  const handleStartRecording = async () => {
+    if (isRecording || isStartingRecording) return;
+
+    if (globalSettings.issueReporterRecordingPromptEnabled === false) {
+      await beginRecording();
+      return;
+    }
+
+    hideRecordingPromptChoiceRef.current = false;
+
+    const confirmed = await showConfirm(
+      <RecordingPromptContent onHideChange={(checked) => { hideRecordingPromptChoiceRef.current = checked; }} />,
+      {
+        type: 'confirm',
+        title: 'Choose What To Record',
+        confirmText: 'Start Recording',
+        cancelText: 'Cancel',
+      }
+    );
+
+    const shouldHidePrompt = hideRecordingPromptChoiceRef.current;
+    hideRecordingPromptChoiceRef.current = false;
+
+    if (!confirmed) {
+      return;
+    }
+
+    if (shouldHidePrompt) {
+      await persistGlobalSettings({ issueReporterRecordingPromptEnabled: false });
+    }
+
+    await beginRecording();
   };
 
   const handleStopRecording = async () => {
@@ -317,7 +382,7 @@ export const IssueReporterPage: React.FC = () => {
   }, [replaceCapture, resetAnalysis]);
 
   return (
-    <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8">
+    <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8 flex flex-col">
       {/* Background */}
       <img
         src={backgroundImage}
@@ -469,21 +534,12 @@ export const IssueReporterPage: React.FC = () => {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleStartRecording}
-                  disabled={isRecording}
+                  disabled={isRecording || isStartingRecording}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition-all hover:bg-orange-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Video className="h-4 w-4" />
-                  {capture ? 'Re-record' : 'Record'}
+                  {isStartingRecording ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                  {isStartingRecording ? 'Opening Picker...' : capture ? 'Re-record' : 'Record'}
                 </button>
-                {isRecording && (
-                  <button
-                    onClick={handleStopRecording}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/15 px-5 py-4 text-sm font-black text-red-200 transition-all hover:bg-red-500/25"
-                  >
-                    <Square className="h-4 w-4 fill-current" />
-                    Stop
-                  </button>
-                )}
               </div>
 
               {capture && (

@@ -336,10 +336,16 @@ export const AssistantPage: React.FC = () => {
     // This prevents scroll jank during streaming text generation
     if (messages.length > messageCountRef.current) {
       messageCountRef.current = messages.length;
-      // Use setTimeout to ensure DOM is updated before scrolling
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      // Scroll the chat panel directly so sending a message does not move the full page.
+      const timeoutId = window.setTimeout(() => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'auto',
+        });
       }, 0);
+      return () => window.clearTimeout(timeoutId);
     } else if (messages.length === 0) {
       messageCountRef.current = 0;
     }
@@ -607,7 +613,7 @@ export const AssistantPage: React.FC = () => {
   };
 
   return (
-    <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8">
+    <div className="page-zoom-130 flex h-dvh flex-col overflow-hidden bg-branding-dark text-white">
       <PageHeader
         title="AI Assistant"
         onSettings={() => setIsSettingsOpen(true)}
@@ -638,9 +644,10 @@ export const AssistantPage: React.FC = () => {
         }
       />
 
-      <div className="px-4 pb-2 sm:px-6 lg:px-8">
-        <main className="mx-auto flex max-w-6xl flex-col pb-8">
-        <section className="flex min-h-[78vh] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b0f14]/90 shadow-2xl shadow-black/30 backdrop-blur-2xl">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-8">
+        <div className="flex-1 min-h-0 px-4 pb-2 sm:px-6 lg:px-8">
+          <main className="mx-auto flex h-full min-h-0 max-w-6xl flex-1 flex-col pb-8">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b0f14]/90 shadow-2xl shadow-black/30 backdrop-blur-2xl">
           <div className="border-b border-white/10 px-5 py-4 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -653,8 +660,8 @@ export const AssistantPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-1 flex-col lg:flex-row">
-            <aside className="flex w-full shrink-0 flex-col border-b border-white/10 bg-black/10 lg:w-[300px] lg:border-b-0 lg:border-r">
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            <aside className="flex min-h-0 w-full shrink-0 flex-col border-b border-white/10 bg-black/10 lg:w-[300px] lg:border-b-0 lg:border-r">
               <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-white/40">Saved Chats</p>
@@ -670,7 +677,7 @@ export const AssistantPage: React.FC = () => {
                 </button>
               </div>
 
-              <div className="custom-scrollbar max-h-[260px] overflow-y-auto px-3 py-3 lg:max-h-none lg:flex-1">
+              <div className="custom-scrollbar max-h-[260px] overflow-y-auto px-3 py-3 lg:max-h-none lg:min-h-0 lg:flex-1">
                 <div className="space-y-2">
                   {chatSessions.map((session) => {
                     const isActive = session.id === currentSession?.id;
@@ -719,7 +726,7 @@ export const AssistantPage: React.FC = () => {
             </aside>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="custom-scrollbar flex-1 overflow-y-auto px-4 py-5 sm:px-6" ref={messagesContainerRef}>
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" ref={messagesContainerRef}>
             {isBootstrapping ? (
               <div className="flex h-full items-center justify-center">
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-white/70">
@@ -925,8 +932,9 @@ export const AssistantPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </section>
-      </main>
+          </section>
+        </main>
+        </div>
       </div>
 
       <Footer />

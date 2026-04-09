@@ -59,6 +59,7 @@ export interface GlobalSettings {
   aiFixScriptContext?: string;
   previewMode?: 'modal';
   recordingCountdownEnabled?: boolean;
+  issueReporterRecordingPromptEnabled?: boolean;
 }
 
 export interface AssistantChatAttachment {
