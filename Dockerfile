@@ -1,16 +1,24 @@
+# syntax=docker/dockerfile:1.4
+
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 # Install all dependencies (including devDependencies like 'vite')
 # We need 'vite' because server.ts uses a static import for it in strict ESM mode
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copy only necessary files for building
+COPY --chown=node:node src ./src
+COPY --chown=node:node public ./public
+COPY --chown=node:node index.html ./
+COPY --chown=node:node tsconfig*.json ./
+COPY --chown=node:node vite.config.ts ./
+COPY --chown=node:node package*.json ./
 # Build the application
 RUN npm run build
 
@@ -30,6 +38,7 @@ COPY --chown=node:node server.ts ./
 # Copy config files just in case tsx/vite needs them for resolution
 COPY --chown=node:node tsconfig*.json ./
 COPY --chown=node:node vite.config.ts ./
+COPY --chown=node:node package*.json ./
 
 EXPOSE 3000
 
