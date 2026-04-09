@@ -1,8 +1,9 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Github, Settings, CircleHelp } from 'lucide-react';
 import appLogo from '../assets/images/app-logo2.png';
-import { AppModeSwitcher } from './AppModeSwitcher';
+import { HeaderActionsMenu } from './HeaderActionsMenu';
 
 interface PageHeaderProps {
   /** Title to display next to logo, e.g., "Issue Reporter" or "AI Assistant" */
@@ -13,16 +14,20 @@ interface PageHeaderProps {
   leftContent?: ReactNode;
   /** Custom center content */
   centerContent?: ReactNode;
-  /** Custom right content */
+  /** Informational content shown before the utility buttons and actions menu */
   rightContent?: ReactNode;
-  /** Show mode switcher on the right (default: true) */
-  showModeSwitcher?: boolean;
+  /** Additional items appended below the shared app navigation in the actions menu */
+  actionMenuContent?: (closeMenu: () => void) => ReactNode;
+  /** Show actions menu on the right (default: true) */
+  showActionsMenu?: boolean;
   /** Show settings button (default: true) */
   showSettings?: boolean;
   /** Show help button (default: true) */
   showHelp?: boolean;
   /** Show github button (default: true) */
   showGithub?: boolean;
+  /** Additional class names for the actions menu panel */
+  actionMenuClassName?: string;
   /** Callback for settings button */
   onSettings?: () => void;
   /** Callback for help button */
@@ -37,14 +42,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   leftContent,
   centerContent,
   rightContent,
-  showModeSwitcher = true,
+  actionMenuContent,
+  showActionsMenu = true,
   showSettings = true,
   showHelp = true,
   showGithub = true,
+  actionMenuClassName = '',
   onSettings,
   onHelp,
   className = '',
 }) => {
+  const hasUtilityButtons = showGithub || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
+
   return (
     <header
       className={`relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl transition-all duration-500 ${className}`.trim()}
@@ -75,15 +84,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       )}
 
       {/* Center Content */}
-      {centerContent && <div className="flex-1 flex justify-center">{centerContent}</div>}
+      {centerContent && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          {centerContent}
+        </div>
+      )}
 
       {/* Right Content */}
-      {rightContent ? (
-        rightContent
-      ) : (
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {showModeSwitcher && <AppModeSwitcher className="mr-1" />}
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        {rightContent && <div className="flex items-center gap-1 sm:gap-2 shrink-0">{rightContent}</div>}
 
+        {hasUtilityButtons && (
           <div className="flex items-center gap-1">
             {showGithub && (
               <a
@@ -115,8 +126,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               </button>
             )}
           </div>
-        </div>
-      )}
+        )}
+
+        {showActionsMenu && (
+          <>
+            {(rightContent || hasUtilityButtons) && <div className="mx-1 h-6 w-px bg-white/10" />}
+            <HeaderActionsMenu menuClassName={actionMenuClassName} renderContent={actionMenuContent} />
+          </>
+        )}
+      </div>
     </header>
   );
 };

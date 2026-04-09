@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Copy,
   Download,
-  Github,
   Loader2,
   Settings,
   Sparkles,
@@ -325,7 +324,7 @@ export const IssueReporterPage: React.FC = () => {
   const isGeminiEndpointValid = /generativelanguage\.googleapis\.com/i.test(geminiSettings.baseUrl);
 
   return (
-    <div className="min-h-screen bg-branding-dark text-white" style={{ zoom: 1.4 }}>
+    <div className="min-h-screen bg-branding-dark text-white pt-8">
       {/* Background */}
       <img
         src={backgroundImage}
@@ -337,39 +336,20 @@ export const IssueReporterPage: React.FC = () => {
         title="Issue Reporter"
         onSettings={() => setIsSettingsOpen(true)}
         showHelp={false}
+        actionMenuContent={capture ? (closeMenu) => (
+          <button
+            onClick={() => { handleStartOver(); closeMenu(); }}
+            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <Sparkles className="h-4 w-4" /> Start Over
+          </button>
+        ) : undefined}
         rightContent={
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {capture && (
-              <button
-                onClick={handleStartOver}
-                className="rounded-xl border border-white/20 bg-white/[0.08] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-white/70 transition-all hover:bg-white/12 hover:text-white"
-                title="Reset and start over"
-              >
-                Start Over
-              </button>
-            )}
-            <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:inline-flex">
-              <Bug className="h-3.5 w-3.5 text-orange-300" />
-              <span className="text-xs font-bold text-white/70">
-                {isGeminiConfigured ? geminiSettings.model : 'Not configured'}
-              </span>
-            </div>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-white/60 transition-all hover:bg-white/12 hover:text-white"
-              title="Open Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
-            <a
-              href="https://github.com/IslandApps/Origami-AI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-white/60 transition-all hover:bg-white/12 hover:text-white"
-              title="View on GitHub"
-            >
-              <Github className="h-4 w-4" />
-            </a>
+          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:inline-flex">
+            <Bug className="h-3.5 w-3.5 text-orange-300" />
+            <span className="text-xs font-bold text-white/70">
+              {isGeminiConfigured ? geminiSettings.model : 'Not configured'}
+            </span>
           </div>
         }
       />
@@ -401,7 +381,7 @@ export const IssueReporterPage: React.FC = () => {
           </div>
 
           {/* Dark overlay */}
-          <div className="absolute inset-0 z-5 bg-black/60" />
+          <div className="absolute inset-0 z-5 bg-black/70" />
 
           {/* Edge fade gradient - smoother transition */}
           <div className="absolute inset-0 z-6 rounded-3xl" style={{
@@ -457,7 +437,7 @@ export const IssueReporterPage: React.FC = () => {
             {/* Describe fields */}
             <div className="flex-1">
               <div className="mb-5 flex items-center gap-3.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-black text-white/70">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-sm font-black text-white/70">
                   1
                 </div>
                 <div>
@@ -504,7 +484,7 @@ export const IssueReporterPage: React.FC = () => {
             <div className="flex w-full flex-col justify-between lg:w-64">
               <div>
                 <div className="mb-4 flex items-center gap-3.5">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all ${capture ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/70'}`}>
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-sm font-black transition-all ${capture ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/70'}`}>
                     {capture ? <CheckCircle2 className="h-4 w-4" /> : '2'}
                   </div>
                   <div>
@@ -561,7 +541,7 @@ export const IssueReporterPage: React.FC = () => {
           {/* Header */}
           <div className="mb-5 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black transition-all ${analysis ? 'bg-orange-500/20 text-orange-300' : 'bg-white/10 text-white/70'}`}>
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-sm font-black transition-all ${analysis ? 'bg-orange-500/20 text-orange-300' : 'bg-white/10 text-white/70'}`}>
                 {analysis ? <Sparkles className="h-4 w-4" /> : '3'}
               </div>
               <div>
@@ -682,7 +662,7 @@ export const IssueReporterPage: React.FC = () => {
         <div className="mt-5 rounded-3xl border border-white/25 bg-black/30 p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-black text-white/70">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-sm font-black text-white/70">
                 4
               </div>
               <div>

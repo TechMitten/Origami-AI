@@ -3,13 +3,11 @@ import {
   Bot,
   BrainCircuit,
   Film,
-  Github,
   ImagePlus,
   Loader2,
   MessageSquareText,
   Plus,
   Send,
-  Settings,
   Sparkles,
   Trash2,
   X
@@ -609,49 +607,33 @@ export const AssistantPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-branding-dark text-white">
+    <div className="min-h-screen bg-branding-dark text-white pt-8">
       <PageHeader
         title="AI Assistant"
         onSettings={() => setIsSettingsOpen(true)}
         showHelp={false}
-        rightContent={
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/60">
-              <Bot className="h-4 w-4 text-cyan-300" />
-              <span>{loadedModelName || configuredModelName || 'Setup required'}</span>
-            </div>
+        actionMenuContent={(closeMenu) => (
+          <>
             <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-white/70 transition-colors hover:text-white"
-              title="Open Settings"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
-            <button
-              onClick={handleCreateChat}
+              onClick={() => { handleCreateChat(); closeMenu(); }}
               disabled={isSending}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New Chat</span>
+              <Plus className="h-4 w-4" /> New Chat
             </button>
             <button
-              onClick={() => void handleClearChat()}
+              onClick={() => { void handleClearChat(); closeMenu(); }}
               disabled={!hasConversation || isSending}
-              className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Trash2 className="h-4 w-4" />
-              Clear Chat
+              <Trash2 className="h-4 w-4" /> Clear Chat
             </button>
-            <a
-              href="https://github.com/IslandApps/Origami-AI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-white/70 transition-colors hover:text-white"
-              title="View on GitHub"
-            >
-              <Github className="h-5 w-5" />
-            </a>
+          </>
+        )}
+        rightContent={
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/60">
+            <Bot className="h-4 w-4 text-cyan-300" />
+            <span>{loadedModelName || configuredModelName || 'Setup required'}</span>
           </div>
         }
       />

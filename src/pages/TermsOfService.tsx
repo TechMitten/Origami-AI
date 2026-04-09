@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, User, Shield, AlertTriangle, Eye, Ban, Share2, Building2, Scale } from 'lucide-react';
+import { FileText, User, Shield, AlertTriangle, Eye, Ban, Share2, Building2, Scale } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import backgroundImage from '../assets/images/background.jpg';
-import appLogo from '../assets/images/app-logo2.png';
+import { PageHeader } from '../components/PageHeader';
 
 export const TermsOfService: React.FC = () => {
   return (
@@ -15,27 +15,13 @@ export const TermsOfService: React.FC = () => {
         className="fixed inset-0 -z-50 w-full h-lvh object-cover opacity-40 blur-[2px] brightness-75 scale-105"
       />
 
-      {/* Header */}
-      <header className="relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 transition-all duration-500 max-w-7xl">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
-            <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
-          </div>
-          <h1 className="hidden sm:block text-2xl sm:text-3xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
-            Origami
-          </h1>
-        </div>
-
-        {/* Right: Back Button */}
-        <Link
-          to="/"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm font-bold"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Back to App</span>
-        </Link>
-      </header>
+      <PageHeader
+        title="Origami"
+        showBack
+        showGithub={false}
+        showHelp={false}
+        showSettings={false}
+      />
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl w-full mb-8 animate-slide-up">

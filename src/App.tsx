@@ -15,7 +15,6 @@ import { TermsOfService } from './pages/TermsOfService';
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
 import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List, Upload, Check } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
-import appLogo from './assets/images/app-logo2.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { analyzeVideoNarrationWithGemini } from './services/aiService';
@@ -33,7 +32,7 @@ import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { Video } from 'lucide-react';
-import { AppModeSwitcher } from './components/AppModeSwitcher';
+import { PageHeader } from './components/PageHeader';
 
 
 
@@ -60,7 +59,6 @@ function MainApp() {
   const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [startupWebGpuSupport, setStartupWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
-  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
   const [slideEditorViewMode, setSlideEditorViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window === 'undefined') {
@@ -1361,170 +1359,101 @@ function MainApp() {
         onChange={handleImportProject}
       />
 
-      {/* Header */}
-      <header className="relative z-50 w-full mx-auto mb-10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
-            <img src={appLogo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
-          </div>
-          <h1 className="hidden sm:block text-2xl sm:text-3xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
-            Origami
-          </h1>
-        </div>
-
-        {/* Center: View Toggle (Segmented Control) */}
-        {slides.length > 0 && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <button
-                onClick={() => setActiveTab('edit')}
-                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
-                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
-                  ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Preview
-              </button>
-
-              <div className="mx-1 h-5 w-px bg-white/10" />
-
-              <button
-                onClick={() => setSlideEditorViewMode('list')}
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'list' && activeTab === 'edit' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'} ${activeTab === 'preview' ? 'pointer-events-none opacity-40' : ''}`}
-                title="List view"
-                aria-disabled={activeTab === 'preview'}
-              >
-                <List className="w-4 h-4" /><span>List</span>
-              </button>
-              <button
-                onClick={() => setSlideEditorViewMode('grid')}
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'grid' && activeTab === 'edit' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'} ${activeTab === 'preview' ? 'pointer-events-none opacity-40' : ''}`}
-                title="Grid view"
-                aria-disabled={activeTab === 'preview'}
-              >
-                <LayoutGrid className="w-4 h-4" /><span>Grid</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Right: Tools & Actions */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <AppModeSwitcher className="mr-1" />
-
-          {/* Global Tools */}
-          <div className="flex items-center gap-1">
-            <a
-              href="https://github.com/IslandApps/Origami-AI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-lg text-white/70 bg-white/5 transition-all"
-              title="View on GitHub"
-            >
-              <Github className="w-5 h-5" />
-            </a>
+      <PageHeader
+        title="Origami"
+        onHelp={() => setIsTutorialOpen(true)}
+        onSettings={() => setIsSettingsOpen(true)}
+        centerContent={slides.length > 0 ? (
+          <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
             <button
-              onClick={() => setIsTutorialOpen(true)}
-              className="p-2 rounded-lg text-white/70 bg-white/5 transition-all"
-              title="How to Use"
+              onClick={() => setActiveTab('edit')}
+              className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'edit'
+                ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
             >
-              <CircleHelp className="w-5 h-5" />
+              Edit
             </button>
             <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-lg text-white/70 bg-white/5 transition-all"
-              title="Settings"
+              onClick={() => setActiveTab('preview')}
+              className={`px-3 sm:px-4 md:px-6 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'preview'
+                ? 'bg-branding-primary/20 text-branding-primary shadow-sm'
+                : 'text-white/40 hover:text-white hover:bg-white/5'
+                }`}
             >
-              <Settings className="w-5 h-5" />
+              Preview
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-white/10" />
+
+            <button
+              onClick={() => setSlideEditorViewMode('list')}
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'list' && activeTab === 'edit' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'} ${activeTab === 'preview' ? 'pointer-events-none opacity-40' : ''}`}
+              title="List view"
+              aria-disabled={activeTab === 'preview'}
+            >
+              <List className="w-4 h-4" /><span>List</span>
+            </button>
+            <button
+              onClick={() => setSlideEditorViewMode('grid')}
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${slideEditorViewMode === 'grid' && activeTab === 'edit' ? 'bg-branding-primary/20 text-branding-primary shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'} ${activeTab === 'preview' ? 'pointer-events-none opacity-40' : ''}`}
+              title="Grid view"
+              aria-disabled={activeTab === 'preview'}
+            >
+              <LayoutGrid className="w-4 h-4" /><span>Grid</span>
             </button>
           </div>
-
-          {/* Session Actions Menu */}
-          {slides.length > 0 && (
-            <>
-              <div className="w-px h-6 bg-white/10 mx-1 sm:mx-2" />
-
-              <div className="relative z-60">
+        ) : undefined}
+        actionMenuContent={(closeMenu) => (
+          <>
+            {slides.length > 0 && (
+              <>
                 <button
-                  onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all border ${isActionsMenuOpen ? 'bg-white/10 text-white border-white/20' : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10'}`}
+                  onClick={() => { handleExportProject(); closeMenu(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                 >
-                  <span className="hidden sm:inline">Actions</span>
-                  <Settings className="w-4 h-4 sm:hidden" />
-                  <svg className={`w-4 h-4 transition-transform duration-200 hidden sm:block ${isActionsMenuOpen ? 'rotate-180 text-white' : 'opacity-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <Download className="w-4 h-4" /> Export Project
                 </button>
-
-                {/* Backdrop to close menu when clicking outside */}
-                {isActionsMenuOpen && (
-                  <div
-                    className="fixed inset-0 z-[-1] cursor-default"
-                    onClick={() => setIsActionsMenuOpen(false)}
-                  />
-                )}
-
-                {/* Dropdown Menu */}
-                {isActionsMenuOpen && (
-                  <div className="absolute left-0 right-0 sm:left-auto sm:right-0 sm:w-48 top-full mt-2 w-full py-1 rounded-xl border border-white/10 bg-[#18181b] shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-60">
-                    <button
-                      onClick={() => { handleExportProject(); setIsActionsMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                    >
-                      <Download className="w-4 h-4" /> Export Project
-                    </button>
-                    <button
-                      onClick={() => { handleImportProjectClick(); setIsActionsMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                    >
-                      <Upload className="w-4 h-4" /> Import Project
-                    </button>
-                    <div className="h-px bg-white/10 my-1" />
-                    <button
-                      onClick={() => { handleStartOver(); setIsActionsMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" /> Start Over
-                    </button>
-                    {slides.some(s => s.isSelected) && (
+                <button
+                  onClick={() => { handleImportProjectClick(); closeMenu(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  <Upload className="w-4 h-4" /> Import Project
+                </button>
+                <div className="my-1 h-px bg-white/10" />
+                <button
+                  onClick={() => { handleStartOver(); closeMenu(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  <RotateCcw className="w-4 h-4" /> Start Over
+                </button>
+                {slides.some((slide) => slide.isSelected) && (
+                  <>
+                    {slides.some((slide) => !slide.isSelected) && (
                       <>
-                        {slides.some(s => s.isSelected) && slides.some(s => !s.isSelected) && (
-                          <>
-                            <div className="h-px bg-white/10 my-1" />
-                            <button
-                              onClick={() => { handleSelectAllSlides(); setIsActionsMenuOpen(false); }}
-                              className="w-full text-left px-4 py-2.5 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors"
-                            >
-                              <Check className="w-4 h-4" /> Select All ({slides.length})
-                            </button>
-                          </>
-                        )}
-                        <div className="h-px bg-white/10 my-1" />
+                        <div className="my-1 h-px bg-white/10" />
                         <button
-                          onClick={() => { handleDeleteSelected(); setIsActionsMenuOpen(false); }}
-                          className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                          onClick={() => { handleSelectAllSlides(); closeMenu(); }}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                         >
-                          <Trash2 className="w-4 h-4" /> Delete Selected ({slides.filter(s => s.isSelected).length})
+                          <Check className="w-4 h-4" /> Select All ({slides.length})
                         </button>
                       </>
                     )}
-                  </div>
+                    <div className="my-1 h-px bg-white/10" />
+                    <button
+                      onClick={() => { handleDeleteSelected(); closeMenu(); }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-bold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete Selected ({slides.filter((slide) => slide.isSelected).length})
+                    </button>
+                  </>
                 )}
-              </div>
-            </>
-          )}
-        </div>
-      </header>
+              </>
+            )}
+          </>
+        )}
+      />
 
       <main className={`mx-auto fade-transition ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`} key={activeTab}>
         {slides.length === 0 ? (
