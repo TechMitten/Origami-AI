@@ -14,6 +14,7 @@ import {
 
 import appLogo from '../assets/images/app-logo2.png';
 import backgroundImage from '../assets/images/background.png';
+import orgIssueLogo from '../assets/images/orgissue.png';
 import { AppModeSwitcher } from '../components/AppModeSwitcher';
 import { DuplicateTabModal } from '../components/DuplicateTabModal';
 import { Footer } from '../components/Footer';
@@ -312,6 +313,13 @@ export const IssueReporterPage: React.FC = () => {
     }
   };
 
+  const handleStartOver = useCallback(() => {
+    replaceCapture(null);
+    setUserGoal('');
+    setExtraContext('');
+    resetAnalysis();
+  }, [replaceCapture, resetAnalysis]);
+
   const geminiSettings = getConfiguredGeminiSettings();
   const isGeminiConfigured = geminiSettings.apiKey.trim().length > 0;
   const isGeminiEndpointValid = /generativelanguage\.googleapis\.com/i.test(geminiSettings.baseUrl);
@@ -340,6 +348,15 @@ export const IssueReporterPage: React.FC = () => {
 
           <div className="flex items-center gap-2.5">
             <AppModeSwitcher className="hidden sm:flex" />
+            {capture && (
+              <button
+                onClick={handleStartOver}
+                className="rounded-xl border border-white/20 bg-white/[0.08] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-white/70 transition-all hover:bg-white/12 hover:text-white"
+                title="Reset and start over"
+              >
+                Start Over
+              </button>
+            )}
             <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:inline-flex">
               <Bug className="h-3.5 w-3.5 text-orange-300" />
               <span className="text-xs font-bold text-white/70">
@@ -369,18 +386,23 @@ export const IssueReporterPage: React.FC = () => {
       <main className="mx-auto max-w-5xl px-6 pb-20 pt-10 sm:px-8">
 
         {/* Hero */}
-        <div className="mb-10">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/12 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-orange-300">
-            <Bug className="h-3.5 w-3.5" />
-            Capture · Analyze · Prompt
+        <div className="mb-10 flex items-start justify-between gap-6 lg:gap-10">
+          <div>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-500/12 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-orange-300">
+              <Bug className="h-3.5 w-3.5" />
+              Capture · Analyze · Prompt
+            </div>
+            <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+              Record the issue,<br />
+              <span className="text-orange-300">generate the prompt.</span>
+            </h2>
+            <p className="mt-5 max-w-lg text-base leading-8 text-white/65">
+              Origami records your visual bug as a WebM clip and asks Gemini to transform it into a precise debugging prompt — ready to paste alongside the attachment in any AI chat.
+            </p>
           </div>
-          <h2 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-            Record the issue,<br />
-            <span className="text-orange-300">generate the prompt.</span>
-          </h2>
-          <p className="mt-5 max-w-lg text-base leading-8 text-white/65">
-            Origami records your visual bug as a WebM clip and asks Gemini to transform it into a precise debugging prompt — ready to paste alongside the attachment in any AI chat.
-          </p>
+          <div className="hidden shrink-0 lg:flex">
+            <img src={orgIssueLogo} alt="Issue Reporter" className="h-64 w-64 object-contain" />
+          </div>
         </div>
 
         {/* Config warning */}

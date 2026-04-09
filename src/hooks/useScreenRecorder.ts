@@ -288,8 +288,8 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
     const displayStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         frameRate: { ideal: 60, max: 60 },
-        width: { ideal: 1920, max: 3840 },
-        height: { ideal: 1080, max: 2160 },
+        width: { ideal: 1280, max: 1280 },
+        height: { ideal: 720, max: 720 },
       } as MediaTrackConstraints,
       audio: true,
     });
