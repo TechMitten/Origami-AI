@@ -2601,7 +2601,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               {/* Overview tab removed */}
               <button
                 onClick={() => setActiveTab('tools')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'tools'
+                className={`snap-start flex-1 md:flex-none px-3 sm:px-6 md:px-8 py-3 sm:py-5 md:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-2 sm:gap-3 md:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'tools'
                   ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                   : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
@@ -2611,7 +2611,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               
               <button
                 onClick={() => setActiveTab('voice')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'voice'
+                className={`snap-start flex-1 md:flex-none px-3 sm:px-6 md:px-8 py-3 sm:py-5 md:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-2 sm:gap-3 md:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'voice'
                   ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                   : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
@@ -2621,7 +2621,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
               <button
                 onClick={() => setActiveTab('mixing')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'mixing'
+                className={`snap-start flex-1 md:flex-none px-3 sm:px-6 md:px-8 py-3 sm:py-5 md:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-2 sm:gap-3 md:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'mixing'
                   ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                   : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
@@ -2631,7 +2631,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               
               <button
                 onClick={() => setActiveTab('media')}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'media'
+                className={`snap-start flex-1 md:flex-none px-3 sm:px-6 md:px-8 py-3 sm:py-5 md:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-2 sm:gap-3 md:gap-4 transition-all text-left whitespace-nowrap ${activeTab === 'media'
                   ? 'bg-branding-primary/10 text-branding-primary border-b-2 md:border-b-0 md:border-l-2 border-branding-primary'
                   : 'text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent'
                   }`}
@@ -2640,14 +2640,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               </button>
               <button
                 onClick={() => onOpenSettings?.()}
-                className={`snap-start flex-1 md:flex-none px-6 sm:px-8 py-8 sm:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-3 sm:gap-4 transition-all text-left whitespace-nowrap text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent`}
+                className={`snap-start flex-1 md:flex-none px-3 sm:px-6 md:px-8 py-3 sm:py-5 md:py-10 text-xs font-bold uppercase tracking-widest flex items-center gap-2 sm:gap-3 md:gap-4 transition-all text-left whitespace-nowrap text-white/40 hover:text-white hover:bg-white/5 border-b-2 md:border-b-0 md:border-l-2 border-transparent`}
               >
                 <SettingsIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Settings
               </button>
             </div>
 
             {/* Right Content */}
-            <div className="flex-1 p-6 sm:p-10 bg-black/10 flex flex-col overflow-y-auto">
+            <div className="flex-1 p-4 sm:p-6 md:p-10 bg-black/10 flex flex-col overflow-y-auto">
               {activeTab === 'voice' && (
                 <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 shrink-0">
@@ -2662,7 +2662,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                   </div>
 
-                  <div className="flex-1 space-y-6 sm:space-y-8 p-6 sm:p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
+                  <div className="flex-1 space-y-6 sm:space-y-8 p-4 sm:p-6 md:p-10 rounded-3xl bg-white/5 border border-white/10 flex flex-col justify-center">
                     <div className="space-y-3">
                       <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Select Voice</label>
                       <Dropdown

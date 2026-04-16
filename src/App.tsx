@@ -1383,7 +1383,7 @@ function MainApp() {
   const shouldShowEditor = slides.length > 0 || enteredEditorWithoutPdf;
 
   return (
-    <div className={`page-zoom-130 min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>
+    <div className={`page-zoom-130 min-h-screen bg-branding-dark text-white pt-4 sm:pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>
       <input
         ref={importFileInputRef}
         type="file"

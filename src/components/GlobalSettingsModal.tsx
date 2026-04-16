@@ -436,9 +436,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-180 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[78vh] max-h-196">
+      <div className="w-full max-w-180 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90dvh] sm:h-[78vh] max-h-196">
         {/* Header */}
-        <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+        <div className="px-4 py-4 sm:px-8 sm:py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-branding-primary/20 text-branding-primary">
               <Settings className="w-6 h-6" />
@@ -487,7 +487,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-8 overflow-y-auto space-y-8 flex-1">
+        <div className="p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 flex-1">
 
           {activeTab === 'general' ? (
             <>
