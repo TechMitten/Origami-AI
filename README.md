@@ -1,9 +1,9 @@
 <div align="center" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:20px;">
   <img src="logo/logo.png" alt="Origami AI Logo" width="320" style="display:block;margin:0;height:auto;max-width:90%;" />
   <div style="display:inline-flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;">
-    <a href="https://github.com/IslandApps/Origami-AI/stargazers"><img src="https://img.shields.io/github/stars/IslandApps/Origami-AI?style=social" alt="GitHub stars" /></a>
-    <a href="https://github.com/IslandApps/Origami-AI/issues"><img src="https://img.shields.io/github/issues/IslandApps/Origami-AI" alt="Issues" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/IslandApps/Origami-AI" alt="License" /></a>
+    <a href="https://github.com/IslandApps/Origami-AI/stargazers"><img src="https://img.shields.io/github/stars/islandapps/origami-ai?style=social" alt="GitHub stars" /></a>
+    <a href="https://github.com/IslandApps/Origami-AI/issues"><img src="https://img.shields.io/github/issues/islandapps/origami-ai" alt="Issues" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/islandapps/origami-ai" alt="License" /></a>
     <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen" alt="Node" /></a>
   </div>
 </div>
