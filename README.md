@@ -75,7 +75,7 @@ Simply upload a PDF, generate narration, customize timing and transitions, and e
 - **Chrome Extension** - Capture cursor position and DOM interactions for precise follow effects
 - **Scene Analysis** - Upload MP4 videos and auto-generate timestamped scene breakdowns with Gemini API
 - **AI Assistant Chat** - Local chatbot with 9+ WebLLM models and image/video analysis support
-- **Bug Reporter** - Capture bugs, get AI-powered analysis with debugging suggestions
+- **Issue Reporter** - Capture bugs, get AI-powered analysis with debugging suggestions
 - **Project Backup** - Export and import `.origami` archives to move projects between devices
 
 ## Getting Started
@@ -190,7 +190,7 @@ Typical timeline: 10-30 minutes depending on slide count and GPU performance.
 
 - **Scene Analysis** - Upload MP4 videos to auto-generate timestamped scene breakdowns
 - **AI Assistant Chat** - Ask questions, attach images/videos for analysis (local or cloud models)
-- **Bug Reporter** - Record and analyze bugs with AI-powered debugging suggestions
+- **Issue Reporter** - Record and analyze bugs with AI-powered debugging suggestions
 
 ## Configuration
 
@@ -298,7 +298,7 @@ For additional setup details:
 - **Scene Analysis & Alignment** - Upload MP4 videos to auto-generate timestamped scene breakdowns with Gemini API
 - **Chrome Extension Setup** - See [chrome-extension/README.md](chrome-extension/README.md) for enhanced interaction tracking
 - **AI Assistant Chat** - Configure local WebLLM models or remote API providers in Settings
-- **Bug Reporter** - Requires Gemini API key configured in Settings
+- **Issue Reporter** - Requires Gemini API key configured in Settings
 
 ### Project Backup
 
@@ -402,7 +402,7 @@ For comprehensive troubleshooting guidance including WebGPU issues, performance 
 - Rendering and analysis performance depend on available CPU/GPU/memory.
 - Screen recording with auto zoom works on all major browsers; Chrome extension provides enhanced DOM telemetry for browser tabs.
 - AI Assistant Chat requires WebGPU; fall back to Gemini API for AI narration generation if unavailable.
-- Bug Reporter and Video Analysis workflows require configured Gemini API key for AI processing.
+- Issue Reporter and Video Analysis workflows require configured Gemini API key for AI processing.
 - All user data stays local in the browser unless explicitly using cloud APIs (Gemini, OpenAI-compatible providers).
 
 ## Support
