@@ -28,16 +28,18 @@
 
 ## What It Does
 
-**Origami AI** converts static PDF presentations into polished, cinematic videos with:
-- 🎬 **AI-generated narration scripts** tailored to your content
-- 🎙️ **Natural human-like speech** generated locally with Kokoro.js
-- 🔒 **100% local processing** - no data leaves your browser
-- ⚡ **GPU-accelerated inference** using WebGPU
-- 📹 **Professional video rendering** with FFmpeg.wasm
-- 🎵 **Background music** with auto-ducking and transitions
-- 🎯 **Smart screen recording** with auto-zoom during idle periods
+**Origami AI** converts static PDF presentations into polished, cinematic videos and richer interactive outputs — primarily locally, with optional cloud-assisted analysis when needed. Key capabilities include:
+- 🎬 **AI-generated narration scripts** — local WebLLM or remote Gemini/OpenAI APIs
+- 🎙️ **High-quality in-browser TTS** — Kokoro.js with multiple voices
+- 🔍 **Scene-aware video analysis & issue reporting** — auto-generate breakdowns and bug reports from MP4s
+- 💬 **AI Assistant Chat & WebLLM** — conversational assistance with cloud fallbacks
+- 🔒 **Secure server-side API proxying** — `LLM_API_KEY` kept secret from client bundles
+- ⚡ **WebGPU-accelerated inference** — faster local model execution
+- 📹 **In-browser FFmpeg rendering** — professional MP4 exports (720p/1080p)
+- 🎵 **Background music & audio mixing** — auto-ducking and smooth transitions
+- 🎯 **Smart screen recording** — auto-zoom with Chrome-extension DOM telemetry
 
-Simply upload a PDF, generate narration, customize timing and transitions, and export a broadcast-quality MP4—all from your browser, no external dependencies required.
+Simply upload a PDF, generate narration or analyze a recorded clip, customize timing and transitions, and export a broadcast-quality MP4 — all from your browser with optional secure cloud features.
 
 ## Why Origami?
 
