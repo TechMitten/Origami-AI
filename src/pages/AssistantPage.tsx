@@ -39,7 +39,9 @@ import {
 import {
   AVAILABLE_WEB_LLM_MODELS,
   checkWebGPUSupport,
+  DEFAULT_WEB_LLM_MODEL_ID,
   getCurrentWebLLMModel,
+  getDefaultWebLlmModel,
   getWebLlmModelInfo,
   initWebLLM,
   isWebLLMLoaded,
@@ -94,6 +96,16 @@ const markWebLLMAsCached = () => {
 const getModelName = (modelId: string | null | undefined): string | null => {
   if (!modelId) return null;
   return AVAILABLE_WEB_LLM_MODELS.find((model) => model.id === modelId)?.name || modelId;
+};
+
+const resolvePreferredAssistantModel = (
+  configuredModelId: string | null | undefined,
+  hasF16Support: boolean = true,
+): string => {
+  if (configuredModelId && AVAILABLE_WEB_LLM_MODELS.some((model) => model.id === configuredModelId)) {
+    return configuredModelId;
+  }
+  return getDefaultWebLlmModel(hasF16Support);
 };
 
 const createEmptyAssistantChatSession = (): AssistantChatSession => {
@@ -189,6 +201,8 @@ export const AssistantPage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false);
+  const [assistantModelSelection, setAssistantModelSelection] = useState(DEFAULT_WEB_LLM_MODEL_ID);
+  const [isSwitchingModel, setIsSwitchingModel] = useState(false);
 
   const configuredModelId = globalSettings.webLlmModel || null;
   const configuredModelName = getModelName(configuredModelId);
@@ -203,6 +217,13 @@ export const AssistantPage: React.FC = () => {
   const messages = currentSession?.messages || [];
   const hasConversation = messages.length > 0;
   const isConfiguredForAssistant = Boolean(globalSettings.useWebLLM && configuredModelId);
+  const selectableAssistantModels = AVAILABLE_WEB_LLM_MODELS.filter((model) => {
+    if (webGpuSupport?.supported && !webGpuSupport.hasF16 && model.precision === 'f16') return false;
+    return true;
+  });
+  const activeAssistantSelection = selectableAssistantModels.some((model) => model.id === assistantModelSelection)
+    ? assistantModelSelection
+    : (selectableAssistantModels[0]?.id || assistantModelSelection);
 
   const mutateSession = (
     sessionId: string,
@@ -286,11 +307,13 @@ export const AssistantPage: React.FC = () => {
         ? savedWorkspace.currentChatId
         : initialSessions[0].id;
 
-      setGlobalSettings(savedSettings ? { ...DEFAULT_GLOBAL_SETTINGS, ...savedSettings } : DEFAULT_GLOBAL_SETTINGS);
+      const mergedSettings = savedSettings ? { ...DEFAULT_GLOBAL_SETTINGS, ...savedSettings } : DEFAULT_GLOBAL_SETTINGS;
+      setGlobalSettings(mergedSettings);
       setChatSessions(sortAssistantSessions(initialSessions));
       setCurrentChatId(initialCurrentChatId);
       setWebGpuSupport(support);
       setLoadedModelId(getCurrentWebLLMModel());
+      setAssistantModelSelection(resolvePreferredAssistantModel(mergedSettings.webLlmModel, support.hasF16));
       setIsBootstrapping(false);
     };
 
@@ -300,6 +323,7 @@ export const AssistantPage: React.FC = () => {
       setGlobalSettings(DEFAULT_GLOBAL_SETTINGS);
       setChatSessions([initialSession]);
       setCurrentChatId(initialSession.id);
+      setAssistantModelSelection(DEFAULT_WEB_LLM_MODEL_ID);
       setIsBootstrapping(false);
     });
 
@@ -385,6 +409,52 @@ export const AssistantPage: React.FC = () => {
     };
   }, [showAlert]);
 
+  useEffect(() => {
+    setAssistantModelSelection(resolvePreferredAssistantModel(globalSettings.webLlmModel, webGpuSupport?.hasF16 ?? true));
+  }, [globalSettings.webLlmModel, webGpuSupport?.hasF16]);
+
+  const handleApplyAssistantModel = async () => {
+    if (isSwitchingModel) return;
+
+    const modelId = activeAssistantSelection;
+    if (!modelId) return;
+
+    const support = webGpuSupport ?? await checkWebGPUSupport();
+    setWebGpuSupport(support);
+
+    if (!support.supported) {
+      setIsWebGPUModalOpen(true);
+      return;
+    }
+
+    const selectedModel = getWebLlmModelInfo(modelId);
+    if (!support.hasF16 && selectedModel?.precision === 'f16') {
+      await showAlert('This model requires f16 WebGPU support. Choose an f32 model for compatibility.', {
+        type: 'warning',
+        title: 'Model Not Compatible',
+      });
+      return;
+    }
+
+    setIsSwitchingModel(true);
+    try {
+      const nextSettings: GlobalSettings = {
+        ...globalSettings,
+        useWebLLM: true,
+        webLlmModel: modelId,
+      };
+
+      await saveAssistantSettings(nextSettings);
+
+      const initialized = await initializeModel(modelId);
+      if (!initialized) return;
+
+      setLoadedModelId(modelId);
+    } finally {
+      setIsSwitchingModel(false);
+    }
+  };
+
   const handleCreateChat = () => {
     if (isSending) return;
     if (currentSession && currentSession.messages.length === 0 && !input.trim() && !pendingAttachment) return;
@@ -422,6 +492,40 @@ export const AssistantPage: React.FC = () => {
     }));
     setInput('');
     setPendingAttachment(null);
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    if (isSending) return;
+
+    const sessionToDelete = chatSessions.find((session) => session.id === chatId);
+    if (!sessionToDelete) return;
+
+    const confirmed = await showConfirm(`Delete "${sessionToDelete.title}"? This cannot be undone.`, {
+      type: 'warning',
+      title: 'Delete Saved Chat',
+      confirmText: 'Delete Chat',
+    });
+
+    if (!confirmed) return;
+
+    const deletingCurrentSession = currentChatId === chatId;
+    setChatSessions((currentSessions) => {
+      const remainingSessions = currentSessions.filter((session) => session.id !== chatId);
+      if (remainingSessions.length === 0) {
+        const fallbackSession = createEmptyAssistantChatSession();
+        setCurrentChatId(fallbackSession.id);
+        return [fallbackSession];
+      }
+      if (deletingCurrentSession) {
+        setCurrentChatId(remainingSessions[0].id);
+      }
+      return remainingSessions;
+    });
+
+    if (deletingCurrentSession) {
+      setInput('');
+      setPendingAttachment(null);
+    }
   };
 
   const handleAttachmentSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -592,15 +696,15 @@ export const AssistantPage: React.FC = () => {
 
     if (!isConfiguredForAssistant) {
       return (
-        <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/8 px-4 py-3 text-sm text-white/85">
+        <div className="rounded-2xl border border-branding-primary/15 bg-branding-primary/8 px-4 py-3 text-sm text-branding-primary/90">
           <div className="flex items-start gap-3">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-branding-primary" />
             <div className="space-y-2">
-              <p className="font-semibold">Choose and load a WebLLM model in Settings to start chatting.</p>
-              <p className="text-white/60">Once configured, the assistant runs locally on your device with the existing WebLLM setup.</p>
+              <p className="font-semibold">Choose a WebLLM model from the picker below to start chatting.</p>
+              <p className="text-branding-primary/70">You can also open Settings for advanced WebLLM options. The assistant runs locally on your device.</p>
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/20"
+                className="rounded-xl border border-branding-primary/20 bg-branding-primary/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-branding-primary/90 transition-colors hover:bg-branding-primary/20"
               >
                 Open Settings
               </button>
@@ -614,7 +718,7 @@ export const AssistantPage: React.FC = () => {
   };
 
   return (
-    <div className="page-zoom-130 flex h-dvh flex-col overflow-hidden bg-branding-dark text-white">
+    <div className="flex h-dvh flex-col overflow-hidden bg-branding-dark text-white">
       <PageHeader
         title="AI Assistant"
         onSettings={() => setIsSettingsOpen(true)}
@@ -638,22 +742,22 @@ export const AssistantPage: React.FC = () => {
           </>
         )}
         rightContent={
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/60">
-            <Bot className="h-4 w-4 text-cyan-300" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-branding-primary/60">
+            <Bot className="h-4 w-4 text-branding-primary" />
             <span>{loadedModelName || configuredModelName || 'Setup required'}</span>
           </div>
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-8">
-        <div className="flex-1 min-h-0 px-4 pb-2 sm:px-6 lg:px-8">
-          <main className="mx-auto flex h-full min-h-0 max-w-6xl flex-1 flex-col pb-8">
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b0f14]/90 shadow-2xl shadow-black/30 backdrop-blur-2xl">
-          <div className="border-b border-white/10 px-5 py-4 sm:px-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8">
+          <main className="mx-auto flex h-full min-h-0 w-full flex-1 flex-col">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden glass rounded-3xl border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/30 backdrop-blur-2xl">
+          <div className="border-b border-white/10 bg-white/5 px-5 py-5 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-300/60">Local Chat</p>
-                <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">A streamlined WebLLM assistant</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-branding-primary/60">Local Chat</p>
+                <h2 className="mt-1 text-xl font-black text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 sm:text-2xl">AI Assistant</h2>
               </div>
               <div className="text-xs text-white/45">
                 {chatSessions.length} saved {chatSessions.length === 1 ? 'chat' : 'chats'} on this device
@@ -662,10 +766,10 @@ export const AssistantPage: React.FC = () => {
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-            <aside className="flex min-h-0 w-full shrink-0 flex-col border-b border-white/10 bg-black/10 lg:w-[300px] lg:border-b-0 lg:border-r">
+            <aside className="flex min-h-0 w-full shrink-0 flex-col border-b border-white/10 bg-white/[0.02] lg:w-[300px] lg:border-b-0 lg:border-r">
               <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-white/40">Saved Chats</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-branding-primary/50">Saved Chats</p>
                   <p className="mt-1 text-sm text-white/70">Recent local conversations</p>
                 </div>
                 <button
@@ -685,18 +789,20 @@ export const AssistantPage: React.FC = () => {
                     const previewMessage = session.messages.find((message) => message.content.trim() || message.attachment);
 
                     return (
-                      <button
+                      <div
                         key={session.id}
-                        onClick={() => handleSelectChat(session.id)}
-                        disabled={isSending}
-                        className={`w-full rounded-2xl border px-3 py-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                        className={`w-full rounded-2xl border px-3 py-3 transition-all ${
                           isActive
-                            ? 'border-cyan-400/30 bg-cyan-400/12 shadow-lg shadow-cyan-500/5'
+                            ? 'border-branding-primary/30 bg-branding-primary/10 shadow-lg shadow-branding-primary/5'
                             : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.06]'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <button
+                            onClick={() => handleSelectChat(session.id)}
+                            disabled={isSending}
+                            className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                          >
                             <p className="truncate text-sm font-semibold text-white">{session.title}</p>
                             <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/50">
                               {previewMessage?.content.trim()
@@ -706,20 +812,32 @@ export const AssistantPage: React.FC = () => {
                                     ? `Attached image: ${previewMessage.attachment.name}`
                                     : 'Empty conversation')}
                             </p>
+                            <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-white/35">
+                              <span>{session.messages.length} msg</span>
+                              <span>{formatChatTimestamp(session.updatedAt)}</span>
+                            </div>
+                          </button>
+
+                          <div className="flex items-center gap-1">
+                            {session.messages.some((message) => message.attachment) && (
+                              <span className="rounded-full border border-white/10 bg-white/5 p-1 text-white/50">
+                                {session.messages.some((message) => message.attachment?.kind === 'video')
+                                  ? <Film className="h-3.5 w-3.5" />
+                                  : <ImagePlus className="h-3.5 w-3.5" />}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => void handleDeleteChat(session.id)}
+                              disabled={isSending}
+                              className="rounded-full border border-white/10 bg-white/5 p-1.5 text-white/45 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                              title="Delete saved chat"
+                              aria-label={`Delete chat ${session.title}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-                          {session.messages.some((message) => message.attachment) && (
-                            <span className="rounded-full border border-white/10 bg-white/5 p-1 text-white/50">
-                              {session.messages.some((message) => message.attachment?.kind === 'video')
-                                ? <Film className="h-3.5 w-3.5" />
-                                : <ImagePlus className="h-3.5 w-3.5" />}
-                            </span>
-                          )}
                         </div>
-                        <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-white/35">
-                          <span>{session.messages.length} msg</span>
-                          <span>{formatChatTimestamp(session.updatedAt)}</span>
-                        </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -727,7 +845,7 @@ export const AssistantPage: React.FC = () => {
             </aside>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" ref={messagesContainerRef}>
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6" ref={messagesContainerRef}>
             {isBootstrapping ? (
               <div className="flex h-full items-center justify-center">
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-white/70">
@@ -736,17 +854,17 @@ export const AssistantPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
+              <div className="mx-auto flex h-full w-full max-w-7xl flex-col">
                 <div className="mb-4">
                   {renderSetupBanner()}
                 </div>
 
                 {!hasConversation ? (
                   <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
-                    <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/15 bg-cyan-400/10">
-                      <MessageSquareText className="h-7 w-7 text-cyan-300" />
+                  <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-branding-primary/15 bg-branding-primary/10">
+                      <MessageSquareText className="h-7 w-7 text-branding-primary" />
                     </div>
-                    <h3 className="text-3xl font-black tracking-tight text-white">How can I help?</h3>
+                    <h3 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600">How can I help?</h3>
                     <p className="mt-3 max-w-2xl text-sm text-white/55 sm:text-base">
                       Ask for rewrites, summaries, brainstorming, planning, or help drafting tutorials and presentations.
                       {activeModelSupportsVision
@@ -762,7 +880,7 @@ export const AssistantPage: React.FC = () => {
                             setInput(prompt);
                             textareaRef.current?.focus();
                           }}
-                          className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-left text-sm text-white/80 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+                          className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-left text-sm text-white/80 transition-colors hover:border-branding-primary/20 hover:bg-branding-primary/5 hover:text-white"
                         >
                           {prompt}
                         </button>
@@ -780,13 +898,13 @@ export const AssistantPage: React.FC = () => {
                           key={message.id}
                           className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
                         >
-                          <div className={`max-w-[92%] rounded-[1.75rem] border px-4 py-3 sm:max-w-[80%] ${isAssistant
+                          <div className={`max-w-[95%] rounded-2xl border px-4 py-3 sm:max-w-[85%] lg:max-w-[65%] ${isAssistant
                             ? 'border-white/10 bg-white/[0.05] text-white'
-                            : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-50'
+                            : 'border-branding-primary/20 bg-branding-primary/10 text-branding-primary/95'
                             }`}
                           >
-                            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-white/45">
-                              {isAssistant ? <Bot className="h-3.5 w-3.5" /> : <MessageSquareText className="h-3.5 w-3.5" />}
+                            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-branding-primary/60">
+                              {isAssistant ? <Bot className="h-3.5 w-3.5 text-branding-primary" /> : <MessageSquareText className="h-3.5 w-3.5 text-branding-primary" />}
                               {isAssistant ? 'Assistant' : 'You'}
                             </div>
                             {isEmptyStreamingMessage ? (
@@ -865,8 +983,8 @@ export const AssistantPage: React.FC = () => {
             )}
           </div>
 
-              <div className="border-t border-white/10 bg-black/20 p-4 sm:p-5">
-                <div className="mx-auto w-full max-w-4xl rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-3 shadow-inner shadow-black/20">
+              <div className="border-t border-white/10 bg-white/[0.02] p-3 sm:p-4">
+                <div className="mx-auto w-full max-w-7xl rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-inner shadow-black/20">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -876,7 +994,7 @@ export const AssistantPage: React.FC = () => {
               />
 
               {pendingAttachment && (
-                <div className="mb-3 flex items-start gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-3">
+                <div className="mb-3 flex items-start gap-3 rounded-2xl border border-branding-primary/20 bg-branding-primary/10 p-3">
                   {pendingAttachment.kind === 'image' ? (
                     <img
                       src={pendingAttachment.dataUrl}
@@ -890,8 +1008,8 @@ export const AssistantPage: React.FC = () => {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-cyan-50">{pendingAttachment.name}</p>
-                    <p className="mt-1 text-xs text-cyan-100/70">
+                    <p className="truncate text-sm font-semibold text-branding-primary/95">{pendingAttachment.name}</p>
+                    <p className="mt-1 text-xs text-branding-primary/70">
                       {pendingAttachment.kind === 'image'
                         ? 'This image will be sent to the local vision model with your message.'
                         : 'This WebM clip will be saved with the chat. The model can only respond to the written description you provide about it.'}
@@ -899,7 +1017,7 @@ export const AssistantPage: React.FC = () => {
                   </div>
                   <button
                     onClick={() => setPendingAttachment(null)}
-                    className="rounded-lg border border-cyan-300/20 bg-black/20 p-2 text-cyan-100/70 transition-colors hover:text-cyan-50"
+                    className="rounded-lg border border-branding-primary/20 bg-black/20 p-2 text-branding-primary/70 transition-colors hover:text-branding-primary"
                     title="Remove attachment"
                   >
                     <X className="h-4 w-4" />
@@ -917,13 +1035,62 @@ export const AssistantPage: React.FC = () => {
                     ? activeModelSupportsVision
                       ? 'Message Origami Assistant or attach an image/WebM clip...'
                       : 'Message Origami Assistant or attach a WebM clip...'
-                    : 'Open Settings to choose and load a WebLLM model first.'
+                    : 'Pick a WebLLM model below, then click Download / Use.'
                 }
                 disabled={isBootstrapping || isSending || isReadingAttachment}
                 className="max-h-[220px] min-h-[60px] w-full resize-none bg-transparent px-2 py-1 text-sm leading-7 text-white outline-none placeholder:text-white/35"
               />
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Model</span>
+                    <select
+                      value={activeAssistantSelection}
+                      onChange={(event) => setAssistantModelSelection(event.target.value)}
+                      disabled={isBootstrapping || isSending || isReadingAttachment || isSwitchingModel || selectableAssistantModels.length === 0}
+                      className="h-8 w-full max-w-[260px] min-w-[160px] rounded-lg border border-white/10 bg-black px-2.5 text-xs text-white outline-none transition-all focus:border-branding-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {selectableAssistantModels.map((model) => (
+                        <option key={model.id} value={model.id} className="bg-black text-white">
+                          {`${model.name} (${model.precision.toUpperCase()})`}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => void handleApplyAssistantModel()}
+                      disabled={isBootstrapping || isSending || isReadingAttachment || isSwitchingModel || selectableAssistantModels.length === 0}
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-branding-primary/25 bg-branding-primary/10 px-3 text-xs font-bold text-branding-primary transition-all hover:bg-branding-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSwitchingModel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      {isSwitchingModel
+                        ? 'Loading'
+                        : (loadedModelId === activeAssistantSelection ? 'Ready' : 'Use')}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSending || isBootstrapping || isReadingAttachment || isSwitchingModel}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-all hover:border-branding-primary/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      title="Attach an image or WebM clip"
+                    >
+                      {isReadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                      Attach
+                    </button>
+                    <button
+                      onClick={() => void handleSend()}
+                      disabled={(!input.trim() && !pendingAttachment) || isSending || isBootstrapping || isReadingAttachment || isSwitchingModel}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-branding-primary px-4 py-2.5 text-sm font-black text-black transition-all hover:bg-branding-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Send
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs text-white/40">
                   {loadedModelName
                     ? `Running locally with ${loadedModelName}${activeModelInfo?.capabilities?.includes('vision') ? ' (vision enabled).' : '.'}`
@@ -931,25 +1098,12 @@ export const AssistantPage: React.FC = () => {
                       ? `${configuredModelName} is selected. Send a message to load it.`
                       : 'No WebLLM model selected yet.'}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isSending || isBootstrapping || isReadingAttachment}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/80 transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                    title="Attach an image or WebM clip"
-                  >
-                    {isReadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                    Attach
-                  </button>
-                  <button
-                    onClick={() => void handleSend()}
-                    disabled={(!input.trim() && !pendingAttachment) || isSending || isBootstrapping || isReadingAttachment}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Send
-                  </button>
+                <div className="text-[11px] text-white/30">
+                  {activeModelInfo
+                    ? `${activeModelInfo.size ?? 'Unknown size'}${activeModelInfo.capabilities?.includes('vision') ? ' • Vision + text' : ' • Text only'}`
+                    : ''}
                 </div>
+              </div>
               </div>
             </div>
               </div>

@@ -11,19 +11,19 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4 backdrop-blur-sm animate-fade-in sm:p-6">
       <div 
-        className="relative w-full max-w-4xl max-h-[85vh] bg-[#0F0F0F] rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col"
+        className="relative mx-auto my-2 flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0F0F0F] shadow-2xl sm:my-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-8 border-b border-white/5 flex items-center justify-between bg-linear-to-r from-white/5 to-transparent gap-4">
+        <div className="flex items-center justify-between gap-4 border-b border-white/5 bg-linear-to-r from-white/5 to-transparent p-4 sm:p-6">
           <div className="space-y-1">
-             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2 sm:gap-3">
-               <Lightbulb className="w-6 h-6 sm:w-8 sm:h-8 text-branding-primary" />
+             <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight text-white sm:gap-3 sm:text-3xl">
+               <Lightbulb className="h-6 w-6 text-branding-primary sm:h-7 sm:w-7" />
                How to Use
              </h2>
-             <p className="text-sm sm:text-base text-white/40 font-medium">Master the art of creating tutorials in minutes</p>
+             <p className="text-sm font-medium text-white/40 sm:text-base">Master the art of creating tutorials in minutes</p>
           </div>
           <button
             onClick={onClose}
@@ -34,15 +34,15 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto max-h-[60vh] sm:max-h-[70vh] p-4 sm:p-8 space-y-8 sm:space-y-12 scroller">
+        <div className="space-y-6 p-4 sm:space-y-8 sm:p-6">
           
           {/* Step 1: Upload */}
-          <section className="flex gap-4 sm:gap-6">
+          <section className="flex gap-4 sm:gap-5">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/20">
               <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
             </div>
             <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-white">1. Import Your Content</h3>
+              <h3 className="text-lg font-bold text-white sm:text-xl">1. Import Your Content</h3>
               <p className="text-white/60 leading-relaxed">
                 Start by uploading a PDF document. Each page of your PDF will automatically become a slide in your video. The text from each page is extracted to serve as the initial script for the Text-to-Speech (TTS) engine.
               </p>
@@ -50,13 +50,13 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
           </section>
 
           {/* Step 2: Edit & Refine */}
-          <section className="flex gap-6">
+          <section className="flex gap-4 sm:gap-5">
             <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-500/20">
               <Mic className="w-6 h-6 text-purple-400" />
             </div>
             <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-white">2. Create Your Script & Audio</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <h3 className="text-lg font-bold text-white sm:text-xl">2. Create Your Script & Audio</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                    <h4 className="font-bold text-white mb-2 flex items-center gap-2">
                      <Wand2 className="w-4 h-4 text-branding-primary" /> AI Enhancement
@@ -74,7 +74,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
                    </p>
                 </div>
               </div>
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid gap-4 md:grid-cols-3">
           <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                <h4 className="font-bold text-white mb-2 flex items-center gap-2">
                  <Volume2 className="w-4 h-4 text-branding-primary" /> Voice
@@ -104,12 +104,12 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
           </section>
 
           {/* Step 3: Music & Atmosphere */}
-          <section className="flex gap-6">
+          <section className="flex gap-4 sm:gap-5">
              <div className="w-12 h-12 rounded-2xl bg-pink-500/10 flex items-center justify-center shrink-0 border border-pink-500/20">
               <Music className="w-6 h-6 text-pink-400" />
             </div>
             <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-white">3. Add Atmosphere</h3>
+              <h3 className="text-lg font-bold text-white sm:text-xl">3. Add Atmosphere</h3>
               <p className="text-white/60 leading-relaxed">
                 Upload a background music track to set the mood. Adjust the volume slider to ensure it doesn't overpower the voiceover. Use the global settings to persist your favorite track across sessions.
               </p>
@@ -117,16 +117,16 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
           </section>
 
            {/* Step 4: Configure Settings */}
-          <section className="flex gap-6">
+          <section className="flex gap-4 sm:gap-5">
              <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0 border border-orange-500/20">
               <Settings className="w-6 h-6 text-orange-400" />
             </div>
             <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-white">4. Configure Global Settings</h3>
+              <h3 className="text-lg font-bold text-white sm:text-xl">4. Configure Global Settings</h3>
               <p className="text-white/60 leading-relaxed">
                 Click the <strong>Settings</strong> button in the top right to access global configurations:
               </p>
-               <div className="grid md:grid-cols-3 gap-6">
+               <div className="grid gap-4 md:grid-cols-3">
                   <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                       <h4 className="font-bold text-white mb-2 flex items-center gap-2">
                         <Settings className="w-4 h-4 text-branding-primary" /> General
@@ -156,12 +156,12 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
           </section>
 
            {/* Step 5: Preview & Export */}
-           <section className="flex gap-6">
+           <section className="flex gap-4 sm:gap-5">
              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
               <Video className="w-6 h-6 text-emerald-400" />
             </div>
             <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-white">5. Preview & Export</h3>
+              <h3 className="text-lg font-bold text-white sm:text-xl">5. Preview & Export</h3>
               <p className="text-white/60 leading-relaxed">
                 Switch to the <strong>Preview Tab</strong> to watch your full video composition. When you're happy with the result, choose between:
               </p>
@@ -175,7 +175,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose })
         </div>
         
         {/* Footer */}
-        <div className="p-6 border-t border-white/10 bg-black/20 flex justify-end">
+        <div className="flex justify-end border-t border-white/10 bg-black/20 p-4 sm:p-5">
           <button 
             onClick={onClose}
             className="px-8 py-3 rounded-xl bg-white text-black font-bold hover:scale-105 transition-transform"

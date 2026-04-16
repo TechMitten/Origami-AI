@@ -567,7 +567,7 @@ export const IssueReporterPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-black text-white">Recording preview</h3>
-                <p className="mt-1 text-sm text-white/70">Review your capture, then analyze with Gemini</p>
+                <p className="mt-1 text-sm text-white/70">Review your capture, then analyze with AI</p>
               </div>
             </div>
             <div className="flex shrink-0 gap-2.5">

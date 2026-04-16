@@ -136,19 +136,14 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
     const handleWebLLMProgress = (e: Event) => {
       const report = (e as CustomEvent<InitProgressReport>).detail;
       const normalizedProgress = normalizeWebLLMProgress(report.progress);
-      const reportText = report.text?.toLowerCase?.() || '';
-      const isComplete = normalizedProgress >= 1 || reportText.includes('complete');
-
       setWebLLMProgress(report);
       setWebLLMMaxProgress(prev => Math.max(prev, normalizedProgress));
       setWebllmError(null);
       setStatus(prev => ({ ...prev, webllm: 'initializing' }));
 
-      if (isComplete) {
-        setTimeout(() => {
-          setStatus(prev => ({ ...prev, webllm: 'ready' }));
-          setWebLLMProgress(null);
-        }, 500);
+      if (normalizedProgress >= 1) {
+        setStatus(prev => ({ ...prev, webllm: 'ready' }));
+        setWebLLMProgress(null);
       }
     };
 
@@ -181,6 +176,8 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
     setSelectedModel(modelId);
     setShowModelSelector(false);
     setWebllmError(null);
+    setWebLLMProgress(null);
+    setWebLLMMaxProgress(0);
     setStatus(prev => ({ ...prev, webllm: 'initializing' }));
 
     try {
@@ -189,6 +186,8 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       setStatus(prev => ({ ...prev, webllm: 'pending' }));
       setSelectedModel(null);
       setShowModelSelector(true);
+      setWebLLMProgress(null);
+      setWebLLMMaxProgress(0);
       setWebllmError(error instanceof Error ? error.message : 'Failed to initialize the selected model.');
     }
   };
