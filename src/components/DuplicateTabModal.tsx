@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Copy, ExternalLink } from 'lucide-react';
 
 const CHANNEL_NAME = 'origami_tab_sync';
-const HEARTBEAT_INTERVAL = 2000; // ms
-const HEARTBEAT_TIMEOUT = 5000;  // ms — if no ping heard for this long, assume other tab is gone
+const HEARTBEAT_INTERVAL = 2000; // ms between heartbeat pings from the primary tab
+const HEARTBEAT_MISS_THRESHOLD = 3; // number of missed heartbeat intervals before assuming primary is gone
+const HEARTBEAT_MONITOR_INTERVAL = 1000; // ms — how often we check for missed heartbeats
 
 export const DuplicateTabModal: React.FC = () => {
     const [isDuplicate, setIsDuplicate] = useState(false);
@@ -15,8 +16,9 @@ export const DuplicateTabModal: React.FC = () => {
 
         const channel = new BroadcastChannel(CHANNEL_NAME);
         let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-        let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+        let monitorInterval: ReturnType<typeof setInterval> | null = null;
         let isDuplicateTab = false;
+        let lastHeartbeat = Date.now();
 
         // Step 1: Announce ourselves and listen for a response
         channel.postMessage({ type: 'ORIGAMI_TAB_OPEN' });
@@ -43,29 +45,18 @@ export const DuplicateTabModal: React.FC = () => {
             setIsDuplicate(true);
             requestAnimationFrame(() => setIsAnimating(true));
 
-            // Listen for the primary tab to close (heartbeat stops)
-            const resetTimeout = () => {
-                if (timeoutTimer) clearTimeout(timeoutTimer);
-                timeoutTimer = setTimeout(() => {
-                    // Primary tab appears to be gone — dismiss and take over
-                    setIsAnimating(false);
-                    setTimeout(() => {
-                        setIsDuplicate(false);
-                        isDuplicateTab = false;
-                        startPrimary();
-                    }, 300);
-                }, HEARTBEAT_TIMEOUT);
-            };
-            resetTimeout();
+            // Use a last-seen timestamp and a small miss-threshold to avoid
+            // spuriously dismissing the modal if a heartbeat is delayed.
+            lastHeartbeat = Date.now();
 
-            // Re-arm the timeout on each heartbeat received
+            // Update lastHeartbeat on each heartbeat and react to explicit closing
             channel.onmessage = (e) => {
                 if (e.data?.type === 'ORIGAMI_HEARTBEAT') {
-                    resetTimeout();
+                    lastHeartbeat = Date.now();
                 }
-                // If primary announces it's closing
+                // If primary announces it's closing, take over immediately
                 if (e.data?.type === 'ORIGAMI_TAB_CLOSING') {
-                    if (timeoutTimer) clearTimeout(timeoutTimer);
+                    if (monitorInterval) clearInterval(monitorInterval);
                     setIsAnimating(false);
                     setTimeout(() => {
                         setIsDuplicate(false);
@@ -74,6 +65,19 @@ export const DuplicateTabModal: React.FC = () => {
                     }, 300);
                 }
             };
+
+            // Periodically check whether we've missed too many heartbeats.
+            monitorInterval = setInterval(() => {
+                if (Date.now() - lastHeartbeat > HEARTBEAT_INTERVAL * HEARTBEAT_MISS_THRESHOLD) {
+                    if (monitorInterval) clearInterval(monitorInterval);
+                    setIsAnimating(false);
+                    setTimeout(() => {
+                        setIsDuplicate(false);
+                        isDuplicateTab = false;
+                        startPrimary();
+                    }, 300);
+                }
+            }, HEARTBEAT_MONITOR_INTERVAL);
         };
 
         channel.onmessage = (e) => {
@@ -95,7 +99,7 @@ export const DuplicateTabModal: React.FC = () => {
         return () => {
             clearTimeout(announceTimeout);
             if (heartbeatTimer) clearInterval(heartbeatTimer);
-            if (timeoutTimer) clearTimeout(timeoutTimer);
+            if (monitorInterval) clearInterval(monitorInterval);
             channel.postMessage({ type: 'ORIGAMI_TAB_CLOSING' });
             channel.close();
             window.removeEventListener('beforeunload', handleUnload);
