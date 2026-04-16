@@ -334,6 +334,37 @@ function MainApp() {
   };
 
   const renderer = useMemo(() => new BrowserVideoRenderer(), []);
+  const waitForTTSInitialization = React.useCallback((quantization: 'q8' | 'q4'): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      const handleInitComplete = () => {
+        ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
+        resolve();
+      };
+
+      ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
+
+      try {
+        initTTS(quantization);
+      } catch (error) {
+        ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
+        reject(error);
+      }
+    });
+  }, []);
+
+  const runInitialSetupQueue = React.useCallback(async (
+    queue: { tts: boolean; ffmpeg: boolean },
+    ttsQuantization: 'q8' | 'q4'
+  ) => {
+    if (queue.tts) {
+      await waitForTTSInitialization(ttsQuantization);
+    }
+
+    if (queue.ffmpeg) {
+      await renderer.load();
+    }
+  }, [renderer, waitForTTSInitialization]);
+
   const enforceTtsEnabled = React.useCallback((slide: SlideData): SlideData => {
     if (slide.isTtsDisabled === false) return slide;
     return { ...slide, isTtsDisabled: false };
@@ -488,37 +519,35 @@ function MainApp() {
           // We only need to init things that were NOT cached but user WANTED.
           // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
 
+          const queue = {
+            tts: !cached.tts && !!pref.downloadTTS,
+            ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
+            webllm: shouldEnableInitialWebLLM,
+          };
+
           // Check if we need to show unified init modal
-          const needsInit = (!cached.tts && pref.downloadTTS) ||
-            (!cached.ffmpeg && pref.downloadFFmpeg) ||
-            shouldEnableInitialWebLLM;
+          const needsInit = queue.tts || queue.ffmpeg || queue.webllm;
 
           if (needsInit && !hideSetupModal) {
-            setActiveDownloads({
-              tts: !cached.tts && !!pref.downloadTTS,
-              ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
-              webllm: shouldEnableInitialWebLLM,
-            });
+            setActiveDownloads(queue);
             setIsWebLLMInitModalOpen(true);
           }
 
-          // Initialize TTS first and wait for completion
-          if (pref.downloadTTS && !cached.tts) {
-            await new Promise<void>((resolve) => {
-              const handleInitComplete = () => {
-                ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
-                resolve();
-              };
-              ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
-              initTTS(settings?.ttsQuantization || 'q4');
-            });
+          // Initialize strictly one-at-a-time: TTS -> FFmpeg.
+          if (queue.tts || queue.ffmpeg) {
+            try {
+              await runInitialSetupQueue(
+                { tts: queue.tts, ffmpeg: queue.ffmpeg },
+                settings?.ttsQuantization || 'q4'
+              );
+            } catch (error) {
+              console.error('Failed to complete queued setup resources:', error);
+            }
           }
 
-          if (pref.downloadFFmpeg && !cached.ffmpeg) renderer.load().catch(console.error);
-
-          // Initialize WebLLM after TTS completes
+          // Configure WebLLM after earlier resources have been handled.
           // Note: Model selection will happen via UnifiedInitModal callback
-          if (shouldEnableInitialWebLLM) {
+          if (queue.webllm) {
             // WebLLM initialization deferred to model selection via UnifiedInitModal
             // Just ensure the preference is saved
             const model = settings?.webLlmModel || getDefaultWebLlmModel(webgpuStatus?.hasF16 ?? true);
@@ -570,37 +599,33 @@ function MainApp() {
       localStorage.setItem('hide_setup_modal', 'true');
     }
 
+    const queue = {
+      tts: !cached.tts && !!selection.downloadTTS,
+      ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
+      webllm: shouldEnableWebLLM,
+    };
+
     // Check if we need to show unified init modal
-    const needsInit = (!cached.tts && selection.downloadTTS) ||
-      (!cached.ffmpeg && selection.downloadFFmpeg) ||
-      shouldEnableWebLLM;
+    const needsInit = queue.tts || queue.ffmpeg || queue.webllm;
 
     if (needsInit && !hideSetupModal) {
-      setActiveDownloads({
-        tts: !cached.tts && !!selection.downloadTTS,
-        ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
-        webllm: shouldEnableWebLLM,
-      });
+      setActiveDownloads(queue);
       setIsWebLLMInitModalOpen(true);
     }
 
-    if (selection.downloadTTS && !cached.tts) {
-      // Initialize TTS and wait for it to complete
-      await new Promise<void>((resolve) => {
-        const handleInitComplete = () => {
-          ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
-          resolve();
-        };
-        ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
-        initTTS(globalSettings?.ttsQuantization || 'q4');
-      });
+    // Initialize strictly one-at-a-time: TTS -> FFmpeg.
+    if (queue.tts || queue.ffmpeg) {
+      try {
+        await runInitialSetupQueue(
+          { tts: queue.tts, ffmpeg: queue.ffmpeg },
+          globalSettings?.ttsQuantization || 'q4'
+        );
+      } catch (error) {
+        console.error('Failed to complete queued setup resources:', error);
+      }
     }
 
-    if (selection.downloadFFmpeg && !cached.ffmpeg) {
-      renderer.load().catch(console.error);
-    }
-
-    if (shouldEnableWebLLM && webgpuStatus) {
+    if (queue.webllm && webgpuStatus) {
       // Enable WebLLM in settings without starting initialization
       // Model selection and initialization will happen via UnifiedInitModal
       const defaultModel = getDefaultWebLlmModel(webgpuStatus.hasF16);
@@ -648,7 +673,7 @@ function MainApp() {
   const handleWebLLMModelSelect = async (modelId: string) => {
     try {
       // Save selected model to settings
-      await handlePartialGlobalSettings({ webLlmModel: modelId });
+      await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: modelId });
 
       // Initialize WebLLM with the selected model and let the setup modal track progress.
       await initWebLLM(modelId, (progress) => console.log('WebLLM Init:', progress));
@@ -759,10 +784,14 @@ function MainApp() {
       previewMode: 'modal',
     };
 
-    const current = globalSettings || defaults;
+    // Merge against latest persisted settings to avoid stale in-memory state
+    // overwriting fields during rapid multi-step setup flows.
+    const persisted = await loadGlobalSettings();
+    const current = persisted || globalSettings || defaults;
     const newSettings = { ...current, ...updates };
 
-    await handleSaveGlobalSettings(newSettings);
+    await saveGlobalSettings(newSettings);
+    setGlobalSettings(newSettings);
   };
 
   const onUploadComplete = async (pages: RenderedPage[]) => {

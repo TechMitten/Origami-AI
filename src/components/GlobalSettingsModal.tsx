@@ -119,6 +119,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       if (currentModelId) {
         const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === currentModelId);
         setCurrentLoadedModel(modelInfo ? getWebLlmOptionLabel(modelInfo) : currentModelId);
+        setWebLlmModel(currentModelId);
       } else {
         setCurrentLoadedModel(null);
       }

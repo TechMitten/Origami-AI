@@ -80,6 +80,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       models: filteredCompatibleModels.filter((model) => !model.capabilities?.includes('vision')),
     },
   ].filter((group) => group.models.length > 0);
+  const arePrerequisitesReadyForWebLLM = status.tts === 'ready' && status.ffmpeg === 'ready';
 
   const normalizeWebLLMProgress = (progress: number) => {
     if (!Number.isFinite(progress)) return 0;
@@ -97,11 +98,6 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       setWebllmError(null);
       setCapabilityFilter('all');
       return;
-    }
-
-    // Show model selector if WebLLM is being initialized and no model is selected
-    if (activeResources?.webllm && !selectedModel) {
-      setShowModelSelector(true);
     }
 
     // TTS Progress
@@ -165,6 +161,14 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
       webLlmEvents.removeEventListener('webllm-init-complete', handleWebLLMComplete);
     };
   }, [isOpen, activeResources?.webllm, selectedModel]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (activeResources?.webllm && !selectedModel) {
+      setShowModelSelector(arePrerequisitesReadyForWebLLM);
+    }
+  }, [isOpen, activeResources?.webllm, selectedModel, arePrerequisitesReadyForWebLLM]);
 
   // Check if all *active* resources are ready (inactive/skipped ones are already 'ready' from init)
   // For WebLLM with model selection, we need to wait for both model selection AND initialization
@@ -318,7 +322,11 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 border border-emerald-500/20 font-medium">Ready</span>
                   )}
                 </div>
-                {showModelSelector && !selectedModel ? (
+                {(activeResources?.webllm && !selectedModel && !showModelSelector) ? (
+                  <div className="rounded border border-white/10 bg-white/5 p-2 text-xs text-white/60">
+                    Waiting for Voice Narration (TTS) and Video Creator (FFmpeg) to finish before model selection.
+                  </div>
+                ) : showModelSelector && !selectedModel ? (
                   <div className="mt-3 space-y-2">
                     {webGpuSupport && !webGpuSupport.supported && (
                       <div className="rounded border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-100">
