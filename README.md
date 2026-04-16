@@ -225,7 +225,7 @@ For local development, you can use browser-exposed API keys:
      ```env
      VITE_LLM_API_KEY=your_api_key_here
      VITE_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-     VITE_LLM_MODEL=gemini-2.5-flash-lite
+     VITE_LLM_MODEL=gemini-flash-latest
      ```
    - Start the dev server: `npm run dev`
    - The `VITE_` prefix tells Vite to expose the key to the client bundle (safe only in dev)
