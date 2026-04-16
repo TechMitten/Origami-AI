@@ -276,6 +276,29 @@ const normalizeModelForRequest = (model: string): string => model.replace(/^mode
 const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string): Promise<string> => {
   const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
   const normalizedModel = normalizeModelForRequest((modelOverride || settings.model || '').trim());
+
+  // If no API key is provided to the client, proxy the request to the server so the secret stays server-side.
+  if (typeof window !== 'undefined' && (!settings.apiKey || !settings.apiKey.trim())) {
+    const proxyResp = await fetch('/api/llm/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseUrl: settings.baseUrl, model: normalizedModel, messages, temperature }),
+    });
+
+    if (!proxyResp.ok) {
+      const text = await proxyResp.text().catch(() => '');
+      let errMsg = text || `LLM proxy failed: ${proxyResp.statusText}`;
+      try {
+        const parsed = JSON.parse(text || '{}');
+        errMsg = parsed.error?.message || parsed.error || errMsg;
+      } catch { /* ignore */ }
+      throw new Error(errMsg);
+    }
+
+    const data = await proxyResp.json().catch(() => ({}));
+    return data.choices?.[0]?.message?.content || data?.choices?.[0]?.message?.content || data?.content || '';
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -809,10 +832,6 @@ export const analyzeVideoNarrationWithGemini = async (
     onProgress?: (update: VideoAnalysisProgress) => void;
   }
 ): Promise<VideoNarrationAnalysis> => {
-  if (!settings.apiKey?.trim()) {
-    throw new Error('Missing API key for Gemini video analysis.');
-  }
-
   const model = settings.model?.trim() || 'gemini-2.5-flash-lite';
   context.onProgress?.({ stage: 'Preparing request', progress: 5 });
   const userPrompt = [
@@ -822,6 +841,47 @@ export const analyzeVideoNarrationWithGemini = async (
     'Return strictly valid JSON only. Do not include markdown fences.',
     'Use EXACT keys: video_metadata.title, video_metadata.total_estimated_duration, and scenes[].{step_number,timestamp_start,on_screen_action,narration_text,duration_seconds}.',
   ].filter(Boolean).join('\n');
+
+  // If the client does not have an API key (no VITE_LLM_API_KEY baked in), proxy the entire analysis to the server.
+  if (typeof window !== 'undefined' && (!settings.apiKey || !settings.apiKey.trim())) {
+    try {
+      const body: any = {
+        baseUrl: settings.baseUrl,
+        model,
+        systemPrompt: GEMINI_VIDEO_ANALYSIS_SYSTEM_PROMPT,
+        userPrompt,
+      };
+
+      if (context.mediaBlob) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Failed to read media blob'));
+          reader.readAsDataURL(context.mediaBlob as Blob);
+        });
+        const parts = dataUrl.split(',');
+        body.mediaBase64 = parts.length > 1 ? parts[1] : parts[0];
+        body.mediaMimeType = context.mediaMimeType?.trim() || context.mediaBlob?.type || 'video/mp4';
+        body.mediaFileName = context.fileNameHint || 'upload.mp4';
+      }
+
+      context.onProgress?.({ stage: 'Uploading/Generating', progress: 30 });
+      const resp = await fetch('/api/llm/analyze-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(errText || 'Server LLM analyze failed');
+      }
+      const text = await resp.text();
+      context.onProgress?.({ stage: 'Analysis ready', progress: 88 });
+      return { ...parseVideoNarrationAnalysis(text), rawJson: stripCodeFence(text) };
+    } catch (err) {
+      throw err;
+    }
+  }
 
   if (!context.mediaBlob) {
     // Fallback path for callers that do not provide a media blob.
@@ -913,20 +973,11 @@ export const analyzeIssueCaptureWithGemini = async (
     onProgress?: (update: VideoAnalysisProgress) => void;
   }
 ): Promise<IssueCaptureAnalysis> => {
-  if (!settings.apiKey?.trim()) {
-    throw new Error('Missing API key for Gemini issue capture analysis.');
-  }
-
   if (!context.mediaBlob) {
     throw new Error('A screen recording is required for issue analysis.');
   }
 
-  if (!isGoogleGeminiEndpoint(settings.baseUrl)) {
-    throw new Error('Issue capture analysis requires a Google Gemini endpoint. Set Base URL to generativelanguage.googleapis.com and retry.');
-  }
-
   const model = settings.model?.trim() || 'gemini-2.5-flash-lite';
-  const apiKey = getGeminiApiKey(settings);
   const mimeType = context.mediaMimeType?.trim() || context.mediaBlob.type || 'video/webm';
 
   context.onProgress?.({ stage: 'Preparing request', progress: 5 });
@@ -942,6 +993,45 @@ export const analyzeIssueCaptureWithGemini = async (
     'Use EXACT keys: issue_title, issue_summary, observed_behavior, expected_behavior, reproduction_steps, technical_clues, recommended_prompt.',
   ].filter(Boolean).join('\n');
 
+  // If client doesn't have an API key, proxy the issue analysis to the server
+  if (typeof window !== 'undefined' && (!settings.apiKey || !settings.apiKey.trim())) {
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Failed to read media blob'));
+        reader.readAsDataURL(context.mediaBlob as Blob);
+      });
+      const parts = dataUrl.split(',');
+      const body: any = {
+        baseUrl: settings.baseUrl,
+        model,
+        systemPrompt: GEMINI_ISSUE_CAPTURE_ANALYSIS_SYSTEM_PROMPT,
+        userPrompt,
+        mediaBase64: parts.length > 1 ? parts[1] : parts[0],
+        mediaMimeType: mimeType,
+        mediaFileName: context.fileNameHint || 'issue-recording.webm',
+      };
+
+      context.onProgress?.({ stage: 'Uploading/Generating', progress: 30 });
+      const resp = await fetch('/api/llm/analyze-issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(errText || 'Server LLM analyze failed');
+      }
+      const text = await resp.text();
+      context.onProgress?.({ stage: 'Prompt ready', progress: 92 });
+      return { ...parseIssueCaptureAnalysis(text), rawJson: stripCodeFence(text) };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  const apiKey = getGeminiApiKey(settings);
   let uploadedFile: GeminiFileResource | null = null;
 
   try {

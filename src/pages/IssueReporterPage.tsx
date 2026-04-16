@@ -303,15 +303,9 @@ export const IssueReporterPage: React.FC = () => {
     }
 
     const settings = getConfiguredGeminiSettings();
-    if (!settings.apiKey.trim()) {
-      showAlert('Add your Gemini API key in Settings before generating an issue prompt.', {
-        type: 'warning',
-        title: 'Gemini Not Configured',
-      });
-      return;
-    }
+    const hasClientApiKey = Boolean(settings.apiKey.trim());
 
-    if (!/generativelanguage\.googleapis\.com/i.test(settings.baseUrl)) {
+    if (hasClientApiKey && !/generativelanguage\.googleapis\.com/i.test(settings.baseUrl)) {
       showAlert('Issue video analysis uses Gemini file uploads, so the Base URL must point to the Google Gemini endpoint.', {
         type: 'warning',
         title: 'Gemini Endpoint Required',
