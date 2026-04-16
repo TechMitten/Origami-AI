@@ -206,6 +206,82 @@ Access settings via the **⚙️ Settings** button in the app header. Key config
 | **API** | Configure remote OpenAI-compatible providers (Gemini, OpenRouter, Ollama) |
 | **AI Prompt** | Customize narration script generation behavior |
 
+### API Key Configuration
+
+Origami AI supports both **local inference** (WebLLM, no API key needed) and **cloud-based APIs** (Gemini, OpenAI-compatible providers) for AI narration generation, video analysis, and bug reporting.
+
+#### Development Setup
+
+For local development, you can use browser-exposed API keys:
+
+1. **Get a Gemini API Key** (free tier available):
+   - Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+   - Click "Get API key"
+   - Copy the generated key
+
+2. **Configure for Development**:
+   - Create a `.env` file in the project root (copy from `.env.example`)
+   - Set `VITE_LLM_API_KEY` to your Gemini API key:
+     ```env
+     VITE_LLM_API_KEY=your_api_key_here
+     VITE_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+     VITE_LLM_MODEL=gemini-2.5-flash-lite
+     ```
+   - Start the dev server: `npm run dev`
+   - The `VITE_` prefix tells Vite to expose the key to the client bundle (safe only in dev)
+
+3. **In Settings** (app ⚙️ button):
+   - Go to **API** tab
+   - Verify **Base URL** and **Model** match your configuration
+   - The app will use your API key for AI operations (narration, analysis, chat)
+
+#### Production Setup (Recommended)
+
+To prevent exposing API keys in production builds, use server-side proxy endpoints:
+
+1. **Configure Server-Only Key**:
+   - Set `LLM_API_KEY` environment variable on your production server/host:
+     ```bash
+     export LLM_API_KEY=your_api_key_here
+     ```
+   - **Do NOT set `VITE_LLM_API_KEY`** in production (it would be baked into the client bundle)
+
+2. **Client Configuration**:
+   - In production builds, the client will have no API key
+   - The app automatically detects this and proxies requests to the server
+   - Server endpoints handle the API calls securely:
+     - `POST /api/llm/chat` - Chat/completion requests
+     - `POST /api/llm/analyze-video` - Video analysis with file upload
+     - `POST /api/llm/analyze-issue` - Issue recording analysis
+
+3. **Deploy**:
+   - Build: `npm run build`
+   - Deploy the `dist/` folder to your host
+   - Ensure `LLM_API_KEY` is set in your host's environment (not in code)
+   - Run: `npm run preview` or use your host's production runner
+
+#### Environment Variables Reference
+
+| Variable | Context | Purpose |
+|----------|---------|---------|
+| `VITE_LLM_API_KEY` | Client (dev only) | Exposes API key to browser for development; **NEVER set in production** |
+| `LLM_API_KEY` | Server (prod) | Server-side API key for proxy endpoints; kept secret from client |
+| `VITE_LLM_BASE_URL` | Client | Endpoint URL (e.g., `https://generativelanguage.googleapis.com/v1beta/openai/`) |
+| `VITE_LLM_MODEL` | Client | Model identifier (e.g., `gemini-2.5-flash-lite`) |
+| `CLIENT_URL` | Server CORS | Comma-separated list of allowed client origins (e.g., `http://localhost:3000`) |
+| `PORT` | Server | Port to run the server on (default: 3000) |
+| `NODE_ENV` | Runtime | Set to `production` for production builds |
+
+#### Security Best Practices
+
+- ✅ **Use local WebLLM** when possible (no API key needed)
+- ✅ **Server-side keys only** in production (use `LLM_API_KEY` without `VITE_` prefix)
+- ✅ **Rotate keys** if accidentally exposed in source control
+- ✅ **Use environment variables** for secrets (never hardcode in source)
+- ❌ **Never commit `.env`** to source control (use `.env.example` as template)
+- ❌ **Don't use `VITE_LLM_API_KEY`** in production builds
+- ❌ **Don't expose `LLM_API_KEY`** through client-side code
+
 ### Video Editing
 
 Once a PDF is loaded, the **Slide Editor** provides five tabs:
