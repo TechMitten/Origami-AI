@@ -8,7 +8,7 @@
   </div>
 </div>
 
-<p style="text-align:center;margin-top:6px;"><strong>Transform PDF presentations into cinematic narrated videos with AI-generated scripts, browser-based TTS, and local rendering.</strong></p>
+<p style="text-align:center;margin-top:6px;"><strong>Transform PDF presentations into cinematic, narrated videos — AI-generated scripts, local WebLLM TTS, scene-aware video analysis and bug reporting, Chrome-extension-assisted recording, and in-browser FFmpeg rendering.</strong></p>
 
 ## Table of Contents
 
