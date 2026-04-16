@@ -399,6 +399,22 @@ For comprehensive troubleshooting guidance including WebGPU issues, performance 
 
 ## Notes
 
+### Downloadable Chrome extension ZIP (In-App)
+
+- You can download a packaged ZIP of the Chrome/Edge extension directly from the app UI:
+   - **Header Actions menu** → "Download Chrome Extension"
+   - **Slide Editor** → Tools → *Slide Media* → "Download Extension" card → "Download ZIP"
+- The ZIP included in source is located at `src/assets/extension/chrome-extension.zip` and the production build emits it to `dist/assets/` with a hashed filename (e.g. `chrome-extension-<hash>.zip`).
+- Install tip: download and unzip the archive, then open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the unzipped folder.
+
+**Developer note:** the repo imports the ZIP as a Vite asset URL. Use the `?url` suffix when importing so the file is treated as a static asset, e.g.:
+
+```ts
+import chromeExtensionZipUrl from '../assets/extension/chrome-extension.zip?url';
+```
+
+This avoids Rollup parsing binary content errors during production builds.
+
 - AI workflows can run locally in-browser; model downloads are cached after first use.
 - First-time setup can take several minutes based on network speed and model size.
 - Rendering and analysis performance depend on available CPU/GPU/memory.

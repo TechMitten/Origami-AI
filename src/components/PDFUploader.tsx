@@ -161,7 +161,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
             "text-lg sm:text-xl font-medium text-white mb-2 transition-colors duration-200",
             isDragActive && "text-blue-300"
           )}>
-            Studio
+            Slide Studio
           </h3>
 
           {/* Description */}
@@ -227,7 +227,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
           </div>
 
           <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-emerald-200 transition-colors duration-200">
-            Slide Editor
+            Editor
           </h3>
 
           <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">

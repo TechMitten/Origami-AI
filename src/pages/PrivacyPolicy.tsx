@@ -76,7 +76,7 @@ export const PrivacyPolicy: React.FC = () => {
               </p>
               <div className="mt-4 p-4 bg-branding-primary/5 border border-branding-primary/20 rounded-xl">
                 <p className="text-white/60 text-xs">
-                  Even though content processing happens on your device, some information may still be collected through standard website operations (like analytics, hosting logs, and third-party assets), as described below.
+                  Even though content processing happens on your device, some information may still be collected through standard website operations (like hosting logs and third-party assets), as described below.
                 </p>
               </div>
             </div>
@@ -109,23 +109,7 @@ export const PrivacyPolicy: React.FC = () => {
 
               <div>
                 <h3 className="text-base font-bold text-white mb-3">B. Analytics Data</h3>
-                <p className="mb-3">We use analytics tools (including <strong>Umami</strong>) to understand how the Service is used:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  {['Pages viewed and actions', 'Device and browser info', 'Referring/exit pages', 'General usage metrics'].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                      <span className="text-branding-secondary">→</span>
-                      <span className="text-xs">{item}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                  <p className="text-red-400 font-bold text-xs uppercase tracking-wider mb-2">Analytics DO NOT collect:</p>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Full IP addresses</li>
-                    <li>• Precise geolocation</li>
-                    <li>• Session replay or screen recording</li>
-                  </ul>
-                </div>
+                <p className="mb-3">We do not use third-party analytics tools. The Service is designed to minimize data collection.</p>
               </div>
 
               <div>
@@ -173,7 +157,7 @@ export const PrivacyPolicy: React.FC = () => {
               {[
                 'Provide and maintain the Service',
                 'Monitor performance, fix bugs, improve features',
-                'Understand usage trends (analytics)',
+                'Understand usage trends',
                 'Secure the Service, prevent abuse',
                 'Comply with legal obligations'
               ].map((item, i) => (
@@ -199,10 +183,6 @@ export const PrivacyPolicy: React.FC = () => {
                 <ul className="space-y-2 ml-4">
                   <li className="flex items-start gap-2">
                     <span className="text-branding-secondary mt-1">•</span>
-                    <span>Analytics providers (e.g., Umami)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-branding-secondary mt-1">•</span>
                     <span>Infrastructure providers (hosting, monitoring, CDNs)</span>
                   </li>
                 </ul>
@@ -226,7 +206,7 @@ export const PrivacyPolicy: React.FC = () => {
               </div>
               <div className="mt-4 p-4 bg-branding-primary/5 border border-branding-primary/20 rounded-xl">
                 <p className="font-semibold text-branding-primary text-xs uppercase tracking-wider mb-2">Important Note</p>
-                <p className="text-white/80 text-xs">Because Origami processes and stores content in your browser, we typically do not have access to uploaded documents. If we receive a legal request, we can only provide analytics data, server logs, and information you send us directly.</p>
+                <p className="text-white/80 text-xs">Because Origami processes and stores content in your browser, we typically do not have access to uploaded documents. If we receive a legal request, we can only provide server logs and information you send us directly.</p>
               </div>
             </div>
           </section>
@@ -238,7 +218,7 @@ export const PrivacyPolicy: React.FC = () => {
               <h2 className="text-xl font-black text-white">5) Cookies and Similar Technologies</h2>
             </div>
             <p className="text-white/70 text-sm leading-relaxed">
-              We use cookies for analytics. Cookies are small text files placed on your device. You can control cookies through your browser settings, including blocking or deleting cookies. If you disable cookies, some analytics functionality may not work as intended (the Service itself should still function).
+              We use cookies for site functionality. Cookies are small text files placed on your device. You can control cookies through your browser settings, including blocking or deleting cookies. If you disable cookies, some functionality may not work as intended (the Service itself should still function).
             </p>
           </section>
 
@@ -254,8 +234,8 @@ export const PrivacyPolicy: React.FC = () => {
                 <p className="text-white/70 text-xs">Uploaded PDFs and generated outputs may persist in your browser via <strong>localStorage</strong> until you clear it.</p>
               </div>
               <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                <p className="text-branding-primary font-bold text-xs uppercase tracking-wider mb-2">Analytics and logs</p>
-                <p className="text-white/70 text-xs">We retain analytics and server logs for as long as reasonably necessary for improving the Service, maintaining security, and complying with legal obligations.</p>
+                <p className="text-branding-primary font-bold text-xs uppercase tracking-wider mb-2">Server logs</p>
+                <p className="text-white/70 text-xs">We retain server logs for as long as reasonably necessary for improving the Service, maintaining security, and complying with legal obligations.</p>
               </div>
             </div>
           </section>
