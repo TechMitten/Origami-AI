@@ -32,6 +32,7 @@ import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { Video } from 'lucide-react';
 import { PageHeader } from './components/PageHeader';
+import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
 
 
@@ -68,6 +69,7 @@ function MainApp() {
   });
 
   const [isRestoring, setIsRestoring] = useState(true);
+  const [enteredEditorWithoutPdf, setEnteredEditorWithoutPdf] = useState(false);
   const { showAlert, showConfirm } = useModal();
   const [renderAbortController, setRenderAbortController] = useState<AbortController | null>(null);
   const [renderProgress, setRenderProgress] = useState<number>(0);
@@ -795,6 +797,8 @@ function MainApp() {
   };
 
   const onUploadComplete = async (pages: RenderedPage[]) => {
+    setEnteredEditorWithoutPdf(false);
+
     // If global defaults are enabled, use them
     let voice = 'af_heart';
     let transition: SlideData['transition'] = 'fade';
@@ -1376,6 +1380,8 @@ function MainApp() {
     return !!slide.audioUrl;
   });
 
+  const shouldShowEditor = slides.length > 0 || enteredEditorWithoutPdf;
+
   return (
     <div className={`page-zoom-130 min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>
       <input
@@ -1433,6 +1439,15 @@ function MainApp() {
         ) : undefined}
         actionMenuContent={(closeMenu) => (
           <>
+            <a
+              href={chromeExtensionZip}
+              download="chrome-extension.zip"
+              onClick={closeMenu}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <Download className="w-4 h-4" /> Download Chrome Extension
+            </a>
+            {slides.length > 0 && <div className="my-1 h-px bg-white/10" />}
             {slides.length > 0 && (
               <>
                 <button
@@ -1483,7 +1498,7 @@ function MainApp() {
       />
 
       <main className={`mx-auto fade-transition ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`} key={activeTab}>
-        {slides.length === 0 ? (
+        {!shouldShowEditor ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
             <PDFUploader
               onUploadComplete={onUploadComplete}
@@ -1491,6 +1506,10 @@ function MainApp() {
               onStartScreenRecord={handleStartScreenRecord}
               onOpenAssistant={() => navigate('/assistant')}
               onOpenIssueReporter={() => navigate('/issue-reporter')}
+              onOpenSlideEditor={() => {
+                setActiveTab('edit');
+                setEnteredEditorWithoutPdf(true);
+              }}
             />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
@@ -1631,6 +1650,7 @@ function MainApp() {
                 onViewModeChange={setSlideEditorViewMode}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onStartScreenRecord={handleStartScreenRecord}
+                defaultToolsConfigTab={enteredEditorWithoutPdf ? 'media' : 'tools'}
               />
             )}
           </div>

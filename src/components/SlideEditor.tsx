@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench, Camera } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench, Camera, Download } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,7 @@ import { Dropdown } from './Dropdown';
 import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
 import { ZoomTimelineEditor } from './ZoomTimelineEditor';
+import chromeExtensionZip from '../assets/extension/chrome-extension.zip?url';
 
 export interface VideoNarrationSceneTrack {
   id: string;
@@ -149,6 +150,7 @@ interface SlideEditorProps {
   onViewModeChange: (mode: SlideEditorViewMode) => void;
   onOpenSettings?: () => void;
   onStartScreenRecord?: () => void;
+  defaultToolsConfigTab?: 'overview' | 'voice' | 'mixing' | 'tools' | 'media';
 }
 
 const ScriptEditorModal = ({
@@ -1336,7 +1338,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onUpdateGlobalSettings,
   viewMode,
   onOpenSettings,
-  onStartScreenRecord
+  onStartScreenRecord,
+  defaultToolsConfigTab = 'tools'
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
@@ -1385,7 +1388,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
 
 
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>('tools');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>(defaultToolsConfigTab);
   const [isMobile, setIsMobile] = useState(false);
   const [isConfigureSlidesExpanded, setIsConfigureSlidesExpanded] = useState(() => {
     const saved = localStorage.getItem('configureSlidesExpanded');
@@ -3011,7 +3014,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <p className="text-base text-white/50">Manage assets and insert special slide types.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-5">
                       <div className="w-16 h-16 rounded-full bg-branding-primary/10 flex items-center justify-center">
                         <VideoIcon className="w-8 h-8 text-branding-primary" />
@@ -3051,6 +3054,27 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <VideoIcon className="w-4 h-4" />
                         Start Recording
                       </button>
+                    </div>
+
+                    <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-5">
+                      <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                        <Download className="w-8 h-8 text-white" />
+                      </div>
+                      <div className="space-y-2 max-w-sm">
+                        <h4 className="text-lg font-bold text-white">Download Extension</h4>
+                        <p className="text-sm text-white/60 leading-relaxed">
+                          Get the Chrome extension ZIP for screen recording support.
+                        </p>
+                      </div>
+
+                      <a
+                        href={chromeExtensionZip}
+                        download="chrome-extension.zip"
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/25 bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider hover:bg-white/20 hover:border-white/40 active:scale-[0.98] transition-all"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download ZIP
+                      </a>
                     </div>
                   </div>
                 </div>

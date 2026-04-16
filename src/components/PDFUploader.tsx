@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { BrainCircuit, FileText, Loader2, Palette, AlertCircle } from 'lucide-react';
+import { BrainCircuit, Loader2, Palette, AlertCircle, Video } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -17,9 +17,10 @@ interface PDFUploaderProps {
   onStartScreenRecord?: () => void;
   onOpenAssistant?: () => void;
   onOpenIssueReporter?: () => void;
+  onOpenSlideEditor?: () => void;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onImportProject, onStartScreenRecord, onOpenAssistant, onOpenIssueReporter }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,7 +125,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
       </div>
 
       {/* Three Equal-Sized Options */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
         {/* Studio Option - Upload PDF */}
         <div
           {...getRootProps()}
@@ -205,6 +206,44 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onIm
 
           {/* Subtle hover glow */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        </div>
+
+        {/* Slide Editor Option */}
+        <div
+          onClick={onOpenSlideEditor}
+          className={cn(
+            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
+            "bg-[#0F1115] border border-white/10",
+            "hover:border-emerald-500/30 hover:bg-white/[0.02]",
+            "rounded-lg",
+            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
+            "min-h-[280px] sm:min-h-[320px]"
+          )}
+        >
+          <div className={cn(
+            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-emerald-500/5"
+          )}>
+            <Video className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-emerald-300 transition-colors duration-200" />
+          </div>
+
+          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-emerald-200 transition-colors duration-200">
+            Slide Editor
+          </h3>
+
+          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">
+            Enter directly and build with Slide Media without uploading a PDF first
+          </p>
+
+          <div className="mt-auto">
+            <div className={cn(
+              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
+              "bg-white/5 text-white/40 border-white/10 group-hover:bg-emerald-500/5 group-hover:text-emerald-300 group-hover:border-emerald-500/20"
+            )}>
+              Open Editor
+            </div>
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
         </div>
 
         {/* Assistant Option */}

@@ -15,3 +15,8 @@ declare module '*.mp3' {
   const src: string;
   export default src;
 }
+
+declare module '*.zip' {
+  const src: string;
+  export default src;
+}
