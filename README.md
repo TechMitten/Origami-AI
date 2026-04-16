@@ -218,11 +218,11 @@ Once a PDF is loaded, the **Slide Editor** provides five tabs:
 
 ### Advanced Workflows
 
-See detailed documentation for:
-- [Scene Analysis & Alignment](docs/config.md) - Generate narration from video clips
-- [Chrome Extension Setup](chrome-extension/README.md) - Enhanced interaction tracking
-- [AI Assistant Chat](docs/config.md) - Local/cloud model configuration
-- [Bug Reporter](docs/config.md) - Gemini-powered issue analysis
+For additional setup details:
+- **Scene Analysis & Alignment** - Upload MP4 videos to auto-generate timestamped scene breakdowns with Gemini API
+- **Chrome Extension Setup** - See [chrome-extension/README.md](chrome-extension/README.md) for enhanced interaction tracking
+- **AI Assistant Chat** - Configure local WebLLM models or remote API providers in Settings
+- **Bug Reporter** - Requires Gemini API key configured in Settings
 
 ### Project Backup
 
@@ -274,7 +274,6 @@ src/
 
 ### Important Notes for Contributors
 
-- See [CLAUDE.md](CLAUDE.md) for detailed architecture and performance considerations
 - WebGPU memory buffer patch is disabled to prevent performance degradation
 - Vision features were removed in v1.0 - do not restore
 - Always test production builds before submitting changes: `npm run build && npm run preview`
@@ -335,9 +334,7 @@ For comprehensive troubleshooting guidance including WebGPU issues, performance 
 ### Getting Help
 
 - **Issues & Bugs**: Report at [GitHub Issues](https://github.com/IslandApps/Origami-AI/issues)
-- **Discussions**: Join our community [GitHub Discussions](https://github.com/IslandApps/Origami-AI/discussions)
-- **Documentation**: See [docs/](docs/) for detailed guides
-- **Troubleshooting**: See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues
+- **Troubleshooting**: See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues and error recovery
 
 ### When Reporting Issues
 
@@ -386,4 +383,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 Made with ❤️ by the Origami AI community
 
-</div>
+</div

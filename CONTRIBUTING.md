@@ -467,7 +467,6 @@ Help categorize your issue:
 
 ## Getting Help
 
-- Check [CLAUDE.md](CLAUDE.md) for architecture details
 - Review existing code for patterns
 - Ask questions in GitHub Discussions
 - Reach out to maintainers for guidance
