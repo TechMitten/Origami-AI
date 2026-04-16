@@ -16,14 +16,19 @@
 - [Why Origami?](#why-origami)
 - [Key Features](#key-features)
   - [PDF Processing](#pdf-processing)
+  - [Screen Recording & Auto Zoom](#screen-recording--auto-zoom)
+  - [Chrome Extension](#chrome-extension)
   - [AI-Powered Narration](#ai-powered-narration)
   - [Text-to-Speech](#text-to-speech)
   - [Video Editor](#video-editor)
   - [Analyze Video and Scene Alignment](#analyze-video-and-scene-alignment)
+  - [Bug Reporter](#bug-reporter)
+  - [AI Assistant Chat](#ai-assistant-chat)
   - [Video Rendering](#video-rendering)
 - [Getting Started](#getting-started)
   - [Option B - Run Locally](#option-b---run-locally)
   - [Option C - Docker](#option-c---docker)
+  - [Option D - Chrome Extension](#option-d---chrome-extension)
   - [Available Scripts](#available-scripts)
 - [Requirements](#requirements)
   - [Prerequisites](#prerequisites)
@@ -39,6 +44,9 @@
     - [AI Prompt](#ai-prompt)
   - [Configure Slides (In-App)](#configure-slides-in-app)
   - [Analyze Video Workflow (In-App)](#analyze-video-workflow-in-app)
+  - [Browser Extension Setup](#browser-extension-setup)
+  - [AI Assistant Chat](#ai-assistant-chat-1)
+  - [Bug Reporter](#bug-reporter-1)
   - [WebGPU Setup](#webgpu-setup)
 - [Project Backup and Restore](#project-backup-and-restore)
 - [Troubleshooting](#troubleshooting)
@@ -81,6 +89,22 @@ Traditional video creation from presentations is often a choice between **tediou
 - Automatic text extraction from each slide with PDF.js
 - High-resolution image conversion (2x scale)
 
+### Screen Recording & Auto Zoom
+- Record browser tabs (with Chrome extension for DOM telemetry) or desktop screen
+- Automatic cursor position tracking and interaction capture (clicks, key presses, scroll events)
+- **Auto Zoom during idle periods**: Automatically zoom out when user is idle (no cursor movement > 2 seconds), then zoom back in when activity resumes
+- Smooth easing transitions (easeInOutCubic) for natural zoom animations
+- Works seamlessly with fallback local interaction tracking if Chrome extension unavailable
+- Recorded screen data feeds into video editor for scene timing and narration sync
+
+### Chrome Extension
+- Captures real browser tab interactions (cursor position, clicks, keypresses, scrolls) with precise DOM-level telemetry
+- Enables accurate zoom/pan/follow effects based on user interactions on web pages
+- Visual status indicator on extension icon: "ARM" (armed/ready) or "REC" (recording) with color changes
+- Automatically provides fallback if extension unavailable; app uses local interaction tracking
+- Browser tabs only (desktop/OS window recordings don't include DOM telemetry)
+- Recommended for optimal interaction capture during screen recording workflows
+
 ### AI-Powered Narration
 - Local AI processing with MLC-WebLLM
 - Remote API support with OpenAI-compatible providers
@@ -106,6 +130,24 @@ Traditional video creation from presentations is often a choice between **tediou
 - Supports per-scene TTS generation and full scene-batch TTS generation
 - Automatically stretches the effective timeline when narration audio exceeds scene duration
 - Stores raw Gemini JSON output for debugging
+
+### Bug Reporter
+- Record screen capture of bugs and let AI analyze them
+- Describe expected behavior vs. actual issue; AI generates structured debugging report
+- Gemini-powered analysis produces: issue title, summary, reproduction steps, observed/expected behavior, technical clues
+- Output includes a ready-to-paste debugging prompt for faster issue resolution
+- Accessible via dedicated `/issue-reporter` route in main app navigation
+- Requires Gemini API key configured in Settings
+
+### AI Assistant Chat
+- Local AI chatbot powered by WebLLM running entirely in your browser (no data sent to cloud)
+- 9+ available models including Gemma 2 (default, 1.4GB), Llama 3.2 variants, Phi 3.5 Mini/Vision, DeepSeek R1, and more
+- Vision-capable models (Phi 3.5 Vision) can analyze images and video clips
+- Multi-session chat with persistent storage; auto-generated session titles and chronological listing
+- Attach images (up to 8MB) and video clips (up to 20MB) for AI analysis
+- Switch models mid-conversation; sessions auto-save to IndexedDB
+- Accessible via dedicated `/assistant` route in main app navigation
+- Requires WebGPU-capable browser; 1-5GB VRAM depending on model selection
 
 ### Video Rendering
 - Browser rendering using FFmpeg.wasm
@@ -162,6 +204,19 @@ docker compose up --build
 
 App URL: **[http://localhost:3000](http://localhost:3000)**.
 
+### Option D - Chrome Extension
+
+For enhanced browser tab interaction tracking during screen recording:
+
+1. Open `chrome://extensions` in your browser.
+2. Enable **Developer mode** (top-right toggle).
+3. Click **Load unpacked** and select the `chrome-extension/` folder from the repository.
+4. Start Origami AI, enable screen recording, and click the extension icon on any browser tab to capture interactions.
+
+See [chrome-extension/README.md](chrome-extension/README.md) for detailed installation and troubleshooting.
+
+**Note:** The extension is optional but recommended for capturing precise cursor and interaction telemetry on web pages during recording.
+
 ### Available Scripts
 
 - `npm run dev` - Start Express + Vite development server with HMR
@@ -180,14 +235,19 @@ App URL: **[http://localhost:3000](http://localhost:3000)**.
 
 ### Browser Compatibility
 
-| Browser | Minimum Version |
-|---|---|
-| Chrome / Chromium | 113+ |
-| Microsoft Edge | 113+ |
-| Firefox | Nightly (enable `dom.webgpu.enabled`) |
-| Safari | 18+ (macOS Sonoma) |
+| Browser | Minimum Version | Notes |
+|---|---|---|
+| Chrome / Chromium | 113+ | Chrome Extension available for enhanced screen recording |
+| Microsoft Edge | 113+ | Chrome Extension available for enhanced screen recording |
+| Firefox | Nightly (enable `dom.webgpu.enabled`) | Desktop recording supported; Chrome Extension unavailable |
+| Safari | 18+ (macOS Sonoma) | Desktop recording supported; Chrome Extension unavailable |
 
-If WebGPU is unavailable, you can still use remote OpenAI-compatible APIs from Settings.
+**WebGPU Required For:**
+- AI-Powered Narration (local WebLLM)
+- AI Assistant Chat
+- Any local LLM inference
+
+If WebGPU is unavailable, you can still use remote OpenAI-compatible APIs from Settings for narration and analysis.
 
 ### System Requirements
 
@@ -195,15 +255,27 @@ If WebGPU is unavailable, you can still use remote OpenAI-compatible APIs from S
 - 4-core CPU
 - 8GB RAM
 - Integrated GPU with WebGPU support
+- Storage: 50GB+ available space (for model caching)
 
 **Recommended**
 - 8-core CPU
 - 16GB RAM
 - Dedicated GPU with WebGPU support
 - SSD for faster model/model-cache operations
+- Hardware-accelerated video encoding for screen recording workflows
+
+**AI Assistant Chat Requirements**
+- **Gemma 2 2B** (default): 1.4GB download, ~2GB VRAM
+- **Llama 3.2 1B**: 800MB download, ~1.5GB VRAM
+- **Llama 3.2 3B**: 1.7GB download, ~2.5GB VRAM
+- **Phi 3.5 Mini**: 2.5GB download, ~3GB VRAM
+- **Phi 3.5 Vision**: 3.9GB download, ~4GB VRAM (includes vision/image analysis)
+- **DeepSeek R1 Distill 8B**: 4.5GB download, ~5GB VRAM
+- **Note:** F16 models require GPU F16 support; F32 variants available as fallback with slightly higher VRAM
 
 ## How It Works
 
+**Primary Workflow: PDF to Video**
 1. Upload a PDF.
 2. Extract text and convert pages to slide images.
 3. Generate narration scripts with AI.
@@ -211,6 +283,15 @@ If WebGPU is unavailable, you can still use remote OpenAI-compatible APIs from S
 5. Edit scripts, voice, timing, transitions, and music.
 6. Render final MP4 with FFmpeg.wasm.
 7. Download the video.
+
+**Alternative Input: Screen Recording**
+- Record browser tab or desktop screen to capture interactions and generate video content
+- Auto zoom applied during idle periods for cinematic effect
+- Use screen capture as slide media alongside or instead of PDFs
+
+**Supplementary Tools**
+- **AI Assistant Chat** (`/assistant`): Ask questions, attach images/videos for AI analysis, maintain persistent chat sessions
+- **Bug Reporter** (`/issue-reporter`): Record bugs, get AI-powered analysis and debugging suggestions
 
 ## Configuration
 
@@ -292,6 +373,102 @@ Use this workflow after uploading a Slide Media video when you want scene-aware 
 - MP4 files with embedded audio tracks are rejected for this workflow.
 - If model output JSON is malformed, Origami automatically retries with a repair prompt.
 
+### Browser Extension Setup
+
+The Chrome Extension enhances screen recording by capturing precise DOM-level telemetry (cursor position, interactions) for browser tabs.
+
+**Installation:**
+1. Download or clone the repository.
+2. Open `chrome://extensions` in Chrome or Edge.
+3. Enable **Developer mode** (toggle on top right).
+4. Click **Load unpacked**.
+5. Navigate to the `chrome-extension/` folder and select it.
+
+**Usage:**
+- While recording a screen with Origami AI, click the extension icon on your target browser tab.
+- The badge changes from "ARM" (armed) to "REC" (recording) when capturing.
+- Captured data includes cursor position, clicks, keypresses, scrolls, and timestamps.
+- Data is automatically merged with visual recording for synchronized playback and camera effects.
+
+**Data & Privacy:**
+- All data collected stays local in the browser
+- No data is uploaded to external servers
+- Extension data automatically cleaned up when recording stops
+
+**Limitations:**
+- Works on regular web pages only (not `chrome://` or other protected URLs)
+- Browser tab recording only (use desktop/window capture for OS applications)
+- Requires browser reload if extension is updated
+
+### AI Assistant Chat
+
+Configure local AI chatbot settings and model selection for the AI Assistant Chat feature (accessible at `/assistant`).
+
+**Model Selection:**
+- Choose from 9+ models based on your GPU capacity
+- Default: **Gemma 2 2B** (fast, low memory, good quality)
+- Vision models available: **Phi 3.5 Vision** for image and video analysis
+- **Precision filtering**: Choose f16 (faster), f32 (more compatible), or all models
+- Model downloads cached automatically after first use
+
+**Session Management:**
+- Sessions are automatically saved to IndexedDB
+- Create unlimited multi-session conversations
+- Sessions list auto-generated titles and sort chronologically
+- Delete individual sessions or start fresh conversations
+
+**Capabilities:**
+- Text chat with streaming responses
+- Image attachment analysis (JPEG, PNG, WEBP, up to 8MB per image)
+- Video clip analysis (WebM, MP4, up to 20MB per video)
+- Switch models mid-conversation
+- Markdown rendering of AI responses
+
+**Requirements:**
+- WebGPU-capable browser
+- 1-5GB available VRAM (model-dependent)
+- Stable internet for initial model download
+- Browser storage permissions enabled
+
+**Troubleshooting:**
+- If GPU runs out of memory: try a smaller model or close background apps
+- If "device lost" error appears: refresh page and reinitialize the model
+- If models won't download: check internet connection and clear browser cache
+
+### Bug Reporter
+
+Use the Bug Reporter tool (accessible at `/issue-reporter`) to capture and analyze bugs with AI assistance.
+
+**Workflow:**
+1. Navigate to the **Bug Reporter** page.
+2. Describe **"What should happen?"** (expected behavior) - optional but recommended.
+3. Describe **"What is happening instead?"** (observed issue) - optional but recommended.
+4. Click **Record Issue** and reproduce the bug on your screen.
+5. Wait for Gemini AI to analyze the recording.
+6. Review the generated structured bug report.
+7. Copy the **recommended debugging prompt** to your clipboard.
+
+**Analysis Output:**
+Gemini AI generates:
+- **Issue Title** - Concise bug name
+- **Summary** - Brief description
+- **Observed Behavior** - What went wrong
+- **Expected Behavior** - What should happen
+- **Reproduction Steps** - How to reproduce consistently
+- **Technical Clues** - Implementation hints for developers
+- **Recommended Prompt** - Ready-to-paste prompt for further debugging
+
+**Requirements:**
+- Configured Gemini API key in Settings
+- Google Gemini base URL configured (`https://generativelanguage.googleapis.com/v1beta/openai/`)
+- Stable internet connection for video upload and analysis
+
+**Tips:**
+- Screen record the exact moment the bug occurs for best analysis
+- Provide context in the description field for more accurate AI analysis
+- Keep videos short (< 30 seconds) for faster processing
+- Use **Start Over** to clear and record another issue
+
 ### WebGPU Setup
 
 If WebGPU is unavailable:
@@ -324,6 +501,36 @@ Notes:
 - **Analyze Video rejects your MP4 for audio**: Remove the clip audio track, then re-upload and analyze again.
 - **Docker issues**: Confirm Docker is installed/running and has enough disk space/permissions.
 
+### Screen Recording & Auto Zoom Issues
+
+- **Screen recording not starting**: Ensure browser has permission to access screen. Check COOP/COEP headers are set. Try reloading the page.
+- **Auto zoom not activating**: Verify cursor movement was captured during recording. Check that `minIdleDurationMs` (default 2000ms) idle time is met. Review cursor data in the recording.
+- **Chrome Extension not capturing data**: Ensure extension is installed in `chrome://extensions`. Reload the extension if Origami AI was updated. Try desktop recording as fallback if extension unavailable.
+- **Tab recording prompts but captures nothing**: Extension may be disabled or not loaded. Check extension is enabled in `chrome://extensions`. Reinstall if needed.
+
+### AI Assistant Chat Issues
+
+- **Chat page shows "WebGPU not supported"**: Enable hardware acceleration in browser settings, update GPU drivers, use a compatible browser (Chrome 113+, Edge 113+, Firefox Nightly).
+- **Model download stuck or fails**: Check internet connection. Clear browser cache and site data. Try again or switch to a smaller model.
+- **"Device lost" error during chat**: GPU crashed or was disconnected. Refresh the page and reinitialize. Try a smaller model or close background applications.
+- **Chat runs very slow**: Your GPU may be memory-constrained. Close background apps, reduce browser tabs, or switch to a smaller model. Consider F32 variant if F16 causes instability.
+- **AI responses are incomplete or cut off**: Increase max tokens setting or shorten your input prompt. Reduce context length by starting a new chat session.
+- **Cannot attach images or videos**: Ensure files are under size limits (8MB images, 20MB videos). Verify file format (JPEG, PNG, WEBP for images; WebM, MP4 for videos). Check browser storage permissions.
+
+### Bug Reporter Issues
+
+- **Gemini analysis fails immediately**: Verify Gemini API key is configured in Settings. Check base URL is set to `https://generativelanguage.googleapis.com/v1beta/openai/`.
+- **Video upload takes too long or fails**: Check internet connection. Verify file size is reasonable (< 100MB). Try a shorter screen recording. Clear browser cache and retry.
+- **Analysis returns empty or malformed report**: Retry analysis; Origami AI auto-repairs malformed Gemini responses. If issue persists, verify video quality/clarity and that issue is reproducible on screen.
+- **Cannot copy debugging prompt**: Ensure browser clipboard permissions are granted. Try again or manually select and copy the text from the page.
+
+### Chrome Extension Issues
+
+- **Extension icon doesn't appear**: Ensure extension is installed and enabled in `chrome://extensions`. Reload the page and check **Developer mode** is on.
+- **Extension shows "ARM" but recording doesn't capture interactions**: Verify extension has access to the page (not a protected/privileged page like `chrome://` or `about:`). Reload extension and try again.
+- **Extension stopped working after browser update**: Reload the extension in `chrome://extensions` (click the reload icon on the extension card).
+- **Cannot load unpacked extension**: Verify you selected the `chrome-extension/` folder (not a parent folder). Ensure Developer mode is enabled in `chrome://extensions`.
+
 ## Tech Stack
 
 **Frontend**
@@ -333,21 +540,34 @@ Notes:
 - React Router DOM 7.13.0
 
 **Core Libraries**
-- `@mlc-ai/web-llm` for local LLM inference
-- `@ffmpeg/ffmpeg` and `@ffmpeg/util` for video rendering
+- `@mlc-ai/web-llm` for local LLM inference (AI narration scripts, AI Assistant Chat)
+- `@ffmpeg/ffmpeg` and `@ffmpeg/util` for video rendering and screen recording composition
 - `pdfjs-dist` for PDF rendering and extraction
 - `kokoro-js` for text-to-speech
 - `@dnd-kit` for drag-and-drop UI
+
+**Browser Extensions**
+- Chrome Extension (JavaScript) - MessagePort communication for DOM-level interaction telemetry
+- Background service worker for recording state management
+- Content script injection for cursor and event capture
 
 **Backend (Dev Server)**
 - Express.js 5.2.1
 - TypeScript
 
+**AI & Analysis**
+- WebGPU for GPU acceleration of all local models
+- Google Gemini API for video analysis and bug report generation (optional, requires API key)
+
 ## Notes
 
 - AI workflows can run locally in-browser; model downloads are cached after first use.
-- First-time setup can take several minutes based on network speed.
-- Rendering performance depends on available CPU/GPU/memory.
+- First-time setup can take several minutes based on network speed and model size.
+- Rendering and analysis performance depend on available CPU/GPU/memory.
+- Screen recording with auto zoom works on all major browsers; Chrome extension provides enhanced DOM telemetry for browser tabs.
+- AI Assistant Chat requires WebGPU; fall back to Gemini API for AI narration generation if unavailable.
+- Bug Reporter and Video Analysis workflows require configured Gemini API key for AI processing.
+- All user data stays local in the browser unless explicitly using cloud APIs (Gemini, OpenAI-compatible providers).
 
 ## Support
 
