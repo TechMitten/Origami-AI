@@ -15,6 +15,7 @@ interface SceneAlignmentPageProps {
   onUpdate: (index: number, data: Partial<SlideData>) => void;
   onGenerateSceneAudio: (index: number) => Promise<void>;
   onGenerateSceneTTS: (slideIndex: number, sceneId: string) => Promise<void>;
+  aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3';
 }
 
 function formatMMSS(seconds: number): string {
@@ -72,6 +73,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
   onUpdate,
   onGenerateSceneAudio,
   onGenerateSceneTTS,
+  aspectRatio = '16:9',
 }) => {
   const [showDebug, setShowDebug] = useState(false);
   const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
@@ -444,7 +446,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
               </div>
               {slide.mediaUrl ? (
                 <div ref={playerPanelRef} className="rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl shadow-black/30 max-w-5xl">
-                  <div className="aspect-video bg-black">
+                  <div className="bg-black" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                     <video
                       ref={videoRef}
                       src={slide.mediaUrl}
@@ -514,7 +516,10 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-white/10 bg-white/3 aspect-video flex items-center justify-center text-sm text-white/35 max-w-5xl">
+                <div 
+                  className="rounded-xl border border-dashed border-white/10 bg-white/3 flex items-center justify-center text-sm text-white/35 max-w-5xl"
+                  style={{ aspectRatio: aspectRatio.replace(':', '/') }}
+                >
                   No video media available for this slide.
                 </div>
               )}

@@ -30,7 +30,7 @@ export function generateAutoZoomKeyframes(
     minIdleDurationMs = 2000,
     minCursorMovement = 0.015,
     zoomOutLevel = 1.0,
-    transitionDurationMs = 500,
+    transitionDurationMs = 1500,
   } = config;
 
   // Detect idle periods
@@ -72,8 +72,8 @@ export function generateAutoZoomKeyframes(
     // Skip very short idles
     if (idleDurationSec < minIdleDurationMs / 1000) continue;
 
-    // Zoom-OUT transition: starts 0.5s before idle begins
-    const zoomOutStartSec = Math.max(0, idleStartSec - 0.5);
+    // Zoom-OUT transition: starts a bit before idle begins to be smooth
+    const zoomOutStartSec = Math.max(0, idleStartSec - (transitionDurationSec * 1.5));
     const zoomOutId = generateUniqueId(usedIds);
     usedIds.add(zoomOutId);
 

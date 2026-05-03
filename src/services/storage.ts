@@ -15,7 +15,7 @@ export interface AppState {
   };
 }
 
-interface StoredSlideData extends Omit<SlideData, 'dataUrl' | 'mediaUrl' | 'audioUrl'> {
+interface StoredSlideData extends Omit<SlideData, 'dataUrl' | 'mediaUrl' | 'audioUrl' | 'videoNarrationAnalysis'> {
   dataUrl?: string | Blob;
   mediaUrl?: string | Blob;
   audioUrl?: string | Blob;
@@ -60,6 +60,7 @@ export interface GlobalSettings {
   previewMode?: 'modal';
   recordingCountdownEnabled?: boolean;
   issueReporterRecordingPromptEnabled?: boolean;
+  aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3';
 }
 
 export interface AssistantChatAttachment {

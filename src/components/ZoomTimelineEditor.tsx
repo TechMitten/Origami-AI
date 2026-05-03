@@ -23,8 +23,6 @@ export const ZoomTimelineEditor: React.FC<ZoomTimelineEditorProps> = ({
   onSeek,
   autoZoomConfig = { enabled: false },
   onUpdateAutoZoomConfig,
-  cursorData = [],
-  interactionData = [],
 }) => {
   const [selectedZoomId, setSelectedZoomId] = React.useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
@@ -49,8 +47,8 @@ export const ZoomTimelineEditor: React.FC<ZoomTimelineEditorProps> = ({
       zoomLevel: 1.25,
       // New defaults for improved UX
       easing: 'easeInOutCubic', // Smooth easing by default
-      transitionSmoothing: 0.15, // Reasonable transition smoothness
-      cursorDamping: 0.01, // Smooth cursor following
+      transitionSmoothing: 0.2, // Increased for smoother feel
+      cursorDamping: 0.15, // Smooth cursor following
       predictiveCursor: false, // Disabled by default (can be enabled if needed)
     };
     onUpdateZooms([...sortedZooms, newZoom].sort((a, b) => a.timestampStartSeconds - b.timestampStartSeconds));
@@ -174,14 +172,14 @@ export const ZoomTimelineEditor: React.FC<ZoomTimelineEditorProps> = ({
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[9px] text-white/60">
                     <span>Transition Duration (ms)</span>
-                    <span className="font-mono">{autoZoomConfig?.transitionDurationMs ?? 500}</span>
+                    <span className="font-mono">{autoZoomConfig?.transitionDurationMs ?? 1500}</span>
                   </div>
                   <input
                     type="range"
                     min="100"
                     max="2000"
                     step="100"
-                    value={autoZoomConfig?.transitionDurationMs ?? 500}
+                    value={autoZoomConfig?.transitionDurationMs ?? 1500}
                     onChange={(e) => onUpdateAutoZoomConfig?.({
                       ...autoZoomConfig,
                       transitionDurationMs: parseInt(e.target.value),

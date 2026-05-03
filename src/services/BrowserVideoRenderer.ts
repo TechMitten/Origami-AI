@@ -1,6 +1,7 @@
 import type { FFmpeg } from '@ffmpeg/ffmpeg';
 import { generateAutoZoomKeyframes } from '../utils/autoZoomGeneration';
 import { easingFunctions, type EasingType } from '../utils/easingFunctions';
+import type { ZoomKeyframe, AutoZoomConfig } from '../components/SlideEditor';
 
 interface Slide {
   dataUrl?: string;
@@ -25,20 +26,7 @@ interface Slide {
       audioDurationSeconds?: number;
     }>;
   };
-  zooms?: Array<{
-    id: string;
-    timestampStartSeconds: number;
-    durationSeconds: number;
-    type: 'fixed' | 'cursor';
-    targetX?: number;
-    targetY?: number;
-    zoomLevel: number;
-    easing?: string;
-    transitionSmoothing?: number;
-    cursorDamping?: number;
-    predictiveCursor?: boolean;
-    autoZoomOut?: boolean;
-  }>;
+  zooms?: ZoomKeyframe[];
   cursorTrack?: Array<{
     timeMs: number;
     x: number;
@@ -48,13 +36,7 @@ interface Slide {
     timeMs: number;
     type: string;
   }>;
-  autoZoomConfig?: {
-    enabled: boolean;
-    minIdleDurationMs?: number;
-    minCursorMovement?: number;
-    zoomOutLevel?: number;
-    transitionDurationMs?: number;
-  };
+  autoZoomConfig?: AutoZoomConfig;
 }
 
 interface MusicSettings {
@@ -73,6 +55,7 @@ export interface RenderOptions {
   enableIntroFadeIn?: boolean;
   introFadeInDurationSec?: number;
   resolution?: RenderResolution;
+  aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3';
   onProgress?: (progress: number) => void;
   onLog?: (message: string) => void;
   signal?: AbortSignal;
@@ -372,7 +355,7 @@ export class BrowserVideoRenderer {
     const activeZoom = sortedZooms[activeIndex];
     const previousZoom = sortedZooms[activeIndex - 1];
     const easing = this.resolveEasing(activeZoom.easing);
-    const transitionDuration = Math.max(0.05, Math.min(activeZoom.durationSeconds || 0.5, 0.5));
+    const transitionDuration = Math.max(0.05, Math.min(activeZoom.durationSeconds || 0.8, 2.0));
     const transitionProgress = this.clamp((timeSeconds - activeZoom.timestampStartSeconds) / transitionDuration, 0, 1);
     const easedProgress = easing(transitionProgress);
 
@@ -397,7 +380,7 @@ export class BrowserVideoRenderer {
       zoom: this.lerp(previousZoom?.zoomLevel ?? 1, activeZoom.zoomLevel, easedProgress),
       x: activeZoom.type === 'cursor' ? targetX : this.lerp(previousX, targetX, easedProgress),
       y: activeZoom.type === 'cursor' ? targetY : this.lerp(previousY, targetY, easedProgress),
-      damping: this.clamp(activeZoom.cursorDamping ?? activeZoom.transitionSmoothing ?? 0.08, 0.01, 0.35),
+      damping: this.clamp(activeZoom.cursorDamping ?? activeZoom.transitionSmoothing ?? 0.12, 0.01, 0.35),
     };
   }
 
@@ -456,7 +439,7 @@ export class BrowserVideoRenderer {
           minIdleDurationMs: slide.autoZoomConfig.minIdleDurationMs ?? 2000,
           minCursorMovement: slide.autoZoomConfig.minCursorMovement ?? 0.015,
           zoomOutLevel: slide.autoZoomConfig.zoomOutLevel ?? 1.0,
-          transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 500,
+          transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 1500,
         }
       );
     }
@@ -593,7 +576,7 @@ export class BrowserVideoRenderer {
           minIdleDurationMs: slide.autoZoomConfig.minIdleDurationMs ?? 2000,
           minCursorMovement: slide.autoZoomConfig.minCursorMovement ?? 0.015,
           zoomOutLevel: slide.autoZoomConfig.zoomOutLevel ?? 1.0,
-          transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 500,
+          transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 1500,
         }
       );
     }
@@ -813,7 +796,7 @@ export class BrowserVideoRenderer {
 
     for (const candidate of candidates) {
       const support = await VideoEncoder.isConfigSupported(candidate);
-      if (support.supported) {
+      if (support.supported && support.config) {
         return support.config;
       }
     }
@@ -1297,6 +1280,7 @@ export class BrowserVideoRenderer {
     enableIntroFadeIn = true,
     introFadeInDurationSec = 1,
     resolution = '720p',
+    aspectRatio = '16:9',
     onProgress,
     onLog,
     signal
@@ -1382,8 +1366,23 @@ export class BrowserVideoRenderer {
 
       // Input Arguments Construction
       const inputArgs: string[] = [];
-      const VIDEO_WIDTH = resolution === '720p' ? 1280 : 1920;
-      const VIDEO_HEIGHT = resolution === '720p' ? 720 : 1080;
+      const baseWidth = resolution === '720p' ? 1280 : 1920;
+      const baseHeight = resolution === '720p' ? 720 : 1080;
+      
+      let VIDEO_WIDTH = baseWidth;
+      let VIDEO_HEIGHT = baseHeight;
+      const ar = aspectRatio;
+
+      if (ar === '9:16') {
+        VIDEO_WIDTH = baseHeight;
+        VIDEO_HEIGHT = baseWidth;
+      } else if (ar === '1:1') {
+        VIDEO_WIDTH = baseHeight;
+        VIDEO_HEIGHT = baseHeight;
+      } else if (ar === '4:3') {
+        VIDEO_WIDTH = Math.round(baseHeight * (4 / 3));
+        VIDEO_HEIGHT = baseHeight;
+      }
 
       for (let i = 0; i < renderSlides.length; i++) {
         const slide = renderSlides[i];
@@ -1489,7 +1488,7 @@ export class BrowserVideoRenderer {
               minIdleDurationMs: slide.autoZoomConfig.minIdleDurationMs ?? 2000,
               minCursorMovement: slide.autoZoomConfig.minCursorMovement ?? 0.015,
               zoomOutLevel: slide.autoZoomConfig.zoomOutLevel ?? 1.0,
-              transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 500,
+              transitionDurationMs: slide.autoZoomConfig.transitionDurationMs ?? 1500,
             }
           );
         }
@@ -1523,20 +1522,21 @@ export class BrowserVideoRenderer {
             let tyExpr = `${z.targetY ?? 0.5}`;
 
             if (z.type === 'cursor' && slide.cursorTrack && slide.cursorTrack.length > 0) {
+              const track = slide.cursorTrack;
               const samplesX: string[] = [];
               const samplesY: string[] = [];
               const step = 0.05;
               const sampleEnd = Math.min(t2, Math.max(zoomTimelineEnd, t1 + step));
-
+              
               const getCursorAtTime = (timeSeconds: number) => {
                 const timeMs = timeSeconds * 1000;
-                const trackIndex = slide.cursorTrack.findIndex(c => c.timeMs >= timeMs);
+                const trackIndex = track.findIndex(c => c.timeMs >= timeMs);
 
-                if (trackIndex === 0) return slide.cursorTrack[0];
-                if (trackIndex === -1) return slide.cursorTrack[slide.cursorTrack.length - 1];
+                if (trackIndex === 0) return track[0];
+                if (trackIndex === -1) return track[track.length - 1];
 
-                const before = slide.cursorTrack[trackIndex - 1];
-                const after = slide.cursorTrack[trackIndex];
+                const before = track[trackIndex - 1];
+                const after = track[trackIndex];
 
                 const delta = Math.max(1, after.timeMs - before.timeMs);
                 const progress = (timeMs - before.timeMs) / delta;
@@ -1551,7 +1551,7 @@ export class BrowserVideoRenderer {
                 samplesX.push(`if(between(it,${t},${t+step}),${cp.x}`);
                 samplesY.push(`if(between(it,${t},${t+step}),${cp.y}`);
               }
-              const finalCp = slide.cursorTrack[slide.cursorTrack.length - 1];
+              const finalCp = track[track.length - 1];
               txExpr = samplesX.join(',') + `,${finalCp.x}` + ')'.repeat(samplesX.length);
               tyExpr = samplesY.join(',') + `,${finalCp.y}` + ')'.repeat(samplesY.length);
             }
@@ -1817,8 +1817,27 @@ export class BrowserVideoRenderer {
     const ffmpeg = this.ffmpeg;
     const { fetchFile } = await import('@ffmpeg/util');
 
-    const VIDEO_WIDTH = resolution === '720p' ? 1280 : 1920;
-    const VIDEO_HEIGHT = resolution === '720p' ? 720 : 1080;
+    const baseWidth = resolution === '720p' ? 1280 : 1920;
+    const baseHeight = resolution === '720p' ? 720 : 1080;
+
+    // Use a default aspect ratio if not provided, or detect if we should use portrait
+    // For clips, we might want to default to the slide's natural AR or a global one.
+    // Here we'll allow an optional ar parameter or default to 16:9.
+    const ar = (slide as any).aspectRatio || '16:9'; 
+    
+    let VIDEO_WIDTH = baseWidth;
+    let VIDEO_HEIGHT = baseHeight;
+
+    if (ar === '9:16') {
+      VIDEO_WIDTH = baseHeight;
+      VIDEO_HEIGHT = baseWidth;
+    } else if (ar === '1:1') {
+      VIDEO_WIDTH = baseHeight;
+      VIDEO_HEIGHT = baseHeight;
+    } else if (ar === '4:3') {
+      VIDEO_WIDTH = Math.round(baseHeight * (4 / 3));
+      VIDEO_HEIGHT = baseHeight;
+    }
     const FPS = 30;
     const cleanupFiles: string[] = [];
 

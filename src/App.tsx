@@ -13,7 +13,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, Settings, CircleHelp, XCircle, Trash2, Github, LayoutGrid, List, Upload, Check } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, XCircle, Trash2, LayoutGrid, List, Upload, Check } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
@@ -22,7 +22,7 @@ import { RuntimeResourceModal, type ResourceSelection } from './components/Runti
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { UnifiedInitModal } from './components/UnifiedInitModal';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
-import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, DEFAULT_WEB_LLM_MODEL_ID } from './services/webLlmService';
+import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
@@ -30,7 +30,6 @@ import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
-import { Video } from 'lucide-react';
 import { PageHeader } from './components/PageHeader';
 import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
@@ -60,6 +59,7 @@ function MainApp() {
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [startupWebGpuSupport, setStartupWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9');
   const [slideEditorViewMode, setSlideEditorViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window === 'undefined') {
       return 'list';
@@ -267,7 +267,7 @@ function MainApp() {
         minIdleDurationMs: 2000,
         minCursorMovement: 0.015,
         zoomOutLevel: 1.0,
-        transitionDurationMs: 500,
+        transitionDurationMs: 1500,
       },
       zooms: autoZooms.length > 0 ? autoZooms : undefined
     };
@@ -784,6 +784,7 @@ function MainApp() {
       introFadeInEnabled: true,
       introFadeInDurationSec: 1,
       previewMode: 'modal',
+      aspectRatio: '16:9',
     };
 
     // Merge against latest persisted settings to avoid stale in-memory state
@@ -1306,6 +1307,7 @@ function MainApp() {
         enableIntroFadeIn: globalSettings?.introFadeInEnabled ?? true,
         introFadeInDurationSec: globalSettings?.introFadeInDurationSec ?? 1,
         resolution: renderResolution,
+        aspectRatio: aspectRatio,
         signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
       });
@@ -1353,6 +1355,7 @@ function MainApp() {
         enableIntroFadeIn: globalSettings?.introFadeInEnabled ?? true,
         introFadeInDurationSec: globalSettings?.introFadeInDurationSec ?? 1,
         resolution: renderResolution,
+        aspectRatio: aspectRatio,
         signal: controller.signal,
         onProgress: (p) => setRenderProgress(p)
       });
@@ -1580,6 +1583,33 @@ function MainApp() {
                   </div>
                 </div>
 
+                {/* Aspect Ratio Selector */}
+                <div className="flex justify-center mt-3">
+                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                    <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Format</span>
+                    <div className="flex gap-1">
+                      {(['16:9', '9:16', '1:1', '4:3'] as const).map((ar) => (
+                        <button
+                          key={ar}
+                          onClick={() => {
+                            setAspectRatio(ar);
+                            handlePartialGlobalSettings({ aspectRatio: ar });
+                          }}
+                          disabled={isRenderingWithAudio || isRenderingSilent}
+                          className={`
+                            px-3 py-1 rounded-lg text-xs font-bold transition-all duration-300
+                            ${aspectRatio === ar
+                              ? 'bg-branding-primary text-white shadow-lg shadow-branding-primary/30'
+                              : 'text-white/40 hover:text-white hover:bg-white/10'}
+                          `}
+                        >
+                          {ar}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-center flex-col items-center gap-6 w-full">
                   <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start w-full sm:w-auto">
                     <div className="flex flex-col gap-2 w-full sm:w-auto">
@@ -1646,6 +1676,7 @@ function MainApp() {
                 onUpdateTtsVolume={setTtsVolume}
                 globalSettings={globalSettings}
                 onUpdateGlobalSettings={handlePartialGlobalSettings}
+                aspectRatio={aspectRatio}
                 viewMode={slideEditorViewMode}
                 onViewModeChange={setSlideEditorViewMode}
                 onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1672,6 +1703,7 @@ function MainApp() {
             await generateVideoSceneAudioForSlide(index);
           }}
           onGenerateSceneTTS={generateVideoSceneAudioForScene}
+          aspectRatio={aspectRatio}
         />
       )}
 

@@ -84,7 +84,7 @@ export interface AutoZoomConfig {
   minIdleDurationMs?: number; // Minimum idle time before zoom-out (default: 2000ms)
   minCursorMovement?: number; // Min cursor movement distance to not count as idle (default: 0.015)
   zoomOutLevel?: number; // Zoom level to return to during idle (default: 1.0)
-  transitionDurationMs?: number; // Duration of zoom-out/in transitions (default: 500ms)
+  transitionDurationMs?: number; // Duration of zoom-out/in transitions (default: 800ms)
 }
 
 export interface SlideData extends Partial<RenderedPage> {
@@ -151,6 +151,8 @@ interface SlideEditorProps {
   onOpenSettings?: () => void;
   onStartScreenRecord?: () => void;
   defaultToolsConfigTab?: 'overview' | 'voice' | 'mixing' | 'tools' | 'media';
+  aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3';
+  cursorData?: any;
 }
 
 const ScriptEditorModal = ({
@@ -299,7 +301,8 @@ const SortableSlideItem = ({
   globalSettings, // Add globalSettings to destructuring
   isMobile, // Add isMobile to destructuring
   slidesLength, // Add slidesLength to destructuring
-  viewMode
+  viewMode,
+  aspectRatio,
 }: {
   slide: SlideData,
   index: number,
@@ -322,6 +325,7 @@ const SortableSlideItem = ({
   isMobile: boolean; // Add isMobile prop
   slidesLength: number; // Add slidesLength prop
   viewMode: SlideEditorViewMode;
+  aspectRatio: '16:9' | '9:16' | '1:1' | '4:3';
 }) => {
   const {
     attributes,
@@ -813,7 +817,8 @@ const SortableSlideItem = ({
         </div>
 
         <div
-          className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 ring-1 ring-white/5 shadow-2xl shadow-black/40 relative bg-black group/image"
+          className="w-full rounded-2xl overflow-hidden border border-white/10 ring-1 ring-white/5 shadow-2xl shadow-black/40 relative bg-black group/image"
+          style={{ aspectRatio: aspectRatio.replace(':', '/') }}
         >
           {slide.type === 'video' ? (
             <video
@@ -1339,7 +1344,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   viewMode,
   onOpenSettings,
   onStartScreenRecord,
-  defaultToolsConfigTab = 'tools'
+  defaultToolsConfigTab = 'tools',
+  aspectRatio = '16:9'
 }) => {
   const { showAlert, showConfirm } = useModal();
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
@@ -3121,6 +3127,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 slidesLength={slides.length}
                 viewMode={viewMode}
                 highlightText={findText}
+                aspectRatio={aspectRatio}
               />
             ))}
           </div>
