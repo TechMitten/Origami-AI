@@ -429,7 +429,8 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     )}
                     {status.webllm === 'initializing' && (
                       <>
-                        <div className="flex items-center justify-end text-xs text-white/60 mb-1">
+                        <div className="flex items-center justify-between text-xs text-white/60 mb-1">
+                          <span className="font-mono truncate flex-1 mr-2">{webllmProgress?.text}</span>
                           <span className="font-mono">{getProgressPercent()}%</span>
                         </div>
                         <div className="w-full h-1 bg-black/40 rounded-full overflow-hidden">
@@ -453,7 +454,7 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white/[0.02] border-t border-white/10">
+        <div className="px-6 py-4 bg-white/2 border-t border-white/10">
           <p className="text-xs text-white/60 text-center leading-relaxed">
             {allReady ? (
               <>This window will close automatically...</>
