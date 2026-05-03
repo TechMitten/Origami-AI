@@ -431,7 +431,9 @@ async function createServer() {
   }
 
   const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running at http://0.0.0.0:${port}`);
+    console.log('\n🚀 Origami AI is ready!');
+    console.log(`- Local:   http://localhost:${port}`);
+    console.log(`- Network: http://0.0.0.0:${port}\n`);
   });
 
   server.timeout = 900000;

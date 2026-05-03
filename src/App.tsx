@@ -1164,14 +1164,12 @@ function MainApp() {
         throw new Error('Analyze Video is only available for MP4 Slide Media video uploads. GIF/image media is not supported.');
       }
 
+      // The aiService will handle proxying to the server if apiKey is missing.
+      // We only read it here to pass it down if available.
       const apiKey = import.meta.env.VITE_LLM_API_KEY || '';
       const baseUrl = localStorage.getItem('llm_base_url') || import.meta.env.VITE_LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai/';
       const configuredModel = localStorage.getItem('llm_model') || '';
       const model = configuredModel || import.meta.env.VITE_LLM_MODEL || 'gemini-2.5-flash-lite';
-
-      if (!apiKey.trim()) {
-        throw new Error('API key is not configured. Set VITE_LLM_API_KEY in your .env file.');
-      }
 
       let mediaBlob: Blob | undefined;
       const mediaSourceUrl = slide.mediaUrl;

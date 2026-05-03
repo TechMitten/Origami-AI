@@ -33,9 +33,9 @@
 - 🎙️ **High-quality in-browser TTS** — Kokoro.js with multiple voices
 - 🔍 **Scene-aware video analysis & issue reporting** — auto-generate breakdowns and bug reports from MP4s
 - 💬 **AI Assistant Chat & WebLLM** — conversational assistance with cloud fallbacks
-- 🔒 **Secure server-side API proxying** — `LLM_API_KEY` kept secret from client bundles
-- ⚡ **WebGPU-accelerated inference** — faster local model execution
-- 📹 **In-browser FFmpeg rendering** — professional MP4 exports (720p/1080p)
+- 🔒 **Secure server-side API proxying** - `LLM_API_KEY` kept secret from client bundles with automatic proxying for Gemini and OpenAI-compatible APIs
+- ⚡ **WebGPU-accelerated inference** - faster local model execution
+- 📹 **In-browser FFmpeg rendering** - professional MP4 exports (720p/1080p)
 - 🎵 **Background music & audio mixing** — auto-ducking and smooth transitions
 - 🎯 **Smart screen recording** — auto-zoom with Chrome-extension DOM telemetry
 

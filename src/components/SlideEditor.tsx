@@ -2085,11 +2085,6 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       return;
     }
 
-    if (!useWebLLM && !apiKey) {
-      showAlert('Please configure your LLM settings in the .env file to use this feature.', { type: 'warning' });
-      return;
-    }
-
     if (useWebLLM && !webLlmModel) {
       showAlert('Please select and load a WebLLM model in Settings (WebLLM tab) to use this feature.', { type: 'warning', title: 'WebLLM Not Configured' });
       return;
