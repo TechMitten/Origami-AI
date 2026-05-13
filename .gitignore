@@ -60,3 +60,4 @@ test_bug.mjs
 test_regex.mjs
 docs/
 .github
+.devcontainer/
