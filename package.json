@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "postinstall": "echo 'postinstall script skipped (scripts/ removed)'; exit 0",
     "preview": "vite preview",
-    "pages:dev": "wrangler pages dev dist --compatibility-flag=nodejs_compat",
+    "pages:dev": "wrangler pages dev",
     "stop": "npx kill-port 3000",
     "kill-all": "echo 'kill-all script removed; use platform tools (taskkill/killall) if necessary'"
   },
