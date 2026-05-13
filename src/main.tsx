@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ModalProvider } from './components/ModalProvider'
+import DesktopOnlyGuard from './components/DesktopOnlyGuard'
 
 if (import.meta.env.PROD) {
   const noop = () => {}
@@ -24,8 +25,10 @@ if (import.meta.env.PROD) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ModalProvider>
-      <App />
-    </ModalProvider>
+    <DesktopOnlyGuard>
+      <ModalProvider>
+        <App />
+      </ModalProvider>
+    </DesktopOnlyGuard>
   </StrictMode>,
 )

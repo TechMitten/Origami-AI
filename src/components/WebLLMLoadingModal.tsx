@@ -55,8 +55,8 @@ export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, 
   let userMessage = text;
   // Common WebLLM strings to pretty print
   if (text.includes("Finish loading")) userMessage = "Finalizing AI engine...";
-  else if (text.includes("Loading model")) userMessage = "Loading AI model into memory...";
-  else if (text.includes("Fetching param")) userMessage = "Verifying model parameters...";
+  else if (text.includes("Loading model")) userMessage = "Loading AI model...";
+  else if (text.includes("Fetching param")) userMessage = "Downloading parameters...";
 
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -79,8 +79,8 @@ export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, 
 
         <div className="w-full space-y-2">
             <div className="flex justify-between text-xs font-medium text-white/50 uppercase tracking-wider">
-                <span>{userMessage}</span>
-                <span>{percent}%</span>
+                <span className="truncate flex-1 mr-2 min-w-0" title={text}>{userMessage}</span>
+                <span className="whitespace-nowrap">{percent}%</span>
             </div>
             
             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">

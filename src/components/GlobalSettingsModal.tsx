@@ -1002,9 +1002,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                           {/* Progress Bar (Visible during automatic load) */}
                           {webLlmDownloadProgress && (
                             <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <p className={`font-mono text-xs leading-relaxed ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`}>
-                                  {webLlmDownloadProgress}
+                              <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                <p className={`font-mono text-xs leading-relaxed truncate min-w-0 ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`} title={webLlmDownloadProgress}>
+                                  {(() => {
+                                    if (webLlmDownloadProgress.includes("Finish loading")) return "Finalizing AI engine...";
+                                    if (webLlmDownloadProgress.includes("Loading model")) return "Loading AI model...";
+                                    if (webLlmDownloadProgress.includes("Fetching param")) return "Downloading parameters...";
+                                    return webLlmDownloadProgress;
+                                  })()}
                                 </p>
                                 {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
                                   <span className="font-mono text-xs text-white/70">

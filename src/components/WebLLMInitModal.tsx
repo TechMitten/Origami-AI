@@ -134,7 +134,15 @@ export const WebLLMInitModal: React.FC<WebLLMInitModalProps> = ({
               {progress && (
                 <div className="flex items-start gap-2 text-sm text-white font-mono">
                   <Loader2 className="w-4 h-4 animate-spin mt-0.5 shrink-0" />
-                  <span className="break-all">{progress.text}</span>
+                  <span className="truncate flex-1 min-w-0" title={progress.text}>
+                    {(() => {
+                      const text = progress.text || '';
+                      if (text.includes("Finish loading")) return "Finalizing AI engine...";
+                      if (text.includes("Loading model")) return "Loading AI model...";
+                      if (text.includes("Fetching param")) return "Downloading parameters...";
+                      return text;
+                    })()}
+                  </span>
                 </div>
               )}
             </div>

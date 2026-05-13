@@ -430,8 +430,16 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     {status.webllm === 'initializing' && (
                       <>
                         <div className="flex items-center justify-between text-xs text-white/60 mb-1">
-                          <span className="font-mono truncate flex-1 mr-2">{webllmProgress?.text}</span>
-                          <span className="font-mono">{getProgressPercent()}%</span>
+                          <span className="font-mono truncate flex-1 mr-2 min-w-0" title={webllmProgress?.text}>
+                            {(() => {
+                              const text = webllmProgress?.text || '';
+                              if (text.includes("Finish loading")) return "Finalizing AI engine...";
+                              if (text.includes("Loading model")) return "Loading AI model...";
+                              if (text.includes("Fetching param")) return "Downloading parameters...";
+                              return text;
+                            })()}
+                          </span>
+                          <span className="font-mono whitespace-nowrap">{getProgressPercent()}%</span>
                         </div>
                         <div className="w-full h-1 bg-black/40 rounded-full overflow-hidden">
                           <div
