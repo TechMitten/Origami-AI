@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Copy, ExternalLink } from 'lucide-react';
 
 const CHANNEL_NAME = 'origami_tab_sync';
@@ -10,89 +10,130 @@ export const DuplicateTabModal: React.FC = () => {
     const [isDuplicate, setIsDuplicate] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
 
+    // Track state in refs to avoid stale closures in the message handler
+    const isPrimaryRef = useRef(false);
+    const primaryTabIdRef = useRef<string | null>(null);
+    const lastHeartbeatRef = useRef(Date.now());
+    const tabIdRef = useRef(Math.random().toString(36).substring(2, 15));
+    const isDuplicateRef = useRef(false);
+
     useEffect(() => {
-        // BroadcastChannel is supported in all modern browsers (Chrome, Firefox, Edge, Safari 15.4+)
         if (!('BroadcastChannel' in window)) return;
 
         const channel = new BroadcastChannel(CHANNEL_NAME);
+        const tabId = tabIdRef.current;
+
         let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
         let monitorInterval: ReturnType<typeof setInterval> | null = null;
-        let isDuplicateTab = false;
-        let lastHeartbeat = Date.now();
 
-        // Step 1: Announce ourselves and listen for a response
-        channel.postMessage({ type: 'ORIGAMI_TAB_OPEN' });
-
-        // Step 2: If an existing tab responds within a short window, we're the duplicate
-        const announceTimeout = setTimeout(() => {
-            // No one answered — we are the primary tab. Start a heartbeat.
-            if (!isDuplicateTab) {
-                startPrimary();
-            }
-        }, 300);
-
-        const startPrimary = () => {
-            // Broadcast heartbeat so any new tabs know we're alive
-            heartbeatTimer = setInterval(() => {
-                channel.postMessage({ type: 'ORIGAMI_HEARTBEAT' });
-            }, HEARTBEAT_INTERVAL);
-        };
-
-        const handleDuplicateDetected = () => {
-            isDuplicateTab = true;
-            clearTimeout(announceTimeout);
-
+        const showModal = () => {
+            if (isDuplicateRef.current) return;
+            isDuplicateRef.current = true;
             setIsDuplicate(true);
             requestAnimationFrame(() => setIsAnimating(true));
+        };
 
-            // Use a last-seen timestamp and a small miss-threshold to avoid
-            // spuriously dismissing the modal if a heartbeat is delayed.
-            lastHeartbeat = Date.now();
+        const hideModal = () => {
+            if (!isDuplicateRef.current) return;
+            isDuplicateRef.current = false;
+            setIsAnimating(false);
+            setTimeout(() => {
+                setIsDuplicate(false);
+            }, 300);
+        };
 
-            // Update lastHeartbeat on each heartbeat and react to explicit closing
-            channel.onmessage = (e) => {
-                if (e.data?.type === 'ORIGAMI_HEARTBEAT') {
-                    lastHeartbeat = Date.now();
-                }
-                // If primary announces it's closing, take over immediately
-                if (e.data?.type === 'ORIGAMI_TAB_CLOSING') {
-                    if (monitorInterval) clearInterval(monitorInterval);
-                    setIsAnimating(false);
-                    setTimeout(() => {
-                        setIsDuplicate(false);
-                        isDuplicateTab = false;
-                        startPrimary();
-                    }, 300);
-                }
-            };
+        const becomePrimary = () => {
+            if (isPrimaryRef.current) return;
 
-            // Periodically check whether we've missed too many heartbeats.
-            monitorInterval = setInterval(() => {
-                if (Date.now() - lastHeartbeat > HEARTBEAT_INTERVAL * HEARTBEAT_MISS_THRESHOLD) {
-                    if (monitorInterval) clearInterval(monitorInterval);
-                    setIsAnimating(false);
-                    setTimeout(() => {
-                        setIsDuplicate(false);
-                        isDuplicateTab = false;
-                        startPrimary();
-                    }, 300);
-                }
-            }, HEARTBEAT_MONITOR_INTERVAL);
+            isPrimaryRef.current = true;
+            primaryTabIdRef.current = tabId;
+            hideModal();
+
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
+
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                channel.postMessage({ type: 'ORIGAMI_HEARTBEAT', from: tabId });
+            }, HEARTBEAT_INTERVAL);
+
+            // Announce presence so other tabs know who is primary
+            channel.postMessage({ type: 'ORIGAMI_TAB_EXISTS', from: tabId });
+        };
+
+        const becomeDuplicate = (newPrimaryId: string) => {
+            isPrimaryRef.current = false;
+            primaryTabIdRef.current = newPrimaryId;
+            lastHeartbeatRef.current = Date.now();
+            showModal();
+
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+
+            if (!monitorInterval) {
+                monitorInterval = setInterval(() => {
+                    if (Date.now() - lastHeartbeatRef.current > HEARTBEAT_INTERVAL * HEARTBEAT_MISS_THRESHOLD) {
+                        becomePrimary();
+                    }
+                }, HEARTBEAT_MONITOR_INTERVAL);
+            }
         };
 
         channel.onmessage = (e) => {
-            if (e.data?.type === 'ORIGAMI_TAB_OPEN') {
-                // Another tab just opened — respond so it knows we exist
-                channel.postMessage({ type: 'ORIGAMI_TAB_EXISTS' });
-            } else if (e.data?.type === 'ORIGAMI_TAB_EXISTS') {
-                // We heard back — we are the duplicate
-                handleDuplicateDetected();
+            const { type, from } = e.data || {};
+            if (!type || from === tabId) return;
+
+            switch (type) {
+                case 'ORIGAMI_TAB_OPEN':
+                    if (isPrimaryRef.current) {
+                        channel.postMessage({ type: 'ORIGAMI_TAB_EXISTS', from: tabId });
+                    }
+                    break;
+
+                case 'ORIGAMI_TAB_EXISTS':
+                    if (!isPrimaryRef.current) {
+                        becomeDuplicate(from);
+                    } else if (from < tabId) {
+                        // Conflict resolution: lower ID wins primary status
+                        becomeDuplicate(from);
+                    }
+                    break;
+
+                case 'ORIGAMI_HEARTBEAT':
+                    if (!isPrimaryRef.current) {
+                        primaryTabIdRef.current = from;
+                        lastHeartbeatRef.current = Date.now();
+                        showModal();
+                    } else if (from < tabId) {
+                        // Heard a heartbeat from a "stronger" primary
+                        becomeDuplicate(from);
+                    }
+                    break;
+
+                case 'ORIGAMI_TAB_CLOSING':
+                    if (!isPrimaryRef.current && from === primaryTabIdRef.current) {
+                        // The primary tab is closing, we can try to take over
+                        becomePrimary();
+                    }
+                    break;
             }
         };
 
-        // Notify other tabs when this tab is closing
+        // Initialize: check if any other tab is already primary
+        channel.postMessage({ type: 'ORIGAMI_TAB_OPEN', from: tabId });
+
+        const announceTimeout = setTimeout(() => {
+            if (!isPrimaryRef.current && !primaryTabIdRef.current) {
+                becomePrimary();
+            }
+        }, 500);
+
         const handleUnload = () => {
-            channel.postMessage({ type: 'ORIGAMI_TAB_CLOSING' });
+            channel.postMessage({ type: 'ORIGAMI_TAB_CLOSING', from: tabId });
         };
         window.addEventListener('beforeunload', handleUnload);
 
@@ -100,7 +141,7 @@ export const DuplicateTabModal: React.FC = () => {
             clearTimeout(announceTimeout);
             if (heartbeatTimer) clearInterval(heartbeatTimer);
             if (monitorInterval) clearInterval(monitorInterval);
-            channel.postMessage({ type: 'ORIGAMI_TAB_CLOSING' });
+            handleUnload();
             channel.close();
             window.removeEventListener('beforeunload', handleUnload);
         };
