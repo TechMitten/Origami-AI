@@ -272,7 +272,7 @@ function MainApp() {
       zooms: autoZooms.length > 0 ? autoZooms : undefined
     };
 
-    setSlides(prev => [...prev, newSlide]);
+    setSlides(prev => [newSlide, ...prev]);
     setActiveTab('edit');
   }, [globalSettings]);
 
@@ -286,34 +286,30 @@ function MainApp() {
       );
     },
     onExtensionUnavailable: async () => {
-      const shouldRetry = await showConfirm(
+      const choice = await showConfirm(
         <div className="space-y-3">
           <p className="text-white/80">
-            The Origami browser extension was not detected. Screen recording requires the extension to be installed and enabled.
+            The Origami browser extension was not detected. You can still record your desktop, a window, or a browser tab using the browser's built-in screen picker — though automatic zoom and cursor effects won't be applied.
           </p>
           <div className="bg-white/5 rounded-lg p-3 space-y-2">
-            <p className="text-sm font-semibold text-white/90">To enable screen recording:</p>
+            <p className="text-sm font-semibold text-white/90">For full features (cursor tracking &amp; auto-zoom):</p>
             <ol className="text-sm text-white/70 space-y-1 list-decimal list-inside">
               <li>Install the Origami extension from the Chrome Web Store</li>
               <li>Make sure the extension is enabled in your browser</li>
               <li>Refresh this page and try again</li>
             </ol>
           </div>
-          <p className="text-xs text-white/60">
-            The extension enables enhanced screen recording with cursor tracking and interaction detection.
-          </p>
         </div>,
         {
           type: 'warning',
           title: 'Extension Not Detected',
-          confirmText: 'Refresh Page',
-          cancelText: 'Cancel'
+          confirmText: 'Record Screen',
+          cancelText: 'Cancel',
         }
       );
 
-      if (shouldRetry) {
-        window.location.reload();
-      }
+      // Return true to proceed with native getDisplayMedia (desktop/window/tab picker)
+      return choice === true;
     },
   });
 

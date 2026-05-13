@@ -445,8 +445,8 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                 )}
               </div>
               {slide.mediaUrl ? (
-                <div ref={playerPanelRef} className="rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl shadow-black/30 max-w-5xl">
-                  <div className="bg-black" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
+                <div ref={playerPanelRef} className="rounded-xl bg-black border border-white/10 shadow-2xl shadow-black/30 max-w-5xl">
+                  <div className="bg-black overflow-hidden rounded-t-xl" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                     <video
                       ref={videoRef}
                       src={slide.mediaUrl}
@@ -460,7 +460,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
                   </div>
                   <audio ref={audioRef} preload="none" />
                   {/* Player controls — mirrors SimplePreview */}
-                  <div className="px-4 py-3 bg-black/60 border-t border-white/10">
+                  <div className="px-4 py-3 bg-black/60 border-t border-white/10 rounded-b-xl">
                     {/* Seek bar */}
                     <div
                       ref={progressBarRef}

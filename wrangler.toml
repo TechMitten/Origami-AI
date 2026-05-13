@@ -1,0 +1,11 @@
+name = "origami-ai"
+compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[pages_build_config]
+build_command = "npm run build"
+destination_dir = "dist"
+
+[vars]
+# Add local development variables here
+# LLM_API_KEY = "your-key"

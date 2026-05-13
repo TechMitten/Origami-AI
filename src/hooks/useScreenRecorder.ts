@@ -42,7 +42,7 @@ interface UseScreenRecorderOptions {
   onRecordingComplete?: (result: ScreenRecordResult) => void | Promise<void>;
   onRecordingError?: (error: Error) => void;
   onRecordingPending?: () => void;
-  onExtensionUnavailable?: () => void | Promise<void>;
+  onExtensionUnavailable?: () => boolean | Promise<boolean>;
 }
 
 function getPreferredRecordingMimeType(): string {
@@ -440,8 +440,14 @@ export function useScreenRecorder(options: UseScreenRecorderOptions = {}) {
 
           console.info('Origami Chrome extension not available.', normalizedError);
 
-          await onExtensionUnavailable?.();
-          throw new Error('Browser extension not available. Please install the Origami extension to enable screen recording.');
+          const shouldFallbackToDisplay = await onExtensionUnavailable?.();
+          if (shouldFallbackToDisplay) {
+            // Fall back to native getDisplayMedia (offers desktop, window, and tab options).
+            // No pending notification needed — the browser picker opens immediately.
+            displayStream = await createDisplayStreamFromPicker();
+          } else {
+            throw new Error('Browser extension not available. Please install the Origami extension to enable screen recording.');
+          }
         }
       }
 
