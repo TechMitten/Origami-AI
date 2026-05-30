@@ -389,7 +389,7 @@ async function createServer() {
   if (process.env.NODE_ENV !== 'production') {
     // FIX #1: Prevent Vite from over-watching and spiking CPU
     vite = await createViteServer({
-      server: { 
+      server: {
         middlewareMode: true,
         watch: {
           ignored: ['**/node_modules/**', '**/dist/**', '**/public/music/**'],
@@ -397,8 +397,8 @@ async function createServer() {
         },
         hmr: {
           protocol: 'ws',
-          host: 'localhost',
-          port: 24678,
+          host: process.env.HMR_HOST || 'localhost',
+          port: parseInt(process.env.HMR_PORT || '24678'),
         }
       },
       appType: 'spa',

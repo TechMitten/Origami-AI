@@ -8,15 +8,15 @@ export const Footer: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
         <div className="flex items-center gap-4">
           <a
-            href="https://islandapps.dev"
+            href="https://techmitten.com"
             target="_blank"
             rel="noopener noreferrer"
             className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
           >
-            &copy; {new Date().getFullYear()} Island Applications
+            &copy; {new Date().getFullYear()} TechMitten LLC
           </a>
           <a
-            href="https://github.com/IslandApps/Origami-AI"
+            href="https://github.com/TechMitten/Origami-AI"
             target="_blank"
             rel="noopener noreferrer"
             className="text-white/40 hover:text-white transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"

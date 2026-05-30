@@ -60,14 +60,11 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.5.0",
-    "eslint": "^9.18.0",
+    "eslint": "^8.57.0",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^7.2.4",
     "wrangler": "^4.90.1"
-  },
-  "overrides": {
-    "ajv": "^8.18.0"
   }
 }

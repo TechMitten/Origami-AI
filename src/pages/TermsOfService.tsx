@@ -37,7 +37,7 @@ export const TermsOfService: React.FC = () => {
                   Terms of Service
                 </span>
               </h1>
-              <p className="text-branding-secondary font-bold text-sm uppercase tracking-wider">Origami by IslandApps</p>
+              <p className="text-branding-secondary font-bold text-sm uppercase tracking-wider">Origami by TechMitten LLC</p>
             </div>
           </div>
 
@@ -47,7 +47,7 @@ export const TermsOfService: React.FC = () => {
               <Building2 className="w-5 h-5 text-branding-accent shrink-0" />
               <div>
                 <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Operated by</span>
-                <p className="text-white font-bold">IslandApps</p>
+                <p className="text-white font-bold">TechMitten LLC</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -79,7 +79,7 @@ export const TermsOfService: React.FC = () => {
             <div className="space-y-4 text-white/70 text-sm leading-relaxed">
               <div>
                 <h3 className="text-base font-bold text-white mb-2">1) Who We Are</h3>
-                <p>The Service is operated by IslandApps ("IslandApps," "we," "us," or "our").</p>
+                <p>The Service is operated by TechMitten LLC ("TechMitten," "we," "us," or "our").</p>
               </div>
               <div>
                 <h3 className="text-base font-bold text-white mb-2">2) Eligibility</h3>
@@ -122,11 +122,11 @@ export const TermsOfService: React.FC = () => {
             <div className="space-y-4 text-white/70 text-sm leading-relaxed">
               <div className="p-4 bg-branding-primary/10 border border-branding-primary/30 rounded-xl">
                 <p className="font-semibold text-branding-primary text-sm mb-2">You Retain Ownership</p>
-                <p className="text-white/80 text-xs">You retain ownership of any PDFs you upload and any outputs you generate using the Service (including slide content, narration scripts, and narration audio), to the extent you have rights in that content. IslandApps does NOT claim ownership of your content.</p>
+                <p className="text-white/80 text-xs">You retain ownership of any PDFs you upload and any outputs you generate using the Service (including slide content, narration scripts, and narration audio), to the extent you have rights in that content. TechMitten LLC does NOT claim ownership of your content.</p>
               </div>
               <div>
                 <h3 className="text-base font-bold text-white mb-2">License to Operate the Service</h3>
-                <p>To the extent a license is legally required to provide the Service (for example, to process content on your device at your request), you grant IslandApps a limited, non-exclusive, worldwide, royalty-free license to use your content <strong>solely to operate and provide the Service</strong>. This license is limited to what is necessary for the Service to function.</p>
+                <p>To the extent a license is legally required to provide the Service (for example, to process content on your device at your request), you grant TechMitten LLC a limited, non-exclusive, worldwide, royalty-free license to use your content <strong>solely to operate and provide the Service</strong>. This license is limited to what is necessary for the Service to function.</p>
               </div>
             </div>
           </section>
@@ -231,18 +231,18 @@ export const TermsOfService: React.FC = () => {
               <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
                 <p className="font-bold text-red-400 text-xs uppercase tracking-wider mb-2">11) Disclaimers</p>
                 <p className="text-white/80 text-xs mb-2"><strong>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE."</strong></p>
-                <p className="text-white/60 text-xs">TO THE MAXIMUM EXTENT PERMITTED BY LAW, ISLANDAPPS DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED. AI-generated outputs may contain errors, bias, or misleading information. You are responsible for verifying outputs before relying on them.</p>
+                <p className="text-white/60 text-xs">TO THE MAXIMUM EXTENT PERMITTED BY LAW, TECHMITTEN LLC DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED. AI-generated outputs may contain errors, bias, or misleading information. You are responsible for verifying outputs before relying on them.</p>
               </div>
 
               <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                 <p className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-2">12) Limitation of Liability</p>
-                <p className="text-white/80 text-xs mb-2">TO THE MAXIMUM EXTENT PERMITTED BY LAW, ISLANDAPPS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</p>
+                <p className="text-white/80 text-xs mb-2">TO THE MAXIMUM EXTENT PERMITTED BY LAW, TECHMITTEN LLC WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</p>
                 <p className="text-white/60 text-xs"><strong>Maximum Liability:</strong> The greater of US $100 or the amount you paid in the 12 months before the claim.</p>
               </div>
 
               <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                 <p className="font-bold text-white text-xs uppercase tracking-wider mb-2">13) Indemnification</p>
-                <p className="text-white/70 text-xs">You agree to defend, indemnify, and hold harmless IslandApps from claims arising from your use of the Service, your content, your violation of these Terms, or your violation of any rights of another person or entity.</p>
+                <p className="text-white/70 text-xs">You agree to defend, indemnify, and hold harmless TechMitten LLC from claims arising from your use of the Service, your content, your violation of these Terms, or your violation of any rights of another person or entity.</p>
               </div>
             </div>
           </section>
@@ -317,7 +317,7 @@ export const TermsOfService: React.FC = () => {
               </div>
               <div className="p-3 bg-branding-primary/10 border border-branding-primary/30 rounded-xl">
                 <h4 className="text-sm font-bold text-branding-primary mb-1">E. Opt-Out</h4>
-                <p className="text-white/80">You may opt out of this arbitration agreement by emailing <a href="mailto:terms@islandapps.dev" className="text-branding-primary hover:text-branding-accent underline font-bold">terms@islandapps.dev</a> within 30 days of first accepting these Terms, stating that you are opting out of arbitration.</p>
+                <p className="text-white/80">You may opt out of this arbitration agreement by emailing <a href="mailto:terms@techmitten.com" className="text-branding-primary hover:text-branding-accent underline font-bold">terms@techmitten.com</a> within 30 days of first accepting these Terms, stating that you are opting out of arbitration.</p>
               </div>
             </div>
           </section>
@@ -328,13 +328,13 @@ export const TermsOfService: React.FC = () => {
               <h2 className="text-2xl font-black text-white mb-3">19) Contact Us</h2>
               <p className="text-white/70 text-sm mb-6">Questions about these Terms can be sent to:</p>
               <a
-                href="mailto:terms@islandapps.dev"
+                href="mailto:terms@techmitten.com"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-branding-primary to-branding-secondary text-white font-bold shadow-lg shadow-branding-primary/30 border border-white/20"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                terms@islandapps.dev
+                terms@techmitten.com
               </a>
             </div>
           </section>

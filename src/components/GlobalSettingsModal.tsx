@@ -764,19 +764,19 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         onClick={() => setTtsQuantization('q8')}
-                        className={`p-2 rounded-lg border flex flex-col gap-1 transition-all ${ttsQuantization === 'q8' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-2 rounded-lg border flex flex-col gap-1 transition-all ${ttsQuantization === 'q8' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">q8 (High Quality)</span>
-                        <span className={`text-[10px] ${ttsQuantization === 'q8' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${ttsQuantization === 'q8' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Recommended for best audio output.
                         </span>
                       </button>
                       <button
                         onClick={() => setTtsQuantization('q4')}
-                        className={`p-2 rounded-lg border flex flex-col gap-1 transition-all ${ttsQuantization === 'q4' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-2 rounded-lg border flex flex-col gap-1 transition-all ${ttsQuantization === 'q4' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">q4 (Fastest)</span>
-                        <span className={`text-[10px] ${ttsQuantization === 'q4' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${ttsQuantization === 'q4' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Faster inference, smaller download.
                         </span>
                       </button>
@@ -859,10 +859,10 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <button
                         onClick={() => setPrecisionFilter('all')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">All Models</span>
-                        <span className={`text-[10px] ${precisionFilter === 'all' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${precisionFilter === 'all' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Show both
                         </span>
                       </button>
@@ -870,23 +870,23 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         onClick={() => setPrecisionFilter('f16')}
                         disabled={webGpuSupport?.supported && !webGpuSupport.hasF16}
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f16'
-                          ? 'bg-white text-black border-white shadow-lg'
+                          ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg'
                           : (webGpuSupport?.supported && !webGpuSupport.hasF16)
                             ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'
                             : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                           }`}
                       >
                           <span className="text-sm font-bold">f16 (Better)</span>
-                        <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory'}
                         </span>
                       </button>
                       <button
                         onClick={() => setPrecisionFilter('f32')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">f32 (Compatible)</span>
-                        <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Better support
                         </span>
                       </button>
@@ -905,28 +905,28 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <button
                         onClick={() => setCapabilityFilter('all')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'all' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'all' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">All Types</span>
-                        <span className={`text-[10px] ${capabilityFilter === 'all' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${capabilityFilter === 'all' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Show everything
                         </span>
                       </button>
                       <button
                         onClick={() => setCapabilityFilter('vision')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'vision' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'vision' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">Vision</span>
-                        <span className={`text-[10px] ${capabilityFilter === 'vision' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${capabilityFilter === 'vision' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Image-capable
                         </span>
                       </button>
                       <button
                         onClick={() => setCapabilityFilter('text')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'text' ? 'bg-white text-black border-white shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'text' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">Text</span>
-                        <span className={`text-[10px] ${capabilityFilter === 'text' ? 'text-black/60' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${capabilityFilter === 'text' ? 'text-sky-400/70' : 'text-white/40'}`}>
                           Writing only
                         </span>
                       </button>

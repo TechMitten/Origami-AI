@@ -102,7 +102,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div className="flex items-center gap-1">
             {showGithub && (
               <a
-                href="https://github.com/IslandApps/Origami-AI"
+                href="https://github.com/TechMitten/Origami-AI"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg text-white/70 bg-white/5 transition-all hover:text-white hover:bg-white/10"

@@ -36,7 +36,7 @@ export const PrivacyPolicy: React.FC = () => {
                   Privacy Policy
                 </span>
               </h1>
-              <p className="text-branding-primary font-bold text-sm uppercase tracking-wider">Origami by IslandApps</p>
+              <p className="text-branding-primary font-bold text-sm uppercase tracking-wider">Origami by TechMitten LLC</p>
             </div>
           </div>
 
@@ -46,7 +46,7 @@ export const PrivacyPolicy: React.FC = () => {
               <Clock className="w-5 h-5 text-branding-accent shrink-0" />
               <div>
                 <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Effective Date</span>
-                <p className="text-white font-bold">February 17, 2026</p>
+                <p className="text-white font-bold">May 30, 2026</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -311,13 +311,13 @@ export const PrivacyPolicy: React.FC = () => {
               <h2 className="text-2xl font-black text-white mb-3">12) Contact Us</h2>
               <p className="text-white/70 text-sm mb-6">If you have questions about this Privacy Policy or our privacy practices:</p>
               <a
-                href="mailto:privacy@islandapps.dev"
+                href="mailto:privacy@techmitten.com"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-linear-to-r from-branding-primary to-branding-secondary text-white font-bold shadow-lg shadow-branding-primary/30 border border-white/20"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                privacy@islandapps.dev
+                privacy@techmitten.com
               </a>
             </div>
           </section>

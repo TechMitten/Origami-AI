@@ -1,9 +1,9 @@
 <div align="center" style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:20px;">
   <img src="logo/logo.png" alt="Origami AI Logo" width="320" style="display:block;margin:0;height:auto;max-width:90%;" />
   <div style="display:inline-flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;">
-    <a href="https://github.com/IslandApps/Origami-AI/stargazers"><img src="https://img.shields.io/github/stars/islandapps/origami-ai?style=social" alt="GitHub stars" /></a>
-    <a href="https://github.com/IslandApps/Origami-AI/issues"><img src="https://img.shields.io/github/issues/islandapps/origami-ai" alt="Issues" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/islandapps/origami-ai" alt="License" /></a>
+    <a href="https://github.com/TechMitten/Origami-AI/stargazers"><img src="https://img.shields.io/github/stars/techmitten/origami-ai?style=social" alt="GitHub stars" /></a>
+    <a href="https://github.com/TechMitten/Origami-AI/issues"><img src="https://img.shields.io/github/issues/techmitten/origami-ai" alt="Issues" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/techmitten/origami-ai" alt="License" /></a>
     <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen" alt="Node" /></a>
   </div>
 </div>
@@ -86,7 +86,7 @@ Simply upload a PDF, generate narration or analyze a recorded clip, customize ti
 
 ```bash
 # Clone the repository
-git clone https://github.com/IslandApps/Origami-AI.git
+git clone https://github.com/TechMitten/Origami-AI.git
 cd Origami-AI
 
 # Install dependencies (requires Node.js >= 20.19.0)
@@ -427,7 +427,7 @@ This avoids Rollup parsing binary content errors during production builds.
 
 ### Getting Help
 
-- **Issues & Bugs**: Report at [GitHub Issues](https://github.com/IslandApps/Origami-AI/issues)
+- **Issues & Bugs**: Report at [GitHub Issues](https://github.com/TechMitten/Origami-AI/issues)
 - **Troubleshooting**: See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues and error recovery
 
 ### When Reporting Issues

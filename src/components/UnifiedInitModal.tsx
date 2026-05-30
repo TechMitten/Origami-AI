@@ -342,24 +342,24 @@ export const UnifiedInitModal: React.FC<UnifiedInitModalProps> = ({
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       <button
                         onClick={() => setCapabilityFilter('all')}
-                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'all' ? 'border-white bg-white text-black' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
+                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'all' ? 'border-sky-500 bg-sky-500/20 text-sky-300' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
                       >
                         <span className="block text-xs font-bold uppercase tracking-[0.18em]">All</span>
-                        <span className={`block text-[10px] ${capabilityFilter === 'all' ? 'text-black/60' : 'text-white/40'}`}>Show everything</span>
+                        <span className={`block text-[10px] ${capabilityFilter === 'all' ? 'text-sky-400/70' : 'text-white/40'}`}>Show everything</span>
                       </button>
                       <button
                         onClick={() => setCapabilityFilter('vision')}
-                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'vision' ? 'border-white bg-white text-black' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
+                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'vision' ? 'border-sky-500 bg-sky-500/20 text-sky-300' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
                       >
                         <span className="block text-xs font-bold uppercase tracking-[0.18em]">Vision</span>
-                        <span className={`block text-[10px] ${capabilityFilter === 'vision' ? 'text-black/60' : 'text-white/40'}`}>Image-capable</span>
+                        <span className={`block text-[10px] ${capabilityFilter === 'vision' ? 'text-sky-400/70' : 'text-white/40'}`}>Image-capable</span>
                       </button>
                       <button
                         onClick={() => setCapabilityFilter('text')}
-                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'text' ? 'border-white bg-white text-black' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
+                        className={`rounded border px-3 py-2 text-left transition-colors ${capabilityFilter === 'text' ? 'border-sky-500 bg-sky-500/20 text-sky-300' : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'}`}
                       >
                         <span className="block text-xs font-bold uppercase tracking-[0.18em]">Text</span>
-                        <span className={`block text-[10px] ${capabilityFilter === 'text' ? 'text-black/60' : 'text-white/40'}`}>Writing only</span>
+                        <span className={`block text-[10px] ${capabilityFilter === 'text' ? 'text-sky-400/70' : 'text-white/40'}`}>Writing only</span>
                       </button>
                     </div>
                     {groupedCompatibleModels.length > 0 && (

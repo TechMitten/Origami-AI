@@ -31,8 +31,8 @@ export default defineConfig({
     },
     hmr: {
       protocol: 'ws',
-      host: 'localhost',
-      port: 24678,
+      host: process.env.HMR_HOST || 'localhost',
+      port: parseInt(process.env.HMR_PORT || '24678'),
     },
   },
   optimizeDeps: {

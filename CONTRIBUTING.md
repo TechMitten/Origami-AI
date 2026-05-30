@@ -41,7 +41,7 @@ By participating in this project, you agree to:
    ```
 3. Add upstream remote:
    ```bash
-   git remote add upstream https://github.com/IslandApps/Origami-AI.git
+   git remote add upstream https://github.com/TechMitten/Origami-AI.git
    ```
 
 ### Keep Your Fork Updated

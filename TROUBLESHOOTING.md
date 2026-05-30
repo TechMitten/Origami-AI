@@ -705,7 +705,7 @@ localStorage.setItem('DEBUG', 'true');
 
 ## When to Report Issues
 
-Report issues at: https://github.com/IslandApps/Origami-AI/issues
+Report issues at: https://github.com/TechMitten/Origami-AI/issues
 
 **Include when reporting:**
 - Browser name and version
