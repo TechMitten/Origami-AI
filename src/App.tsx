@@ -18,9 +18,9 @@ import backgroundImage from './assets/images/background.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { analyzeVideoNarrationWithGemini } from './services/aiService';
-import { RuntimeResourceModal, type ResourceSelection } from './components/RuntimeResourceModal';
+import { RuntimeResourceModal } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
-import { UnifiedInitModal } from './components/UnifiedInitModal';
+import { BackgroundDownloadToast } from './components/BackgroundDownloadToast';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
@@ -53,11 +53,9 @@ function MainApp() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
-  const [isWebLLMInitModalOpen, setIsWebLLMInitModalOpen] = useState(false); // For first-time download/setup
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false); // For subsequent cached loading
-  const [preinstalledResources, setPreinstalledResources] = useState({ tts: false, ffmpeg: false, webllm: false });
+  const [isBackgroundDownloadActive, setIsBackgroundDownloadActive] = useState(false);
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
-  const [startupWebGpuSupport, setStartupWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9');
   const [slideEditorViewMode, setSlideEditorViewMode] = useState<'list' | 'grid'>(() => {
@@ -350,19 +348,6 @@ function MainApp() {
     });
   }, []);
 
-  const runInitialSetupQueue = React.useCallback(async (
-    queue: { tts: boolean; ffmpeg: boolean },
-    ttsQuantization: 'q8' | 'q4'
-  ) => {
-    if (queue.tts) {
-      await waitForTTSInitialization(ttsQuantization);
-    }
-
-    if (queue.ffmpeg) {
-      await renderer.load();
-    }
-  }, [renderer, waitForTTSInitialization]);
-
   const enforceTtsEnabled = React.useCallback((slide: SlideData): SlideData => {
     if (slide.isTtsDisabled === false) return slide;
     return { ...slide, isTtsDisabled: false };
@@ -479,155 +464,68 @@ function MainApp() {
 
       // Check resource cache status
       const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-      setPreinstalledResources(cached);
 
       // Always init preinstalled/cached resources immediately
       if (cached.tts) initTTS(settings?.ttsQuantization || 'q4');
       if (cached.ffmpeg) renderer.load().catch(console.error);
 
-      // Check if WebLLM should be pre-initialized
-      // legacy flag removed - we don't need to read this value here
-      const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
-
-      // Only init WebLLM if enabled specifically in settings AND cached
-      // For first-time setup, wait for user to select model via UnifiedInitModal
       // Do not eagerly initialize WebLLM on startup.
       // Keeping a large GPU model resident while restoring projects and preparing render
       // resources has caused tab instability on some systems. WebLLM is initialized on demand.
 
-      // Check startup preferences
-      const storedPref = localStorage.getItem('startup_resource_pref');
-      if (storedPref) { // User said "Remember my choice"
-        try {
-          const pref = JSON.parse(storedPref);
-          const wantsInitialWebLLM = !!pref.enableWebLLM && !cached.webllm;
-          let webgpuStatus: Awaited<ReturnType<typeof checkWebGPUSupport>> | null = null;
-          let shouldEnableInitialWebLLM = wantsInitialWebLLM;
+      const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
 
-          if (wantsInitialWebLLM) {
-            webgpuStatus = await checkWebGPUSupport();
-            setStartupWebGpuSupport(webgpuStatus);
-
-            if (!webgpuStatus.supported) {
-              shouldEnableInitialWebLLM = false;
-              setIsWebGPUModalOpen(true);
-            }
-          }
-
-          // We only need to init things that were NOT cached but user WANTED.
-          // However, redundant init is fine (initTTS handles single instance, renderer checks loaded flag).
-
-          const queue = {
-            tts: !cached.tts && !!pref.downloadTTS,
-            ffmpeg: !cached.ffmpeg && !!pref.downloadFFmpeg,
-            webllm: shouldEnableInitialWebLLM,
-          };
-
-          // Check if we need to show unified init modal
-          const needsInit = queue.tts || queue.ffmpeg || queue.webllm;
-
-          if (needsInit && !hideSetupModal) {
-            setActiveDownloads(queue);
-            setIsWebLLMInitModalOpen(true);
-          }
-
-          // Initialize strictly one-at-a-time: TTS -> FFmpeg.
-          if (queue.tts || queue.ffmpeg) {
-            try {
-              await runInitialSetupQueue(
-                { tts: queue.tts, ffmpeg: queue.ffmpeg },
-                settings?.ttsQuantization || 'q4'
-              );
-            } catch (error) {
-              console.error('Failed to complete queued setup resources:', error);
-            }
-          }
-
-          // Configure WebLLM after earlier resources have been handled.
-          // Note: Model selection will happen via UnifiedInitModal callback
-          if (queue.webllm) {
-            // WebLLM initialization deferred to model selection via UnifiedInitModal
-            // Just ensure the preference is saved
-            const model = settings?.webLlmModel || getDefaultWebLlmModel(webgpuStatus?.hasF16 ?? true);
-            await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: model });
-          }
-        } catch (e) {
-          console.error("Invalid startup pref", e);
-          // If error, fall back to modal logic, considering cache
-          if (!cached.tts || !cached.ffmpeg) {
-            if (!hideSetupModal) {
-              setIsResourceModalOpen(true);
-            }
-          }
-        }
-      } else {
-        // No "Never show again" preference stored.
-        // Show modal ONLY if something is missing
-        if (!cached.tts || !cached.ffmpeg) {
-          if (!hideSetupModal) {
-            setIsResourceModalOpen(true);
-          }
-        }
+      // Show the setup confirmation if anything is still missing
+      if ((!cached.tts || !cached.ffmpeg || !cached.webllm) && !hideSetupModal) {
+        setIsResourceModalOpen(true);
       }
     };
     load();
   }, [renderer]);
 
-  const handleResourceConfirm = async (selection: ResourceSelection, dontShowAgain?: boolean) => {
+  const handleSetupConfirm = async (dontShowAgain?: boolean) => {
     setIsResourceModalOpen(false);
 
-    const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-    const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
-    const wantsWebLLM = !!selection.enableWebLLM && !cached.webllm;
-    let webgpuStatus: Awaited<ReturnType<typeof checkWebGPUSupport>> | null = null;
-    let shouldEnableWebLLM = wantsWebLLM;
-
-    if (wantsWebLLM) {
-      webgpuStatus = await checkWebGPUSupport();
-      setStartupWebGpuSupport(webgpuStatus);
-
-      if (!webgpuStatus.supported) {
-        shouldEnableWebLLM = false;
-        setIsWebGPUModalOpen(true);
-      }
-    }
-
-    // Save the "don't show again" preference
     if (dontShowAgain) {
       localStorage.setItem('hide_setup_modal', 'true');
     }
 
+    const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
     const queue = {
-      tts: !cached.tts && !!selection.downloadTTS,
-      ffmpeg: !cached.ffmpeg && !!selection.downloadFFmpeg,
-      webllm: shouldEnableWebLLM,
+      tts: !cached.tts,
+      ffmpeg: !cached.ffmpeg,
+      webllm: !cached.webllm,
     };
 
-    // Check if we need to show unified init modal
-    const needsInit = queue.tts || queue.ffmpeg || queue.webllm;
+    if (!queue.tts && !queue.ffmpeg && !queue.webllm) return;
 
-    if (needsInit && !hideSetupModal) {
-      setActiveDownloads(queue);
-      setIsWebLLMInitModalOpen(true);
-    }
+    setActiveDownloads(queue);
+    setIsBackgroundDownloadActive(true);
 
-    // Initialize strictly one-at-a-time: TTS -> FFmpeg.
-    if (queue.tts || queue.ffmpeg) {
-      try {
-        await runInitialSetupQueue(
-          { tts: queue.tts, ffmpeg: queue.ffmpeg },
-          globalSettings?.ttsQuantization || 'q4'
-        );
-      } catch (error) {
-        console.error('Failed to complete queued setup resources:', error);
+    try {
+      // Downloads run strictly one at a time: TTS -> FFmpeg -> WebLLM.
+      if (queue.tts) {
+        await waitForTTSInitialization(globalSettings?.ttsQuantization || 'q4');
       }
-    }
 
-    if (queue.webllm && webgpuStatus) {
-      // Enable WebLLM in settings without starting initialization
-      // Model selection and initialization will happen via UnifiedInitModal
-      const defaultModel = getDefaultWebLlmModel(webgpuStatus.hasF16);
-      await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: defaultModel });
+      if (queue.ffmpeg) {
+        await renderer.load();
+      }
+
+      if (queue.webllm) {
+        const webgpuStatus = await checkWebGPUSupport();
+        if (webgpuStatus.supported) {
+          const model = getDefaultWebLlmModel(webgpuStatus.hasF16);
+          await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: model });
+          await initWebLLM(model, () => {});
+        } else {
+          setIsWebGPUModalOpen(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to complete background setup downloads:', error);
+    } finally {
+      setIsBackgroundDownloadActive(false);
     }
   };
 
@@ -665,23 +563,6 @@ function MainApp() {
       setSlides([]);
       setActiveTab('edit');
       setMusicSettings({ volume: 0.36 }); // Reset music settings on start over
-    }
-  };
-
-  const handleWebLLMModelSelect = async (modelId: string) => {
-    try {
-      // Save selected model to settings
-      await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: modelId });
-
-      // Initialize WebLLM with the selected model and let the setup modal track progress.
-      await initWebLLM(modelId, (progress) => console.log('WebLLM Init:', progress));
-    } catch (error) {
-      console.error('Error handling WebLLM model selection:', error);
-      await showAlert(`Error selecting WebLLM model: ${error instanceof Error ? error.message : String(error)}`, { 
-        type: 'error', 
-        title: 'Model Selection Failed' 
-      });
-      throw error;
     }
   };
 
@@ -1725,10 +1606,8 @@ function MainApp() {
 
       <RuntimeResourceModal
         isOpen={isResourceModalOpen}
-        onConfirm={handleResourceConfirm}
-        preinstalled={preinstalledResources}
+        onConfirm={handleSetupConfirm}
       />
-
 
       <WebGPUInstructionsModal
         isOpen={isWebGPUModalOpen}
@@ -1740,27 +1619,10 @@ function MainApp() {
         onComplete={() => setIsWebLLMLoadingOpen(false)}
       />
 
-      {isWebLLMInitModalOpen && (
-        <UnifiedInitModal
-          isOpen={isWebLLMInitModalOpen}
-          resources={preinstalledResources}
-          activeResources={activeDownloads}
-          webGpuSupport={startupWebGpuSupport}
-          onWebLLMModelSelect={handleWebLLMModelSelect}
-          onComplete={() => {
-            setIsWebLLMInitModalOpen(false);
-            // Mark WebLLM as pre-initialized so we don't show this again
-            localStorage.setItem('webllm_preinitialized', 'true');
-            // Update the resource cache status
-            const currentStatus = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
-            if (!currentStatus.webllm) {
-              currentStatus.webllm = true;
-              localStorage.setItem('resource_cache_status', JSON.stringify(currentStatus));
-              setPreinstalledResources(currentStatus);
-            }
-          }}
-        />
-      )}
+      <BackgroundDownloadToast
+        active={isBackgroundDownloadActive}
+        queue={activeDownloads}
+      />
 
       {/* Background Image */}
       <img
