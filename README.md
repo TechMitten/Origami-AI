@@ -253,7 +253,7 @@ When reporting a bug, please include your browser + version, OS, `node -v`, repr
 
 ## 📄 License
 
-Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Licensed under the [MIT](LICENSE).
 
 ## 🙏 Credits
 
