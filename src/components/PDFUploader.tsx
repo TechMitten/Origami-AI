@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { BrainCircuit, Loader2, Palette, AlertCircle, Video } from 'lucide-react';
+import { Layers, Loader2, BrainCircuit, Video, Bug, ArrowUpRight } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -18,6 +18,16 @@ interface PDFUploaderProps {
   onOpenAssistant?: () => void;
   onOpenIssueReporter?: () => void;
   onOpenSlideEditor?: () => void;
+}
+
+interface SecondaryOption {
+  key: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  cta: string;
+  onClick?: () => void;
+  accent: 'foil' | 'amber';
 }
 
 export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor }) => {
@@ -112,220 +122,190 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
     multiple: false,
   });
 
+  const secondaryOptions: SecondaryOption[] = [
+    {
+      key: 'editor',
+      icon: Video,
+      title: 'Editor',
+      description: 'Build with Slide Media directly, no PDF required.',
+      cta: 'Open editor',
+      onClick: onOpenSlideEditor,
+      accent: 'foil',
+    },
+    {
+      key: 'assistant',
+      icon: BrainCircuit,
+      title: 'AI Assistant',
+      description: 'Chat with the local WebLLM workspace to write and revise.',
+      cta: 'Open assistant',
+      onClick: onOpenAssistant,
+      accent: 'foil',
+    },
+    {
+      key: 'issue',
+      icon: Bug,
+      title: 'Issue Reporter',
+      description: 'Report a bug or request a feature.',
+      cta: 'Report issue',
+      onClick: onOpenIssueReporter,
+      accent: 'amber',
+    },
+  ];
+
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-0" style={{ fontFamily: '"Roboto", "Inter", system-ui, -apple-system, sans-serif' }}>
+    <div
+      className="w-full max-w-6xl mx-auto px-4 sm:px-0"
+      style={{ fontFamily: '"Roboto", "Inter", system-ui, -apple-system, sans-serif', perspective: '1200px' }}
+    >
       {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-2">
-          Let's Get Started
+      <div className="mb-8 sm:mb-10 origami-unfold">
+        <span className="block text-[11px] font-mono uppercase tracking-[0.2em] text-white/35 mb-3">
+          New project
+        </span>
+        <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-3 tracking-tight">
+          Let's get started
         </h2>
-        <p className="text-sm text-white/60">
-          Choose how you want to start your project
+        <p className="text-sm sm:text-base text-white/55 max-w-md">
+          Most projects start with a PDF — everything else is one click away.
         </p>
       </div>
 
-      {/* Three Equal-Sized Options */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {/* Studio Option - Upload PDF */}
-        <div
-          {...getRootProps()}
-          className={cn(
-            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
-            "bg-[#0F1115] border border-white/10",
-            "hover:border-blue-500/30 hover:bg-white/[0.02]",
-            "rounded-lg",
-            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
-            "min-h-[280px] sm:min-h-[320px]",
-            isDragActive && "border-blue-500/50 bg-blue-500/5"
+      {/* Primary option: PDF upload */}
+      <div
+        {...getRootProps()}
+        className={cn(
+          'fold-card origami-unfold group relative cursor-pointer overflow-hidden border transition-colors duration-300',
+          'bg-[#14161B] border-white/10 hover:border-white/20',
+          'p-7 sm:p-10 flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10',
+          isDragActive && 'border-cyan-400/40 bg-cyan-500/[0.04]'
+        )}
+        style={{
+          backgroundImage: 'linear-gradient(105deg, transparent 49.4%, rgba(255,255,255,0.05) 50%, transparent 50.6%)',
+        }}
+      >
+        <input {...getInputProps()} />
+
+        <div className={cn(
+          'shrink-0 flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 border transition-all duration-300',
+          isDragActive ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-white/5 border-white/10 group-hover:border-cyan-400/20 group-hover:bg-cyan-500/5'
+        )}>
+          {isProcessing ? (
+            <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 text-cyan-300 animate-spin" />
+          ) : (
+            <Layers className={cn(
+              'w-7 h-7 sm:w-8 sm:h-8 transition-colors duration-300',
+              isDragActive ? 'text-cyan-300' : 'text-white/50 group-hover:text-cyan-300'
+            )} />
           )}
-        >
-          <input {...getInputProps()} />
+        </div>
 
-          {/* Icon */}
-          <div className={cn(
-            "mb-4 p-4 rounded-xl transition-all duration-200",
-            isDragActive ? "bg-blue-500/10" : "bg-white/5 group-hover:bg-blue-500/5"
-          )}>
-            {isProcessing ? (
-              <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400 animate-spin" />
-            ) : (
-              <Palette className={cn(
-                "w-8 h-8 sm:w-10 sm:h-10 transition-colors duration-200",
-                isDragActive ? "text-blue-400" : "text-white/50 group-hover:text-blue-400"
-              )} />
-            )}
-          </div>
-
-          {/* Title */}
+        <div className="flex-1 text-left">
           <h3 className={cn(
-            "text-lg sm:text-xl font-medium text-white mb-2 transition-colors duration-200",
-            isDragActive && "text-blue-300"
+            'font-display text-xl sm:text-2xl font-semibold text-white mb-1.5 transition-colors duration-300',
+            isDragActive && 'text-cyan-200'
           )}>
             Slide Studio
           </h3>
-
-          {/* Description */}
-          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[200px]">
+          <p className="text-sm text-white/55 max-w-md">
             {isDragActive
-              ? 'Release to upload'
-              : 'Create videos from 2D content with AI narration'
+              ? 'Release to upload your PDF.'
+              : 'Drop a PDF and Origami extracts every slide, then writes the narration for you.'
             }
           </p>
 
-          {/* Status Badge */}
           {isProcessing && (
-            <div className="mt-auto">
-              <div className="w-full max-w-[180px] mx-auto">
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
-                  <div
-                    className="h-full bg-blue-400 transition-all duration-300"
-                    style={{ width: `${ocrProgress}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-white/40 text-center">
-                  {ocrStatus === 'processing'
-                    ? `Processing ${ocrCurrentPage}/${ocrTotalPages} - ${ocrProgress}%`
-                    : 'Processing...'}
-                </p>
+            <div className="mt-4 max-w-xs">
+              <div className="h-1 bg-white/10 overflow-hidden mb-1.5">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 transition-all duration-300"
+                  style={{ width: `${ocrProgress}%` }}
+                />
               </div>
+              <p className="text-[11px] font-mono text-white/40 tracking-wide">
+                {ocrStatus === 'processing'
+                  ? `PAGE ${ocrCurrentPage}/${ocrTotalPages} — ${ocrProgress}%`
+                  : 'PREPARING…'}
+              </p>
             </div>
           )}
+        </div>
 
-          {!isProcessing && (
-            <div className="mt-auto">
+        {!isProcessing && (
+          <div className="shrink-0 flex flex-col items-start sm:items-end gap-1.5">
+            <div className={cn(
+              'inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border transition-all duration-300',
+              isDragActive
+                ? 'bg-cyan-500/10 text-cyan-200 border-cyan-400/30'
+                : 'bg-white/5 text-white/70 border-white/15 group-hover:border-cyan-400/30 group-hover:text-cyan-200'
+            )}>
+              Select PDF file
+              <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </div>
+            <span className="text-[11px] text-white/30">or drag &amp; drop</span>
+          </div>
+        )}
+      </div>
+
+      {/* Secondary row label */}
+      <div className="flex items-center gap-3 mt-8 mb-4">
+        <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-white/35 whitespace-nowrap">
+          Or jump straight to
+        </span>
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
+
+      {/* Secondary options */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {secondaryOptions.map((opt, i) => {
+          const Icon = opt.icon;
+          const isAmber = opt.accent === 'amber';
+          return (
+            <div
+              key={opt.key}
+              onClick={opt.onClick}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') opt.onClick?.();
+              }}
+              className="fold-card origami-unfold group relative cursor-pointer border bg-[#14161B] border-white/10 hover:border-white/20 p-6 flex flex-col min-h-[190px] transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+              style={{ animationDelay: `${160 + i * 90}ms`, ...(isAmber ? ({ '--fold-glow': 'linear-gradient(135deg, #f59e0b, #fb923c)' } as React.CSSProperties) : {}) }}
+            >
               <div className={cn(
-                "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
-                isDragActive
-                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                  : "bg-white/5 text-white/40 border-white/10 group-hover:bg-blue-500/5 group-hover:text-blue-400 group-hover:border-blue-500/20"
+                'mb-4 flex items-center justify-center w-11 h-11 border transition-all duration-300 bg-white/5 border-white/10',
+                isAmber ? 'group-hover:border-amber-400/30 group-hover:bg-amber-500/10' : 'group-hover:border-cyan-400/30 group-hover:bg-cyan-500/10'
               )}>
-                Select PDF File
+                <Icon className={cn(
+                  'w-5 h-5 text-white/50 transition-colors duration-300',
+                  isAmber ? 'group-hover:text-amber-300' : 'group-hover:text-cyan-300'
+                )} />
+              </div>
+
+              <h3 className={cn(
+                'font-display text-base font-semibold text-white mb-1.5 transition-colors duration-300',
+                isAmber ? 'group-hover:text-amber-200' : 'group-hover:text-cyan-200'
+              )}>
+                {opt.title}
+              </h3>
+              <p className="text-xs text-white/50 leading-relaxed mb-4">
+                {opt.description}
+              </p>
+
+              <div className={cn(
+                'mt-auto inline-flex items-center gap-1 self-start text-[11px] font-semibold border px-3 py-1.5 transition-all duration-300 bg-white/5 text-white/60 border-white/10',
+                isAmber ? 'group-hover:border-amber-400/30 group-hover:text-amber-200' : 'group-hover:border-cyan-400/30 group-hover:text-cyan-200'
+              )}>
+                {opt.cta}
+                <ArrowUpRight className="w-3 h-3 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </div>
             </div>
-          )}
-
-          {/* Subtle hover glow */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
-
-        {/* Slide Editor Option */}
-        <div
-          onClick={onOpenSlideEditor}
-          className={cn(
-            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
-            "bg-[#0F1115] border border-white/10",
-            "hover:border-emerald-500/30 hover:bg-white/[0.02]",
-            "rounded-lg",
-            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
-            "min-h-[280px] sm:min-h-[320px]"
-          )}
-        >
-          <div className={cn(
-            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-emerald-500/5"
-          )}>
-            <Video className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-emerald-300 transition-colors duration-200" />
-          </div>
-
-          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-emerald-200 transition-colors duration-200">
-            Editor
-          </h3>
-
-          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">
-            Enter directly and build with Slide Media without uploading a PDF first
-          </p>
-
-          <div className="mt-auto">
-            <div className={cn(
-              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
-              "bg-white/5 text-white/40 border-white/10 group-hover:bg-emerald-500/5 group-hover:text-emerald-300 group-hover:border-emerald-500/20"
-            )}>
-              Open Editor
-            </div>
-          </div>
-
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
-
-        {/* Assistant Option */}
-        <div
-          onClick={onOpenAssistant}
-          className={cn(
-            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
-            "bg-[#0F1115] border border-white/10",
-            "hover:border-cyan-500/30 hover:bg-white/[0.02]",
-            "rounded-lg",
-            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
-            "min-h-[280px] sm:min-h-[320px]"
-          )}
-        >
-          <div className={cn(
-            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-cyan-500/5"
-          )}>
-            <BrainCircuit className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-cyan-300 transition-colors duration-200" />
-          </div>
-
-          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-cyan-200 transition-colors duration-200">
-            AI Assistant
-          </h3>
-
-          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">
-            Open the WebLLM-powered chat workspace for writing, brainstorming, and revisions
-          </p>
-
-          <div className="mt-auto">
-            <div className={cn(
-              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
-              "bg-white/5 text-white/40 border-white/10 group-hover:bg-cyan-500/5 group-hover:text-cyan-300 group-hover:border-cyan-500/20"
-            )}>
-              Open Assistant
-            </div>
-          </div>
-
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
-
-        {/* Issue Reporter Option */}
-        <div
-          onClick={onOpenIssueReporter}
-          className={cn(
-            "relative group cursor-pointer transition-all duration-200 overflow-hidden",
-            "bg-[#0F1115] border border-white/10",
-            "hover:border-amber-500/30 hover:bg-white/[0.02]",
-            "rounded-lg",
-            "flex flex-col items-center justify-center text-center p-6 sm:p-8",
-            "min-h-[280px] sm:min-h-[320px]"
-          )}
-        >
-          <div className={cn(
-            "mb-4 p-4 rounded-xl transition-all duration-200 bg-white/5 group-hover:bg-amber-500/5"
-          )}>
-            <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white/50 group-hover:text-amber-300 transition-colors duration-200" />
-          </div>
-
-          <h3 className="text-lg sm:text-xl font-medium text-white mb-2 group-hover:text-amber-200 transition-colors duration-200">
-            Issue Reporter
-          </h3>
-
-          <p className="text-xs sm:text-sm text-white/50 mb-4 max-w-[220px]">
-            Report bugs or suggest features to help improve Origami AI
-          </p>
-
-          <div className="mt-auto">
-            <div className={cn(
-              "px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-200",
-              "bg-white/5 text-white/40 border-white/10 group-hover:bg-amber-500/5 group-hover:text-amber-300 group-hover:border-amber-500/20"
-            )}>
-              Report Issue
-            </div>
-          </div>
-
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        </div>
+          );
+        })}
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mt-6 p-4 rounded-lg bg-red-500/5 border border-red-500/10 text-red-400 text-xs font-medium text-center animate-in fade-in slide-in-from-top-2">
+        <div className="mt-6 p-4 border border-red-500/10 bg-red-500/5 text-red-400 text-xs font-medium text-center">
           {error}
         </div>
       )}

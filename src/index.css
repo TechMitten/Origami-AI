@@ -26,6 +26,10 @@ body {
   width: 100%;
 }
 
+.font-display {
+  font-family: "Unbounded", "Inter", system-ui, -apple-system, sans-serif;
+}
+
 /* Mobile: Prevent iOS auto-zoom on inputs */
 input[type="text"], input[type="number"], input[type="url"], textarea, select {
   font-size: 16px;
@@ -177,4 +181,90 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
 
 .neon-glow-primary {
   box-shadow: 0 0 20px rgba(0, 209, 255, 0.3), 0 0 40px rgba(0, 209, 255, 0.1);
+}
+
+/* Get Started screen: a literal dog-eared paper corner on each card.
+   ::before is the folded flap, ::after is the colored foil it reveals on hover. */
+.fold-card {
+  --fold-size: 20px;
+  --fold-glow: linear-gradient(135deg, #22d3ee, #3b82f6 55%, #a855f7);
+  position: relative;
+  clip-path: polygon(0 0, calc(100% - var(--fold-size)) 0, 100% var(--fold-size), 100% 100%, 0 100%);
+}
+
+@media (min-width: 640px) {
+  .fold-card {
+    --fold-size: 26px;
+  }
+}
+
+.fold-card::before,
+.fold-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--fold-size);
+  height: var(--fold-size);
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+  pointer-events: none;
+}
+
+.fold-card::before {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02));
+  z-index: 2;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fold-card::after {
+  background: var(--fold-glow);
+  opacity: 0;
+  filter: blur(7px);
+  z-index: 1;
+  transform: scale(0.7);
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 380ms ease;
+}
+
+.fold-card:hover::before,
+.fold-card:focus-visible::before {
+  transform: translate(-4px, 4px) scale(0.9);
+}
+
+.fold-card:hover::after,
+.fold-card:focus-visible::after {
+  opacity: 0.85;
+  transform: scale(1.2);
+}
+
+/* Page-load sequence: cards settle as if unfolding flat from the sheet above them. */
+@keyframes origami-unfold {
+  from {
+    opacity: 0;
+    transform: translateY(16px) rotateX(10deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+  }
+}
+
+.origami-unfold {
+  animation: origami-unfold 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold-card::before,
+  .fold-card::after {
+    transition: opacity 200ms ease;
+  }
+
+  .fold-card:hover::before,
+  .fold-card:focus-visible::before {
+    transform: none;
+  }
+
+  .origami-unfold {
+    animation: none;
+  }
 }
