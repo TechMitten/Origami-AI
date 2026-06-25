@@ -22,7 +22,7 @@ import { RuntimeResourceModal } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { BackgroundDownloadToast } from './components/BackgroundDownloadToast';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
-import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel } from './services/webLlmService';
+import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, getWebLlmModelInfo } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
 import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
@@ -515,7 +515,11 @@ function MainApp() {
       if (queue.webllm) {
         const webgpuStatus = await checkWebGPUSupport();
         if (webgpuStatus.supported) {
-          const model = getDefaultWebLlmModel(webgpuStatus.hasF16);
+          // Respect a model the user already configured, as long as it's still
+          // compatible with this device's WebGPU capabilities.
+          const configuredModel = getWebLlmModelInfo(globalSettings?.webLlmModel);
+          const isConfiguredModelCompatible = configuredModel && (webgpuStatus.hasF16 || configuredModel.precision === 'f32');
+          const model = isConfiguredModelCompatible ? configuredModel!.id : getDefaultWebLlmModel(webgpuStatus.hasF16);
           await handlePartialGlobalSettings({ useWebLLM: true, webLlmModel: model });
           await initWebLLM(model, () => {});
         } else {

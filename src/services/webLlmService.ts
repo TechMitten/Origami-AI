@@ -28,13 +28,6 @@ export interface WebLLMChatRequestOptions {
 
 export type WebLLMChatMessage = ChatCompletionMessageParam;
 
-export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
-export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
-
-export const getDefaultWebLlmModel = (hasF16: boolean = true): string => {
-    return hasF16 ? DEFAULT_WEB_LLM_MODEL_ID : DEFAULT_WEB_LLM_FALLBACK_MODEL_ID;
-};
-
 // Filter mostly for smaller models suitable for browser
 // This list can be expanded based on prebuiltAppConfig.model_list
 // f16 models are faster and use less memory, f32 models have better compatibility
@@ -58,6 +51,20 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", name: "Phi 3.5 Mini", size: "3.0GB", vram_required_MB: 3500, precision: 'f32', capabilities: ['text'] },
     { id: "Phi-3.5-vision-instruct-q4f32_1-MLC", name: "Phi 3.5 Vision", size: "5.9GB", vram_required_MB: 5880, precision: 'f32', capabilities: ['text', 'vision'] },
 ];
+
+// Picks the lowest-VRAM model for a given precision, so fallbacks always download the smallest compatible file.
+export const getSmallestModelByPrecision = (precision: ModelInfo['precision']): ModelInfo | undefined => {
+    return AVAILABLE_WEB_LLM_MODELS
+        .filter((model) => model.precision === precision)
+        .sort((a, b) => (a.vram_required_MB ?? Infinity) - (b.vram_required_MB ?? Infinity))[0];
+};
+
+export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
+export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = getSmallestModelByPrecision('f32')!.id;
+
+export const getDefaultWebLlmModel = (hasF16: boolean = true): string => {
+    return hasF16 ? DEFAULT_WEB_LLM_MODEL_ID : DEFAULT_WEB_LLM_FALLBACK_MODEL_ID;
+};
 
 export const getWebLlmModelInfo = (modelId: string | null | undefined): ModelInfo | undefined => {
     if (!modelId) return undefined;
