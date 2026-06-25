@@ -16,12 +16,52 @@ export interface RenderedPage {
   ocrWarning?: string;
 }
 
+async function getOptimalViewport(page: pdfjsLib.PDFPageProxy, scale: number): Promise<pdfjsLib.PageViewport> {
+  const unscaledViewport = page.getViewport({ scale: 1.0 });
+  
+  let upCount = 0;
+  let downCount = 0;
+  let leftCount = 0;
+  let rightCount = 0;
+
+  try {
+    const textContent = await page.getTextContent();
+    for (const item of textContent.items) {
+      if (!('str' in item) || typeof item.str !== 'string' || !item.str.trim()) continue;
+      const [a, b] = item.transform;
+      if (a > Math.abs(b)) upCount++; 
+      else if (a < -Math.abs(b)) downCount++; 
+      else if (b > Math.abs(a)) rightCount++; 
+      else if (b < -Math.abs(a)) leftCount++; 
+    }
+  } catch (e) {
+    console.warn('Failed to get text content for rotation detection', e);
+  }
+
+  let additionalRotation = 0;
+  const max = Math.max(upCount, downCount, leftCount, rightCount);
+
+  if (max > 0) {
+    if (max === downCount) additionalRotation = 180;
+    else if (max === rightCount) additionalRotation = 270;
+    else if (max === leftCount) additionalRotation = 90;
+  } else {
+    // Fallback: If portrait, assume it should be landscape
+    if (unscaledViewport.width < unscaledViewport.height) {
+      additionalRotation = 270;
+    }
+  }
+
+  const finalRotation = (unscaledViewport.rotation + additionalRotation) % 360;
+  return page.getViewport({ scale, rotation: finalRotation });
+}
+
 export async function renderPdfFirstPageToImage(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
   const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2.0 });
+  const viewport = await getOptimalViewport(page, 2.0);
 
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -58,7 +98,7 @@ export async function renderPdfToImages(file: File): Promise<RenderedPage[]> {
 
   for (let i = 1; i <= numPages; i++) {
     const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 }); // High res rendering
+    const viewport = await getOptimalViewport(page, 2.0); // High res rendering with auto-rotation
     
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -80,16 +120,48 @@ export async function renderPdfToImages(file: File): Promise<RenderedPage[]> {
 
     // Extract text for initial script
     const textContent = await page.getTextContent();
-    let extractedText = textContent.items
-      .map((item) => {
-        if ('str' in item && typeof item.str === 'string') {
-          return item.str;
+    let extractedText = '';
+    let lastY: number | null = null;
+    let lastItem: any = null;
+    let lastX: number | null = null;
+
+    const m = viewport.transform;
+    const scale = Math.sqrt(m[0] * m[0] + m[1] * m[1]);
+
+    for (const item of textContent.items) {
+      if (!('str' in item) || typeof item.str !== 'string') continue;
+
+      const currentX = m[0] * item.transform[4] + m[2] * item.transform[5] + m[4];
+      const currentY = m[1] * item.transform[4] + m[3] * item.transform[5] + m[5];
+
+      if (lastItem) {
+        const isNewLine = lastY !== null && Math.abs(currentY - lastY) > (5 * scale);
+        
+        if (isNewLine) {
+          extractedText += '\n';
+        } else if (!lastItem.str.endsWith(' ') && !item.str.startsWith(' ')) {
+          const prevEndX = (lastX || 0) + lastItem.width * scale;
+          // Use item.height as a heuristic for space width, fallback to 10
+          if (currentX - prevEndX > (item.height || 10) * scale * 0.2) {
+            extractedText += ' ';
+          }
         }
-        return '';
-      })
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+      }
+
+      extractedText += item.str;
+      
+      if ('hasEOL' in item && item.hasEOL) {
+        extractedText += '\n';
+        lastItem = null;
+        lastY = null;
+        lastX = null;
+      } else {
+        lastItem = item;
+        lastY = currentY;
+        lastX = currentX;
+      }
+    }
+    extractedText = extractedText.replace(/[ \t]+/g, ' ').replace(/\n /g, '\n').trim();
 
     let ocrWarning: string | undefined = undefined;
 

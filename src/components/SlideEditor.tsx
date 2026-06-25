@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench, Camera, Download } from 'lucide-react';
+import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench, Camera, Download, RotateCcw, RotateCw } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -111,6 +111,7 @@ export interface SlideData extends Partial<RenderedPage> {
   interactionData?: { timeMs: number, type: string }[];
   zooms?: ZoomKeyframe[];
   autoZoomConfig?: AutoZoomConfig;
+  rotation?: number;
 }
 
 export interface MusicSettings {
@@ -820,10 +821,40 @@ const SortableSlideItem = ({
           className="w-full rounded-2xl overflow-hidden border border-white/10 ring-1 ring-white/5 shadow-2xl shadow-black/40 relative bg-black group/image"
           style={{ aspectRatio: aspectRatio.replace(':', '/') }}
         >
+          <div className="absolute top-2 left-2 z-10 flex gap-1.5 opacity-0 pointer-events-none transition-all duration-200 group-hover/image:opacity-100 group-hover/image:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+            <button
+              type="button"
+              data-no-expand="true"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newRotation = (slide.rotation || 0) - 90;
+                onUpdate(index, { rotation: newRotation });
+              }}
+              className="inline-flex items-center justify-center rounded-md border border-white/20 bg-black/60 p-1.5 text-white/90 hover:bg-black/80 transition-colors cursor-pointer"
+              title="Rotate Counter-Clockwise"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              data-no-expand="true"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newRotation = (slide.rotation || 0) + 90;
+                onUpdate(index, { rotation: newRotation });
+              }}
+              className="inline-flex items-center justify-center rounded-md border border-white/20 bg-black/60 p-1.5 text-white/90 hover:bg-black/80 transition-colors cursor-pointer"
+              title="Rotate Clockwise"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {slide.type === 'video' ? (
             <video
               src={slide.mediaUrl}
-              className="w-full h-full object-contain rounded-2xl"
+              className="w-full h-full object-contain rounded-2xl transition-transform duration-500"
+              style={{ transform: `rotate(${slide.rotation || 0}deg)` }}
               muted
               onClick={() => onExpand(index)}
             />
@@ -831,7 +862,8 @@ const SortableSlideItem = ({
             <img
               src={slide.dataUrl}
               alt={`Slide ${index + 1}`}
-              className="w-full h-full object-contain transition-transform duration-500 group-hover/image:scale-105 rounded-2xl"
+              className="w-full h-full object-contain transition-transform duration-500 rounded-2xl"
+              style={{ transform: `rotate(${slide.rotation || 0}deg)` }}
               onClick={() => onExpand(index)}
             />
           )}
@@ -2377,13 +2409,41 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               </div>
 
               <div className="w-[min(96vw,1800px)] mx-auto flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] gap-4">
-                <div className="relative min-h-[52dvh] lg:min-h-0 w-full flex items-center justify-center overflow-hidden rounded-2xl bg-black/50 border border-white/10 shadow-2xl shadow-black/40 p-2 sm:p-3">
+                <div className="relative min-h-[52dvh] lg:min-h-0 w-full flex items-center justify-center overflow-hidden rounded-2xl bg-black/50 border border-white/10 shadow-2xl shadow-black/40 p-2 sm:p-3 group/detail-media">
+                  <div className="absolute top-4 left-4 z-10 flex gap-2 opacity-0 pointer-events-none transition-all duration-200 group-hover/detail-media:opacity-100 group-hover/detail-media:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newRotation = (slides[previewIndex].rotation || 0) - 90;
+                        onUpdateSlide(previewIndex, { rotation: newRotation });
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-black/60 p-2 text-white/90 hover:bg-black/80 transition-colors cursor-pointer"
+                      title="Rotate Counter-Clockwise"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newRotation = (slides[previewIndex].rotation || 0) + 90;
+                        onUpdateSlide(previewIndex, { rotation: newRotation });
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-black/60 p-2 text-white/90 hover:bg-black/80 transition-colors cursor-pointer"
+                      title="Rotate Clockwise"
+                    >
+                      <RotateCw className="w-4 h-4" />
+                    </button>
+                  </div>
+
                   {slides[previewIndex].type === 'video' ? (
                     <video
                       ref={previewVideoRef}
                       src={slides[previewIndex].mediaUrl}
                       className="w-full h-full object-contain rounded-xl"
-                      style={previewZoomStyle}
+                      style={{
+                        ...previewZoomStyle,
+                        transform: `${previewZoomStyle?.transform || ''} rotate(${slides[previewIndex].rotation || 0}deg)`.trim()
+                      }}
                       controls
 
                       autoPlay
@@ -2408,6 +2468,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       src={slides[previewIndex].dataUrl}
                       alt={`Slide ${previewIndex + 1}`}
                       className="w-full h-full object-contain rounded-xl"
+                      style={{
+                        transform: `rotate(${slides[previewIndex].rotation || 0}deg)`
+                      }}
                     />
                   )}
                 </div>
@@ -2516,7 +2579,32 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               )}
             </div>
 
-            <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+            <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden group/detail-media">
+              <div className="absolute top-4 left-4 z-10 flex gap-2 opacity-0 pointer-events-none transition-all duration-200 group-hover/detail-media:opacity-100 group-hover/detail-media:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newRotation = (slides[previewIndex].rotation || 0) - 90;
+                    onUpdateSlide(previewIndex, { rotation: newRotation });
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-black/60 p-2 text-white/90 hover:bg-black/80 transition-colors cursor-pointer"
+                  title="Rotate Counter-Clockwise"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newRotation = (slides[previewIndex].rotation || 0) + 90;
+                    onUpdateSlide(previewIndex, { rotation: newRotation });
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-black/60 p-2 text-white/90 hover:bg-black/80 transition-colors cursor-pointer"
+                  title="Rotate Clockwise"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
+              </div>
+
               {slides[previewIndex].type === 'video' ? (
                 <div className="flex flex-col w-full h-full">
                   <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-visible">
@@ -2524,7 +2612,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                       ref={previewVideoRef}
                       src={slides[previewIndex].mediaUrl}
                       className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
-                      style={previewZoomStyle}
+                      style={{
+                        ...previewZoomStyle,
+                        transform: `${previewZoomStyle?.transform || ''} rotate(${slides[previewIndex].rotation || 0}deg)`.trim()
+                      }}
                       controls
                       autoPlay
                       onTimeUpdate={(e) => setPreviewVideoTime(e.currentTarget.currentTime)}
@@ -2568,6 +2659,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                   src={slides[previewIndex].dataUrl}
                   alt={`Slide ${previewIndex + 1}`}
                   className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-black ring-1 ring-white/10"
+                  style={{
+                    transform: `rotate(${slides[previewIndex].rotation || 0}deg)`
+                  }}
                 />
               )}
             </div>

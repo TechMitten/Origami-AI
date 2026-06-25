@@ -40,6 +40,7 @@ interface Slide {
       audioDurationSeconds?: number;
     }>;
   };
+  rotation?: number;
 }
 
 interface SimplePreviewProps {
@@ -552,7 +553,10 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
             src={currentSlide.dataUrl}
             alt={`Slide ${currentSlideIndex + 1}`}
             className={`max-w-full max-h-full object-contain ${getTransitionClass()}`}
-            style={getTransitionStyle()}
+            style={{
+              ...getTransitionStyle(),
+              transform: currentSlide.rotation ? `rotate(${currentSlide.rotation}deg)` : undefined
+            }}
           />
         )}
         {currentSlide?.mediaUrl && currentSlide.type === 'video' && (
@@ -560,7 +564,11 @@ export function SimplePreview({ slides, musicUrl, musicVolume = 0.03, ttsVolume 
             key={`vid-${currentSlideIndex}-${introPlaybackNonce}`}
             src={currentSlide.mediaUrl}
             className={`max-w-full max-h-full object-contain ${getTransitionClass()}`}
-            style={{ ...getTransitionStyle(), ...liveZoomStyle }}
+            style={{
+              ...getTransitionStyle(),
+              ...liveZoomStyle,
+              transform: `${liveZoomStyle?.transform || ''} ${currentSlide.rotation ? `rotate(${currentSlide.rotation}deg)` : ''}`.trim() || undefined
+            }}
             autoPlay={isPlaying}
             loop={false} 
             muted={isMuted || masterVolume === 0} 

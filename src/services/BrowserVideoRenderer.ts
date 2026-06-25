@@ -37,6 +37,7 @@ interface Slide {
     type: string;
   }>;
   autoZoomConfig?: AutoZoomConfig;
+  rotation?: number;
 }
 
 interface MusicSettings {
@@ -84,6 +85,7 @@ interface PreparedImageSlide {
   video?: HTMLVideoElement;
   videoCanvas?: HTMLCanvasElement;
   videoContext?: CanvasRenderingContext2D;
+  rotation?: number;
 }
 
 interface TimelineItem {
@@ -439,12 +441,30 @@ export class BrowserVideoRenderer {
       context.fillStyle = 'black';
       context.fillRect(0, 0, width, height);
 
-      const scale = Math.min(width / bitmap.width, height / bitmap.height);
-      const drawWidth = bitmap.width * scale;
-      const drawHeight = bitmap.height * scale;
-      const dx = (width - drawWidth) / 2;
-      const dy = (height - drawHeight) / 2;
-      context.drawImage(bitmap, dx, dy, drawWidth, drawHeight);
+      const rotation = slide.rotation || 0;
+      if (rotation !== 0) {
+        context.save();
+        context.translate(width / 2, height / 2);
+        context.rotate((rotation * Math.PI) / 180);
+
+        const is90or270 = rotation % 180 !== 0;
+        const effWidth = is90or270 ? bitmap.height : bitmap.width;
+        const effHeight = is90or270 ? bitmap.width : bitmap.height;
+
+        const scale = Math.min(width / effWidth, height / effHeight);
+        const drawWidth = bitmap.width * scale;
+        const drawHeight = bitmap.height * scale;
+
+        context.drawImage(bitmap, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        context.restore();
+      } else {
+        const scale = Math.min(width / bitmap.width, height / bitmap.height);
+        const drawWidth = bitmap.width * scale;
+        const drawHeight = bitmap.height * scale;
+        const dx = (width - drawWidth) / 2;
+        const dy = (height - drawHeight) / 2;
+        context.drawImage(bitmap, dx, dy, drawWidth, drawHeight);
+      }
       bitmap.close();
     }
 
@@ -495,6 +515,7 @@ export class BrowserVideoRenderer {
       transition: slide.transition || 'fade',
       canvas,
       viewports,
+      rotation: slide.rotation || 0,
     };
   }
 
@@ -635,6 +656,7 @@ export class BrowserVideoRenderer {
       video,
       videoCanvas,
       videoContext,
+      rotation: slide.rotation || 0,
     };
   }
 
@@ -1057,12 +1079,34 @@ export class BrowserVideoRenderer {
           await this.seekVideo(s.video, clampedTime);
           s.videoContext.fillStyle = 'black';
           s.videoContext.fillRect(0, 0, width, height);
-          const vw = s.video.videoWidth || width;
-          const vh = s.video.videoHeight || height;
-          const scale = Math.min(width / vw, height / vh);
-          const dw = vw * scale;
-          const dh = vh * scale;
-          s.videoContext.drawImage(s.video, (width - dw) / 2, (height - dh) / 2, dw, dh);
+
+          const rotation = s.rotation || 0;
+          if (rotation !== 0) {
+            s.videoContext.save();
+            s.videoContext.translate(width / 2, height / 2);
+            s.videoContext.rotate((rotation * Math.PI) / 180);
+
+            const is90or270 = rotation % 180 !== 0;
+            const vw = s.video.videoWidth || width;
+            const vh = s.video.videoHeight || height;
+
+            const effWidth = is90or270 ? vh : vw;
+            const effHeight = is90or270 ? vw : vh;
+
+            const scale = Math.min(width / effWidth, height / effHeight);
+            const dw = vw * scale;
+            const dh = vh * scale;
+
+            s.videoContext.drawImage(s.video, -dw / 2, -dh / 2, dw, dh);
+            s.videoContext.restore();
+          } else {
+            const vw = s.video.videoWidth || width;
+            const vh = s.video.videoHeight || height;
+            const scale = Math.min(width / vw, height / vh);
+            const dw = vw * scale;
+            const dh = vh * scale;
+            s.videoContext.drawImage(s.video, (width - dw) / 2, (height - dh) / 2, dw, dh);
+          }
         }
       };
 
