@@ -1441,23 +1441,31 @@ function MainApp() {
                   <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
                     <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Quality</span>
                     <div className="flex gap-1">
-                      {(['1080p', '720p'] as const).map((res) => (
-                        <button
-                          key={res}
-                          onClick={() => setRenderResolution(res)}
-                          disabled={isRenderingWithAudio || isRenderingSilent}
-                          className={`
-                            px-4 py-1.5 rounded-lg text-xs font-bold transition-all
-                            ${renderResolution === res
-                              ? 'bg-white text-black'
-                              : 'bg-white/10 text-white/60 hover:bg-white/20'
-                            }
-                            ${(isRenderingWithAudio || isRenderingSilent) ? 'opacity-50 cursor-not-allowed' : ''}
-                          `}
-                        >
-                          {res}
-                        </button>
-                      ))}
+                      {(['1080p', '720p'] as const).map((res) => {
+                        // 1080p is temporarily disabled: it falls back to slow
+                        // software encoding and renders take far too long.
+                        const isUnavailable = res === '1080p';
+                        const isDisabled = isRenderingWithAudio || isRenderingSilent || isUnavailable;
+                        return (
+                          <button
+                            key={res}
+                            onClick={() => setRenderResolution(res)}
+                            disabled={isDisabled}
+                            title={isUnavailable ? '1080p is temporarily unavailable while we improve render performance' : undefined}
+                            className={`
+                              px-4 py-1.5 rounded-lg text-xs font-bold transition-all
+                              ${renderResolution === res
+                                ? 'bg-white text-black'
+                                : 'bg-white/10 text-white/60 hover:bg-white/20'
+                              }
+                              ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                              ${isUnavailable ? 'hover:bg-white/10' : ''}
+                            `}
+                          >
+                            {res}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

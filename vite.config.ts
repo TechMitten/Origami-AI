@@ -31,7 +31,10 @@ export default defineConfig({
     },
     hmr: {
       protocol: 'ws',
-      host: process.env.HMR_HOST || 'localhost',
+      // Use the IPv4 loopback explicitly. With 'localhost' the HMR ws server can
+      // bind to IPv6 [::1] only while the browser dials 127.0.0.1 (or vice versa),
+      // which silently breaks HMR and leaves the page running stale modules.
+      host: process.env.HMR_HOST || '127.0.0.1',
       port: parseInt(process.env.HMR_PORT || '24678'),
     },
   },

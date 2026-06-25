@@ -138,11 +138,15 @@ export const MusicPickerModal: React.FC<MusicPickerModalProps> = ({
     audioRef.current = audio;
 
     audio.onended = () => {
+      // Ignore events from a preview that has since been replaced
+      if (audioRef.current !== audio) return;
       setIsPlaying(false);
       setPreviewTrackId(null);
     };
 
     audio.onerror = () => {
+      // Ignore errors from a preview that has since been replaced
+      if (audioRef.current !== audio) return;
       console.error('Failed to load audio preview');
       setIsPlaying(false);
       setPreviewTrackId(null);
@@ -152,6 +156,11 @@ export const MusicPickerModal: React.FC<MusicPickerModalProps> = ({
     };
 
     audio.play().catch((err) => {
+      // AbortError is expected when playback is interrupted by our own pause()
+      // (e.g. rapidly toggling previews) — it's benign, so don't surface it.
+      if (err?.name === 'AbortError') return;
+      // Only report failures for the preview that's still active.
+      if (audioRef.current !== audio) return;
       console.error('Failed to play audio:', err);
       setPreviewUnavailable(true);
       setTimeout(() => setPreviewUnavailable(false), 3000);

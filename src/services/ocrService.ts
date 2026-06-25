@@ -18,6 +18,10 @@ let initPromise: Promise<void> | null = null;
 
 const MIN_CHARS_FOR_OCR = 50;
 
+// Tesseract cannot meaningfully recognize text below a few pixels and emits
+// "Image too small to scale!!" warnings. Skip anything clearly too small.
+const MIN_OCR_DIMENSION = 16;
+
 /**
  * Preprocesses canvas for better OCR results.
  * This improves text recognition by enhancing contrast and reducing noise.
@@ -352,6 +356,15 @@ export async function performOCR(
     // Check for cancellation
     if (signal?.aborted) {
       throw new Error('OCR operation cancelled');
+    }
+
+    // Guard against degenerate canvases that Tesseract can't scale/recognize.
+    if (canvas.width < MIN_OCR_DIMENSION || canvas.height < MIN_OCR_DIMENSION) {
+      console.warn(
+        `[OCR Service] Skipping OCR on page ${pageNumber}: canvas too small ` +
+        `(${canvas.width}x${canvas.height}, min ${MIN_OCR_DIMENSION}px)`
+      );
+      return '';
     }
 
     console.log(`[OCR Service] Performing OCR on page ${pageNumber}/${totalPages}`);

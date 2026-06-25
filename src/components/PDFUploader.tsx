@@ -152,6 +152,14 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
     },
   ];
 
+  // The OCR service reports progress per page (each page sweeps 0 → 100% and
+  // resets on the next page). Binding the bar to that raw value makes it jump
+  // back and forth. Derive a monotonic overall progress across all pages so the
+  // bar only ever moves forward.
+  const overallProgress = ocrTotalPages > 0
+    ? Math.round((((ocrCurrentPage - 1) + ocrProgress / 100) / ocrTotalPages) * 100)
+    : ocrProgress;
+
   return (
     <div
       className="w-full max-w-6xl mx-auto px-4 sm:px-0"
@@ -218,12 +226,12 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
               <div className="h-1 bg-white/10 overflow-hidden mb-1.5">
                 <div
                   className="h-full bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 transition-all duration-300"
-                  style={{ width: `${ocrProgress}%` }}
+                  style={{ width: `${overallProgress}%` }}
                 />
               </div>
               <p className="text-[11px] font-mono text-white/40 tracking-wide">
                 {ocrStatus === 'processing'
-                  ? `PAGE ${ocrCurrentPage}/${ocrTotalPages} — ${ocrProgress}%`
+                  ? `PAGE ${ocrCurrentPage}/${ocrTotalPages} — ${overallProgress}%`
                   : 'PREPARING…'}
               </p>
             </div>

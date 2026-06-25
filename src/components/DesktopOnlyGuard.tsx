@@ -32,7 +32,7 @@ const DesktopOnlyGuard: React.FC<DesktopOnlyGuardProps> = ({ children }) => {
         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-[#7000ff] opacity-[0.07] blur-[150px] rounded-full" style={{ animationDelay: '1s' }}></div>
         
         {/* Grid pattern background */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter%20id=%22n%22%3E%3CfeTurbulence%20type=%22fractalNoise%22%20baseFrequency=%220.8%22%20numOctaves=%224%22%20stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20filter=%22url(%23n)%22/%3E%3C/svg%3E')] opacity-20 brightness-100 contrast-150 pointer-events-none"></div>
 
         <div className="glass neon-border max-w-lg w-full p-10 rounded-[2rem] relative z-10 animate-fade-in shadow-2xl">
           <div className="mb-8 flex justify-center">

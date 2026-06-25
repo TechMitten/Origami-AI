@@ -397,7 +397,10 @@ async function createServer() {
         },
         hmr: {
           protocol: 'ws',
-          host: process.env.HMR_HOST || 'localhost',
+          // IPv4 loopback, not 'localhost'. With 'localhost' the HMR ws server can
+          // bind to IPv6 [::1] while the browser dials 127.0.0.1, which silently
+          // breaks HMR and leaves the page running stale modules.
+          host: process.env.HMR_HOST || '127.0.0.1',
           port: parseInt(process.env.HMR_PORT || '24678'),
         }
       },

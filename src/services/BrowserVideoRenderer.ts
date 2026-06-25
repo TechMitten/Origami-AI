@@ -162,8 +162,30 @@ export class BrowserVideoRenderer {
 
       this.ffmpeg = new FFmpeg();
 
-      // Use unpkg ESM build
-      const cdnBase = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      // Prefer the multithreaded core when the page is cross-origin isolated
+      // (our COOP/COEP headers enable this). It can use real pthreads via
+      // SharedArrayBuffer, which is dramatically faster for software H.264
+      // encoding — especially at 1080p. Fall back to the single-threaded core
+      // when isolation isn't available.
+      const isIsolated = typeof globalThis !== 'undefined' && (globalThis as { crossOriginIsolated?: boolean }).crossOriginIsolated === true;
+      const mtBase = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+      const stBase = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+
+      const loadCore = async (cdnBase: string, multithreaded: boolean) => {
+        console.log(`[FFmpeg] Fetching ${multithreaded ? 'multithreaded' : 'single-threaded'} core from CDN:`, cdnBase);
+
+        // toBlobURL handles caching and creates blob URLs for us
+        const coreURL = await toBlobURL(`${cdnBase}/ffmpeg-core.js`, 'text/javascript');
+        const wasmURL = await toBlobURL(`${cdnBase}/ffmpeg-core.wasm`, 'application/wasm');
+
+        const loadArgs: { coreURL: string; wasmURL: string; workerURL?: string } = { coreURL, wasmURL };
+        if (multithreaded) {
+          // The MT core ships a dedicated pthread worker that must also be loaded.
+          loadArgs.workerURL = await toBlobURL(`${cdnBase}/ffmpeg-core.worker.js`, 'text/javascript');
+        }
+
+        await this.ffmpeg!.load(loadArgs);
+      };
 
       try {
         // Emit loading event
@@ -171,20 +193,19 @@ export class BrowserVideoRenderer {
           detail: { progress: 0, status: 'Downloading FFmpeg from CDN...' }
         }));
 
-        console.log('[FFmpeg] Fetching from CDN:', cdnBase);
-
-        // toBlobURL handles caching and creates blob URLs for us
-        const coreURL = await toBlobURL(`${cdnBase}/ffmpeg-core.js`, 'text/javascript');
-        const wasmURL = await toBlobURL(`${cdnBase}/ffmpeg-core.wasm`, 'application/wasm');
-
-        console.log('[FFmpeg] CDN files cached, loading...');
-        console.log('[FFmpeg] Core URL:', coreURL);
-        console.log('[FFmpeg] WASM URL:', wasmURL);
-
-        await this.ffmpeg.load({
-          coreURL,
-          wasmURL,
-        });
+        if (isIsolated) {
+          try {
+            await loadCore(mtBase, true);
+          } catch (mtError) {
+            console.warn('[FFmpeg] Multithreaded core failed to load, falling back to single-threaded.', mtError);
+            // Re-create the instance: a partially-loaded FFmpeg can be in a bad state.
+            this.ffmpeg = new FFmpeg();
+            await loadCore(stBase, false);
+          }
+        } else {
+          console.log('[FFmpeg] Not cross-origin isolated; using single-threaded core.');
+          await loadCore(stBase, false);
+        }
 
         console.log('[FFmpeg] Core loaded successfully from CDN');
         this.loaded = true;
@@ -743,60 +764,51 @@ export class BrowserVideoRenderer {
   }
 
   private async getSupportedVideoEncoderConfig(width: number, height: number, fps: number): Promise<VideoEncoderConfig> {
+    // Pick the H.264 level from the frame size. The level is the last byte of the
+    // codec string (hex). Level 3.1 (0x1F) maxes out at 1280x720; 1080p needs at
+    // least level 4.0 (0x28). Using a level that's too low makes isConfigSupported
+    // reject the config, which previously forced 1080p off WebCodecs entirely and
+    // onto the much slower single-threaded ffmpeg.wasm fallback.
+    const macroblocks = Math.ceil(width / 16) * Math.ceil(height / 16);
+    const levelHex =
+      macroblocks > 8192 ? '33' :   // level 5.1 (4K and above headroom)
+      macroblocks > 3600 ? '28' :   // level 4.0 (covers 1080p@30)
+      '1F';                          // level 3.1 (720p and below)
+
+    const baselineCodec = `avc1.42E0${levelHex}`; // Baseline profile
+    const mainCodec = `avc1.4D40${levelHex}`;     // Main profile
+
+    const base = {
+      width,
+      height,
+      bitrate: width >= 1920 ? 10_000_000 : 5_000_000,
+      framerate: fps,
+      avc: { format: 'annexb' as const },
+      bitrateMode: 'variable' as const,
+      latencyMode: 'quality' as const,
+      alpha: 'discard' as const
+    };
+
+    // Try hardware first (fastest), then no-preference, then software as a last
+    // resort. Within each tier prefer Main profile, falling back to Baseline.
     const candidates: VideoEncoderConfig[] = [
-      {
-        codec: 'avc1.42E01F',
-        width,
-        height,
-        bitrate: width >= 1920 ? 10_000_000 : 5_000_000,
-        framerate: fps,
-        avc: { format: 'annexb' },
-        hardwareAcceleration: 'prefer-software',
-        bitrateMode: 'variable',
-        latencyMode: 'quality',
-        alpha: 'discard'
-      },
-      {
-        codec: 'avc1.4D401F',
-        width,
-        height,
-        bitrate: width >= 1920 ? 10_000_000 : 5_000_000,
-        framerate: fps,
-        avc: { format: 'annexb' },
-        hardwareAcceleration: 'prefer-software',
-        bitrateMode: 'variable',
-        latencyMode: 'quality',
-        alpha: 'discard'
-      },
-      {
-        codec: 'avc1.42E01F',
-        width,
-        height,
-        bitrate: width >= 1920 ? 10_000_000 : 5_000_000,
-        framerate: fps,
-        avc: { format: 'annexb' },
-        hardwareAcceleration: 'no-preference',
-        bitrateMode: 'variable',
-        latencyMode: 'quality',
-        alpha: 'discard'
-      },
-      {
-        codec: 'avc1.4D401F',
-        width,
-        height,
-        bitrate: width >= 1920 ? 10_000_000 : 5_000_000,
-        framerate: fps,
-        avc: { format: 'annexb' },
-        hardwareAcceleration: 'no-preference',
-        bitrateMode: 'variable',
-        latencyMode: 'quality',
-        alpha: 'discard'
-      }
+      { ...base, codec: mainCodec, hardwareAcceleration: 'prefer-hardware' },
+      { ...base, codec: baselineCodec, hardwareAcceleration: 'prefer-hardware' },
+      { ...base, codec: mainCodec, hardwareAcceleration: 'no-preference' },
+      { ...base, codec: baselineCodec, hardwareAcceleration: 'no-preference' },
+      { ...base, codec: mainCodec, hardwareAcceleration: 'prefer-software' },
+      { ...base, codec: baselineCodec, hardwareAcceleration: 'prefer-software' }
     ];
 
     for (const candidate of candidates) {
       const support = await VideoEncoder.isConfigSupported(candidate);
       if (support.supported && support.config) {
+        console.log(
+          `[WebCodecs] Selected encoder ${width}x${height}: codec=${candidate.codec} ` +
+          `hwAccel=${candidate.hardwareAcceleration} (requested). ` +
+          `If a higher-resolution render is disproportionately slow, the browser is ` +
+          `likely satisfying "no-preference"/"prefer-software" with a CPU encoder.`
+        );
         return support.config;
       }
     }
@@ -1015,6 +1027,7 @@ export class BrowserVideoRenderer {
     const totalFrames = Math.max(1, Math.ceil(totalDuration * fps));
     const maxQueueSize = 8;
     const flushIntervalFrames = Math.max(fps * 2, 60);
+    const encodeStart = performance.now();
 
     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
       this.ensureNotAborted(signal);
@@ -1116,6 +1129,14 @@ export class BrowserVideoRenderer {
       throw encoderError;
     }
 
+    const encodeMs = Math.round(performance.now() - encodeStart);
+    console.log(
+      `[WebCodecs] Encoded ${totalFrames} frames at ${width}x${height} in ${encodeMs}ms ` +
+      `(${(encodeMs / Math.max(1, totalFrames)).toFixed(1)} ms/frame). ` +
+      `Expect ~2-3x ms/frame between 720p and 1080p; a much larger gap means the ` +
+      `1080p path lost hardware acceleration or fell back to ffmpeg.`
+    );
+
     return this.concatUint8Arrays(chunks);
   }
 
@@ -1204,7 +1225,12 @@ export class BrowserVideoRenderer {
       try {
         await this.getSupportedVideoEncoderConfig(width, height, fps);
       } catch (error) {
-        console.warn('[WebCodecs] No stable encoder config found, falling back to FFmpeg.', error);
+        console.warn(
+          `[WebCodecs] No stable encoder config for ${width}x${height} — FALLING BACK TO ` +
+          `ffmpeg.wasm SOFTWARE ENCODE. This is the slow path; if you see this only for ` +
+          `1080p, that is the cause of the disproportionate render time.`,
+          error
+        );
         return this.renderWithFFmpeg({
           slides,
           musicSettings,
