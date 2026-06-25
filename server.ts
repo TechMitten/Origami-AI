@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import hpp from 'hpp';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
+import rateLimit from 'express-rate-limit';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,7 +45,19 @@ async function createServer() {
     next();
   });
 
-  app.use(express.json({ limit: '200mb' }));
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: { error: 'Too many requests, please try again later.' }
+  });
+
+  app.use('/api/', apiLimiter);
+
+  app.use('/api/llm/analyze-video', express.json({ limit: '200mb' }));
+  app.use('/api/llm/analyze-issue', express.json({ limit: '200mb' }));
+  app.use(express.json({ limit: '2mb' }));
 
   // LLM / Gemini proxy endpoints
   // These keep API keys on the server (process.env.LLM_API_KEY) and avoid exposing them to the client bundle.
@@ -77,7 +90,7 @@ async function createServer() {
       });
 
       const text = await resp.text();
-      res.status(resp.status).send(text);
+      res.type('text/plain').status(resp.status).send(text);
     } catch (err) {
       console.error('[LLM Proxy] /api/llm/chat error:', err);
       res.status(500).json({ error: String(err) });
@@ -113,7 +126,7 @@ async function createServer() {
           body: JSON.stringify({ model: normalizedModel, messages: [ { role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt } ], temperature: 0.2 }),
         });
         const text = await resp.text();
-        return res.status(resp.status).send(text);
+        return res.type('text/plain').status(resp.status).send(text);
       }
 
       // Upload flow for Gemini media analysis
@@ -203,7 +216,7 @@ async function createServer() {
         await fetch(`https://generativelanguage.googleapis.com/v1beta/${cleanName}?key=${encodeURIComponent(apiKey)}`, { method: 'DELETE' });
       } catch { /* ignore */ }
 
-      res.status(200).send(text);
+      res.type('text/plain').status(200).send(text);
     } catch (err) {
       console.error('[LLM Proxy] /api/llm/analyze-video error:', err);
       res.status(500).json({ error: String(err) });
@@ -313,7 +326,7 @@ async function createServer() {
         await fetch(`https://generativelanguage.googleapis.com/v1beta/${cleanName}?key=${encodeURIComponent(apiKey)}`, { method: 'DELETE' });
       } catch { /* ignore */ }
 
-      res.status(200).send(text);
+      res.type('text/plain').status(200).send(text);
     } catch (err) {
       console.error('[LLM Proxy] /api/llm/analyze-issue error:', err);
       res.status(500).json({ error: String(err) });
