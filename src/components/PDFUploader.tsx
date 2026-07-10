@@ -1,11 +1,12 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Layers, Loader2, BrainCircuit, Video, Bug, ArrowUpRight } from 'lucide-react';
+import { Layers, Loader2, BrainCircuit, Video, Bug, ArrowUpRight, Sparkles } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { CreateSlidesModal } from './CreateSlidesModal';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,6 +36,7 @@ interface SecondaryOption {
 export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateSlidesModalOpen, setIsCreateSlidesModalOpen] = useState(false);
 
   // OCR progress state
   const [ocrStatus, setOcrStatus] = useState<string | null>(null);
@@ -125,6 +127,15 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
   });
 
   const secondaryOptions: SecondaryOption[] = [
+    {
+      key: 'create-slides',
+      icon: Sparkles,
+      title: 'Create Slides',
+      description: 'Generate your presentation with our suggested AI slide makers.',
+      cta: 'View providers',
+      onClick: () => setIsCreateSlidesModalOpen(true),
+      accent: 'foil',
+    },
     {
       key: 'editor',
       icon: Video,
@@ -344,6 +355,11 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
           {error}
         </div>
       )}
+
+      <CreateSlidesModal 
+        isOpen={isCreateSlidesModalOpen} 
+        onClose={() => setIsCreateSlidesModalOpen(false)} 
+      />
     </div>
   );
 };
