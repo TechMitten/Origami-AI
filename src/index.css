@@ -169,11 +169,7 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
   scrollbar-color: transparent transparent;
 }
 
-@media (min-width: 640px) {
-  .page-zoom-130 {
-    zoom: 130%;
-  }
-}
+
 
 
 

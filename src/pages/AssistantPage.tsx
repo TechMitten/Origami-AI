@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 
 import backgroundImage from '../assets/images/background.png';
-import { DuplicateTabModal } from '../components/DuplicateTabModal';
 import { Footer } from '../components/Footer';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
@@ -79,6 +78,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   introFadeInEnabled: true,
   introFadeInDurationSec: 1,
   previewMode: 'modal',
+  aspectRatio: '16:9',
 };
 
 const markWebLLMAsCached = () => {
@@ -947,10 +947,12 @@ export const AssistantPage: React.FC = () => {
                                         ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
                                         li: ({ node, ...props }) => <li className="ml-0" {...props} />,
                                         blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-cyan-400/30 pl-3 italic text-white/75 mb-2" {...props} />,
-                                        code: ({ node, inline, ...props }) => 
-                                          inline 
-                                            ? <code className="bg-black/30 rounded px-1.5 py-0.5 font-mono text-xs text-cyan-200" {...props} />
-                                            : <code className="block bg-black/30 rounded px-3 py-2 font-mono text-xs text-cyan-200 overflow-x-auto mb-2" {...props} />,
+                                        code: (props: any) => {
+                                          const { node, inline, className, ...rest } = props;
+                                          return inline 
+                                            ? <code className="bg-black/30 rounded px-1.5 py-0.5 font-mono text-xs text-cyan-200" {...rest} />
+                                            : <code className="block bg-black/30 rounded px-3 py-2 font-mono text-xs text-cyan-200 overflow-x-auto mb-2" {...rest} />;
+                                        },
                                         pre: ({ node, ...props }) => <pre className="bg-black/30 rounded p-3 overflow-x-auto mb-2" {...props} />,
                                         h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0" {...props} />,
                                         h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
@@ -1136,8 +1138,6 @@ export const AssistantPage: React.FC = () => {
         isOpen={isWebGPUModalOpen}
         onClose={() => setIsWebGPUModalOpen(false)}
       />
-
-      <DuplicateTabModal />
       <MobileWarningModal />
 
       <img

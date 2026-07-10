@@ -59,6 +59,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [openaiApiKey, setOpenaiApiKey] = useState(currentSettings?.openaiApiKey ?? '');
   const [useOpenAIOcr, setUseOpenAIOcr] = useState(currentSettings?.useOpenAIOcr ?? false);
   const [useOpenAIFixScript, setUseOpenAIFixScript] = useState(currentSettings?.useOpenAIFixScript ?? false);
+  const [useOpenAIForSlideGen, setUseOpenAIForSlideGen] = useState(currentSettings?.useOpenAIForSlideGen ?? false);
 
 
   // WebLLM State
@@ -335,7 +336,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       openaiModel,
       openaiApiKey,
       useOpenAIOcr,
-      useOpenAIFixScript
+      useOpenAIFixScript,
+      useOpenAIForSlideGen
     };
 
     // Check if quantization changed to reload model
@@ -449,7 +451,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-180 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[90dvh] sm:h-[78vh] max-h-196">
+      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
         {/* Header */}
         <div className="px-4 py-4 sm:px-8 sm:py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
@@ -1206,6 +1208,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIFixScript ? 'bg-emerald-500' : 'bg-white/10'}`}
                     >
                       <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIFixScript ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      Use for Slide Generation
+                    </div>
+                    <p className="text-[10px] text-white/30">Use this endpoint to generate slides with AI</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{useOpenAIForSlideGen ? 'On' : 'Off'}</span>
+                    <button
+                      onClick={() => setUseOpenAIForSlideGen(!useOpenAIForSlideGen)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIForSlideGen ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIForSlideGen ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>

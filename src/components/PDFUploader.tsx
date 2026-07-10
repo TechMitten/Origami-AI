@@ -18,6 +18,7 @@ interface PDFUploaderProps {
   onOpenAssistant?: () => void;
   onOpenIssueReporter?: () => void;
   onOpenSlideEditor?: () => void;
+  onOpenAIGenerator?: () => void;
 }
 
 interface SecondaryOption {
@@ -28,9 +29,11 @@ interface SecondaryOption {
   cta: string;
   onClick?: () => void;
   accent: 'foil' | 'amber';
+  disabled?: boolean;
+  badge?: string;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor, onOpenAIGenerator }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,6 +127,16 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
 
   const secondaryOptions: SecondaryOption[] = [
     {
+      key: 'ai_generator',
+      icon: BrainCircuit,
+      title: 'Create Slides',
+      description: 'Generate slides from a prompt using an AI endpoint.',
+      cta: 'Generate slides',
+      onClick: onOpenAIGenerator,
+      accent: 'foil',
+      badge: 'BETA',
+    },
+    {
       key: 'editor',
       icon: Video,
       title: 'Editor',
@@ -135,7 +148,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
     {
       key: 'assistant',
       icon: BrainCircuit,
-      title: 'AI Assistant',
+      title: 'Assistant',
       description: 'Chat with the local WebLLM workspace to write and revise.',
       cta: 'Open assistant',
       onClick: onOpenAssistant,
@@ -149,6 +162,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       cta: 'Report issue',
       onClick: onOpenIssueReporter,
       accent: 'amber',
+      disabled: true,
     },
   ];
 
@@ -270,42 +284,66 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
           return (
             <div
               key={opt.key}
-              onClick={opt.onClick}
-              role="button"
-              tabIndex={0}
+              onClick={opt.disabled ? undefined : opt.onClick}
+              role={opt.disabled ? undefined : "button"}
+              tabIndex={opt.disabled ? -1 : 0}
               onKeyDown={(e) => {
+                if (opt.disabled) return;
                 if (e.key === 'Enter' || e.key === ' ') opt.onClick?.();
               }}
-              className="fold-card origami-unfold group relative cursor-pointer border bg-[#14161B] border-white/10 hover:border-white/20 p-6 flex flex-col min-h-[190px] transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
-              style={{ animationDelay: `${160 + i * 90}ms`, ...(isAmber ? ({ '--fold-glow': 'linear-gradient(135deg, #f59e0b, #fb923c)' } as React.CSSProperties) : {}) }}
+              className={cn(
+                "fold-card origami-unfold group relative border bg-[#14161B] p-6 flex flex-col min-h-[190px] transition-all duration-300",
+                opt.disabled
+                  ? "border-white/5 cursor-not-allowed select-none"
+                  : "cursor-pointer border-white/10 hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+              )}
+              style={{ animationDelay: `${160 + i * 90}ms`, ...(isAmber && !opt.disabled ? ({ '--fold-glow': 'linear-gradient(135deg, #f59e0b, #fb923c)' } as React.CSSProperties) : {}), ...(opt.disabled ? { '--fold-glow': 'transparent' } : {}) }}
             >
               <div className={cn(
                 'mb-4 flex items-center justify-center w-11 h-11 border transition-all duration-300 bg-white/5 border-white/10',
-                isAmber ? 'group-hover:border-amber-400/30 group-hover:bg-amber-500/10' : 'group-hover:border-cyan-400/30 group-hover:bg-cyan-500/10'
+                opt.disabled ? '' : (isAmber ? 'group-hover:border-amber-400/30 group-hover:bg-amber-500/10' : 'group-hover:border-cyan-400/30 group-hover:bg-cyan-500/10')
               )}>
                 <Icon className={cn(
                   'w-5 h-5 text-white/50 transition-colors duration-300',
-                  isAmber ? 'group-hover:text-amber-300' : 'group-hover:text-cyan-300'
+                  opt.disabled ? '' : (isAmber ? 'group-hover:text-amber-300' : 'group-hover:text-cyan-300')
                 )} />
               </div>
 
-              <h3 className={cn(
-                'font-display text-base font-semibold text-white mb-1.5 transition-colors duration-300',
-                isAmber ? 'group-hover:text-amber-200' : 'group-hover:text-cyan-200'
-              )}>
-                {opt.title}
-              </h3>
+              <div className="flex items-center gap-2 mb-1.5">
+                <h3 className={cn(
+                  'font-display text-base font-semibold text-white transition-colors duration-300',
+                  opt.disabled ? '' : (isAmber ? 'group-hover:text-amber-200' : 'group-hover:text-cyan-200')
+                )}>
+                  {opt.title}
+                </h3>
+                {opt.badge && (
+                  <span className={cn(
+                    "px-1.5 py-0.5 text-[9px] font-mono tracking-wider font-bold rounded uppercase",
+                    isAmber ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                  )}>
+                    {opt.badge}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-white/50 leading-relaxed mb-4">
                 {opt.description}
               </p>
 
               <div className={cn(
                 'mt-auto inline-flex items-center gap-1 self-start text-[11px] font-semibold border px-3 py-1.5 transition-all duration-300 bg-white/5 text-white/60 border-white/10',
-                isAmber ? 'group-hover:border-amber-400/30 group-hover:text-amber-200' : 'group-hover:border-cyan-400/30 group-hover:text-cyan-200'
+                opt.disabled ? '' : (isAmber ? 'group-hover:border-amber-400/30 group-hover:text-amber-200' : 'group-hover:border-cyan-400/30 group-hover:text-cyan-200')
               )}>
                 {opt.cta}
-                <ArrowUpRight className="w-3 h-3 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                {!opt.disabled && <ArrowUpRight className="w-3 h-3 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />}
               </div>
+
+              {opt.disabled && (
+                <div className="absolute inset-0 bg-[#14161B]/80 backdrop-blur-[1.5px] flex items-center justify-center rounded-[inherit] pointer-events-none select-none">
+                  <span className="px-3 py-1.5 text-[10px] font-mono tracking-widest font-semibold text-amber-400 border border-amber-500/30 bg-amber-500/10 uppercase rounded shadow-lg shadow-black/50">
+                    Coming Soon
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

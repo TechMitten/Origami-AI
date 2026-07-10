@@ -20,9 +20,10 @@ interface DropdownProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, className, placeholder }) => {
+export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, className, placeholder, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -82,6 +83,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
   }, [isOpen]);
 
   const toggleOpen = () => {
+    if (disabled) return;
     if (!isOpen) {
       setIsOpen(true);
       // Set initial position after menu is rendered
@@ -103,14 +105,18 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
       <button
         type="button"
         onClick={toggleOpen}
-        className="w-full flex items-center justify-between px-4 py-2 rounded-lg border border-white/10 text-white text-sm outline-none cursor-pointer hover:border-branding-primary/30 transition-all focus:border-branding-primary/50"
+        disabled={disabled}
+        className={cn(
+          "w-full flex items-center justify-between px-4 py-2 rounded-lg border border-white/10 text-white text-sm outline-none transition-all",
+          disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-branding-primary/30 focus:border-branding-primary/50"
+        )}
         style={{ backgroundColor: '#18181b' }}
       >
         <span className="truncate">{selectedOption?.name || placeholder || 'Select option'}</span>
         <ChevronDown className={cn("w-4 h-4 text-white/40 transition-transform", isOpen && "rotate-180")} />
       </button>
 
-      {isOpen && createPortal(
+      {isOpen && !disabled && createPortal(
         <div
           ref={menuRef}
           className="fixed py-2 border border-white/10 rounded-xl shadow-2xl"

@@ -12,7 +12,6 @@ import {
 import backgroundImage from '../assets/images/background.png';
 import orgIssueLogo from '../assets/images/orgissue.png';
 import SoftAurora from '../components/SoftAurora';
-import { DuplicateTabModal } from '../components/DuplicateTabModal';
 import { Footer } from '../components/Footer';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
@@ -31,6 +30,7 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   introFadeInEnabled: true,
   introFadeInDurationSec: 1,
   previewMode: 'modal',
+  aspectRatio: '16:9',
   issueReporterRecordingPromptEnabled: true,
 };
 
@@ -376,7 +376,7 @@ export const IssueReporterPage: React.FC = () => {
   }, [replaceCapture, resetAnalysis]);
 
   return (
-    <div className="page-zoom-130 min-h-screen bg-branding-dark text-white pt-8 flex flex-col">
+    <div className="min-h-screen bg-branding-dark text-white pt-8 flex flex-col">
       {/* Background */}
       <img
         src={backgroundImage}
@@ -730,7 +730,6 @@ export const IssueReporterPage: React.FC = () => {
         />
       )}
 
-      <DuplicateTabModal />
       <MobileWarningModal />
 
       {/* Recording indicator pill */}

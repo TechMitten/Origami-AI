@@ -25,13 +25,13 @@ import { BackgroundDownloadToast } from './components/BackgroundDownloadToast';
 import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, getWebLlmModelInfo } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
-import { DuplicateTabModal } from './components/DuplicateTabModal';
 import { exportProjectArchive, importProjectArchive } from './services/projectArchiveService';
 import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { PageHeader } from './components/PageHeader';
+import { AIPresentationGenerator } from './components/AIPresentationGenerator';
 import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
 
@@ -59,6 +59,7 @@ function MainApp() {
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false); // For subsequent cached loading
+  const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
   const [isBackgroundDownloadActive, setIsBackgroundDownloadActive] = useState(false);
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
@@ -642,10 +643,11 @@ function MainApp() {
 
       const normalizedSlides = imported.slides.map(enforceTtsEnabled);
       setSlides(normalizedSlides);
-      setMusicSettings(imported.musicSettings || { volume: 0.36 });
+      const musicSettings = imported.musicSettings || { volume: 0.36 };
+      setMusicSettings(musicSettings);
       setActiveTab('edit');
 
-      await saveState(normalizedSlides, imported.musicSettings);
+      await saveState(normalizedSlides, musicSettings);
 
       showAlert(`Project imported successfully with ${imported.metadata.slideCount} slides.`, {
         type: 'success',
@@ -1270,7 +1272,7 @@ function MainApp() {
   const shouldShowEditor = slides.length > 0 || enteredEditorWithoutPdf;
 
   return (
-    <div className={`page-zoom-130 min-h-screen bg-branding-dark text-white pt-4 sm:pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>
+    <div className={`min-h-screen bg-branding-dark text-white pt-4 sm:pt-8 pb-2 flex flex-col px-4 ${activeTab === 'preview' ? 'sm:px-4' : 'sm:px-8'}`}>
       <input
         ref={importFileInputRef}
         type="file"
@@ -1400,6 +1402,7 @@ function MainApp() {
                 onStartScreenRecord={handleStartScreenRecord}
                 onOpenAssistant={() => navigate('/assistant')}
                 onOpenIssueReporter={() => navigate('/issue-reporter')}
+                onOpenAIGenerator={() => setIsAIGeneratorOpen(true)}
                 onOpenSlideEditor={() => {
                   setActiveTab('edit');
                   setEnteredEditorWithoutPdf(true);
@@ -1607,9 +1610,6 @@ function MainApp() {
         />
       )}
 
-      {/* Duplicate tab warning */}
-      <DuplicateTabModal />
-
       {/* Mobile device warning */}
       <MobileWarningModal />
 
@@ -1674,6 +1674,17 @@ function MainApp() {
           </div>
         </div>
       )}
+
+      <AIPresentationGenerator
+        isOpen={isAIGeneratorOpen}
+        onClose={() => setIsAIGeneratorOpen(false)}
+        onImport={onUploadComplete}
+        globalSettings={globalSettings}
+        onOpenSettings={() => {
+          setIsAIGeneratorOpen(false);
+          setIsSettingsOpen(true);
+        }}
+      />
     </div>
   );
 }

@@ -43,7 +43,7 @@ export interface IssueCaptureAnalysis {
   rawJson?: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
@@ -306,7 +306,7 @@ const toChatCompletionsEndpoint = (baseUrl: string): string => {
 
 const normalizeModelForRequest = (model: string): string => model.replace(/^models\//, '');
 
-const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string): Promise<string> => {
+export const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string): Promise<string> => {
   const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
   const normalizedModel = normalizeModelForRequest((modelOverride || settings.model || '').trim());
 
