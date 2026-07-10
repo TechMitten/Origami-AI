@@ -166,6 +166,10 @@ export const CreateSlidesModal: React.FC<CreateSlidesModalProps> = ({ isOpen, on
           <div className="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/20 text-sm text-cyan-200/80">
             <strong>Pro Tip:</strong> After generating your presentation with any of these tools, export it as a PDF and upload it back here to Origami to continue!
           </div>
+
+          <div className="text-[10px] text-white/35 leading-relaxed text-center px-4 pt-1">
+            Disclaimer: The suggested tools are independent third-party services with their own pricing models (including free trials/tiers and paid plans). Origami is not affiliated with these platforms and is not responsible for their services, billing, or operations.
+          </div>
         </div>
       </div>
     </div>
