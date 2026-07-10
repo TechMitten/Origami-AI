@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 
 import { PDFUploader } from './components/PDFUploader';
+import { WelcomeLander } from './components/WelcomeLander';
 import { SlideEditor, type SlideData, type MusicSettings } from './components/SlideEditor';
 import { SimplePreview } from './components/SimplePreview';
 import { generateTTS, getAudioDuration, ttsEvents, initTTS } from './services/ttsService';
@@ -39,6 +40,10 @@ import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 function MainApp() {
   const navigate = useNavigate();
   const [slides, setSlides] = useState<SlideData[]>([]);
+  const [showWelcomeLander, setShowWelcomeLander] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('has_seen_welcome_lander') !== 'true';
+  });
   const [generatingSlides, setGeneratingSlides] = useState<Set<number>>(new Set());
   const [analyzingSlides, setAnalyzingSlides] = useState<Set<number>>(new Set());
   const [analysisProgressBySlide, setAnalysisProgressBySlide] = useState<Record<number, { status: string; progress: number }>>({});
@@ -1381,18 +1386,26 @@ function MainApp() {
 
       <main className={`mx-auto fade-transition ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`} key={activeTab}>
         {!shouldShowEditor ? (
-          <div className="min-h-[60vh] flex flex-col items-center justify-center">
-            <PDFUploader
-              onUploadComplete={onUploadComplete}
-              onImportProject={handleImportProjectClick}
-              onStartScreenRecord={handleStartScreenRecord}
-              onOpenAssistant={() => navigate('/assistant')}
-              onOpenIssueReporter={() => navigate('/issue-reporter')}
-              onOpenSlideEditor={() => {
-                setActiveTab('edit');
-                setEnteredEditorWithoutPdf(true);
-              }}
-            />
+          <div className="min-h-[60vh] flex flex-col items-center justify-center w-full">
+            {showWelcomeLander ? (
+              <WelcomeLander onContinue={() => {
+                setShowWelcomeLander(false);
+                localStorage.setItem('has_seen_welcome_lander', 'true');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }} />
+            ) : (
+              <PDFUploader
+                onUploadComplete={onUploadComplete}
+                onImportProject={handleImportProjectClick}
+                onStartScreenRecord={handleStartScreenRecord}
+                onOpenAssistant={() => navigate('/assistant')}
+                onOpenIssueReporter={() => navigate('/issue-reporter')}
+                onOpenSlideEditor={() => {
+                  setActiveTab('edit');
+                  setEnteredEditorWithoutPdf(true);
+                }}
+              />
+            )}
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
                 Checking for saved session...

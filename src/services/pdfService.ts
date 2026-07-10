@@ -2,7 +2,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { needsOCR, performOCR } from './ocrService';
-import { generatePDFFingerprint, getCachedOCRText, setCachedOCRText, cleanExpiredOCRCache } from './storage';
+import { generatePDFFingerprint, getCachedOCRText, setCachedOCRText, cleanExpiredOCRCache, loadGlobalSettings } from './storage';
+import { performOpenAIOcr } from './aiService';
 
 // Set worker path to local import using Vite's ?url loading
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -96,6 +97,8 @@ export async function renderPdfToImages(file: File): Promise<RenderedPage[]> {
   const numPages = pdf.numPages;
   const pages: RenderedPage[] = [];
 
+  const globalSettings = await loadGlobalSettings();
+
   for (let i = 1; i <= numPages; i++) {
     const page = await pdf.getPage(i);
     const viewport = await getOptimalViewport(page, 2.0); // High res rendering with auto-rotation
@@ -177,7 +180,20 @@ export async function renderPdfToImages(file: File): Promise<RenderedPage[]> {
           extractedText = cachedText;
         } else {
           // Perform OCR
-          extractedText = await performOCR(canvas, i, numPages);
+          if (globalSettings?.useOpenAIOcr) {
+            console.log(`[PDF Service] Using OpenAI for OCR on page ${i}`);
+            // Type-cast because LLMSettings overlaps with GlobalSettings for the needed properties
+            extractedText = await performOpenAIOcr(canvas, {
+              apiKey: globalSettings.openaiApiKey || '',
+              baseUrl: globalSettings.openaiEndpoint || '',
+              model: globalSettings.openaiModel || '',
+              openaiEndpoint: globalSettings.openaiEndpoint,
+              openaiModel: globalSettings.openaiModel,
+              openaiApiKey: globalSettings.openaiApiKey
+            });
+          } else {
+            extractedText = await performOCR(canvas, i, numPages);
+          }
 
           // Cache the result
           await setCachedOCRText(fingerprint, i, extractedText);

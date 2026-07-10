@@ -6,6 +6,11 @@ export interface LLMSettings {
   model: string;
   useWebLLM?: boolean;
   webLlmModel?: string;
+  openaiEndpoint?: string;
+  openaiModel?: string;
+  openaiApiKey?: string;
+  useOpenAIOcr?: boolean;
+  useOpenAIFixScript?: boolean;
 }
 
 export interface VideoNarrationScene {
@@ -1148,6 +1153,29 @@ STRICT CONSTRAINTS:
 - If the input is 50 words, your output should be approximately 50-60 words.
 `;
 
+  if (settings.useOpenAIFixScript && settings.openaiEndpoint && settings.openaiModel && settings.openaiApiKey) {
+    try {
+      const customSettings: LLMSettings = {
+        baseUrl: settings.openaiEndpoint,
+        model: settings.openaiModel,
+        apiKey: settings.openaiApiKey
+      };
+      
+      console.log("[AI Service] Sending request to custom OpenAI endpoint for script fixing...");
+      const textContent = await postChatCompletions(customSettings, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], 0.7);
+
+      const cleaned = cleanLLMResponse(textContent);
+      console.log("[AI Service] Cleaned Response (OpenAI):", cleaned);
+      return cleaned;
+    } catch (error) {
+      console.error("Custom OpenAI Endpoint Error in aiService:", error);
+      throw error;
+    }
+  }
+
   if (settings.useWebLLM) {
     if (!settings.webLlmModel) {
       throw new Error("WebLLM is enabled but no model is selected.");
@@ -1187,4 +1215,71 @@ STRICT CONSTRAINTS:
     console.error('LLM API Error:', error);
     throw error;
   }
+};
+
+export const performOpenAIOcr = async (
+  canvas: HTMLCanvasElement,
+  settings: LLMSettings
+): Promise<string> => {
+  if (!settings.openaiEndpoint || !settings.openaiModel || !settings.openaiApiKey) {
+    throw new Error('OpenAI endpoint settings are missing.');
+  }
+
+  const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+  
+  const systemPrompt = `You are a highly accurate OCR system. Your task is to extract all readable text from the provided image of a presentation slide.
+Follow these rules strictly:
+- Extract text exactly as it appears.
+- Preserve paragraphs and lists as much as possible.
+- Do NOT describe the image, only output the text found within it.
+- If there is no text, simply return an empty string.`;
+
+  const customSettings: LLMSettings = {
+    baseUrl: settings.openaiEndpoint,
+    model: settings.openaiModel,
+    apiKey: settings.openaiApiKey
+  };
+
+  const endpoint = toChatCompletionsEndpoint(customSettings.baseUrl);
+  const normalizedModel = normalizeModelForRequest(customSettings.model);
+
+  const payload = {
+    model: normalizedModel,
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${base64Image}`
+            }
+          }
+        ]
+      }
+    ],
+    temperature: 0.1
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${customSettings.apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to perform OCR via OpenAI endpoint: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  return content.trim();
 };

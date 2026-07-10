@@ -61,6 +61,11 @@ export interface GlobalSettings {
   recordingCountdownEnabled?: boolean;
   issueReporterRecordingPromptEnabled?: boolean;
   aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3';
+  openaiEndpoint?: string;
+  openaiModel?: string;
+  openaiApiKey?: string;
+  useOpenAIOcr?: boolean;
+  useOpenAIFixScript?: boolean;
 }
 
 export interface AssistantChatAttachment {

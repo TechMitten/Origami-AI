@@ -684,7 +684,11 @@ const SortableSlideItem = ({
         baseUrl,
         model,
         useWebLLM,
-        webLlmModel
+        webLlmModel,
+        openaiEndpoint: globalSettings?.openaiEndpoint,
+        openaiModel: globalSettings?.openaiModel,
+        openaiApiKey: globalSettings?.openaiApiKey,
+        useOpenAIFixScript: globalSettings?.useOpenAIFixScript
       }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
 
       // Sometimes small models (like 2B) return the exact same text or fail to elaborate.
@@ -697,7 +701,11 @@ const SortableSlideItem = ({
           baseUrl,
           model,
           useWebLLM,
-          webLlmModel
+          webLlmModel,
+          openaiEndpoint: globalSettings?.openaiEndpoint,
+          openaiModel: globalSettings?.openaiModel,
+          openaiApiKey: globalSettings?.openaiApiKey,
+          useOpenAIFixScript: globalSettings?.useOpenAIFixScript
         }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
       }
 
@@ -2149,7 +2157,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             baseUrl,
             model,
             useWebLLM,
-            webLlmModel
+            webLlmModel,
+            openaiEndpoint: globalSettings?.openaiEndpoint,
+            openaiModel: globalSettings?.openaiModel,
+            openaiApiKey: globalSettings?.openaiApiKey,
+            useOpenAIFixScript: globalSettings?.useOpenAIFixScript
           }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
 
           const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -2160,7 +2172,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
               baseUrl,
               model,
               useWebLLM,
-              webLlmModel
+              webLlmModel,
+              openaiEndpoint: globalSettings?.openaiEndpoint,
+              openaiModel: globalSettings?.openaiModel,
+              openaiApiKey: globalSettings?.openaiApiKey,
+              useOpenAIFixScript: globalSettings?.useOpenAIFixScript
             }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
           }
           onUpdateSlide(slideIndex, { script: transformed, originalScript: slide.script });
@@ -2674,7 +2690,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           onClick={() => setIsConfigureSlidesExpanded(prev => !prev)}
           className="flex flex-col md:flex-row md:items-center justify-between gap-6 w-full text-left"
         >
-          <div className="space-y-1 flex-1">
+          <div className="space-y-1 flex-1 min-w-0">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
               <div className="w-1.5 h-6 rounded-full bg-branding-primary shadow-[0_0_12px_rgba(var(--branding-primary-rgb),0.5)]"></div>
               <Wrench className="w-5 h-5 text-branding-primary" />
@@ -2742,7 +2758,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             </div>
 
             {/* Right Content */}
-            <div className="flex-1 p-4 sm:p-6 md:p-10 bg-black/10 flex flex-col overflow-y-auto">
+            <div className="flex-1 min-w-0 p-4 sm:p-6 md:p-10 bg-black/10 flex flex-col overflow-y-auto">
               {activeTab === 'voice' && (
                 <div className="max-w-4xl w-full mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 shrink-0">
@@ -2972,11 +2988,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* AI Fix */}
-                    <div className="relative">
+                    <div className="relative h-full">
                       <button
                         onClick={handleFixAllScripts}
                         disabled={isBatchFixing || isBatchGenerating || slides.length === 0}
-                        className="group relative w-full min-h-52 sm:h-52 p-6 rounded-3xl bg-linear-to-br from-branding-accent/10 to-transparent border border-branding-accent/20 hover:border-branding-accent/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-accent/5 overflow-hidden"
+                        className="group relative w-full h-full min-h-52 p-6 rounded-3xl bg-linear-to-br from-branding-accent/10 to-transparent border border-branding-accent/20 hover:border-branding-accent/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-accent/5 overflow-hidden"
                       >
                         <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                           <Sparkles className="w-24 h-24" />
@@ -2988,8 +3004,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             </div>
                             <h4 className="text-lg font-bold text-white">AI Script Fixer</h4>
                           </div>
-                          <p className="text-sm text-white/60 flex-1">Automatically rewrite all slide scripts to be more natural and engaging.</p>
-                          <div className="flex items-center justify-between pt-2">
+                          <p className="text-sm text-white/60 mb-auto">Automatically rewrite all slide scripts to be more natural and engaging.</p>
+                          <div className="flex items-center justify-between pt-4 mt-auto">
                             <div className="text-xs font-bold text-branding-accent uppercase tracking-widest">
                               {isBatchFixing ? `Processing ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
                             </div>
@@ -3008,11 +3024,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     </div>
 
                     {/* Generate All */}
-                    <div className="relative">
+                    <div className="relative h-full">
                       <button
                         onClick={handleGenerateAll}
                         disabled={generatingSlides.size > 0 || isBatchGenerating || slides.length === 0}
-                        className="group relative w-full min-h-52 sm:h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
+                        className="group relative w-full h-full min-h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
                       >
                         <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                           <Wand2 className="w-24 h-24" />
@@ -3024,8 +3040,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                             </div>
                             <h4 className="text-lg font-bold text-white">Generate All Audio</h4>
                           </div>
-                          <p className="text-sm text-white/60 flex-1">Generate or regenerate TTS audio for all slides sequentially.</p>
-                          <div className="flex items-center justify-between pt-2">
+                          <p className="text-sm text-white/60 mb-auto">Generate or regenerate TTS audio for all slides sequentially.</p>
+                          <div className="flex items-center justify-between pt-4 mt-auto">
                             <div className="text-xs font-bold text-branding-primary uppercase tracking-widest">
                               {isBatchGenerating ? `Generating ${batchProgress?.current || 0}/${batchProgress?.total || 0}...` : 'Start Process'}
                             </div>
@@ -3047,7 +3063,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     <button
                       onClick={handleRevertAllScripts}
                       disabled={slides.filter(s => s.originalScript).length === 0}
-                      className="group relative min-h-52 sm:h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
+                      className="group relative w-full h-full min-h-52 p-6 rounded-3xl bg-linear-to-br from-branding-primary/10 to-transparent border border-branding-primary/20 hover:border-branding-primary/50 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-branding-primary/5 overflow-hidden"
                     >
                       <div className="absolute top-2 right-2 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Undo2 className="w-24 h-24" />
@@ -3078,14 +3094,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         placeholder="Find..."
                         value={findText}
                         onChange={(e) => setFindText(e.target.value)}
-                        className="flex-1 h-12 px-6 rounded-xl bg-black/20 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/30"
+                        className="flex-1 min-w-0 h-12 px-6 rounded-xl bg-black/20 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/30"
                       />
                       <input
                         type="text"
                         placeholder="Replace with..."
                         value={replaceText}
                         onChange={(e) => setReplaceText(e.target.value)}
-                        className="flex-1 h-12 px-6 rounded-xl bg-black/20 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/30"
+                        className="flex-1 min-w-0 h-12 px-6 rounded-xl bg-black/20 border border-white/10 text-white text-sm focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all placeholder:text-white/30"
                       />
                       <button
                         onClick={handleFindAndReplace}

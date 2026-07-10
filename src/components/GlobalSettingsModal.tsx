@@ -17,7 +17,7 @@ interface GlobalSettingsModalProps {
   onClose: () => void;
   currentSettings: GlobalSettings | null;
   onSave: (settings: GlobalSettings) => Promise<void>;
-  initialTab?: 'general' | 'tts' | 'webllm' | 'ai-prompt';
+  initialTab?: 'general' | 'tts' | 'webllm' | 'ai-prompt' | 'api';
   onShowWebGPUModal?: () => void;
 }
 
@@ -48,10 +48,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.36);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
-  const [activeTab, setActiveTab] = useState<'general' | 'tts' | 'webllm' | 'ai-prompt'>(initialTab ?? 'general');
+  const [activeTab, setActiveTab] = useState<'general' | 'tts' | 'webllm' | 'ai-prompt' | 'api'>(initialTab ?? 'general');
   const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q4');
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
   const [aspectRatio, setAspectRatio] = useState<NonNullable<GlobalSettings['aspectRatio']>>(currentSettings?.aspectRatio ?? '16:9');
+  
+  // OpenAI Settings
+  const [openaiEndpoint, setOpenaiEndpoint] = useState(currentSettings?.openaiEndpoint ?? '');
+  const [openaiModel, setOpenaiModel] = useState(currentSettings?.openaiModel ?? '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(currentSettings?.openaiApiKey ?? '');
+  const [useOpenAIOcr, setUseOpenAIOcr] = useState(currentSettings?.useOpenAIOcr ?? false);
+  const [useOpenAIFixScript, setUseOpenAIFixScript] = useState(currentSettings?.useOpenAIFixScript ?? false);
 
 
   // WebLLM State
@@ -323,7 +330,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       aiFixScriptContext: aiFixScriptContext.trim() || undefined,
       previewMode: 'modal',
       recordingCountdownEnabled,
-      aspectRatio
+      aspectRatio,
+      openaiEndpoint,
+      openaiModel,
+      openaiApiKey,
+      useOpenAIOcr,
+      useOpenAIFixScript
     };
 
     // Check if quantization changed to reload model
@@ -484,6 +496,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'ai-prompt' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
           >
             <Sparkles className="w-4 h-4" /> AI Prompt
+          </button>
+          <button
+            onClick={() => setActiveTab('api')}
+            className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'api' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+          >
+            <Cpu className="w-4 h-4" /> API
           </button>
         </div>
 
@@ -1104,6 +1122,93 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   </button>
                 </div>
 
+              </div>
+            </div>
+          ) : activeTab === 'api' ? (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                  <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
+                    <Cpu className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-white">OpenAI Compatible Endpoint</h3>
+                    <p className="text-xs text-white/60 leading-relaxed">
+                      Configure a custom OpenAI-compatible endpoint to replace local OCR and script fixing.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Endpoint URL</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., https://api.openai.com/v1"
+                      value={openaiEndpoint}
+                      onChange={(e) => setOpenaiEndpoint(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Model Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., gpt-4o-mini"
+                      value={openaiModel}
+                      onChange={(e) => setOpenaiModel(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">API Key</label>
+                    <input
+                      type="password"
+                      placeholder="sk-..."
+                      value={openaiApiKey}
+                      onChange={(e) => setOpenaiApiKey(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      Use for OCR
+                    </div>
+                    <p className="text-[10px] text-white/30">Send slide snapshots to vision model instead of using local OCR</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{useOpenAIOcr ? 'On' : 'Off'}</span>
+                    <button
+                      onClick={() => setUseOpenAIOcr(!useOpenAIOcr)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIOcr ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIOcr ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      Use for Script Fixing
+                    </div>
+                    <p className="text-[10px] text-white/30">Use endpoint instead of local WebLLM for rewriting scripts</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{useOpenAIFixScript ? 'On' : 'Off'}</span>
+                    <button
+                      onClick={() => setUseOpenAIFixScript(!useOpenAIFixScript)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIFixScript ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIFixScript ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}

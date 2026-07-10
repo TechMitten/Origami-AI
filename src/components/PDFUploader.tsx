@@ -145,7 +145,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       key: 'issue',
       icon: Bug,
       title: 'Issue Reporter',
-      description: 'Report a bug or request a feature.',
+      description: 'Record a video of a bug to generate an AI debugging prompt.',
       cta: 'Report issue',
       onClick: onOpenIssueReporter,
       accent: 'amber',
