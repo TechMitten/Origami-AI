@@ -185,10 +185,10 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       <div
         {...getRootProps()}
         className={cn(
-          'fold-card origami-unfold group relative cursor-pointer overflow-hidden border transition-colors duration-300',
-          'bg-[#14161B] border-white/10 hover:border-white/20',
+          'fold-card origami-unfold group relative cursor-pointer overflow-hidden border transition-all duration-300',
+          'bg-white/5 backdrop-blur-md border-white/10 shadow-xl hover:border-white/20 hover:bg-white/10',
           'p-7 sm:p-10 flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10',
-          isDragActive && 'border-cyan-400/40 bg-cyan-500/[0.04]'
+          isDragActive && 'border-cyan-400/40 bg-cyan-500/[0.08]'
         )}
         style={{
           backgroundImage: 'linear-gradient(105deg, transparent 49.4%, rgba(255,255,255,0.05) 50%, transparent 50.6%)',
@@ -281,10 +281,10 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
                 if (e.key === 'Enter' || e.key === ' ') opt.onClick?.();
               }}
               className={cn(
-                "fold-card origami-unfold group relative border bg-[#14161B] p-6 flex flex-col min-h-[190px] transition-all duration-300",
+                "fold-card origami-unfold group relative border bg-white/5 backdrop-blur-md p-6 flex flex-col min-h-[190px] transition-all duration-300 shadow-xl",
                 opt.disabled
-                  ? "border-white/5 cursor-not-allowed select-none"
-                  : "cursor-pointer border-white/10 hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                  ? "border-white/5 cursor-not-allowed select-none opacity-80"
+                  : "cursor-pointer border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
               )}
               style={{ animationDelay: `${160 + i * 90}ms`, ...(isAmber && !opt.disabled ? ({ '--fold-glow': 'linear-gradient(135deg, #f59e0b, #fb923c)' } as React.CSSProperties) : {}), ...(opt.disabled ? { '--fold-glow': 'transparent' } : {}) }}
             >
