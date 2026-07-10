@@ -1,5 +1,6 @@
-import React, { ReactNode, useState } from 'react';
-import { Bot, Bug, Clapperboard, Settings } from 'lucide-react';
+import React, { useState } from 'react';
+import type { ReactNode } from 'react';
+import { Bot, Clapperboard, Settings, BookOpen } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 interface HeaderActionsMenuProps {
@@ -57,18 +58,22 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
                 <Clapperboard className="h-4 w-4" /> Studio
               </NavLink>
               <NavLink
+                to="/"
+                onClick={() => {
+                  localStorage.setItem('has_seen_welcome_lander', 'false');
+                  window.dispatchEvent(new Event('show-welcome-lander'));
+                  closeMenu();
+                }}
+                className={`${menuItemClassName} text-white/70 hover:bg-white/5 hover:text-white`}
+              >
+                <BookOpen className="h-4 w-4" /> Welcome Guide
+              </NavLink>
+              <NavLink
                 to="/assistant"
                 onClick={closeMenu}
                 className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-cyan-400/15 text-cyan-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
               >
                 <Bot className="h-4 w-4" /> Assistant
-              </NavLink>
-              <NavLink
-                to="/issue-reporter"
-                onClick={closeMenu}
-                className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-orange-300/15 text-orange-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
-              >
-                <Bug className="h-4 w-4" /> Issues
               </NavLink>
             </>
           )}

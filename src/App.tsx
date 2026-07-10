@@ -447,6 +447,17 @@ function MainApp() {
     };
   }, [showAlert]);
 
+  // Listen for show-welcome-lander event from the Actions dropdown
+  useEffect(() => {
+    const handleShowWelcome = () => {
+      setShowWelcomeLander(true);
+    };
+    window.addEventListener('show-welcome-lander', handleShowWelcome);
+    return () => {
+      window.removeEventListener('show-welcome-lander', handleShowWelcome);
+    };
+  }, []);
+
   // Load state on mount
   React.useEffect(() => {
     const load = async () => {
@@ -1283,7 +1294,7 @@ function MainApp() {
         title="Origami"
         onHelp={() => setIsTutorialOpen(true)}
         onSettings={() => setIsSettingsOpen(true)}
-        centerContent={slides.length > 0 ? (
+        centerContent={slides.length > 0 && !showWelcomeLander ? (
           <div className="flex items-center p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
             <button
               onClick={() => setActiveTab('edit')}
@@ -1385,27 +1396,27 @@ function MainApp() {
       />
 
       <main className={`mx-auto fade-transition ${activeTab === 'preview' ? 'w-full max-w-6xl' : 'max-w-7xl'}`} key={activeTab}>
-        {!shouldShowEditor ? (
+        {showWelcomeLander ? (
           <div className="min-h-[60vh] flex flex-col items-center justify-center w-full">
-            {showWelcomeLander ? (
-              <WelcomeLander onContinue={() => {
-                setShowWelcomeLander(false);
-                localStorage.setItem('has_seen_welcome_lander', 'true');
-                window.scrollTo({ top: 0, behavior: 'instant' });
-              }} />
-            ) : (
-              <PDFUploader
-                onUploadComplete={onUploadComplete}
-                onImportProject={handleImportProjectClick}
-                onStartScreenRecord={handleStartScreenRecord}
-                onOpenAssistant={() => navigate('/assistant')}
-                onOpenIssueReporter={() => navigate('/issue-reporter')}
-                onOpenSlideEditor={() => {
-                  setActiveTab('edit');
-                  setEnteredEditorWithoutPdf(true);
-                }}
-              />
-            )}
+            <WelcomeLander onContinue={() => {
+              setShowWelcomeLander(false);
+              localStorage.setItem('has_seen_welcome_lander', 'true');
+              window.scrollTo({ top: 0, behavior: 'instant' });
+            }} />
+          </div>
+        ) : !shouldShowEditor ? (
+          <div className="min-h-[60vh] flex flex-col items-center justify-center w-full">
+            <PDFUploader
+              onUploadComplete={onUploadComplete}
+              onImportProject={handleImportProjectClick}
+              onStartScreenRecord={handleStartScreenRecord}
+              onOpenAssistant={() => navigate('/assistant')}
+              onOpenIssueReporter={() => navigate('/issue-reporter')}
+              onOpenSlideEditor={() => {
+                setActiveTab('edit');
+                setEnteredEditorWithoutPdf(true);
+              }}
+            />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">
                 Checking for saved session...

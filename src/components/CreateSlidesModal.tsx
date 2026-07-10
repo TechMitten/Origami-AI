@@ -15,6 +15,8 @@ interface Provider {
   icon: React.ComponentType<{ className?: string }>;
   accentColor: string;
   logoBg: string;
+  badge?: string;
+  badgeBg?: string;
 }
 
 const PROVIDERS: Provider[] = [
@@ -26,6 +28,8 @@ const PROVIDERS: Provider[] = [
     icon: LayoutTemplate,
     accentColor: 'text-yellow-400 group-hover:text-yellow-300',
     logoBg: 'bg-yellow-500/10 border-yellow-500/20 group-hover:bg-yellow-500/20 group-hover:border-yellow-500/30',
+    badge: 'Best Quality',
+    badgeBg: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
   },
   {
     id: 'gamma',
@@ -33,26 +37,32 @@ const PROVIDERS: Provider[] = [
     description: 'A new medium for presenting ideas, powered by AI. Create beautiful, engaging content with none of the formatting and design work.',
     url: 'https://gamma.app',
     icon: Sparkles,
-    accentColor: 'text-purple-400 group-hover:text-purple-300',
-    logoBg: 'bg-purple-500/10 border-purple-500/20 group-hover:bg-purple-500/20 group-hover:border-purple-500/30',
+    accentColor: 'text-pink-400 group-hover:text-pink-300',
+    logoBg: 'bg-pink-500/10 border-pink-500/20 group-hover:bg-pink-500/20 group-hover:border-pink-500/30',
+    badge: 'Most Customizable',
+    badgeBg: 'bg-pink-500/20 text-pink-300 border-pink-500/30',
   },
   {
     id: 'beautiful-ai',
     name: 'Beautiful.ai',
-    description: 'Expert deck designer, so you don\'t have to be. Make your business look brilliant.',
+    description: 'The AI presentation platform built for enterprise teams. Beautiful.ai keeps every deck on-brand and ready to share across the whole company.',
     url: 'https://www.beautiful.ai',
     icon: Palette,
     accentColor: 'text-blue-400 group-hover:text-blue-300',
     logoBg: 'bg-blue-500/10 border-blue-500/20 group-hover:bg-blue-500/20 group-hover:border-blue-500/30',
+    badge: 'Easy to Use',
+    badgeBg: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
   },
   {
     id: 'z-ai',
     name: 'Z.ai',
-    description: 'Generate presentations instantly with AI. Completely free and incredibly fast.',
+    description: 'An AI-powered presentation assistant that helps you design and structure your slides.',
     url: 'https://z.ai',
     icon: Zap,
     accentColor: 'text-emerald-400 group-hover:text-emerald-300',
     logoBg: 'bg-emerald-500/10 border-emerald-500/20 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30',
+    badge: 'Free (Slower)',
+    badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
   }
 ];
 
@@ -78,7 +88,7 @@ export const CreateSlidesModal: React.FC<CreateSlidesModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-3xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
+      <div className="w-full max-w-3xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
         {/* Header */}
         <div className="px-4 py-4 sm:px-8 sm:py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
@@ -99,8 +109,8 @@ export const CreateSlidesModal: React.FC<CreateSlidesModalProps> = ({ isOpen, on
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-8 overflow-y-auto space-y-6 flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {PROVIDERS.map((provider) => {
               const Icon = provider.icon;
               return (
@@ -110,14 +120,23 @@ export const CreateSlidesModal: React.FC<CreateSlidesModalProps> = ({ isOpen, on
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
-                    "group relative border bg-white/5 backdrop-blur-md p-6 flex flex-col min-h-[220px] transition-all duration-300 shadow-xl rounded-xl cursor-pointer border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                    "group relative border bg-white/5 backdrop-blur-md p-4 sm:p-5 flex flex-col min-h-[175px] transition-all duration-300 shadow-xl rounded-xl cursor-pointer border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
                   )}
                 >
+                  {provider.badge && (
+                    <span className={cn(
+                      "absolute top-3 right-3 px-1.5 py-0.5 text-[9px] font-mono tracking-wider font-bold rounded uppercase border",
+                      provider.badgeBg || "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
+                    )}>
+                      {provider.badge}
+                    </span>
+                  )}
+
                   <div className={cn(
-                    'mb-4 flex items-center justify-center w-12 h-12 border transition-all duration-300 rounded-lg',
+                    'mb-3 flex items-center justify-center w-10 h-10 border transition-all duration-300 rounded-lg',
                     provider.logoBg
                   )}>
-                    <Icon className={cn('w-6 h-6 transition-colors duration-300', provider.accentColor)} />
+                    <Icon className={cn('w-5 h-5 transition-colors duration-300', provider.accentColor)} />
                   </div>
 
                   <div className="flex items-center gap-2 mb-2">
@@ -128,7 +147,7 @@ export const CreateSlidesModal: React.FC<CreateSlidesModalProps> = ({ isOpen, on
                       {provider.name}
                     </h3>
                   </div>
-                  <p className="text-sm text-white/50 leading-relaxed mb-6 flex-1">
+                  <p className="text-sm text-white/50 leading-relaxed mb-4 flex-1">
                     {provider.description}
                   </p>
 

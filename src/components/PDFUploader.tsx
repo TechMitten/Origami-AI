@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Layers, Loader2, BrainCircuit, Video, Bug, ArrowUpRight, Sparkles } from 'lucide-react';
+import { Layers, Loader2, BrainCircuit, Video, ArrowUpRight, Sparkles } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -33,7 +33,7 @@ interface SecondaryOption {
   badge?: string;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateSlidesModalOpen, setIsCreateSlidesModalOpen] = useState(false);
@@ -153,16 +153,6 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       cta: 'Open assistant',
       onClick: onOpenAssistant,
       accent: 'foil',
-    },
-    {
-      key: 'issue',
-      icon: Bug,
-      title: 'Issue Reporter',
-      description: 'Record a video of a bug to generate an AI debugging prompt.',
-      cta: 'Report issue',
-      onClick: onOpenIssueReporter,
-      accent: 'amber',
-      disabled: true,
     },
   ];
 

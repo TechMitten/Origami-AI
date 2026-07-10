@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, BrainCircuit, Bug, ArrowRight, Video, Github } from 'lucide-react';
+import { Layers, BrainCircuit, ArrowRight, Video, Github } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -52,19 +52,6 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
       bg: 'bg-fuchsia-500/10',
       border: 'border-fuchsia-400/30',
     },
-    {
-      icon: Bug,
-      title: 'Issue Reporter',
-      description: 'Capture bugs instantly via screen recordings. Origami correlates interaction patterns with a visual timeline to streamline developer handoffs.',
-      highlights: [
-        'Generates visual step-by-step bug timelines',
-        'Identifies keystrokes & click events automatically',
-        'Constructs detailed developer prompts for debugging'
-      ],
-      color: 'text-amber-300',
-      bg: 'bg-amber-500/10',
-      border: 'border-amber-400/30',
-    },
   ];
 
   return (
@@ -85,13 +72,13 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
         </h1>
         
         <p className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
-          Create stunning tutorials, draft scripts securely, and report issues instantly. 
+          Create stunning tutorials, draft scripts securely, and edit presentation media. 
           Everything runs entirely in your browser for maximum privacy and performance.
         </p>
       </div>
 
       {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-8">
         {features.map((feature, i) => {
           const Icon = feature.icon;
           return (
