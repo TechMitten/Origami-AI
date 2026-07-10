@@ -31,7 +31,6 @@ import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { PageHeader } from './components/PageHeader';
-import { AIPresentationGenerator } from './components/AIPresentationGenerator';
 import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
 
@@ -59,7 +58,6 @@ function MainApp() {
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false); // For subsequent cached loading
-  const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
   const [isBackgroundDownloadActive, setIsBackgroundDownloadActive] = useState(false);
   const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
@@ -1402,7 +1400,6 @@ function MainApp() {
                 onStartScreenRecord={handleStartScreenRecord}
                 onOpenAssistant={() => navigate('/assistant')}
                 onOpenIssueReporter={() => navigate('/issue-reporter')}
-                onOpenAIGenerator={() => setIsAIGeneratorOpen(true)}
                 onOpenSlideEditor={() => {
                   setActiveTab('edit');
                   setEnteredEditorWithoutPdf(true);
@@ -1674,17 +1671,6 @@ function MainApp() {
           </div>
         </div>
       )}
-
-      <AIPresentationGenerator
-        isOpen={isAIGeneratorOpen}
-        onClose={() => setIsAIGeneratorOpen(false)}
-        onImport={onUploadComplete}
-        globalSettings={globalSettings}
-        onOpenSettings={() => {
-          setIsAIGeneratorOpen(false);
-          setIsSettingsOpen(true);
-        }}
-      />
     </div>
   );
 }

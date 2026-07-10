@@ -61,6 +61,20 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [useOpenAIFixScript, setUseOpenAIFixScript] = useState(currentSettings?.useOpenAIFixScript ?? false);
   const [useOpenAIForSlideGen, setUseOpenAIForSlideGen] = useState(currentSettings?.useOpenAIForSlideGen ?? false);
 
+  // Saved API Configs
+  const [savedConfigs, setSavedConfigs] = useState<Array<{id: string, name: string, endpoint: string, model: string, apiKey: string}>>(() => {
+    try {
+      const saved = localStorage.getItem('savedApiConfigs');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [configName, setConfigName] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('savedApiConfigs', JSON.stringify(savedConfigs));
+  }, [savedConfigs]);
 
   // WebLLM State
   const [useWebLLM, setUseWebLLM] = useState(currentSettings?.useWebLLM ?? false);
@@ -1174,6 +1188,74 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
                     />
                   </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Saved Configurations</label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Dropdown
+                      options={[
+                        { id: '', name: 'Load a saved configuration...' },
+                        ...savedConfigs.map(c => ({ id: c.id, name: c.name }))
+                      ]}
+                      value={''}
+                      onChange={(val) => {
+                        const config = savedConfigs.find(c => c.id === val);
+                        if (config) {
+                          setOpenaiEndpoint(config.endpoint);
+                          setOpenaiModel(config.model);
+                          setOpenaiApiKey(config.apiKey);
+                        }
+                      }}
+                      className="bg-black/20 flex-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Configuration name..."
+                      value={configName}
+                      onChange={(e) => setConfigName(e.target.value)}
+                      className="flex-1 px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!configName.trim()) return;
+                        const newConfig = {
+                          id: Date.now().toString(),
+                          name: configName.trim(),
+                          endpoint: openaiEndpoint,
+                          model: openaiModel,
+                          apiKey: openaiApiKey
+                        };
+                        setSavedConfigs([...savedConfigs, newConfig]);
+                        setConfigName('');
+                      }}
+                      className="px-4 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold hover:bg-emerald-500/30 transition-colors whitespace-nowrap border border-emerald-500/30 text-sm"
+                    >
+                      Save Config
+                    </button>
+                  </div>
+
+                  {savedConfigs.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      {savedConfigs.map(config => (
+                        <div key={config.id} className="flex items-center justify-between bg-white/5 p-2 rounded-lg">
+                          <span className="text-sm text-white">{config.name}</span>
+                          <button
+                            onClick={() => setSavedConfigs(savedConfigs.filter(c => c.id !== config.id))}
+                            className="text-white/40 hover:text-red-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">

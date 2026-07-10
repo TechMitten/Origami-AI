@@ -18,7 +18,6 @@ interface PDFUploaderProps {
   onOpenAssistant?: () => void;
   onOpenIssueReporter?: () => void;
   onOpenSlideEditor?: () => void;
-  onOpenAIGenerator?: () => void;
 }
 
 interface SecondaryOption {
@@ -33,7 +32,7 @@ interface SecondaryOption {
   badge?: string;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor, onOpenAIGenerator }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenIssueReporter, onOpenSlideEditor }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,16 +125,6 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
   });
 
   const secondaryOptions: SecondaryOption[] = [
-    {
-      key: 'ai_generator',
-      icon: BrainCircuit,
-      title: 'Create Slides',
-      description: 'Generate slides from a prompt using an AI endpoint.',
-      cta: 'Generate slides',
-      onClick: onOpenAIGenerator,
-      accent: 'foil',
-      badge: 'BETA',
-    },
     {
       key: 'editor',
       icon: Video,

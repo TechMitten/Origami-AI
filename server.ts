@@ -1,4 +1,5 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
+import http from 'http';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import cors from 'cors';
@@ -397,6 +398,7 @@ async function createServer() {
   app.use(express.static(path.resolve(__dirname, 'public')));
 
   const port = Number(process.env.PORT) || 3000;
+  const httpServer = http.createServer(app);
 
   let vite: any;
   if (process.env.NODE_ENV !== 'production') {
@@ -409,12 +411,7 @@ async function createServer() {
           awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 1000 },
         },
         hmr: {
-          protocol: 'ws',
-          // IPv4 loopback, not 'localhost'. With 'localhost' the HMR ws server can
-          // bind to IPv6 [::1] while the browser dials 127.0.0.1, which silently
-          // breaks HMR and leaves the page running stale modules.
-          host: process.env.HMR_HOST || '127.0.0.1',
-          port: parseInt(process.env.HMR_PORT || '24678'),
+          server: httpServer
         }
       },
       appType: 'spa',
@@ -446,7 +443,7 @@ async function createServer() {
     if (vite) app.use(vite.middlewares);
   }
 
-  const server = app.listen(port, '0.0.0.0', () => {
+  const server = httpServer.listen(port, '0.0.0.0', () => {
     console.log('\n🚀 Origami AI is ready!');
     console.log(`- Local:   http://localhost:${port}`);
     console.log(`- Network: http://0.0.0.0:${port}\n`);
