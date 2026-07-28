@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Loader2, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { ttsEvents, type ProgressEventDetail } from '../services/ttsService';
 import { videoEvents } from '../services/BrowserVideoRenderer';
 import { webLlmEvents } from '../services/webLlmService';
@@ -20,6 +20,7 @@ const RESOURCE_LABELS: Record<'tts' | 'ffmpeg' | 'webllm', string> = {
 
 export function BackgroundDownloadToast({ active, queue }: BackgroundDownloadToastProps) {
   const [dismissed, setDismissed] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [status, setStatus] = useState<Record<'tts' | 'ffmpeg' | 'webllm', ResourceState>>({
     tts: 'pending',
     ffmpeg: 'pending',
@@ -111,41 +112,45 @@ export function BackgroundDownloadToast({ active, queue }: BackgroundDownloadToa
           )}
         </div>
         <button
-          onClick={() => setDismissed(true)}
+          onClick={() => setMinimized(prev => !prev)}
           className="text-white/40 hover:text-white/80 transition-colors shrink-0 mt-0.5"
-          aria-label="Dismiss"
+          aria-label={minimized ? 'Expand' : 'Minimize'}
         >
-          <X className="w-3.5 h-3.5" />
+          {minimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      <div className="px-3 py-2.5 space-y-1.5">
-        {(['tts', 'ffmpeg', 'webllm'] as const).filter(key => queue[key]).map((key) => (
-          <div key={key} className="flex items-center gap-2 text-xs">
-            {status[key] === 'ready' ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            ) : status[key] === 'active' ? (
-              <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0" />
-            ) : (
-              <div className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" />
-            )}
-            <span className={status[key] === 'ready' ? 'text-white/40' : 'text-white/80'}>
-              {RESOURCE_LABELS[key]}
-            </span>
-            {key === activeKey && (
-              <span className="ml-auto font-mono text-white/50">{percent}%</span>
-            )}
+      {!minimized && (
+        <>
+          <div className="px-3 py-2.5 space-y-1.5">
+            {(['tts', 'ffmpeg', 'webllm'] as const).filter(key => queue[key]).map((key) => (
+              <div key={key} className="flex items-center gap-2 text-xs">
+                {status[key] === 'ready' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                ) : status[key] === 'active' ? (
+                  <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0" />
+                ) : (
+                  <div className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" />
+                )}
+                <span className={status[key] === 'ready' ? 'text-white/40' : 'text-white/80'}>
+                  {RESOURCE_LABELS[key]}
+                </span>
+                {key === activeKey && (
+                  <span className="ml-auto font-mono text-white/50">{percent}%</span>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {activeKey && (
-        <div className="h-1 bg-black/40">
-          <div
-            className="h-full bg-blue-400 transition-all duration-300"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
+          {activeKey && (
+            <div className="h-1 bg-black/40">
+              <div
+                className="h-full bg-blue-400 transition-all duration-300"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -30,6 +30,7 @@ import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
 import { ZoomTimelineEditor } from './ZoomTimelineEditor';
 import chromeExtensionZip from '../assets/extension/chrome-extension.zip?url';
+import { DownloadBlockedModal } from './DownloadBlockedModal';
 
 export interface VideoNarrationSceneTrack {
   id: string;
@@ -154,6 +155,8 @@ interface SlideEditorProps {
   defaultToolsConfigTab?: 'overview' | 'voice' | 'mixing' | 'tools' | 'media';
   aspectRatio?: '16:9' | '9:16' | '1:1' | '4:3';
   cursorData?: any;
+  /** True while background resources (TTS / FFmpeg / WebLLM) are still downloading. */
+  isDownloading?: boolean;
 }
 
 const ScriptEditorModal = ({
@@ -300,10 +303,12 @@ const SortableSlideItem = ({
   ttsVolume,
   voices, // Add voices to destructuring
   globalSettings, // Add globalSettings to destructuring
-  isMobile, // Add isMobile to destructuring
-  slidesLength, // Add slidesLength to destructuring
+  isMobile,
+  slidesLength,
   viewMode,
   aspectRatio,
+  isDownloading = false,
+  onShowDownloadBlocked,
 }: {
   slide: SlideData,
   index: number,
@@ -321,12 +326,14 @@ const SortableSlideItem = ({
   highlightText?: string,
   onDelete: (index: number) => void;
   ttsVolume?: number;
-  voices: Voice[]; // Add voices prop
-  globalSettings?: GlobalSettings | null; // Add globalSettings prop
-  isMobile: boolean; // Add isMobile prop
-  slidesLength: number; // Add slidesLength prop
+  voices: Voice[];
+  globalSettings?: GlobalSettings | null;
+  isMobile: boolean;
+  slidesLength: number;
   viewMode: SlideEditorViewMode;
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:3';
+  isDownloading?: boolean;
+  onShowDownloadBlocked?: (action: string) => void;
 }) => {
   const {
     attributes,
@@ -654,6 +661,10 @@ const SortableSlideItem = ({
   };
 
   const handleTransform = async () => {
+    if (isDownloading) {
+      onShowDownloadBlocked?.('AI Fix Script');
+      return;
+    }
     const useWebLLM = globalSettings?.useWebLLM;
     const webLlmModel = globalSettings?.webLlmModel;
 
@@ -1385,9 +1396,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   onOpenSettings,
   onStartScreenRecord,
   defaultToolsConfigTab = 'tools',
-  aspectRatio = '16:9'
+  aspectRatio = '16:9',
+  isDownloading = false,
 }) => {
   const { showAlert, showConfirm } = useModal();
+  const [downloadBlockedAction, setDownloadBlockedAction] = React.useState<string | null>(null);
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null);
   const [isPreviewTTSPlaying, setIsPreviewTTSPlaying] = React.useState(false);
   const previewAudioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -2060,6 +2073,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const isSlideMediaVideo = (slide: SlideData) => slide.type === 'video' && Boolean(slide.mediaUrl);
 
   const handleGenerateAll = async () => {
+    if (isDownloading) {
+      setDownloadBlockedAction('Generate TTS Audio');
+      return;
+    }
     const eligibleSlideIndexes = slides
       .map((slide, index) => ({ slide, index }))
       .filter(({ slide }) => !isSlideMediaVideo(slide))
@@ -2109,6 +2126,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   };
 
   const handleFixAllScripts = async () => {
+    if (isDownloading) {
+      setDownloadBlockedAction('Batch AI Fix Script');
+      return;
+    }
     const useWebLLM = globalSettings?.useWebLLM;
     const webLlmModel = globalSettings?.webLlmModel;
     const eligibleSlideIndexes = slides
@@ -3231,6 +3252,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 isMobile={isMobile}
                 slidesLength={slides.length}
                 viewMode={viewMode}
+                isDownloading={isDownloading}
+                onShowDownloadBlocked={(action) => setDownloadBlockedAction(action)}
                 highlightText={findText}
                 aspectRatio={aspectRatio}
               />
@@ -3277,6 +3300,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           </div>
         </div>
       )}
+      {/* Download blocked warning modal */}
+      <DownloadBlockedModal
+        isOpen={downloadBlockedAction !== null}
+        onClose={() => setDownloadBlockedAction(null)}
+        actionLabel={downloadBlockedAction ?? undefined}
+      />
     </div>
   );
 };

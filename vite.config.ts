@@ -9,7 +9,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router'],
           'web-llm': ['@mlc-ai/web-llm'],
           'ffmpeg': ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
           'pdfjs': ['pdfjs-dist'],

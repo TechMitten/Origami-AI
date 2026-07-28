@@ -2,8 +2,7 @@
 import type {
     ChatCompletionChunk,
     ChatCompletionMessageParam,
-    InitProgressCallback,
-    MLCEngine
+    InitProgressCallback
 } from "@mlc-ai/web-llm";
 
 export interface ModelInfo {
@@ -59,11 +58,11 @@ export const getSmallestModelByPrecision = (precision: ModelInfo['precision']): 
         .sort((a, b) => (a.vram_required_MB ?? Infinity) - (b.vram_required_MB ?? Infinity))[0];
 };
 
-export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
-export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = getSmallestModelByPrecision('f32')!.id;
+export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
+export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = DEFAULT_WEB_LLM_MODEL_ID;
 
-export const getDefaultWebLlmModel = (hasF16: boolean = true): string => {
-    return hasF16 ? DEFAULT_WEB_LLM_MODEL_ID : DEFAULT_WEB_LLM_FALLBACK_MODEL_ID;
+export const getDefaultWebLlmModel = (_hasF16: boolean = true): string => {
+    return DEFAULT_WEB_LLM_MODEL_ID;
 };
 
 export const getWebLlmModelInfo = (modelId: string | null | undefined): ModelInfo | undefined => {
@@ -134,7 +133,8 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
         return { supported: false, hasF16: false, error: "WebGPU is not supported in your browser. Please use Chrome, Edge, or a compatible browser." };
     }
     try {
-        const adapter = await nav.gpu.requestAdapter();
+        const adapter = await nav.gpu.requestAdapter({ powerPreference: 'high-performance' });
+
         if (!adapter) {
             return { supported: false, hasF16: false, error: "No WebGPU adapter found. Your GPU might not be compatible or hardware acceleration is disabled." };
         }
@@ -152,9 +152,9 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
     }
 };
 
-let engine: MLCEngine | null = null;
+let engine: any = null;
 let currentModelId: string | null = null;
-let pendingInitPromise: Promise<MLCEngine> | null = null;
+let pendingInitPromise: Promise<any> | null = null;
 let pendingModelId: string | null = null;
 
 
@@ -236,7 +236,7 @@ export const unloadWebLLM = async () => {
 export const initWebLLM = async (
     modelId: string,
     onProgress: InitProgressCallback
-): Promise<MLCEngine> => {
+): Promise<any> => {
     // If engine exists and is loaded with the same model, do nothing
     if (engine && currentModelId === modelId) {
         return engine;
@@ -266,9 +266,11 @@ export const initWebLLM = async (
                 webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
             };
 
-            const { CreateMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
+            const { CreateWebWorkerMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
 
-            const newEngine = await CreateMLCEngine(modelId, {
+            const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
+
+            const newEngine = await CreateWebWorkerMLCEngine(worker, modelId, {
                 initProgressCallback: wrappedCallback,
                 appConfig: prebuiltAppConfig
             });
@@ -301,7 +303,7 @@ export const initWebLLM = async (
     return pendingInitPromise;
 };
 
-export const ensureWebLLMReady = async (modelId: string): Promise<MLCEngine> => {
+export const ensureWebLLMReady = async (modelId: string): Promise<any> => {
     if (engine && currentModelId === modelId) {
         return engine;
     }
@@ -311,7 +313,7 @@ export const ensureWebLLMReady = async (modelId: string): Promise<MLCEngine> => 
 
 export const getWebLLMEngine = () => engine;
 
-const rebuildWebLLMEngine = async (modelId: string): Promise<MLCEngine> => {
+const rebuildWebLLMEngine = async (modelId: string): Promise<any> => {
     if (engine) {
         try {
             await engine.unload();
@@ -323,8 +325,9 @@ const rebuildWebLLMEngine = async (modelId: string): Promise<MLCEngine> => {
     engine = null;
     currentModelId = null;
 
-    const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-    const newEngine = await CreateMLCEngine(modelId, {
+    const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
+    const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
+    const newEngine = await CreateWebWorkerMLCEngine(worker, modelId, {
         initProgressCallback: () => { },
     });
 
@@ -490,8 +493,9 @@ export const generateWebLLMResponse = async (
             currentModelId = null;
 
             // Re-initialize with a no-op progress callback (model is already cached)
-            const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-            const newEngine = await CreateMLCEngine(modelToReload, {
+            const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
+            const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
+            const newEngine = await CreateWebWorkerMLCEngine(worker, modelToReload, {
                 initProgressCallback: () => { },
             });
             engine = newEngine;
