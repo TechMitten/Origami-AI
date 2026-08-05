@@ -1007,28 +1007,26 @@ const SortableSlideItem = ({
                     <button
                       onClick={handleTransform}
                       disabled={isTransforming || !slide.script.trim()}
-                      className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="p-1.5 rounded-lg text-branding-accent hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
                       title="Use AI to transform raw PDF text into natural sentences"
                     >
-                      {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                      {isTransforming ? 'Fixing...' : 'AI Fix Script'}
+                      {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     </button>
                     <button
                       onClick={handleCopyScript}
                       disabled={!slide.script.trim()}
-                      className="flex items-center gap-1 text-[10px] uppercase font-bold text-white hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
                       title="Copy script to clipboard"
                     >
-                      {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
-                      {isCopied ? 'Copied!' : 'Copy'}
+                      {isCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Clipboard className="w-4 h-4" />}
                     </button>
                     {slide.originalScript && (
                       <button
                         onClick={handleRevertScript}
-                        className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                        className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 transition-colors flex items-center justify-center"
                         title="Revert to original script"
                       >
-                        <Undo2 className="w-3 h-3" /> Revert
+                        <Undo2 className="w-4 h-4" />
                       </button>
                     )}
                     <button
@@ -1036,10 +1034,10 @@ const SortableSlideItem = ({
                         e.stopPropagation();
                         onDelete(index);
                       }}
-                      className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2 rounded transition-colors"
+                      className="p-1.5 rounded-lg text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center"
                       title="Delete Slide"
                     >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                   <label className="mt-1 text-xs font-bold text-white/40 uppercase tracking-widest">Script (TTS Text)</label>
@@ -1051,28 +1049,26 @@ const SortableSlideItem = ({
                 <button
                   onClick={handleTransform}
                   disabled={isTransforming || !slide.script.trim()}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-branding-accent hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="p-1.5 rounded-lg text-branding-accent hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
                   title="Use AI to transform raw PDF text into natural sentences"
                 >
-                  {isTransforming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                  {isTransforming ? 'Fixing...' : 'AI Fix Script'}
+                  {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={handleCopyScript}
                   disabled={!slide.script.trim()}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-white hover:text-white/80 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
                   title="Copy script to clipboard"
                 >
-                  {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Clipboard className="w-3 h-3" />}
-                  {isCopied ? 'Copied!' : 'Copy'}
+                  {isCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Clipboard className="w-4 h-4" />}
                 </button>
                 {slide.originalScript && (
                   <button
                     onClick={handleRevertScript}
-                    className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                    className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 transition-colors flex items-center justify-center"
                     title="Revert to original script"
                   >
-                    <Undo2 className="w-3 h-3" /> Revert
+                    <Undo2 className="w-4 h-4" />
                   </button>
                 )}
                 <button
@@ -1080,10 +1076,10 @@ const SortableSlideItem = ({
                     e.stopPropagation();
                     onDelete(index);
                   }}
-                  className="flex items-center gap-1 text-[10px] uppercase font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 px-2 rounded transition-colors"
+                  className="p-1.5 rounded-lg text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center"
                   title="Delete Slide"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
                 </>
