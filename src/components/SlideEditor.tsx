@@ -819,7 +819,11 @@ const SortableSlideItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative flex flex-col ${isGridView ? 'gap-4 h-full' : 'sm:flex-row gap-4 sm:gap-6'} p-4 sm:p-5 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border border-white/30 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20 transition-[border-color,box-shadow] duration-300`}
+      className={`group relative flex flex-col ${isGridView ? 'gap-4 h-full' : 'sm:flex-row gap-4 sm:gap-6'} p-4 sm:p-5 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border shadow-2xl shadow-black/40 ring-1 ring-inset transition-[border-color,box-shadow] duration-300 ${
+        isGenerating || isTransforming
+          ? 'border-branding-primary shadow-branding-primary/20 ring-branding-primary/50'
+          : 'border-white/30 ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20'
+      }`}
     >
       {/* Drag Handle */}
       <div
