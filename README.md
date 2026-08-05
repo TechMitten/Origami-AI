@@ -53,7 +53,7 @@ It also doubles as a screen recorder with cinematic auto-zoom, an MP4 scene anal
 
 ## 🚀 Quick Start
 
-**Requirements:** Node.js ≥ 20.19.0 and a [WebGPU-capable browser](#browser-support).
+**Requirements:** Node.js ≥ 20.19.0 and a [WebGPU-capable browser](https://webgpureport.org/).
 
 ```bash
 git clone https://github.com/TechMitten/Origami-AI.git
