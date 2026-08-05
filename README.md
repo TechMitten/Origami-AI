@@ -35,7 +35,7 @@ It also doubles as a screen recorder with cinematic auto-zoom, an MP4 scene anal
 | Privacy | Local | Cloud-based | **Local-first** |
 | Cost | One-time / free | Pay-per-minute or credits | **Free & open source** |
 | Voice | Your own / hire talent | Pay per minute | **Unlimited local TTS** |
-| Time to video | Hours | Minutes | **~10–30 min** |
+| Time to video | Hours | Minutes | **~2–5 min** |
 
 ## ✨ Features
 
@@ -108,7 +108,7 @@ You can also download a packaged ZIP from inside the app (header menu → **Down
 5. FFmpeg.wasm renders a 720p/1080p MP4, fully in-browser
 6. Download the finished video
 
-Typical end-to-end time is 10–30 minutes, depending on slide count and GPU.
+Typical end-to-end time is 2–5 minutes, depending on slide count and GPU.
 
 **Other entry points:**
 - **Screen recording** — capture a tab or desktop, auto-zoom on idle (>2s), combine with PDF slides or use standalone
