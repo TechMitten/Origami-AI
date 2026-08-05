@@ -379,6 +379,7 @@ export const SceneAlignmentPage: React.FC<SceneAlignmentPageProps> = ({
       />
 
       <PageHeader
+        pinDuringRouteTransition={false}
         leftContent={(
           <button
             onClick={onClose}

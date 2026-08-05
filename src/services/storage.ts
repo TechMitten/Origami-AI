@@ -108,22 +108,159 @@ function deleteVal(storeName: string, key: string): Promise<void> {
   }));
 }
 
+/**
+ * Slide fields that hold `blob:` object URLs. Object URLs are scoped to the
+ * document that created them, so persisting the URL string alone leaves broken
+ * media after a reload. We store the underlying Blob instead and mint a fresh
+ * URL on load.
+ */
+const SLIDE_ASSET_FIELDS = ['dataUrl', 'mediaUrl', 'audioUrl'] as const;
+type SlideAssetField = typeof SLIDE_ASSET_FIELDS[number];
+
+interface PersistedSlide {
+  slide: SlideData;
+  assets?: Partial<Record<SlideAssetField, Blob>>;
+}
+
+interface PersistedMusicSettings {
+  volume: number;
+  loop?: boolean;
+  title?: string;
+  blob?: Blob;
+}
+
+// Maps a live object URL to its Blob so repeated autosaves don't re-read the
+// same asset, and so rehydrated slides can be saved again without a fetch.
+const objectUrlBlobs = new Map<string, Blob>();
+
+async function resolveObjectUrlBlob(url: string): Promise<Blob | null> {
+  const cached = objectUrlBlobs.get(url);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    objectUrlBlobs.set(url, blob);
+    return blob;
+  } catch (e) {
+    // The URL was already revoked; the asset is unrecoverable either way.
+    console.warn('[Storage] Could not read asset for persistence:', e);
+    return null;
+  }
+}
+
+function createTrackedObjectURL(blob: Blob): string {
+  const url = URL.createObjectURL(blob);
+  objectUrlBlobs.set(url, blob);
+  return url;
+}
+
+function isPersistedSlide(value: unknown): value is PersistedSlide {
+  return typeof value === 'object' && value !== null && typeof (value as PersistedSlide).slide === 'object';
+}
+
+async function toPersistedSlide(slide: SlideData): Promise<PersistedSlide> {
+  const record: PersistedSlide = { slide: { ...slide } };
+
+  for (const field of SLIDE_ASSET_FIELDS) {
+    const url = slide[field];
+    if (!url || !url.startsWith('blob:')) continue;
+
+    // The URL is meaningless in the next session, so it never gets persisted.
+    delete record.slide[field];
+
+    const blob = await resolveObjectUrlBlob(url);
+    if (blob) {
+      record.assets = { ...record.assets, [field]: blob };
+    }
+  }
+
+  return record;
+}
+
+function fromPersistedSlide(record: PersistedSlide): SlideData {
+  const slide: SlideData = { ...record.slide };
+
+  for (const field of SLIDE_ASSET_FIELDS) {
+    const blob = record.assets?.[field];
+    if (blob instanceof Blob) {
+      slide[field] = createTrackedObjectURL(blob);
+    } else if (slide[field]?.startsWith('blob:')) {
+      // Written by an older build: the URL is dead, so drop it rather than
+      // rendering a broken asset.
+      delete slide[field];
+    }
+  }
+
+  return slide;
+}
+
+// Keep only assets belonging to the state we just wrote, so revoked/replaced
+// media doesn't pin memory for the life of the session.
+function pruneObjectUrlBlobs(liveUrls: Set<string>): void {
+  for (const url of objectUrlBlobs.keys()) {
+    if (!liveUrls.has(url)) objectUrlBlobs.delete(url);
+  }
+}
+
 export async function saveState(slides: SlideData[], musicSettings: MusicSettings): Promise<void> {
-  await setVal('keyval', 'slides', slides);
-  await setVal('keyval', 'musicSettings', musicSettings);
+  const persistedSlides = await Promise.all(slides.map(toPersistedSlide));
+
+  const persistedMusic: PersistedMusicSettings = {
+    volume: musicSettings.volume,
+    loop: musicSettings.loop,
+    title: musicSettings.title,
+  };
+
+  if (musicSettings.blob instanceof Blob) {
+    persistedMusic.blob = musicSettings.blob;
+  } else if (musicSettings.url?.startsWith('blob:')) {
+    persistedMusic.blob = (await resolveObjectUrlBlob(musicSettings.url)) || undefined;
+  }
+
+  await setVal('keyval', 'slides', persistedSlides);
+  await setVal('keyval', 'musicSettings', persistedMusic);
+
+  const liveUrls = new Set<string>();
+  for (const slide of slides) {
+    for (const field of SLIDE_ASSET_FIELDS) {
+      const url = slide[field];
+      if (url?.startsWith('blob:')) liveUrls.add(url);
+    }
+  }
+  if (musicSettings.url?.startsWith('blob:')) liveUrls.add(musicSettings.url);
+  pruneObjectUrlBlobs(liveUrls);
 }
 
 export async function loadState(): Promise<{ slides: SlideData[]; musicSettings?: MusicSettings } | null> {
-  const slides = await getVal<SlideData[]>('keyval', 'slides');
-  const musicSettings = await getVal<MusicSettings>('keyval', 'musicSettings');
-  if (!slides) return null;
-  return {
-    slides,
-    musicSettings: musicSettings || undefined,
-  };
+  const storedSlides = await getVal<(PersistedSlide | SlideData)[]>('keyval', 'slides');
+  const storedMusic = await getVal<PersistedMusicSettings | MusicSettings>('keyval', 'musicSettings');
+  if (!storedSlides) return null;
+
+  const slides = storedSlides.map(entry =>
+    isPersistedSlide(entry) ? fromPersistedSlide(entry) : fromPersistedSlide({ slide: entry })
+  );
+
+  let musicSettings: MusicSettings | undefined;
+  if (storedMusic) {
+    musicSettings = {
+      volume: storedMusic.volume,
+      loop: storedMusic.loop,
+      title: storedMusic.title,
+    };
+
+    if (storedMusic.blob instanceof Blob) {
+      musicSettings.blob = storedMusic.blob;
+      musicSettings.url = createTrackedObjectURL(storedMusic.blob);
+    }
+  }
+
+  return { slides, musicSettings };
 }
 
 export async function clearState(): Promise<void> {
+  objectUrlBlobs.clear();
   await deleteVal('keyval', 'slides');
   await deleteVal('keyval', 'musicSettings');
 }

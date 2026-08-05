@@ -32,10 +32,10 @@ export type WebLLMChatMessage = ChatCompletionMessageParam;
 // f16 models are faster and use less memory, f32 models have better compatibility
 export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     // f16 models (faster, lower memory, requires good GPU support)
+    { id: "gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 2B", size: "1.4GB", vram_required_MB: 2000, precision: 'f16', capabilities: ['text'] },
     { id: "Llama-3.2-3B-Instruct-q4f16_1-MLC", name: "Llama 3.2 3B", size: "1.7GB", vram_required_MB: 2500, precision: 'f16', capabilities: ['text'] },
     { id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", name: "Llama 3.2 1B", size: "800MB", vram_required_MB: 1500, precision: 'f16', capabilities: ['text'] },
     { id: "Llama-3.1-8B-Instruct-q4f16_1-MLC", name: "Llama 3.1 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16', capabilities: ['text'] },
-    { id: "gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 2B", size: "1.4GB", vram_required_MB: 2000, precision: 'f16', capabilities: ['text'] },
     { id: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC", name: "DeepSeek R1 Distill 8B", size: "4.5GB", vram_required_MB: 5000, precision: 'f16', capabilities: ['text'] },
     { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 1.5B", size: "1GB", vram_required_MB: 2000, precision: 'f16', capabilities: ['text'] },
     { id: "Qwen3-4B-q4f16_1-MLC", name: "Qwen 3 4B", size: "3.6GB", vram_required_MB: 5000, precision: 'f16', capabilities: ['text'] },
@@ -43,9 +43,9 @@ export const AVAILABLE_WEB_LLM_MODELS: ModelInfo[] = [
     { id: "Phi-3.5-vision-instruct-q4f16_1-MLC", name: "Phi 3.5 Vision", size: "3.9GB", vram_required_MB: 3952, precision: 'f16', capabilities: ['text', 'vision'] },
 
     // f32 models (better compatibility, slower, more memory)
+    { id: "gemma-2-2b-it-q4f32_1-MLC", name: "Gemma 2 2B", size: "1.7GB", vram_required_MB: 2500, precision: 'f32', capabilities: ['text'] },
     { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 3B", size: "2.0GB", vram_required_MB: 3000, precision: 'f32', capabilities: ['text'] },
     { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 1B", size: "1.0GB", vram_required_MB: 1800, precision: 'f32', capabilities: ['text'] },
-    { id: "gemma-2-2b-it-q4f32_1-MLC", name: "Gemma 2 2B", size: "1.7GB", vram_required_MB: 2500, precision: 'f32', capabilities: ['text'] },
     { id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", name: "Qwen 2.5 1.5B", size: "1.2GB", vram_required_MB: 2300, precision: 'f32', capabilities: ['text'] },
     { id: "Phi-3.5-mini-instruct-q4f32_1-MLC", name: "Phi 3.5 Mini", size: "3.0GB", vram_required_MB: 3500, precision: 'f32', capabilities: ['text'] },
     { id: "Phi-3.5-vision-instruct-q4f32_1-MLC", name: "Phi 3.5 Vision", size: "5.9GB", vram_required_MB: 5880, precision: 'f32', capabilities: ['text', 'vision'] },
@@ -60,6 +60,13 @@ export const getSmallestModelByPrecision = (precision: ModelInfo['precision']): 
 
 export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
 export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = DEFAULT_WEB_LLM_MODEL_ID;
+
+// Gemma 2 2B is the recommended model everywhere, so precision switches stay on it
+// instead of dropping to whichever model happens to be smallest.
+export const getDefaultModelByPrecision = (precision: ModelInfo['precision']): ModelInfo | undefined => {
+    return AVAILABLE_WEB_LLM_MODELS.find((model) => model.precision === precision && model.name.includes('Gemma 2'))
+        ?? getSmallestModelByPrecision(precision);
+};
 
 export const getDefaultWebLlmModel = (_hasF16: boolean = true): string => {
     return DEFAULT_WEB_LLM_MODEL_ID;

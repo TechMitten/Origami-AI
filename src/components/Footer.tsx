@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router';
 import { Github } from 'lucide-react';
+import { TransitionLink } from './TransitionLink';
 
 export const Footer: React.FC = () => {
   return (
@@ -27,18 +27,18 @@ export const Footer: React.FC = () => {
           </a>
         </div>
         <div className="flex items-center gap-4">
-          <Link
+          <TransitionLink
             to="/privacy"
             className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
           >
             Privacy Policy
-          </Link>
-          <Link
+          </TransitionLink>
+          <TransitionLink
             to="/terms"
             className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
           >
             Terms of Service
-          </Link>
+          </TransitionLink>
         </div>
       </div>
     </footer>

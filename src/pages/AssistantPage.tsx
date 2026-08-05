@@ -223,7 +223,9 @@ export const AssistantPage: React.FC = () => {
   });
   const activeAssistantSelection = selectableAssistantModels.some((model) => model.id === assistantModelSelection)
     ? assistantModelSelection
-    : (selectableAssistantModels[0]?.id || assistantModelSelection);
+    : (selectableAssistantModels.find((model) => model.id === DEFAULT_WEB_LLM_MODEL_ID)?.id
+      || selectableAssistantModels[0]?.id
+      || assistantModelSelection);
 
   const mutateSession = (
     sessionId: string,

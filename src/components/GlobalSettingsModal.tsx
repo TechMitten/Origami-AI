@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getSmallestModelByPrecision, type ModelInfo } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision, type ModelInfo } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -126,7 +126,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         if (info.supported && !info.hasF16) {
           const currentIsF16 = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.precision === 'f16';
           if (currentIsF16) {
-            const f32Model = getSmallestModelByPrecision('f32');
+            const f32Model = getDefaultModelByPrecision('f32');
             if (f32Model) setWebLlmModel(f32Model.id);
             setPrecisionFilter('f32');
             showAlert("Your GPU does not support f16 shaders. Switched to f32 mode for compatibility.", { type: 'info', title: 'WebGPU Compatibility' });

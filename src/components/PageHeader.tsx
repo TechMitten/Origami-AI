@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
 import { ArrowLeft, Github, Settings, CircleHelp } from 'lucide-react';
+import { TransitionLink } from './TransitionLink';
 import appLogo from '../assets/images/app-logo2.png';
 import { HeaderActionsMenu } from './HeaderActionsMenu';
 
@@ -26,6 +26,8 @@ interface PageHeaderProps {
   showHelp?: boolean;
   /** Show github button (default: true) */
   showGithub?: boolean;
+  /** Keep this header anchored during route transitions (default: true). Disable for overlays that render a second header. */
+  pinDuringRouteTransition?: boolean;
   /** Additional class names for the actions menu panel */
   actionMenuClassName?: string;
   /** Callback for settings button */
@@ -46,6 +48,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   showSettings = true,
   showHelp = true,
   showGithub = true,
+  pinDuringRouteTransition = true,
   actionMenuClassName = '',
   onSettings,
   onHelp,
@@ -55,7 +58,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
   return (
     <header
-      className={`relative z-50 w-full mx-auto mb-6 sm:mb-10 h-16 flex items-center justify-between px-4 sm:px-8 max-w-7xl transition-all duration-500 ${className}`.trim()}
+      className={`relative z-50 w-full mx-auto mb-6 sm:mb-10 h-16 flex items-center justify-between px-4 sm:px-8 max-w-7xl transition-all duration-500 ${pinDuringRouteTransition ? 'app-header-pinned' : ''} ${className}`.trim()}
     >
       {/* Left Content */}
       {leftContent ? (
@@ -63,15 +66,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       ) : (
         <div className="flex items-center gap-3 shrink-0">
           {showBack && (
-            <Link
+            <TransitionLink
               to="/"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
               title="Back"
             >
               <ArrowLeft className="w-4 h-4" />
-            </Link>
+            </TransitionLink>
           )}
-          <Link
+          <TransitionLink
             to="/"
             className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
             title="Go to Home"
@@ -83,7 +86,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             <h1 className="hidden sm:block text-xl sm:text-2xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
               ORIGAMI
             </h1>
-          </Link>
+          </TransitionLink>
         </div>
       )}
 

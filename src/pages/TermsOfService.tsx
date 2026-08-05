@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router';
 import { FileText, User, Shield, AlertTriangle, Eye, Ban, Share2, Building2, Scale } from 'lucide-react';
+import { TransitionLink } from '../components/TransitionLink';
 import { Footer } from '../components/Footer';
 import backgroundImage from '../assets/images/background.jpg';
 import { PageHeader } from '../components/PageHeader';
@@ -216,7 +216,7 @@ export const TermsOfService: React.FC = () => {
                 <h2 className="text-xl font-black text-white">10) Privacy</h2>
               </div>
               <p className="text-white/70 text-sm leading-relaxed">
-                Our collection and use of information is described in our <Link to="/privacy" className="text-branding-primary hover:text-branding-accent transition-colors font-bold underline">Privacy Policy</Link>. By using the Service, you agree that we can collect and use information as described there.
+                Our collection and use of information is described in our <TransitionLink to="/privacy" className="text-branding-primary hover:text-branding-accent transition-colors font-bold underline">Privacy Policy</TransitionLink>. By using the Service, you agree that we can collect and use information as described there.
               </p>
             </section>
           </div>

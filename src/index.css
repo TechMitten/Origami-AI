@@ -262,3 +262,86 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Route transitions (View Transitions API)
+   The outgoing page settles back and fades; the incoming page unfolds upward.
+   The app header is pinned so it stays anchored while the content swaps.
+--------------------------------------------------------------------------- */
+@keyframes origami-page-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.994);
+  }
+}
+
+@keyframes origami-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Paint the snapshots normally so the two pages don't blend into each other. */
+::view-transition-image-pair(root) {
+  isolation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation: none;
+}
+
+::view-transition-old(root) {
+  animation: origami-page-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: origami-page-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-header-pinned {
+  view-transition-name: origami-header;
+}
+
+/* Fallback for navigations a View Transition can't wrap (back/forward, or
+   browsers without the API). Opacity only, so nothing becomes a containing
+   block for the fixed-position layers pages rely on. */
+@keyframes origami-route-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.origami-route-enter {
+  animation: origami-route-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+::view-transition-group(origami-header) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  .origami-route-enter {
+    animation: none;
+  }
+}

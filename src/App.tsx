@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router';
+import { BrowserRouter, Routes, Route } from 'react-router';
 
 import { PDFUploader } from './components/PDFUploader';
 import { WelcomeLander } from './components/WelcomeLander';
@@ -32,13 +32,15 @@ import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { PageHeader } from './components/PageHeader';
+import { useTransitionNavigate } from './components/TransitionLink';
+import { RouteTransition } from './components/RouteTransition';
 import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
 
 
 
 function MainApp() {
-  const navigate = useNavigate();
+  const navigate = useTransitionNavigate();
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [showWelcomeLander, setShowWelcomeLander] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -568,7 +570,9 @@ function MainApp() {
     }
 
     const timeoutId = setTimeout(() => {
-      saveState(slides, musicSettings);
+      saveState(slides, musicSettings).catch(error => {
+        console.error('Failed to autosave project state:', error);
+      });
     }, 1000);
 
     return () => clearTimeout(timeoutId);
@@ -1367,7 +1371,7 @@ function MainApp() {
               }}
               className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
             >
-              <BookOpen className="w-4 h-4" /> Welcome Guide
+              <BookOpen className="w-4 h-4" /> Landing Page
             </button>
             {slides.length > 0 && <div className="my-1 h-px bg-white/10" />}
             {slides.length > 0 && (
@@ -1721,13 +1725,15 @@ function MainApp() {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainApp />} />
-        <Route path="/assistant" element={<AssistantPage />} />
-        <Route path="/issue-reporter" element={<IssueReporterPage />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsOfService />} />
-      </Routes>
+      <RouteTransition>
+        <Routes>
+          <Route path="/" element={<MainApp />} />
+          <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/issue-reporter" element={<IssueReporterPage />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+        </Routes>
+      </RouteTransition>
     </BrowserRouter>
   );
 }

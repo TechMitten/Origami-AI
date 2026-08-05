@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Bot, Clapperboard, Settings } from 'lucide-react';
-import { NavLink } from 'react-router';
+import { TransitionNavLink } from './TransitionLink';
 
 interface HeaderActionsMenuProps {
   className?: string;
@@ -49,22 +49,22 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
         <div className={`absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-white/10 bg-[#18181b] py-1 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right z-60 ${menuClassName}`.trim()}>
           {showAppRoutes && (
             <>
-              <NavLink
+              <TransitionNavLink
                 to="/"
                 end
                 onClick={closeMenu}
                 className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
               >
                 <Clapperboard className="h-4 w-4" /> Studio
-              </NavLink>
+              </TransitionNavLink>
 
-              <NavLink
+              <TransitionNavLink
                 to="/assistant"
                 onClick={closeMenu}
                 className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-cyan-400/15 text-cyan-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
               >
                 <Bot className="h-4 w-4" /> Assistant
-              </NavLink>
+              </TransitionNavLink>
             </>
           )}
 
