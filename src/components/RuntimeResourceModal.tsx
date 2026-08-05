@@ -20,7 +20,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm }: RuntimeResourceModal
   useEffect(() => {
     const updateScale = () => {
       const availableHeight = window.innerHeight - 40; // more headroom for desktop bars
-      const targetHeight = 380; // approximate modal height incl. badge header
+      const targetHeight = 320; // approximate modal height incl. horizontal header row
       const scaleValue = Math.min(1, availableHeight / targetHeight);
       setScale(Math.max(0.85, scaleValue)); // do not shrink too far
     };
@@ -55,12 +55,13 @@ export function RuntimeResourceModal({ isOpen, onConfirm }: RuntimeResourceModal
   return (
     <div className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 transition-all duration-200 overflow-y-auto ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       {/* Simple backdrop */}
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity" />
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm transition-opacity" />
 
       {/* Modal Content */}
       <div className={`
-        relative w-full max-h-[calc(100vh-1.5rem)] overflow-y-auto my-0.5 sm:my-0 bg-[#0F1115]
-        border border-white/10 rounded-lg shadow-2xl
+        relative w-full max-h-[calc(100vh-1.5rem)] overflow-y-auto my-0.5 sm:my-0
+        bg-gradient-to-b from-[#222732] to-[#191D25]
+        border border-white/15 rounded-lg shadow-2xl shadow-black/60 ring-1 ring-white/5
         transition-all duration-200 ease-out
       `}
         style={{
@@ -70,29 +71,35 @@ export function RuntimeResourceModal({ isOpen, onConfirm }: RuntimeResourceModal
           fontFamily: '"Roboto", "Inter", system-ui, -apple-system, sans-serif',
         }}>
 
-        {/* Header */}
-        <div className="relative px-4 sm:px-5 pt-5 sm:pt-6 pb-4 sm:pb-5">
-          {/* Logo, set in a faceted badge echoing the crane's folded planes */}
-          <div className="relative flex items-center justify-center w-16 h-16 mb-3 mx-auto">
-            <div className="absolute w-16 h-16 rounded-full bg-blue-500/20 blur-xl" />
-            <div className="absolute w-12 h-12 rotate-45 rounded-[6px] border border-blue-400/25 bg-gradient-to-br from-sky-400/15 via-blue-500/10 to-transparent" />
-            <img src="/favicon-32x32.png" alt="Origami" className="relative w-9 h-9" />
-          </div>
-
+        {/* Header — logo and title sit side by side, so the row spans the panel
+            instead of stacking into a narrow column with dead space either side */}
+        <div className="relative px-4 sm:px-5 pt-4 sm:pt-5 pb-4">
+          {/* Provenance pill, anchored to the far corner to bracket the row */}
           <div
-            className="flex items-center justify-center gap-1.5 mb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-blue-300/70"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full border border-blue-400/20 bg-blue-400/[0.07] text-[10px] font-medium uppercase tracking-[0.14em] text-blue-300/80"
             style={{ fontFamily: MONO_STACK }}
           >
-            <Lock className="w-3 h-3" />
-            Local &amp; private
+            <Lock className="w-3 h-3 shrink-0" />
+            <span className="hidden sm:inline">Local &amp; private</span>
           </div>
 
-          <h2 className="text-xl sm:text-[1.375rem] font-bold text-white text-center tracking-tight">
-            Initial setup
-          </h2>
-          <p className="text-xs text-white/45 text-center mt-1">
-            One-time configuration
-          </p>
+          <div className="flex items-center gap-3.5 sm:gap-4 pr-10 sm:pr-36">
+            {/* Logo, set in a faceted badge echoing the crane's folded planes */}
+            <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
+              <div className="absolute w-14 h-14 rounded-full bg-blue-500/20 blur-xl" />
+              <div className="absolute w-11 h-11 rotate-45 rounded-[6px] border border-blue-400/25 bg-gradient-to-br from-sky-400/15 via-blue-500/10 to-transparent" />
+              <img src="/favicon-32x32.png" alt="Origami" className="relative w-8 h-8" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-[1.375rem] font-bold text-white tracking-tight leading-tight">
+                Initial setup
+              </h2>
+              <p className="text-xs text-white/45 mt-1">
+                One-time configuration
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Crease — a seam of light across the fold, not a flat rule */}
@@ -115,7 +122,7 @@ export function RuntimeResourceModal({ isOpen, onConfirm }: RuntimeResourceModal
         <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
         {/* Footer */}
-        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/[0.02]">
+        <div className="relative p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 bg-black/20">
           <label className="flex items-center gap-2 cursor-pointer group text-center sm:text-left">
             <input
               type="checkbox"
