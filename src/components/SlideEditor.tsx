@@ -1184,7 +1184,7 @@ const SortableSlideItem = ({
                   ? onGenerateSceneAudio(index)
                   : onGenerate(index))}
                 disabled={isGenerating || (!slide.script.trim() && !slide.videoNarrationAnalysis?.scenes?.length) || isRecording}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 border border-branding-primary/20 text-branding-primary hover:bg-branding-primary/20 hover:border-branding-primary/40 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-white/10 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
                 title={slide.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length ? 'Generate scene-level TTS using the current alignment plan' : 'Generate AI narration from script text'}
               >
                 {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
