@@ -257,7 +257,7 @@ const ScriptEditorModal = ({
             {/* Backdrop */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 w-full h-full m-0 px-6 py-6 text-[16px]! sm:text-[18px]! font-sans! tracking-normal! leading-relaxed! whitespace-pre-wrap overflow-y-auto wrap-break-word text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
+              className="absolute inset-0 w-full h-full m-0 px-6 py-6 text-[16px]! sm:text-[18px]! font-sans! tracking-normal! leading-relaxed! whitespace-pre-wrap overflow-y-auto wrap-break-word text-transparent pointer-events-none border border-transparent outline-none"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               aria-hidden="true"
               dir="ltr"
@@ -271,7 +271,7 @@ const ScriptEditorModal = ({
               value={script}
               onChange={(e) => onUpdate({ script: e.target.value })}
               onScroll={syncScroll}
-              className="absolute inset-0 w-full h-full m-0 px-6 py-6 bg-transparent text-white text-[16px]! sm:text-[18px]! font-sans! tracking-normal! leading-relaxed! whitespace-pre-wrap resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/30 overflow-y-auto wrap-break-word no-scrollbar"
+              className="absolute inset-0 w-full h-full m-0 px-6 py-6 bg-transparent text-white text-[16px]! sm:text-[18px]! font-sans! tracking-normal! leading-relaxed! whitespace-pre-wrap resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/30 overflow-y-auto wrap-break-word cursor-auto"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               placeholder="Enter your script here..."
               spellCheck={false}
@@ -1091,11 +1091,11 @@ const SortableSlideItem = ({
             </div>
           )}
 
-          <div className={`relative w-full ${isGridView ? 'h-24' : 'h-32'} rounded-xl bg-white/5 border border-white/10 focus-within:border-branding-primary focus-within:ring-1 focus-within:ring-branding-primary transition-all overflow-hidden`}>
+          <div className={`relative w-full ${isGridView ? 'h-24' : 'h-32'} rounded-xl bg-white/5 border border-white/10 transition-all overflow-hidden`}>
             {/* Backdrop (Highlights) */}
             <div
               ref={backdropRef}
-              className="absolute inset-0 w-full h-full m-0 px-4 py-3 font-sans! text-[16px]! tracking-normal! leading-[1.6]! whitespace-pre-wrap overflow-y-auto wrap-break-word text-transparent pointer-events-none border border-transparent no-scrollbar outline-none"
+              className="absolute inset-0 w-full h-full m-0 px-4 py-3 font-sans! text-[16px]! tracking-normal! leading-[1.6]! whitespace-pre-wrap overflow-y-auto wrap-break-word text-transparent pointer-events-none border border-transparent outline-none"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               aria-hidden="true"
               dir="ltr"
@@ -1109,7 +1109,7 @@ const SortableSlideItem = ({
               value={slide.script}
               onChange={(e) => handleTextChange(e.target.value)}
               onScroll={syncScroll}
-              className="absolute inset-0 w-full h-full m-0 px-4 py-3 font-sans! text-[16px]! tracking-normal! leading-[1.6]! whitespace-pre-wrap bg-transparent text-white resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/20 overflow-y-auto wrap-break-word no-scrollbar"
+              className="absolute inset-0 w-full h-full m-0 px-4 py-3 font-sans! text-[16px]! tracking-normal! leading-[1.6]! whitespace-pre-wrap bg-transparent text-white resize-none outline-none border border-transparent focus:ring-0 selection:bg-branding-primary/20 overflow-y-auto wrap-break-word cursor-auto"
               style={{ paddingRight: '1.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
               placeholder="Write or edit your narration script..."
               spellCheck={false}
