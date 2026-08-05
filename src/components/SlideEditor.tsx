@@ -25,6 +25,15 @@ import { loadGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
 
 import { transformText } from '../services/aiService';
+import {
+  checkWebGPUSupport,
+  ensureWebLLMReady,
+  getCurrentWebLLMModel,
+  isWebLLMLoaded,
+  unloadWebLLM,
+  WebLLMCancelledError,
+} from '../services/webLlmService';
+import { WebLLMLoadingModal } from './WebLLMLoadingModal';
 import { Dropdown } from './Dropdown';
 import { MusicPickerModal } from './MusicPickerModal';
 import type { IncompetechCachedTrack } from '../types/music';
@@ -309,6 +318,7 @@ const SortableSlideItem = ({
   aspectRatio,
   isDownloading = false,
   onShowDownloadBlocked,
+  onEnsureWebLLMReady,
 }: {
   slide: SlideData,
   index: number,
@@ -334,6 +344,8 @@ const SortableSlideItem = ({
   aspectRatio: '16:9' | '9:16' | '1:1' | '4:3';
   isDownloading?: boolean;
   onShowDownloadBlocked?: (action: string) => void;
+  /** Loads the local WebLLM model with visible progress. Resolves false if the fix should abort. */
+  onEnsureWebLLMReady?: (modelId: string) => Promise<boolean>;
 }) => {
   const {
     attributes,
@@ -683,6 +695,13 @@ const SortableSlideItem = ({
       return;
     }
 
+    // Load the local model up front so its download/compile shows real progress instead of
+    // hiding behind a "Fixing..." label. Once resident, transformText's own
+    // ensureWebLLMReady short-circuits.
+    if (useWebLLM && webLlmModel && onEnsureWebLLMReady) {
+      if (!await onEnsureWebLLMReady(webLlmModel)) return;
+    }
+
     setIsTransforming(true);
 
     // Yield to event loop to prevent React state batching from blocking WebLLM
@@ -704,8 +723,10 @@ const SortableSlideItem = ({
 
       // Sometimes small models (like 2B) return the exact same text or fail to elaborate.
       // Automatically retry once if the text is identical (ignoring whitespace/punctuation).
+      // Skipped for WebLLM: local 2B models return near-identical text often enough that this
+      // fires routinely, and a second local generation doubles the GPU work for little gain.
       const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      if (normalize(transformed) === normalize(slide.script)) {
+      if (!useWebLLM && normalize(transformed) === normalize(slide.script)) {
         console.log('[AI Fix] Output was identical to input, retrying once automatically...');
         transformed = await transformText({
           apiKey: apiKey || '',
@@ -1412,6 +1433,51 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const batchGeneratingCancelledRef = React.useRef(false);
   const batchFixingCancelledRef = React.useRef(false);
   const [isCancellingBatch, setIsCancellingBatch] = React.useState<'generate' | 'fix' | null>(null);
+  const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = React.useState(false);
+
+  /**
+   * Loads the local WebLLM model *before* an AI Fix run starts, with visible progress.
+   *
+   * Without this, the first click hides a multi-GB download and WebGPU shader compilation
+   * behind a button that only says "Fixing...", which reads as a hang. Returns false if the
+   * caller should abort (WebGPU unsupported, or the load failed/was cancelled).
+   */
+  const ensureWebLLMForFix = React.useCallback(async (modelId: string): Promise<boolean> => {
+    if (isWebLLMLoaded() && getCurrentWebLLMModel() === modelId) return true;
+
+    const webgpuStatus = await checkWebGPUSupport();
+    if (!webgpuStatus.supported) {
+      showAlert(
+        webgpuStatus.error || 'WebGPU is not available, so the local AI model cannot run.',
+        { type: 'error', title: 'WebGPU Unavailable' }
+      );
+      return false;
+    }
+
+    setIsWebLLMLoadingOpen(true);
+    try {
+      await ensureWebLLMReady(modelId);
+      return true;
+    } catch (error) {
+      console.error('[SlideEditor] WebLLM model load failed:', error);
+      // A cancel is a deliberate user action, not a failure worth an alert.
+      if (!(error instanceof WebLLMCancelledError)) {
+        showAlert(
+          'Could not load the local AI model: ' + (error instanceof Error ? error.message : String(error)),
+          { type: 'error', title: 'Model Load Failed' }
+        );
+      }
+      return false;
+    } finally {
+      setIsWebLLMLoadingOpen(false);
+    }
+  }, [showAlert]);
+
+  const handleCancelWebLLMLoad = React.useCallback(() => {
+    // Abandons the in-flight load and terminates its worker, freeing the GPU.
+    void unloadWebLLM();
+    setIsWebLLMLoadingOpen(false);
+  }, []);
 
   const previewZoomStyle = React.useMemo(() => {
     if (previewIndex === null || !slides[previewIndex]) return {};
@@ -2155,6 +2221,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       return;
     }
 
+    // Load the model once, visibly, before the batch starts — otherwise the download hides
+    // behind slide 1 of N in the progress counter.
+    if (useWebLLM && webLlmModel) {
+      if (!await ensureWebLLMForFix(webLlmModel)) return;
+    }
+
     batchFixingCancelledRef.current = false;
     setIsBatchFixing(true);
     setBatchProgress({ current: 0, total: eligibleSlideIndexes.length });
@@ -2185,8 +2257,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             useOpenAIFixScript: globalSettings?.useOpenAIFixScript
           }, slide.script, globalSettings?.aiFixScriptSystemPrompt, globalSettings?.aiFixScriptContext);
 
+          // See handleTransform: the identical-output retry is skipped for local models.
           const normalize = (s: string) => s.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-          if (normalize(transformed) === normalize(slide.script)) {
+          if (!useWebLLM && normalize(transformed) === normalize(slide.script)) {
             console.log(`[AI Fix Batch] Output was identical to input for slide ${slideIndex + 1}, retrying once automatically...`);
             transformed = await transformText({
               apiKey: apiKey || '',
@@ -3254,6 +3327,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 viewMode={viewMode}
                 isDownloading={isDownloading}
                 onShowDownloadBlocked={(action) => setDownloadBlockedAction(action)}
+                onEnsureWebLLMReady={ensureWebLLMForFix}
                 highlightText={findText}
                 aspectRatio={aspectRatio}
               />
@@ -3261,6 +3335,13 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           </div>
         </SortableContext>
       </DndContext>
+
+      {/* Local model download/compile progress for AI Fix Script */}
+      <WebLLMLoadingModal
+        isOpen={isWebLLMLoadingOpen}
+        onComplete={() => setIsWebLLMLoadingOpen(false)}
+        onCancel={handleCancelWebLLMLoad}
+      />
 
       {/* Music Picker Modal */}
       <MusicPickerModal

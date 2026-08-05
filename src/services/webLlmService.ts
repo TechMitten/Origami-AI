@@ -58,8 +58,8 @@ export const getSmallestModelByPrecision = (precision: ModelInfo['precision']): 
         .sort((a, b) => (a.vram_required_MB ?? Infinity) - (b.vram_required_MB ?? Infinity))[0];
 };
 
-export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f32_1-MLC";
-export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = DEFAULT_WEB_LLM_MODEL_ID;
+export const DEFAULT_WEB_LLM_MODEL_ID = "gemma-2-2b-it-q4f16_1-MLC";
+export const DEFAULT_WEB_LLM_FALLBACK_MODEL_ID = getSmallestModelByPrecision('f32')!.id;
 
 // Gemma 2 2B is the recommended model everywhere, so precision switches stay on it
 // instead of dropping to whichever model happens to be smallest.
@@ -68,8 +68,10 @@ export const getDefaultModelByPrecision = (precision: ModelInfo['precision']): M
         ?? getSmallestModelByPrecision(precision);
 };
 
-export const getDefaultWebLlmModel = (_hasF16: boolean = true): string => {
-    return DEFAULT_WEB_LLM_MODEL_ID;
+// f16 builds are ~20% smaller and need ~500MB less VRAM, so prefer them whenever the
+// adapter reports shader-f16. Forcing f32 on every device caused GPU OOM on mid-range GPUs.
+export const getDefaultWebLlmModel = (hasF16: boolean = true): string => {
+    return hasF16 ? DEFAULT_WEB_LLM_MODEL_ID : DEFAULT_WEB_LLM_FALLBACK_MODEL_ID;
 };
 
 export const getWebLlmModelInfo = (modelId: string | null | undefined): ModelInfo | undefined => {
@@ -140,7 +142,9 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
         return { supported: false, hasF16: false, error: "WebGPU is not supported in your browser. Please use Chrome, Edge, or a compatible browser." };
     }
     try {
-        const adapter = await nav.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        // Let the browser pick the adapter. Requesting 'high-performance' forces the
+        // discrete GPU on hybrid systems, which made device-lost errors more likely.
+        const adapter = await nav.gpu.requestAdapter();
 
         if (!adapter) {
             return { supported: false, hasF16: false, error: "No WebGPU adapter found. Your GPU might not be compatible or hardware acceleration is disabled." };
@@ -160,9 +164,42 @@ export const checkWebGPUSupport = async (): Promise<{ supported: boolean; hasF16
 };
 
 let engine: any = null;
+let engineWorker: Worker | null = null;
 let currentModelId: string | null = null;
 let pendingInitPromise: Promise<any> | null = null;
 let pendingModelId: string | null = null;
+// Set while an init is in flight so the UI can abandon a load that hasn't produced an
+// engine yet. Terminating on cancel matters: an in-flight load still holds the GPU.
+let cancelPendingInit: (() => void) | null = null;
+
+// Every call into a WebWorkerMLCEngine is a postMessage round-trip. If the worker wedges
+// (GPU OOM, lost device, corrupted WASM state) the reply never arrives and the promise
+// never settles, which is what left the AI Fix Script button stuck on "Fixing..." forever.
+// Every await on the engine is therefore bounded, and terminate() is the hard recovery.
+const UNLOAD_TIMEOUT_MS = 5000;
+const RESET_CHAT_TIMEOUT_MS = 15000;
+const GENERATION_TIMEOUT_MS = 120000;
+// A cold model download is legitimately slow, so the load watchdog measures time since
+// the last progress report rather than total elapsed time.
+const INIT_STALL_TIMEOUT_MS = 90000;
+
+class WebLLMTimeoutError extends Error { }
+
+/** Thrown when the user abandons a model load; callers should stay silent about it. */
+export class WebLLMCancelledError extends Error { }
+
+const withTimeout = <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout>;
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            timer = setTimeout(
+                () => reject(new WebLLMTimeoutError(`${label} timed out after ${Math.round(ms / 1000)}s.`)),
+                ms
+            );
+        }),
+    ]).finally(() => clearTimeout(timer)) as Promise<T>;
+};
 
 
 export const webLlmEvents = new EventTarget();
@@ -208,19 +245,74 @@ const isBindingError = (error: unknown): boolean => {
 };
 
 const tearDownWebLLMEngine = async () => {
-    if (!engine) {
-        currentModelId = null;
-        return;
+    const previousEngine = engine;
+    const previousWorker = engineWorker;
+
+    // Clear module state up front so a slow unload can never leave callers looking at a
+    // half-dead engine.
+    engine = null;
+    engineWorker = null;
+    currentModelId = null;
+
+    if (previousEngine) {
+        // Best effort: lets WebLLM release GPU buffers cleanly when the worker is healthy.
+        await withTimeout(previousEngine.unload(), UNLOAD_TIMEOUT_MS, 'WebLLM unload').catch(() => {
+            // Ignore unload failures/timeouts; terminate() below is the real guarantee.
+        });
     }
 
+    // Terminating is what actually reclaims the WebGPU device and model weights. Without
+    // it, every model switch and every retry stranded a live worker holding VRAM.
+    previousWorker?.terminate();
+};
+
+// A worker round-trip that times out means the worker is wedged and will never reply.
+// Tear it down so the next attempt starts from a fresh worker instead of hanging again.
+const withEngineTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
     try {
-        await engine.unload();
-    } catch {
-        // Ignore unload errors; the engine may already be in a bad state.
-    } finally {
-        engine = null;
-        currentModelId = null;
+        return await withTimeout(promise, ms, label);
+    } catch (error) {
+        if (error instanceof WebLLMTimeoutError) {
+            await tearDownWebLLMEngine();
+            throw new Error(`${getErrorMessage(error)} The local model was unloaded — try again, or pick a smaller model in Settings.`);
+        }
+        throw error;
     }
+};
+
+// Single creation path for the engine so the worker handle is always tracked and never leaked.
+// `isAbandoned` lets a caller that already gave up (stall watchdog, cancel) guarantee the
+// worker is terminated even if the load eventually succeeds after the fact.
+const createEngine = async (
+    modelId: string,
+    onProgress: InitProgressCallback,
+    isAbandoned: () => boolean = () => false
+): Promise<any> => {
+    const { CreateWebWorkerMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
+    const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
+
+    let newEngine: any;
+    try {
+        newEngine = await CreateWebWorkerMLCEngine(worker, modelId, {
+            initProgressCallback: onProgress,
+            appConfig: prebuiltAppConfig,
+        });
+    } catch (error) {
+        // Never strand a worker behind a failed load.
+        worker.terminate();
+        throw error;
+    }
+
+    if (isAbandoned()) {
+        await withTimeout(newEngine.unload(), UNLOAD_TIMEOUT_MS, 'WebLLM unload').catch(() => { });
+        worker.terminate();
+        throw new Error('WebLLM initialization was abandoned.');
+    }
+
+    engine = newEngine;
+    engineWorker = worker;
+    currentModelId = modelId;
+    return newEngine;
 };
 
 const handleWebLLMDeviceLost = async (error: unknown): Promise<Error> => {
@@ -237,6 +329,9 @@ const handleWebLLMDeviceLost = async (error: unknown): Promise<Error> => {
 };
 
 export const unloadWebLLM = async () => {
+    // Abandon an in-flight load first — at that point there is no engine to tear down yet,
+    // but the worker is already downloading/compiling and holding the GPU.
+    cancelPendingInit?.();
     await tearDownWebLLMEngine();
 };
 
@@ -260,30 +355,50 @@ export const initWebLLM = async (
     // Start a new initialization
     pendingModelId = modelId;
     pendingInitPromise = (async () => {
+        let stallTimer: ReturnType<typeof setTimeout> | undefined;
+        let abandoned = false;
+
         try {
-            if (engine) {
-                // If switching models, unload first
-                await engine.unload();
-                engine = null;
-            }
+            // Switching models: tear the old engine down completely, including its worker.
+            await tearDownWebLLMEngine();
+
+            // Reject if the load makes no forward progress for a while. A wall-clock
+            // timeout would kill legitimate multi-GB downloads on slow connections.
+            let resetStall = () => { };
+            const stalled = new Promise<never>((_, reject) => {
+                resetStall = () => {
+                    clearTimeout(stallTimer);
+                    stallTimer = setTimeout(() => {
+                        abandoned = true;
+                        reject(new Error(
+                            'WebLLM model loading stalled. Check your connection, or pick a smaller model in Settings.'
+                        ));
+                    }, INIT_STALL_TIMEOUT_MS);
+                };
+                resetStall();
+            });
 
             // Wrap the progress callback
             const wrappedCallback: InitProgressCallback = (report) => {
+                resetStall();
                 onProgress(report);
                 webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
             };
 
-            const { CreateWebWorkerMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
-
-            const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
-
-            const newEngine = await CreateWebWorkerMLCEngine(worker, modelId, {
-                initProgressCallback: wrappedCallback,
-                appConfig: prebuiltAppConfig
+            // Lets the UI abandon a load that hasn't produced an engine yet.
+            const cancelled = new Promise<never>((_, reject) => {
+                cancelPendingInit = () => {
+                    abandoned = true;
+                    reject(new WebLLMCancelledError('WebLLM initialization was cancelled.'));
+                };
             });
 
-            engine = newEngine;
-            currentModelId = modelId;
+            const creation = createEngine(modelId, wrappedCallback, () => abandoned);
+            // The watchdog or a cancel may win the race; keep the loser's rejection handled
+            // so it never surfaces as an unhandled promise rejection.
+            creation.catch(() => { });
+
+            await Promise.race([creation, stalled, cancelled]);
 
             // Dispatch final progress events
             webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', {
@@ -297,10 +412,12 @@ export const initWebLLM = async (
             if (isWebLLMDeviceLostError(error)) {
                 throw await handleWebLLMDeviceLost(error);
             }
-            engine = null;
-            currentModelId = null;
+            // Drop any partially-built engine and its worker.
+            await tearDownWebLLMEngine();
             throw error;
         } finally {
+            clearTimeout(stallTimer);
+            cancelPendingInit = null;
             // Clear the pending promise so future calls can start fresh if needed
             pendingInitPromise = null;
             pendingModelId = null;
@@ -321,26 +438,8 @@ export const ensureWebLLMReady = async (modelId: string): Promise<any> => {
 export const getWebLLMEngine = () => engine;
 
 const rebuildWebLLMEngine = async (modelId: string): Promise<any> => {
-    if (engine) {
-        try {
-            await engine.unload();
-        } catch {
-            // Ignore unload errors; the engine is already in a bad state.
-        }
-    }
-
-    engine = null;
-    currentModelId = null;
-
-    const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
-    const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
-    const newEngine = await CreateWebWorkerMLCEngine(worker, modelId, {
-        initProgressCallback: () => { },
-    });
-
-    engine = newEngine;
-    currentModelId = modelId;
-    return newEngine;
+    await tearDownWebLLMEngine();
+    return createEngine(modelId, () => { });
 };
 
 export const generateWebLLMChatResponse = async (
@@ -360,17 +459,23 @@ export const generateWebLLMChatResponse = async (
 
     try {
         if (resetChat) {
-            await engine.resetChat();
+            await withEngineTimeout(engine.resetChat(), RESET_CHAT_TIMEOUT_MS, 'WebLLM reset');
         }
 
-        const reply = await engine.chat.completions.create({
+        const stream = await withEngineTimeout(engine.chat.completions.create({
             messages,
             temperature,
             max_tokens: maxTokens,
-            stream: false,
-        });
+            stream: true,
+        }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
 
-        return normalizeMessageContent(reply.choices[0]?.message?.content);
+        let content = "";
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) content += delta;
+        }
+        
+        return normalizeMessageContent(content);
     } catch (error) {
         console.error("WebLLM Chat Generation Error:", error);
 
@@ -408,15 +513,17 @@ export async function* streamWebLLMChatResponse(
 
     try {
         if (resetChat) {
-            await engine.resetChat();
+            await withEngineTimeout(engine.resetChat(), RESET_CHAT_TIMEOUT_MS, 'WebLLM reset');
         }
 
-        const stream = await engine.chat.completions.create({
+        // Only the stream handshake is bounded; the chunk loop is incremental and
+        // self-evidently making progress once it starts yielding.
+        const stream = await withEngineTimeout(engine.chat.completions.create({
             messages,
             temperature,
             max_tokens: maxTokens,
             stream: true,
-        }) as AsyncIterable<ChatCompletionChunk>;
+        }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
 
         for await (const chunk of stream) {
             const delta = chunk.choices[0]?.delta?.content;
@@ -462,18 +569,24 @@ export const generateWebLLMResponse = async (
         // accumulating tokens in the KV cache across all slides. This causes the context
         // window to fill up and subsequent requests to hang indefinitely.
         // Calling resetChat() before each request forces a fresh context every time.
-        await engine.resetChat();
+        await withEngineTimeout(engine.resetChat(), RESET_CHAT_TIMEOUT_MS, 'WebLLM reset');
 
-        console.log("[WebLLM] Generating response with engine:", engine, "Model:", currentModelId);
-        const reply = await engine.chat.completions.create({
+        console.log("[WebLLM] Generating response with model:", currentModelId);
+        const stream = await withEngineTimeout(engine.chat.completions.create({
             messages,
             temperature,
             max_tokens: 1024, // Cap output to prevent runaway generation and context overflow
-            stream: false,
-        });
-        console.log("[WebLLM] Raw Reply Object:", reply);
+            stream: true,
+        }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
+        
+        let content = "";
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) content += delta;
+        }
+        console.log("[WebLLM] Streamed Reply length:", content.length);
 
-        return reply.choices[0].message.content || "";
+        return content;
     } catch (error) {
         console.error("WebLLM Generation Error:", error);
 
@@ -485,28 +598,10 @@ export const generateWebLLMResponse = async (
         // This is a WASM cross-realm memory corruption that happens when the engine's internal
         // tokenizer state becomes inconsistent. resetChat() is not sufficient to recover from
         // this state. The only reliable fix is to tear down the engine entirely and recreate it.
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        const isBindingError = errorMsg.includes('BindingError') || errorMsg.includes('VectorInt');
-
-        if (isBindingError && !_isRetry && currentModelId) {
-            console.warn("[WebLLM] Detected WASM BindingError — tearing down engine and retrying once...");
+        if (isBindingError(error) && !_isRetry && currentModelId) {
             const modelToReload = currentModelId;
-            try {
-                await engine!.unload();
-            } catch {
-                // Ignore unload errors — engine is already in a bad state
-            }
-            engine = null;
-            currentModelId = null;
-
-            // Re-initialize with a no-op progress callback (model is already cached)
-            const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
-            const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
-            const newEngine = await CreateWebWorkerMLCEngine(worker, modelToReload, {
-                initProgressCallback: () => { },
-            });
-            engine = newEngine;
-            currentModelId = modelToReload;
+            console.warn("[WebLLM] Detected WASM BindingError — tearing down engine and retrying once...");
+            await rebuildWebLLMEngine(modelToReload);
 
             console.log("[WebLLM] Engine rebuilt successfully. Retrying generation...");
             return generateWebLLMResponse(messages, temperature, true);

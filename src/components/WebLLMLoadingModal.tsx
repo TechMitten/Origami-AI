@@ -6,9 +6,11 @@ import type { InitProgressReport } from '@mlc-ai/web-llm';
 interface WebLLMLoadingModalProps {
   isOpen: boolean;
   onComplete: () => void;
+  /** When provided, shows a Cancel button so a stalled model load can be abandoned. */
+  onCancel?: () => void;
 }
 
-export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, onComplete }) => {
+export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, onComplete, onCancel }) => {
   const [progress, setProgress] = useState<InitProgressReport | null>(null);
   const [maxPercent, setMaxPercent] = useState(0);
 
@@ -84,12 +86,21 @@ export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, 
             </div>
             
             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                <div 
+                <div
                     className="h-full bg-cyan-400 transition-all duration-300 ease-out"
                     style={{ width: `${percent}%` }}
                 />
             </div>
         </div>
+
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="mt-6 px-4 py-2 rounded-lg text-sm font-medium text-white/60 border border-white/10 transition-colors hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );

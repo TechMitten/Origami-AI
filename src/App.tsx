@@ -14,15 +14,15 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, XCircle, Trash2, LayoutGrid, List, Upload, Check, BookOpen } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, XCircle, Trash2, LayoutGrid, List, Upload, Check } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
 import { analyzeVideoNarrationWithGemini } from './services/aiService';
 import { RuntimeResourceModal } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
-import { BackgroundDownloadToast } from './components/BackgroundDownloadToast';
-import { WebLLMLoadingModal } from './components/WebLLMLoadingModal';
+import { BackgroundDownloadProvider } from './components/BackgroundDownloadProvider';
+import { useBackgroundDownload } from './context/BackgroundDownloadContext';
 import { DownloadBlockedModal } from './components/DownloadBlockedModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, getWebLlmModelInfo } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
@@ -60,9 +60,7 @@ function MainApp() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
-  const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false); // For subsequent cached loading
-  const [isBackgroundDownloadActive, setIsBackgroundDownloadActive] = useState(false);
-  const [activeDownloads, setActiveDownloads] = useState({ tts: false, ffmpeg: false, webllm: false });
+  const { isBackgroundDownloadActive, startBackgroundDownloads, endBackgroundDownloads } = useBackgroundDownload();
   const [appDownloadBlockedAction, setAppDownloadBlockedAction] = useState<string | null>(null);
   const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9');
@@ -518,8 +516,7 @@ function MainApp() {
 
     if (!queue.tts && !queue.ffmpeg && !queue.webllm) return;
 
-    setActiveDownloads(queue);
-    setIsBackgroundDownloadActive(true);
+    startBackgroundDownloads(queue);
 
     try {
       // Downloads run strictly one at a time: TTS -> FFmpeg -> WebLLM.
@@ -548,7 +545,7 @@ function MainApp() {
     } catch (error) {
       console.error('Failed to complete background setup downloads:', error);
     } finally {
-      setIsBackgroundDownloadActive(false);
+      endBackgroundDownloads();
     }
   };
 
@@ -1363,16 +1360,6 @@ function MainApp() {
             >
               <Download className="w-4 h-4" /> Download Chrome Extension
             </a>
-            <button
-              onClick={() => {
-                localStorage.setItem('has_seen_welcome_lander', 'false');
-                window.dispatchEvent(new Event('show-welcome-lander'));
-                closeMenu();
-              }}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              <BookOpen className="w-4 h-4" /> Landing Page
-            </button>
             {slides.length > 0 && <div className="my-1 h-px bg-white/10" />}
             {slides.length > 0 && (
               <>
@@ -1676,16 +1663,6 @@ function MainApp() {
         onClose={() => setIsWebGPUModalOpen(false)}
       />
 
-      <WebLLMLoadingModal
-        isOpen={isWebLLMLoadingOpen}
-        onComplete={() => setIsWebLLMLoadingOpen(false)}
-      />
-
-      <BackgroundDownloadToast
-        active={isBackgroundDownloadActive}
-        queue={activeDownloads}
-      />
-
       {/* Blocked-by-download warning modal (App-level: TTS & video) */}
       <DownloadBlockedModal
         isOpen={appDownloadBlockedAction !== null}
@@ -1725,15 +1702,17 @@ function MainApp() {
 function App() {
   return (
     <BrowserRouter>
-      <RouteTransition>
-        <Routes>
-          <Route path="/" element={<MainApp />} />
-          <Route path="/assistant" element={<AssistantPage />} />
-          <Route path="/issue-reporter" element={<IssueReporterPage />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfService />} />
-        </Routes>
-      </RouteTransition>
+      <BackgroundDownloadProvider>
+        <RouteTransition>
+          <Routes>
+            <Route path="/" element={<MainApp />} />
+            <Route path="/assistant" element={<AssistantPage />} />
+            <Route path="/issue-reporter" element={<IssueReporterPage />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+          </Routes>
+        </RouteTransition>
+      </BackgroundDownloadProvider>
     </BrowserRouter>
   );
 }

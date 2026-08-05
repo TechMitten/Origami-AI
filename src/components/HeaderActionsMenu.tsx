@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Bot, Clapperboard, Settings } from 'lucide-react';
-import { TransitionNavLink } from './TransitionLink';
+import { BookOpen, Bot, Clapperboard, Settings } from 'lucide-react';
+import { useLocation } from 'react-router';
+import { TransitionNavLink, useTransitionNavigate } from './TransitionLink';
 
 interface HeaderActionsMenuProps {
   className?: string;
@@ -19,9 +20,23 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
   renderContent,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useTransitionNavigate();
+  const location = useLocation();
 
   const closeMenu = () => setIsOpen(false);
   const customContent = renderContent?.(closeMenu);
+
+  const showLandingPage = () => {
+    closeMenu();
+    // The Studio reads this flag when it mounts, so the lander also shows when
+    // this is triggered from another route; the event covers the case where the
+    // Studio is already on screen.
+    localStorage.setItem('has_seen_welcome_lander', 'false');
+    window.dispatchEvent(new Event('show-welcome-lander'));
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
+  };
 
   return (
     <div className={`relative z-60 ${className}`.trim()}>
@@ -65,6 +80,13 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
               >
                 <Bot className="h-4 w-4" /> Assistant
               </TransitionNavLink>
+
+              <button
+                onClick={showLandingPage}
+                className={`${menuItemClassName} text-white/70 hover:bg-white/5 hover:text-white`}
+              >
+                <BookOpen className="h-4 w-4" /> Landing Page
+              </button>
             </>
           )}
 
