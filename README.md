@@ -25,7 +25,7 @@
 
 ## What is Origami AI?
 
-Upload a PDF deck, and Origami AI extracts the slides, writes a narration script with an LLM, voices it with local text-to-speech, and renders a finished MP4 — using [WebLLM](https://github.com/mlc-ai/web-llm), [Kokoro.js](https://github.com/Kokoro-js), and [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) running directly in your browser via WebGPU. The Express/Cloudflare server only proxies optional cloud LLM calls so API keys never reach the client bundle — your slides, audio, and video never have to leave your machine.
+Upload a PDF deck, and Origami AI extracts the slides, writes a narration script with an LLM, voices it with local text-to-speech, and renders a finished MP4 — using [WebLLM](https://github.com/mlc-ai/web-llm), [Kokoro.js](https://github.com/Kokoro-js), and [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) running directly in your browser via WebGPU. The Express server only proxies optional cloud LLM calls so API keys never reach the client bundle — your slides, audio, and video never have to leave your machine.
 
 It also doubles as a screen recorder with cinematic auto-zoom, an MP4 scene analyzer, and an AI assistant chat.
 
@@ -212,7 +212,7 @@ AI assistant chat model options:
 - [`kokoro-js`](https://github.com/Kokoro-js) — text-to-speech
 - [`@dnd-kit`](https://docs.dndkit.com) — drag-and-drop slide reordering
 
-**Backend** — Express 5 + TypeScript (`server.ts`), with a parallel Cloudflare Pages Functions implementation (`functions/`) for the Wrangler deployment target. See [CLAUDE.md](CLAUDE.md) for why both exist and how they need to stay in sync.
+**Backend** — Express 5 + TypeScript (`server.ts`).
 
 **Chrome extension** — plain JS Manifest V3, MessagePort-based telemetry, optional
 
