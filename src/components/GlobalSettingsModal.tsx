@@ -51,7 +51,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'general' | 'tts' | 'webllm' | 'ai-prompt' | 'api'>(initialTab ?? 'general');
   const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q4');
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
-  const [aspectRatio, setAspectRatio] = useState<NonNullable<GlobalSettings['aspectRatio']>>(currentSettings?.aspectRatio ?? '16:9');
   
   // OpenAI Settings
   const [openaiEndpoint, setOpenaiEndpoint] = useState(currentSettings?.openaiEndpoint ?? '');
@@ -345,7 +344,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       aiFixScriptContext: aiFixScriptContext.trim() || undefined,
       previewMode: 'modal',
       recordingCountdownEnabled,
-      aspectRatio,
+      aspectRatio: currentSettings?.aspectRatio,
       openaiEndpoint,
       openaiModel,
       openaiApiKey,
@@ -726,24 +725,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         onChange={handleMusicUpload}
                       />
                     </div>
-                  </div>
-
-                  {/* Aspect Ratio */}
-                  <div className="space-y-4">
-                    <label className="flex items-center gap-2 text-xs font-bold text-white/40 uppercase tracking-widest">
-                      <RefreshCw className="w-4 h-4" /> Default Aspect Ratio
-                    </label>
-                    <Dropdown
-                      options={[
-                        { id: '16:9', name: '16:9 Landscape' },
-                        { id: '9:16', name: '9:16 Portrait' },
-                        { id: '1:1', name: '1:1 Square' },
-                        { id: '4:3', name: '4:3 Standard' },
-                      ]}
-                      value={aspectRatio}
-                      onChange={(val) => setAspectRatio(val as NonNullable<GlobalSettings['aspectRatio']>)}
-                      className="bg-black/20"
-                    />
                   </div>
                 </div>
 
@@ -1148,7 +1129,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <Cpu className="w-5 h-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-white">OpenAI Compatible Endpoint</h3>
+                    <h3 className="text-sm font-bold text-white">OpenAI Compatible Endpoint (optional)</h3>
                     <p className="text-xs text-white/60 leading-relaxed">
                       Configure a custom OpenAI-compatible endpoint to replace local OCR and script fixing.
                     </p>
