@@ -14,7 +14,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
-import { Download, Loader2, RotateCcw, VolumeX, XCircle, Trash2, LayoutGrid, List, Upload, Check } from 'lucide-react';
+import { Download, Loader2, RotateCcw, VolumeX, XCircle, Trash2, LayoutGrid, List, Upload, Check, Play } from 'lucide-react';
 import backgroundImage from './assets/images/background.png';
 import { useModal } from './context/ModalContext';
 import { BrowserVideoRenderer, videoEvents } from './services/BrowserVideoRenderer';
@@ -53,7 +53,7 @@ function MainApp() {
   const [isRenderingWithAudio, setIsRenderingWithAudio] = useState(false);
   const [isRenderingSilent, setIsRenderingSilent] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.36 });
+  const [musicSettings, setMusicSettings] = useState<MusicSettings>({ volume: 0.16 });
   const [ttsVolume, setTtsVolume] = useState<number>(1.0);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -62,8 +62,8 @@ function MainApp() {
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const { isBackgroundDownloadActive, startBackgroundDownloads, endBackgroundDownloads } = useBackgroundDownload();
   const [appDownloadBlockedAction, setAppDownloadBlockedAction] = useState<string | null>(null);
-  const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('720p');
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9');
+  const [renderResolution, setRenderResolution] = useState<'1080p' | '720p'>('1080p');
+  const [aspectRatio] = useState<'16:9' | '9:16' | '1:1' | '4:3'>('16:9');
   const [slideEditorViewMode, setSlideEditorViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window === 'undefined') {
       return 'list';
@@ -584,7 +584,7 @@ function MainApp() {
       await clearState();
       setSlides([]);
       setActiveTab('edit');
-      setMusicSettings({ volume: 0.36 }); // Reset music settings on start over
+      setMusicSettings({ volume: 0.16 }); // Reset music settings on start over
     }
   };
 
@@ -655,7 +655,7 @@ function MainApp() {
 
       const normalizedSlides = imported.slides.map(enforceTtsEnabled);
       setSlides(normalizedSlides);
-      const musicSettings = imported.musicSettings || { volume: 0.36 };
+      const musicSettings = imported.musicSettings || { volume: 0.16 };
       setMusicSettings(musicSettings);
       setActiveTab('edit');
 
@@ -729,11 +729,11 @@ function MainApp() {
           console.error("Failed to create object URL for default music", e);
         }
       } else {
-        setMusicSettings({ volume: 0.36 });
+        setMusicSettings({ volume: 0.16 });
       }
     } else {
       // Reset music if not using defaults (or maybe keep it? prompt implies defaults override)
-      setMusicSettings({ volume: 0.36 });
+      setMusicSettings({ volume: 0.16 });
     }
 
     const initialSlides: SlideData[] = pages.map(page => ({
@@ -1377,6 +1377,13 @@ function MainApp() {
                 </button>
                 <div className="my-1 h-px bg-white/10" />
                 <button
+                  onClick={() => { setActiveTab('preview'); closeMenu(); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  <Play className="w-4 h-4" /> Preview Video
+                </button>
+                <div className="my-1 h-px bg-white/10" />
+                <button
                   onClick={() => { handleStartOver(); closeMenu(); }}
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                 >
@@ -1468,7 +1475,7 @@ function MainApp() {
                       } : undefined,
                     }))}
                     musicUrl={musicSettings?.url}
-                    musicVolume={musicSettings?.volume || 0.36}
+                    musicVolume={musicSettings?.volume || 0.16}
                     ttsVolume={ttsVolume}
                     enableIntroFadeIn={globalSettings?.introFadeInEnabled ?? true}
                     introFadeInDurationSec={globalSettings?.introFadeInDurationSec ?? 1}
@@ -1481,16 +1488,12 @@ function MainApp() {
                     <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Quality</span>
                     <div className="flex gap-1">
                       {(['1080p', '720p'] as const).map((res) => {
-                        // 1080p is temporarily disabled: it falls back to slow
-                        // software encoding and renders take far too long.
-                        const isUnavailable = res === '1080p';
-                        const isDisabled = isRenderingWithAudio || isRenderingSilent || isUnavailable;
+                        const isDisabled = isRenderingWithAudio || isRenderingSilent;
                         return (
                           <button
                             key={res}
                             onClick={() => setRenderResolution(res)}
                             disabled={isDisabled}
-                            title={isUnavailable ? '1080p is temporarily unavailable while we improve render performance' : undefined}
                             className={`
                               px-4 py-1.5 rounded-lg text-xs font-bold transition-all
                               ${renderResolution === res
@@ -1498,40 +1501,12 @@ function MainApp() {
                                 : 'bg-white/10 text-white/60 hover:bg-white/20'
                               }
                               ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
-                              ${isUnavailable ? 'hover:bg-white/10' : ''}
                             `}
                           >
                             {res}
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Aspect Ratio Selector */}
-                <div className="flex justify-center mt-3">
-                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
-                    <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Format</span>
-                    <div className="flex gap-1">
-                      {(['16:9', '9:16', '1:1', '4:3'] as const).map((ar) => (
-                        <button
-                          key={ar}
-                          onClick={() => {
-                            setAspectRatio(ar);
-                            handlePartialGlobalSettings({ aspectRatio: ar });
-                          }}
-                          disabled={isRenderingWithAudio || isRenderingSilent}
-                          className={`
-                            px-3 py-1 rounded-lg text-xs font-bold transition-all duration-300
-                            ${aspectRatio === ar
-                              ? 'bg-branding-primary text-white shadow-lg shadow-branding-primary/30'
-                              : 'text-white/40 hover:text-white hover:bg-white/10'}
-                          `}
-                        >
-                          {ar}
-                        </button>
-                      ))}
                     </div>
                   </div>
                 </div>

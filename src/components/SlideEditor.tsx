@@ -1811,7 +1811,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (file) {
       const url = URL.createObjectURL(file);
       setIncompetechTrack(null); // Clear incompetech track when uploading
-      onUpdateMusicSettings({ ...musicSettings, url, blob: undefined, volume: musicSettings.volume || 0.36, title: file.name });
+      onUpdateMusicSettings({ ...musicSettings, url, blob: undefined, volume: musicSettings.volume || 0.16, title: file.name });
     }
   };
 
@@ -1822,7 +1822,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
       ...musicSettings,
       url,
       blob: track.blob,
-      volume: musicSettings.volume || 0.36,
+      volume: musicSettings.volume || 0.16,
       title: track.title
     });
     setShowMusicPicker(false);
@@ -2979,14 +2979,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                         <div className="space-y-4" title="Adjust background music volume">
                           <div className="flex justify-between items-center text-xs font-bold text-white/60 uppercase">
                             <span>Music Volume</span>
-                            <span>{Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%</span>
+                            <span>{Math.round(Math.sqrt(musicSettings.volume || 0.16) * 100)}%</span>
                           </div>
                           <input
                             type="range"
                             min="0"
                             max="1"
                             step="0.001"
-                            value={Math.sqrt(musicSettings.volume || 0.36)}
+                            value={Math.sqrt(musicSettings.volume || 0.16)}
                             onChange={(e) => {
                               const newVol = parseFloat(e.target.value);
                               const squaredVol = newVol * newVol;
@@ -2994,7 +2994,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                               if (musicAudioRef.current) musicAudioRef.current.volume = squaredVol;
                             }}
                             style={{
-                              background: `linear-gradient(to right, hsl(var(--branding-primary)) 0%, hsl(var(--branding-primary)) ${Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%, rgba(255,255,255,0.1) ${Math.round(Math.sqrt(musicSettings.volume || 0.36) * 100)}%, rgba(255,255,255,0.1) 100%)`
+                              background: `linear-gradient(to right, hsl(var(--branding-primary)) 0%, hsl(var(--branding-primary)) ${Math.round(Math.sqrt(musicSettings.volume || 0.16) * 100)}%, rgba(255,255,255,0.1) ${Math.round(Math.sqrt(musicSettings.volume || 0.16) * 100)}%, rgba(255,255,255,0.1) 100%)`
                             }}
                             className="w-full h-2 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-branding-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-runnable-track]:w-full [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:border [&::-webkit-slider-runnable-track]:border-white/20 [&::-moz-range-track]:w-full [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:border [&::-moz-range-track]:border-white/20"
                           />
