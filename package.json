@@ -70,10 +70,11 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^7.2.4",
-    "wrangler": "^4.90.1"
+    "wrangler": "^4.118.0"
   },
   "overrides": {
     "esbuild": "0.28.1",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.3",
+    "undici": "^7.29.0"
   }
 }
