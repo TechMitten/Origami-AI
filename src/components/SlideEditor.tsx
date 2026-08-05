@@ -526,13 +526,18 @@ const SortableSlideItem = ({
     mediaRecorderRef.current = null;
   };
 
-  const doStartRecording = async () => {
+  const doStartRecording = async (useExistingStream = false) => {
     try {
-      // Ensure any existing stream is cleaned up before starting a new one
-      cleanupMediaStream();
+      let stream;
+      if (useExistingStream && mediaStreamRef.current) {
+        stream = mediaStreamRef.current;
+      } else {
+        // Ensure any existing stream is cleaned up before starting a new one
+        cleanupMediaStream();
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -620,10 +625,21 @@ const SortableSlideItem = ({
       }
     }
 
+    try {
+      // Request microphone access first so we don't count down if they deny or don't have one
+      cleanupMediaStream();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      showAlert("Microphone access denied or unavailable.", { type: 'error', title: 'Microphone Error' });
+      return;
+    }
+
     // Check if countdown is disabled in settings
     if (globalSettings?.recordingCountdownEnabled === false) {
       // Start recording immediately without countdown
-      doStartRecording();
+      doStartRecording(true);
     } else {
       // Start the countdown
       setIsCountingDown(true);
@@ -638,7 +654,7 @@ const SortableSlideItem = ({
             clearInterval(countdownTimerRef.current!);
             countdownTimerRef.current = null;
             setIsCountingDown(false);
-            doStartRecording();
+            doStartRecording(true);
             return 5;
           }
           return prev - 1;
