@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronDown, Sparkles, Shirt, Wand2, Activity } from 'lucide-react';
+import { Search, Sparkles, Shirt, Wand2, Activity } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, type ModelInfo } from '../services/webLlmService';
 
 export interface ModelFamily {
@@ -93,7 +93,6 @@ export const ModelSelectorGrid: React.FC<ModelSelectorGridProps> = ({ models, va
                 </div>
                 <span className="text-xs text-white/80 font-medium truncate">{model.name}</span>
               </div>
-              <ChevronDown className="w-4 h-4 text-white/40 shrink-0" />
             </button>
           );
         })}
