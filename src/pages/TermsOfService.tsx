@@ -56,7 +56,7 @@ export const TermsOfService: React.FC = () => {
               </svg>
               <div>
                 <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Effective Date</span>
-                <p className="text-white font-bold">February 17, 2026</p>
+                <p className="text-white font-bold">August 16, 2026</p>
               </div>
             </div>
           </div>
@@ -120,13 +120,13 @@ export const TermsOfService: React.FC = () => {
               <h2 className="text-xl font-black text-white">5) Your Content and Ownership</h2>
             </div>
             <div className="space-y-4 text-white/70 text-sm leading-relaxed">
-              <div className="p-4 bg-branding-primary/10 border border-branding-primary/30 rounded-xl">
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                 <p className="font-semibold text-branding-primary text-sm mb-2">You Retain Ownership</p>
                 <p className="text-white/80 text-xs">You retain ownership of any PDFs you upload and any outputs you generate using the Service (including slide content, narration scripts, and narration audio), to the extent you have rights in that content. TechMitten LLC does NOT claim ownership of your content.</p>
               </div>
               <div>
                 <h3 className="text-base font-bold text-white mb-2">License to Operate the Service</h3>
-                <p>To the extent a license is legally required to provide the Service (for example, to process content on your device at your request), you grant TechMitten LLC a limited, non-exclusive, worldwide, royalty-free license to use your content <strong>solely to operate and provide the Service</strong>. This license is limited to what is necessary for the Service to function.</p>
+                <p>To the extent a license is legally required to provide the Service (for example, to process content on your device at your request, or, if you enable an optional cloud AI feature, to transmit content to the applicable third-party AI provider at your request), you grant TechMitten LLC a limited, non-exclusive, worldwide, royalty-free license to use your content <strong>solely to operate and provide the Service</strong>. This license is limited to what is necessary for the Service to function.</p>
               </div>
             </div>
           </section>
@@ -173,7 +173,7 @@ export const TermsOfService: React.FC = () => {
                 'Interfere with or circumvent security or rate-limiting features',
                 'Use the Service to harass, abuse, threaten, or harm others'
               ].map((item, i) => (
-                <div key={i} className="flex items-start gap-2 p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+                <div key={i} className="flex items-start gap-2 p-3 bg-white/5 border border-white/10 rounded-lg">
                   <span className="text-red-400 shrink-0 mt-0.5">✕</span>
                   <span className="text-xs text-white/70">{item}</span>
                 </div>
@@ -204,8 +204,12 @@ export const TermsOfService: React.FC = () => {
                 <h2 className="text-xl font-black text-white">9) Third-Party Services</h2>
               </div>
               <p className="text-white/70 text-sm leading-relaxed">
-                The Service may rely on or include third-party services or content (for example, analytics providers, fonts, CDNs, or other dependencies). We are not responsible for third-party services, and your use of them may be governed by their own terms and policies.
+                The Service may rely on or include third-party services or content (for example, fonts, CDNs, or other dependencies). It also includes optional cloud AI features — such as narration script generation, PDF OCR, video/issue analysis, and the Shorts image/video generator — that, when you enable them, send content to third-party AI providers (by default Google Gemini or another OpenAI-compatible endpoint you or the operator configure, and Pollinations for Shorts). See our <TransitionLink to="/privacy" className="text-branding-secondary hover:text-branding-accent transition-colors font-bold underline">Privacy Policy</TransitionLink> for details on what is sent to each. We are not responsible for third-party services, and your use of them may be governed by their own terms and policies.
               </p>
+              <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
+                <p className="font-semibold text-amber-400 text-xs uppercase tracking-wider mb-2">Pollinations OAuth Connection — Pricing</p>
+                <p className="text-white/80 text-xs">If you connect your Pollinations account to Origami using "Sign in with Pollinations" (OAuth), image and video generation requests made through that connection are billed to you at approximately a 25% markup over Pollinations' base pricing. TechMitten LLC earns this markup as revenue for operating the integration. You can avoid the markup by generating and entering your own independent Pollinations API key in Settings instead of using OAuth sign-in, or by using another available AI provider.</p>
+              </div>
             </section>
 
             <section className="glass rounded-2xl border border-white/10 p-6 sm:p-8 hover:border-branding-primary/30 transition-all duration-300">
@@ -228,13 +232,13 @@ export const TermsOfService: React.FC = () => {
               <h2 className="text-xl font-black text-white">Legal Terms</h2>
             </div>
             <div className="space-y-4 text-white/70 text-sm leading-relaxed">
-              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                 <p className="font-bold text-red-400 text-xs uppercase tracking-wider mb-2">11) Disclaimers</p>
                 <p className="text-white/80 text-xs mb-2"><strong>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE."</strong></p>
                 <p className="text-white/60 text-xs">TO THE MAXIMUM EXTENT PERMITTED BY LAW, TECHMITTEN LLC DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED. AI-generated outputs may contain errors, bias, or misleading information. You are responsible for verifying outputs before relying on them.</p>
               </div>
 
-              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                 <p className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-2">12) Limitation of Liability</p>
                 <p className="text-white/80 text-xs mb-2">TO THE MAXIMUM EXTENT PERMITTED BY LAW, TECHMITTEN LLC WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.</p>
                 <p className="text-white/60 text-xs"><strong>Maximum Liability:</strong> The greater of US $100 or the amount you paid in the 12 months before the claim.</p>
@@ -288,12 +292,12 @@ export const TermsOfService: React.FC = () => {
           </div>
 
           {/* Section 18: Arbitration */}
-          <section className="glass rounded-2xl border border-white/10 p-6 sm:p-8 neon-border bg-branding-accent/5">
+          <section className="glass rounded-2xl border border-white/10 p-6 sm:p-8 neon-border">
             <div className="flex items-center gap-3 mb-4">
               <Scale className="w-6 h-6 text-branding-accent" />
               <h2 className="text-xl font-black text-white">18) Arbitration Agreement</h2>
             </div>
-            <div className="p-4 bg-branding-accent/10 border border-branding-accent/30 rounded-xl mb-4">
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl mb-4">
               <p className="font-bold text-branding-accent text-xs uppercase tracking-wider">
                 PLEASE READ THIS SECTION CAREFULLY. IT AFFECTS YOUR LEGAL RIGHTS.
               </p>
@@ -315,7 +319,7 @@ export const TermsOfService: React.FC = () => {
                 <h4 className="text-sm font-bold text-white mb-2">D. Costs</h4>
                 <p>Payment governed by AAA rules. We will not seek to discourage arbitration through unreasonable fees.</p>
               </div>
-              <div className="p-3 bg-branding-primary/10 border border-branding-primary/30 rounded-xl">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
                 <h4 className="text-sm font-bold text-branding-primary mb-1">E. Opt-Out</h4>
                 <p className="text-white/80">You may opt out of this arbitration agreement by emailing <a href="mailto:terms@techmitten.com" className="text-branding-primary hover:text-branding-accent underline font-bold">terms@techmitten.com</a> within 30 days of first accepting these Terms, stating that you are opting out of arbitration.</p>
               </div>

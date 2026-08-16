@@ -46,7 +46,7 @@ export const PrivacyPolicy: React.FC = () => {
               <Clock className="w-5 h-5 text-branding-accent shrink-0" />
               <div>
                 <span className="text-white/40 text-xs font-bold uppercase tracking-wider">Effective Date</span>
-                <p className="text-white font-bold">May 30, 2026</p>
+                <p className="text-white font-bold">August 16, 2026</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -69,14 +69,17 @@ export const PrivacyPolicy: React.FC = () => {
             </div>
             <div className="space-y-3 text-white/70 text-sm leading-relaxed">
               <p>
-                Origami is designed so that the PDF documents you upload and the content Origami generates from them (such as slide content and narration) are processed and stored <strong className="text-branding-primary">locally in your browser</strong>.
+                Origami is designed so that the PDF documents you upload and the content Origami generates from them (such as slide content and narration) are processed and stored <strong className="text-branding-primary">locally in your browser</strong> by default.
               </p>
               <p>
-                Origami uses in-browser AI components (including WebLLM and the Kokoro browser version) to generate narration scripts and narration audio on your device.
+                Origami can optionally use in-browser AI components (including WebLLM and the Kokoro browser version) to generate narration scripts and narration audio entirely on your device, with nothing leaving your browser.
+              </p>
+              <p>
+                Some optional features instead send data to <strong className="text-branding-primary">cloud AI providers</strong>: narration script generation, OCR on image-based PDF pages, screen-recording/video analysis, issue-report analysis, and the "Shorts" image/video generator. These can send prompts, PDF page images, video, or screenshots to a configured AI API (by default Google Gemini, or a custom OpenAI-compatible endpoint you or the site operator configures) or to Pollinations. See Section 2(E) for details.
               </p>
               <div className="mt-4 p-4 bg-branding-primary/5 border border-branding-primary/20 rounded-xl">
                 <p className="text-white/60 text-xs">
-                  Even though content processing happens on your device, some information may still be collected through standard website operations (like hosting logs and third-party assets), as described below.
+                  Even though most content processing can happen on your device, some information may still be collected through standard website operations (like hosting logs and third-party assets) or sent to cloud AI providers when you use the features above, as described below.
                 </p>
               </div>
             </div>
@@ -104,6 +107,9 @@ export const PrivacyPolicy: React.FC = () => {
                 <div className="mt-4 p-4 bg-branding-accent/10 border border-branding-accent/30 rounded-xl">
                   <p className="font-semibold text-branding-accent text-xs uppercase tracking-wider mb-1">Where this data lives</p>
                   <p className="text-white/80 text-xs">This content is processed and stored in your browser, including via <strong>localStorage</strong>. We do not intentionally collect or store this document content on our servers.</p>
+                </div>
+                <div className="mt-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+                  <p className="text-white/80 text-xs"><strong className="text-white">Exception:</strong> if you enable OCR, script-fixing, or AI slide generation with a cloud LLM, or use screen-recording analysis, issue reporting, or Shorts, some of this content (page images, video, screenshots, or text) is sent to the applicable cloud AI provider described in Section 2(E) below.</p>
                 </div>
               </div>
 
@@ -139,7 +145,23 @@ export const PrivacyPolicy: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-white mb-3">E. Information You Send Us</h3>
+                <h3 className="text-base font-bold text-white mb-3">E. Cloud AI Processing (Optional Features)</h3>
+                <p className="mb-3">Some features send content to cloud AI providers rather than processing it fully in your browser:</p>
+                <ul className="space-y-2 ml-4">
+                  <li className="flex items-start gap-2">
+                    <span className="text-branding-accent mt-1">•</span>
+                    <span><strong className="text-white">LLM API</strong> (narration scripts, PDF OCR, video/issue analysis) — used to generate narration scripts, extract text from image-based PDF pages, analyze screen recordings/MP4s, and analyze issue reports. By default this is Google Gemini's OpenAI-compatible API; you or the site operator can instead configure a different OpenAI-compatible endpoint (e.g. OpenRouter, Ollama, or another provider) in Settings. Depending on the feature in use, this can include narration or slide text, PDF page images, video files, and screenshots. If you or the operator supply an API key client-side, requests go directly from your browser to that provider; otherwise requests are proxied through our server, which adds a server-side key and does not store the request content.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-branding-accent mt-1">•</span>
+                    <span><strong className="text-white">Pollinations</strong> (gen.pollinations.ai, enter.pollinations.ai, media.pollinations.ai) — used by the Shorts feature to generate images and video from text prompts. We send the text prompt and generation settings (model, size, seed); we do not send your PDFs or documents to Pollinations. If you connect a Pollinations account (OAuth) or add your own API key in Settings, your browser calls Pollinations directly and your account token/username is stored in your browser; otherwise requests are proxied through our server using a server-side key. Connecting via OAuth is billed at a markup that TechMitten LLC earns as revenue — see Terms of Service Section 9 for pricing details.</span>
+                  </li>
+                </ul>
+                <p className="mt-3 text-xs text-white/50 italic">These providers process data under their own privacy policies. We do not control, and are not responsible for, how they handle it.</p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-bold text-white mb-3">F. Information You Send Us</h3>
                 <p>If you contact us (e.g., by email), we will receive the contents of your message and contact information, and we'll use it to respond.</p>
               </div>
             </div>
@@ -184,6 +206,10 @@ export const PrivacyPolicy: React.FC = () => {
                   <li className="flex items-start gap-2">
                     <span className="text-branding-secondary mt-1">•</span>
                     <span>Infrastructure providers (hosting, monitoring, CDNs)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-branding-secondary mt-1">•</span>
+                    <span>AI providers used for optional features — by default Google Gemini, or another OpenAI-compatible endpoint you or the operator configure, and Pollinations for the Shorts feature. See Section 2(E).</span>
                   </li>
                 </ul>
               </div>
@@ -261,6 +287,10 @@ export const PrivacyPolicy: React.FC = () => {
               <div>
                 <h3 className="text-base font-bold text-white mb-2">C. Do Not Track</h3>
                 <p>Some browsers send "Do Not Track" signals. Because there is no consistent industry standard for interpreting these signals, we do not respond to them in a uniform way.</p>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white mb-2">D. AI Feature Controls</h3>
+                <p>Cloud AI features (OCR, script-fixing, AI slide generation, video/issue analysis, and Shorts) are optional. You can avoid sending content to a cloud AI provider by not enabling these features, and you can disconnect a linked Pollinations account at any time in Settings.</p>
               </div>
             </div>
           </section>

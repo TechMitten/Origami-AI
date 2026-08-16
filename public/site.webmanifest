@@ -1,7 +1,7 @@
 {
-    "name": "Origami AI - PDF to Video Creator",
+    "name": "Origami AI - Local AI Video Studio",
     "short_name": "Origami AI",
-    "description": "Transform PDF presentations into cinematic narrated videos with AI.",
+    "description": "Turn PDFs into narrated videos, record screen tutorials, generate AI shorts, and chat with a local AI assistant, all in your browser.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#000000",
@@ -29,7 +29,7 @@
             "src": "/og.webp",
             "type": "image/webp",
             "sizes": "1200x630",
-            "label": "Origami AI - PDF to Video Creator"
+            "label": "Origami AI - Local AI Video Studio"
         }
     ]
 }

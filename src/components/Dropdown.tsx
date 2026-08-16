@@ -27,7 +27,6 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const selectedOption = options.find(o => o.id === value);
   const groupedOptions = options.reduce<Array<{ group?: string; options: DropdownOption[] }>>((groups, option) => {
     const lastGroup = groups[groups.length - 1];
@@ -121,9 +120,6 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
           ref={menuRef}
           className="fixed py-2 border border-white/10 rounded-xl shadow-2xl"
           style={{
-            top: `${coords.top}px`,
-            left: `${coords.left}px`,
-            width: `${coords.width}px`,
             backgroundColor: '#18181b',
             boxShadow: '0 10px 40px -10px rgba(0,0,0,0.8)',
             isolation: 'isolate',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, BrainCircuit, ArrowRight, Video, Github, Cpu, ExternalLink } from 'lucide-react';
+import { Layers, BrainCircuit, ArrowRight, Video, Github, Cpu, ExternalLink, Clapperboard } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -37,6 +37,14 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
       bg: 'bg-fuchsia-500/10',
       border: 'border-fuchsia-400/30',
     },
+    {
+      icon: Clapperboard,
+      title: 'Shorts Generator',
+      description: 'Turn a topic into a faceless short in minutes. A local model writes the script, Pollinations generates the images or video clips, and Kokoro TTS voices it with captions.',
+      color: 'text-amber-300',
+      bg: 'bg-amber-500/10',
+      border: 'border-amber-400/30',
+    },
   ];
 
   return (
@@ -57,13 +65,13 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
         </h1>
         
         <p className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
-          Create stunning tutorials, draft scripts securely, and edit presentation media. 
-          Everything runs entirely in your browser for maximum privacy and performance.
+          Create stunning tutorials, draft scripts securely, edit presentation media, and generate
+          faceless shorts. Everything runs entirely in your browser for maximum privacy and performance.
         </p>
       </div>
 
       {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full mb-8">
         {features.map((feature, i) => {
           const Icon = feature.icon;
           return (
