@@ -5,6 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';
 import { DEFAULT_VOICES } from '../../services/ttsService';
 import { POLLINATIONS_IMAGE_MODELS } from '../../services/pollinationsService';
+import { POLLINATIONS_VIDEO_MODELS } from '../../services/pollinationsVideoService';
 import {
   ASPECT_OPTIONS,
   CAPTION_STYLES,
@@ -110,6 +111,41 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
         </div>
       </div>
 
+      {/* Visuals */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="text-sm font-semibold text-white">Visuals</span>
+            <p className="mt-1 text-xs text-white/40">
+              {project.generationMode === 'video'
+                ? 'Pollinations generates a short AI video clip per scene.'
+                : 'Pollinations generates a still image per scene, animated with Ken Burns.'}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <SegmentedButton
+              active={project.generationMode !== 'video'}
+              onClick={() => onChange({ generationMode: 'image' })}
+              disabled={isBusy}
+            >
+              AI Images
+            </SegmentedButton>
+            <SegmentedButton
+              active={project.generationMode === 'video'}
+              onClick={() => onChange({ generationMode: 'video' })}
+              disabled={isBusy}
+            >
+              AI Video
+            </SegmentedButton>
+          </div>
+        </div>
+        {project.generationMode === 'video' && (
+          <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+            Video generation is slower and typically costs more per scene than stills.
+          </p>
+        )}
+      </div>
+
       {/* Format */}
       <div className="grid gap-6 sm:grid-cols-2">
         <SegmentedGroup label="Format">
@@ -170,13 +206,22 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
           />
         </div>
         <div>
-          <FieldLabel>Image model</FieldLabel>
-          <Dropdown
-            options={POLLINATIONS_IMAGE_MODELS.map((m) => ({ id: m.id, name: m.name }))}
-            value={project.imageModel}
-            onChange={(value) => onChange({ imageModel: value })}
-            disabled={isBusy}
-          />
+          <FieldLabel>{project.generationMode === 'video' ? 'Video model' : 'Image model'}</FieldLabel>
+          {project.generationMode === 'video' ? (
+            <Dropdown
+              options={POLLINATIONS_VIDEO_MODELS.map((m) => ({ id: m.id, name: m.name }))}
+              value={project.videoModel}
+              onChange={(value) => onChange({ videoModel: value })}
+              disabled={isBusy}
+            />
+          ) : (
+            <Dropdown
+              options={POLLINATIONS_IMAGE_MODELS.map((m) => ({ id: m.id, name: m.name }))}
+              value={project.imageModel}
+              onChange={(value) => onChange({ imageModel: value })}
+              disabled={isBusy}
+            />
+          )}
         </div>
       </div>
 
@@ -324,8 +369,8 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
           <KeyRound className="h-4 w-4 shrink-0" />
           <span className="flex-1">
-            No Pollinations API key saved. Image generation will go through this server, which only works
-            if it has a key configured.
+            No Pollinations API key saved. {project.generationMode === 'video' ? 'Video' : 'Image'} generation will
+            go through this server, which only works if it has a key configured.
           </span>
           <button
             type="button"

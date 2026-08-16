@@ -16,16 +16,17 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ShortsSceneCard } from './ShortsSceneCard';
-import type { ShortsScene } from '../../services/shortsProject';
+import type { ShortsGenerationMode, ShortsScene } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
 
 interface ShortsStoryboardProps {
   scenes: ShortsScene[];
   aspect: ShortsAspect;
+  generationMode: ShortsGenerationMode;
   disabled: boolean;
   onReorder: (scenes: ShortsScene[]) => void;
   onUpdateScene: (id: string, patch: Partial<ShortsScene>) => void;
-  onRegenerateImage: (id: string) => void;
+  onRegenerateVisual: (id: string) => void;
   onRegenerateAudio: (id: string) => void;
   onRewritePrompt: (id: string) => void;
   onDeleteScene: (id: string) => void;
@@ -35,10 +36,11 @@ interface ShortsStoryboardProps {
 export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   scenes,
   aspect,
+  generationMode,
   disabled,
   onReorder,
   onUpdateScene,
-  onRegenerateImage,
+  onRegenerateVisual,
   onRegenerateAudio,
   onRewritePrompt,
   onDeleteScene,
@@ -73,9 +75,10 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
                 scene={scene}
                 index={index}
                 aspect={aspect}
+                generationMode={generationMode}
                 disabled={disabled}
                 onUpdate={onUpdateScene}
-                onRegenerateImage={onRegenerateImage}
+                onRegenerateVisual={onRegenerateVisual}
                 onRegenerateAudio={onRegenerateAudio}
                 onRewritePrompt={onRewritePrompt}
                 onDelete={onDeleteScene}

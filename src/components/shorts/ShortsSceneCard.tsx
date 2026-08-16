@@ -14,7 +14,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { ShortsScene } from '../../services/shortsProject';
+import type { ShortsGenerationMode, ShortsScene } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
 
 function cn(...inputs: ClassValue[]) {
@@ -25,9 +25,10 @@ interface ShortsSceneCardProps {
   scene: ShortsScene;
   index: number;
   aspect: ShortsAspect;
+  generationMode: ShortsGenerationMode;
   disabled: boolean;
   onUpdate: (id: string, patch: Partial<ShortsScene>) => void;
-  onRegenerateImage: (id: string) => void;
+  onRegenerateVisual: (id: string) => void;
   onRegenerateAudio: (id: string) => void;
   onRewritePrompt: (id: string) => void;
   onDelete: (id: string) => void;
@@ -43,9 +44,10 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   scene,
   index,
   aspect,
+  generationMode,
   disabled,
   onUpdate,
-  onRegenerateImage,
+  onRegenerateVisual,
   onRegenerateAudio,
   onRewritePrompt,
   onDelete,
@@ -79,7 +81,10 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
     }
   };
 
-  const imageBusy = scene.imageStatus === 'pending';
+  const isVideo = generationMode === 'video';
+  const visualStatus = isVideo ? scene.videoStatus : scene.imageStatus;
+  const visualUrl = isVideo ? scene.videoUrl : scene.imageUrl;
+  const visualBusy = visualStatus === 'pending';
   const audioBusy = scene.audioStatus === 'pending';
 
   return (
@@ -108,11 +113,15 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
 
         {/* Thumbnail */}
         <div className={cn('relative w-24 shrink-0 overflow-hidden rounded-xl bg-black/40 sm:w-28', aspectClass[aspect])}>
-          {scene.imageUrl ? (
-            <img src={scene.imageUrl} alt="" className="h-full w-full object-cover" />
+          {visualUrl ? (
+            isVideo ? (
+              <video src={visualUrl} className="h-full w-full object-cover" muted loop autoPlay playsInline />
+            ) : (
+              <img src={visualUrl} alt="" className="h-full w-full object-cover" />
+            )
           ) : (
             <div className="flex h-full w-full items-center justify-center text-white/20">
-              {scene.imageStatus === 'error' ? (
+              {visualStatus === 'error' ? (
                 <TriangleAlert className="h-5 w-5 text-amber-400/70" />
               ) : (
                 <ImageIcon className="h-5 w-5" />
@@ -120,7 +129,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             </div>
           )}
 
-          {imageBusy && (
+          {visualBusy && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/60">
               <Loader2 className="h-5 w-5 animate-spin text-cyan-300" />
             </div>
@@ -128,9 +137,9 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
 
           <button
             type="button"
-            onClick={() => onRegenerateImage(scene.id)}
-            disabled={disabled || imageBusy}
-            title="Regenerate image"
+            onClick={() => onRegenerateVisual(scene.id)}
+            disabled={disabled || visualBusy}
+            title={isVideo ? 'Regenerate video' : 'Regenerate image'}
             className="absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 opacity-0 transition-all hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
           >
             <RefreshCw className="h-3 w-3" />
@@ -176,7 +185,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
               <ImageIcon className="h-3 w-3" />
-              {showPrompt ? 'Hide prompt' : 'Image prompt'}
+              {showPrompt ? 'Hide prompt' : isVideo ? 'Video prompt' : 'Image prompt'}
             </button>
 
             <div className="flex-1" />
@@ -199,7 +208,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                 onChange={(e) => onUpdate(scene.id, { imagePrompt: e.target.value })}
                 disabled={disabled}
                 rows={2}
-                placeholder="Describe the image for this scene"
+                placeholder={isVideo ? 'Describe the video clip for this scene' : 'Describe the image for this scene'}
                 className="w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-white/80 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
               />
               <button
@@ -214,10 +223,10 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             </div>
           )}
 
-          {(scene.imageError || scene.audioError) && (
+          {((isVideo ? scene.videoError : scene.imageError) || scene.audioError) && (
             <p className="flex items-start gap-2 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-xs text-red-200">
               <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-              <span>{scene.imageError || scene.audioError}</span>
+              <span>{(isVideo ? scene.videoError : scene.imageError) || scene.audioError}</span>
             </p>
           )}
         </div>

@@ -199,7 +199,17 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
           aspectClass[project.aspect],
         )}
       >
-        {scene?.imageUrl ? (
+        {project.generationMode === 'video' && scene?.videoUrl ? (
+          <video
+            key={scene.id}
+            src={scene.videoUrl}
+            className="h-full w-full object-cover"
+            muted
+            loop
+            autoPlay
+            playsInline
+          />
+        ) : scene?.imageUrl ? (
           <img
             src={scene.imageUrl}
             alt=""

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Clapperboard, Download, Film, RotateCcw, Sparkles } from 'lucide-react';
 
-import backgroundImage from '../assets/images/background.png';
+import backgroundImage from '../assets/images/background.jpg';
 import { Footer } from '../components/Footer';
 import { PageHeader } from '../components/PageHeader';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
@@ -37,6 +37,7 @@ import {
   fromPersistedProject,
   generateSceneAudio,
   generateSceneImage,
+  generateSceneVideo,
   isProjectRenderable,
   projectDuration,
   revokeProjectUrls,
@@ -274,6 +275,29 @@ export const ShortsPage: React.FC = () => {
     [patchScene, pollinationsKey],
   );
 
+  const runSceneVideo = useCallback(
+    async (scene: ShortsScene, target: ShortsProject, signal: AbortSignal) => {
+      patchScene(scene.id, { videoStatus: 'pending', videoError: null });
+      try {
+        const { blob, url } = await generateSceneVideo(scene, target, { apiKey: pollinationsKey, signal });
+        if (scene.videoUrl) URL.revokeObjectURL(scene.videoUrl);
+        patchScene(scene.id, { videoBlob: blob, videoUrl: url, videoStatus: 'ready', videoError: null });
+      } catch (e) {
+        if (signal.aborted) return;
+        patchScene(scene.id, { videoStatus: 'error', videoError: errorMessage(e) });
+      }
+    },
+    [patchScene, pollinationsKey],
+  );
+
+  const runSceneVisual = useCallback(
+    (scene: ShortsScene, target: ShortsProject, signal: AbortSignal) =>
+      target.generationMode === 'video'
+        ? runSceneVideo(scene, target, signal)
+        : runSceneImage(scene, target, signal),
+    [runSceneImage, runSceneVideo],
+  );
+
   const runSceneAudio = useCallback(
     async (scene: ShortsScene, voice: string, signal: AbortSignal) => {
       patchScene(scene.id, { audioStatus: 'pending', audioError: null });
@@ -335,11 +359,15 @@ export const ShortsPage: React.FC = () => {
       setProject(nextProject);
       setStage('storyboard');
 
-      setBusyLabel('Generating images and voiceover...');
+      setBusyLabel(
+        nextProject.generationMode === 'video'
+          ? 'Generating videos and voiceover...'
+          : 'Generating images and voiceover...',
+      );
 
-      // Images fan out (the service caps concurrency at 3); TTS stays sequential
+      // Visuals fan out (the service caps concurrency); TTS stays sequential
       // because the Kokoro worker handles one request at a time.
-      const images = Promise.all(scenes.map((scene) => runSceneImage(scene, nextProject, controller.signal)));
+      const visuals = Promise.all(scenes.map((scene) => runSceneVisual(scene, nextProject, controller.signal)));
 
       const audio = (async () => {
         for (const scene of scenes) {
@@ -348,7 +376,7 @@ export const ShortsPage: React.FC = () => {
         }
       })();
 
-      await Promise.all([images, audio]);
+      await Promise.all([visuals, audio]);
     } catch (e) {
       if (controller.signal.aborted) return;
       await showAlert(errorMessage(e), { type: 'error', title: 'Generation failed' });
@@ -357,7 +385,7 @@ export const ShortsPage: React.FC = () => {
       setIsBusy(false);
       setBusyLabel('');
     }
-  }, [project.topic, project.targetDurationSec, project.visualStyle, project.tone, ensureScriptEngineReady, llmOptions, runSceneImage, runSceneAudio, showAlert]);
+  }, [project.topic, project.targetDurationSec, project.visualStyle, project.tone, ensureScriptEngineReady, llmOptions, runSceneVisual, runSceneAudio, showAlert]);
 
   // --- per-scene actions ------------------------------------------------------
 
@@ -374,6 +402,32 @@ export const ShortsPage: React.FC = () => {
       void runSceneImage(reseeded, current, new AbortController().signal);
     },
     [patchScene, runSceneImage],
+  );
+
+  const handleRegenerateVideo = useCallback(
+    (id: string) => {
+      const current = projectRef.current;
+      const scene = current.scenes.find((s) => s.id === id);
+      if (!scene) return;
+
+      // New seed so a re-roll actually produces a different clip; Pollinations
+      // returns the cached result for an identical prompt+seed.
+      const reseeded = { ...scene, seed: Math.floor(Math.random() * 2_147_483_000) };
+      patchScene(id, { seed: reseeded.seed });
+      void runSceneVideo(reseeded, current, new AbortController().signal);
+    },
+    [patchScene, runSceneVideo],
+  );
+
+  const handleRegenerateVisual = useCallback(
+    (id: string) => {
+      if (projectRef.current.generationMode === 'video') {
+        handleRegenerateVideo(id);
+      } else {
+        handleRegenerateImage(id);
+      }
+    },
+    [handleRegenerateImage, handleRegenerateVideo],
   );
 
   const handleRegenerateAudio = useCallback(
@@ -395,16 +449,22 @@ export const ShortsPage: React.FC = () => {
       const ready = await ensureScriptEngineReady();
       if (!ready) return;
 
-      patchScene(id, { imageStatus: 'pending' });
+      const isVideo = current.generationMode === 'video';
+      patchScene(id, isVideo ? { videoStatus: 'pending' } : { imageStatus: 'pending' });
       try {
         const prompt = await regenerateImagePrompt(
           scene.narration,
           { topic: current.topic, visualStyle: current.visualStyle },
           llmOptions(),
         );
-        patchScene(id, { imagePrompt: prompt, imageStatus: scene.imageUrl ? 'ready' : 'idle' });
+        patchScene(id, {
+          imagePrompt: prompt,
+          ...(isVideo
+            ? { videoStatus: scene.videoUrl ? 'ready' : 'idle' }
+            : { imageStatus: scene.imageUrl ? 'ready' : 'idle' }),
+        });
       } catch (e) {
-        patchScene(id, { imageStatus: 'error', imageError: errorMessage(e) });
+        patchScene(id, isVideo ? { videoStatus: 'error', videoError: errorMessage(e) } : { imageStatus: 'error', imageError: errorMessage(e) });
       }
     },
     [ensureScriptEngineReady, llmOptions, patchScene],
@@ -414,6 +474,7 @@ export const ShortsPage: React.FC = () => {
     setProject((prev) => {
       const scene = prev.scenes.find((s) => s.id === id);
       if (scene?.imageUrl) URL.revokeObjectURL(scene.imageUrl);
+      if (scene?.videoUrl) URL.revokeObjectURL(scene.videoUrl);
       if (scene?.audioUrl) URL.revokeObjectURL(scene.audioUrl);
       return { ...prev, scenes: prev.scenes.filter((s) => s.id !== id) };
     });
@@ -442,7 +503,9 @@ export const ShortsPage: React.FC = () => {
         aspect: prev.aspect,
         targetDurationSec: prev.targetDurationSec,
         voice: prev.voice,
+        generationMode: prev.generationMode,
         imageModel: prev.imageModel,
+        videoModel: prev.videoModel,
         visualStyle: prev.visualStyle,
         tone: prev.tone,
         captionsEnabled: prev.captionsEnabled,
@@ -489,6 +552,7 @@ export const ShortsPage: React.FC = () => {
 
     const renderScenes: ShortsRenderScene[] = current.scenes.map((scene) => ({
       imageBlob: scene.imageBlob ?? null,
+      videoBlob: scene.videoBlob ?? null,
       audioUrl: scene.audioUrl ?? null,
       audioDuration: scene.audioDuration ?? 0,
       narration: scene.narration,
@@ -558,12 +622,13 @@ export const ShortsPage: React.FC = () => {
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0a0a0b] pt-8 text-white">
+    <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pt-8 text-white">
       <img
         src={backgroundImage}
         alt=""
-        className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-40 blur-[2px] brightness-75"
+        className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-25 blur-[2px] brightness-50"
       />
+      <div className="fixed inset-0 -z-40 h-lvh w-full bg-[#0a0a0b]/60" />
 
       <PageHeader
         title="Shorts"
@@ -646,10 +711,11 @@ export const ShortsPage: React.FC = () => {
               <ShortsStoryboard
                 scenes={project.scenes}
                 aspect={project.aspect}
+                generationMode={project.generationMode}
                 disabled={renderPhase === 'rendering'}
                 onReorder={(scenes) => patchProject({ scenes })}
                 onUpdateScene={patchScene}
-                onRegenerateImage={handleRegenerateImage}
+                onRegenerateVisual={handleRegenerateVisual}
                 onRegenerateAudio={handleRegenerateAudio}
                 onRewritePrompt={handleRewritePrompt}
                 onDeleteScene={handleDeleteScene}

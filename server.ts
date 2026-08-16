@@ -435,6 +435,104 @@ async function createServer() {
     }
   });
 
+  // Pollinations video proxy.
+  // Used only when the client has no user-supplied key; keeps POLLINATIONS_API_KEY
+  // server-side so an `sk_` secret key never reaches the browser bundle.
+  // Kept in sync with functions/api/pollinations/video.ts (Cloudflare Pages twin).
+  const POLLINATIONS_VIDEO_ALLOWED_MODELS = new Set([
+    'wan-fast', 'wan', 'wan-pro', 'seedance-2.0-fast', 'seedance-2.0-mini', 'seedance-pro', 'veo',
+  ]);
+  const POLLINATIONS_VIDEO_ALLOWED_ASPECTS = new Set(['9:16', '16:9', '1:1']);
+
+  app.post('/api/pollinations/video', async (req: Request, res: Response) => {
+    const apiKey = process.env.POLLINATIONS_API_KEY || '';
+    if (!apiKey) {
+      return res.status(501).json({
+        error: 'Video generation is not configured on this server. Add your Pollinations API key in Settings, or set POLLINATIONS_API_KEY on the host.',
+      });
+    }
+
+    const { prompt, model = 'wan-fast', aspect = '9:16', width = 1024, height = 1024, seed = 0 } = req.body || {};
+
+    const cleanPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+    if (!cleanPrompt) return res.status(400).json({ error: 'prompt is required' });
+    if (cleanPrompt.length > 2000) return res.status(400).json({ error: 'prompt exceeds 2000 characters' });
+
+    if (typeof model !== 'string' || !POLLINATIONS_VIDEO_ALLOWED_MODELS.has(model)) {
+      return res.status(400).json({ error: `Unsupported model: ${model}` });
+    }
+
+    if (typeof aspect !== 'string' || !POLLINATIONS_VIDEO_ALLOWED_ASPECTS.has(aspect)) {
+      return res.status(400).json({ error: `Unsupported aspect: ${aspect}` });
+    }
+
+    const asDimension = (value: unknown): number | null => {
+      const num = Math.round(Number(value));
+      if (!Number.isFinite(num) || num < 64 || num > 2048) return null;
+      return num;
+    };
+
+    const safeWidth = asDimension(width);
+    const safeHeight = asDimension(height);
+    if (safeWidth === null || safeHeight === null) {
+      return res.status(400).json({ error: 'width and height must be between 64 and 2048' });
+    }
+
+    const seedNum = Number(seed);
+    const safeSeed = Number.isFinite(seedNum) ? Math.abs(Math.round(seedNum)) % 2147483647 : 0;
+
+    const upstream = new URL(`https://gen.pollinations.ai/video/${encodeURIComponent(cleanPrompt)}`);
+    upstream.searchParams.set('model', model);
+    upstream.searchParams.set('seed', String(safeSeed));
+    upstream.searchParams.set('audio', 'false');
+    if (aspect === '1:1') {
+      upstream.searchParams.set('width', String(safeWidth));
+      upstream.searchParams.set('height', String(safeHeight));
+    } else {
+      upstream.searchParams.set('aspectRatio', aspect);
+    }
+
+    const controller = new AbortController();
+    // Video generation is far slower than stills — Veo/Seedance clips can take minutes.
+    const timeout = setTimeout(() => controller.abort(), 300000);
+
+    try {
+      const response = await fetch(upstream.toString(), {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        console.error(`[Pollinations Video Proxy] upstream ${response.status}: ${detail.slice(0, 200)}`);
+        return res.status(response.status).json({
+          error: detail.slice(0, 300) || `Pollinations request failed (${response.status})`,
+        });
+      }
+
+      res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.removeHeader('X-Powered-By');
+
+      if (!response.body) {
+        return res.status(502).json({ error: 'Pollinations returned an empty video' });
+      }
+
+      const nodeStream = Readable.fromWeb(response.body as any);
+      await pipeline(nodeStream, res);
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('[Pollinations Video Proxy] request timed out');
+        return res.status(504).json({ error: 'Video generation timed out' });
+      }
+      console.error('[Pollinations Video Proxy] error:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to proxy video generation' });
+    }
+  });
+
   // Proxy endpoint for music preview (bypasses CORS issues with incompetech.com)
   app.get('/api/music-preview/:filename', async (req, res) => {
     const filename = decodeURIComponent(req.params.filename);

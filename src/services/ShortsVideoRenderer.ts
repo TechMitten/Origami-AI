@@ -26,6 +26,8 @@ export type ShortsCaptionStyle = 'bold-pop' | 'clean-lower' | 'karaoke';
 export interface ShortsRenderScene {
   /** Generated still. When absent a styled gradient placeholder is drawn. */
   imageBlob?: Blob | null;
+  /** Generated AI video clip. Takes priority over imageBlob when present. */
+  videoBlob?: Blob | null;
   /** Object URL of the Kokoro WAV for this scene. */
   audioUrl?: string | null;
   /** Measured audio duration in seconds. */
@@ -72,10 +74,14 @@ const DEFAULT_ACCENT = '#22d3ee';
 
 interface PreparedScene {
   bitmap: ImageBitmap | null;
+  /** Pre-sampled, output-cropped frames for a video-clip scene. Takes priority over `bitmap` when set. */
+  videoFrames: ImageBitmap[] | null;
+  videoFrameIntervalSec: number;
+  videoClipDuration: number;
   start: number;
   duration: number;
   captions: CaptionChunk[];
-  /** Ken Burns endpoints, alternating per scene so motion does not feel looped. */
+  /** Ken Burns endpoints, alternating per scene so motion does not feel looped. Unused for video-clip scenes. */
   zoomFrom: number;
   zoomTo: number;
   panFromX: number;
@@ -83,6 +89,13 @@ interface PreparedScene {
   panFromY: number;
   panToY: number;
 }
+
+/** Video clips are pre-sampled at a low, fixed rate rather than seeked live per output
+ * frame — an HTMLVideoElement seek costs tens of ms, which is far too slow to pay once
+ * per encoded frame. Sampling once during preparation keeps the hot encode loop a plain
+ * bitmap blit, identical in cost to the existing still-image path. */
+const VIDEO_SAMPLE_FPS = 8;
+const MAX_VIDEO_SAMPLE_FRAMES = 24;
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -123,7 +136,94 @@ export class ShortsVideoRenderer {
 
   // --- preparation ------------------------------------------------------------
 
-  private async prepareScenes(options: ShortsRenderOptions): Promise<{ scenes: PreparedScene[]; totalDuration: number }> {
+  /** Seek an offscreen video element to `time` and wait for the frame to be ready. */
+  private seekVideoTo(video: HTMLVideoElement, time: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onError);
+      };
+      const onSeeked = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error('Video seek failed.')); };
+      video.addEventListener('seeked', onSeeked, { once: true });
+      video.addEventListener('error', onError, { once: true });
+      video.currentTime = time;
+    });
+  }
+
+  /**
+   * Decode a generated video clip into a short sequence of output-cropped bitmaps.
+   * The cover-fit crop is done once here (at sample time) rather than per output
+   * frame, so the draw loop's video path is a plain blit like the image path.
+   */
+  private async sampleVideoFrames(
+    blob: Blob,
+    width: number,
+    height: number,
+    signal?: AbortSignal,
+  ): Promise<{ frames: ImageBitmap[]; frameIntervalSec: number; clipDuration: number }> {
+    const url = URL.createObjectURL(blob);
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.src = url;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const cleanup = () => {
+          video.removeEventListener('loadedmetadata', onLoaded);
+          video.removeEventListener('error', onError);
+        };
+        const onLoaded = () => { cleanup(); resolve(); };
+        const onError = () => { cleanup(); reject(new Error('Could not load the generated video clip.')); };
+        video.addEventListener('loadedmetadata', onLoaded, { once: true });
+        video.addEventListener('error', onError, { once: true });
+      });
+
+      const clipDuration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+      if (!(clipDuration > 0) || !video.videoWidth || !video.videoHeight) {
+        throw new Error('Generated video clip has no readable frames.');
+      }
+
+      const frameCount = Math.max(1, Math.min(MAX_VIDEO_SAMPLE_FRAMES, Math.ceil(clipDuration * VIDEO_SAMPLE_FPS)));
+      const frameIntervalSec = clipDuration / frameCount;
+
+      const sampleCanvas = document.createElement('canvas');
+      sampleCanvas.width = width;
+      sampleCanvas.height = height;
+      const sampleCtx = sampleCanvas.getContext('2d', { alpha: false });
+      if (!sampleCtx) throw new Error('Could not create a 2D context to sample video frames.');
+
+      // Cover-fit, matching the still-image draw path.
+      const bw = video.videoWidth;
+      const bh = video.videoHeight;
+      const scale = Math.max(width / bw, height / bh);
+      const dw = bw * scale;
+      const dh = bh * scale;
+      const dx = (width - dw) / 2;
+      const dy = (height - dh) / 2;
+
+      const frames: ImageBitmap[] = [];
+      for (let i = 0; i < frameCount; i += 1) {
+        if (signal?.aborted) throw new ShortsRenderAbortedError();
+        const t = Math.min(clipDuration - 0.001, i * frameIntervalSec);
+        await this.seekVideoTo(video, t);
+        sampleCtx.drawImage(video, dx, dy, dw, dh);
+        frames.push(await createImageBitmap(sampleCanvas));
+      }
+
+      return { frames, frameIntervalSec, clipDuration };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  private async prepareScenes(
+    options: ShortsRenderOptions,
+    width: number,
+    height: number,
+  ): Promise<{ scenes: PreparedScene[]; totalDuration: number }> {
     const prepared: PreparedScene[] = [];
     let cursor = 0;
 
@@ -132,12 +232,26 @@ export class ShortsVideoRenderer {
       const scene = options.scenes[i];
 
       let bitmap: ImageBitmap | null = null;
-      if (scene.imageBlob) {
+      let videoFrames: ImageBitmap[] | null = null;
+      let videoFrameIntervalSec = 0;
+      let videoClipDuration = 0;
+
+      if (scene.videoBlob) {
+        try {
+          const sampled = await this.sampleVideoFrames(scene.videoBlob, width, height, options.signal);
+          videoFrames = sampled.frames;
+          videoFrameIntervalSec = sampled.frameIntervalSec;
+          videoClipDuration = sampled.clipDuration;
+        } catch (e) {
+          if (e instanceof ShortsRenderAbortedError) throw e;
+          // A single unreadable clip must not sink the whole render — the frame
+          // loop falls back to a gradient card for this scene.
+          console.warn(`[Shorts] Scene ${i + 1}: video clip could not be decoded, using a placeholder.`, e);
+        }
+      } else if (scene.imageBlob) {
         try {
           bitmap = await createImageBitmap(scene.imageBlob);
         } catch (e) {
-          // A single unreadable image must not sink the whole render — the frame
-          // loop falls back to a gradient card for this scene.
           console.warn(`[Shorts] Scene ${i + 1}: image could not be decoded, using a placeholder.`, e);
         }
       }
@@ -145,13 +259,16 @@ export class ShortsVideoRenderer {
       const duration = Math.max(MIN_SCENE_SEC, (scene.audioDuration || 0) + SCENE_TAIL_SEC);
 
       // Alternate zoom direction and pan axis so consecutive scenes read as
-      // distinct shots rather than the same move repeated.
+      // distinct shots rather than the same move repeated. Unused for video scenes.
       const zoomIn = i % 2 === 0;
       const horizontal = i % 4 < 2;
       const drift = 0.28;
 
       prepared.push({
         bitmap,
+        videoFrames,
+        videoFrameIntervalSec,
+        videoClipDuration,
         start: cursor,
         duration,
         captions: scene.captions ?? [],
@@ -183,6 +300,21 @@ export class ShortsVideoRenderer {
   ) {
     ctx.save();
     ctx.globalAlpha = alpha;
+
+    if (scene.videoFrames && scene.videoFrames.length) {
+      // Already output-cropped at sample time — no Ken Burns needed, the clip
+      // supplies its own motion. Loop if the scene needs more time than the
+      // clip provides; hold the last frame if the clip runs longer than needed.
+      const localT = scene.videoClipDuration > 0 ? t % scene.videoClipDuration : 0;
+      const index = clamp(
+        Math.floor(localT / (scene.videoFrameIntervalSec || 1)),
+        0,
+        scene.videoFrames.length - 1,
+      );
+      ctx.drawImage(scene.videoFrames[index], 0, 0, width, height);
+      ctx.restore();
+      return;
+    }
 
     if (!scene.bitmap) {
       // Placeholder: a deterministic dark gradient keyed to the scene index, so a
@@ -875,7 +1007,7 @@ export class ShortsVideoRenderer {
         await document.fonts.ready;
       }
 
-      const result = await this.prepareScenes(options);
+      const result = await this.prepareScenes(options, width, height);
       prepared = result.scenes;
       const totalDuration = result.totalDuration;
 
@@ -922,7 +1054,10 @@ export class ShortsVideoRenderer {
       throw e;
     } finally {
       options.signal?.removeEventListener('abort', abortHandler);
-      prepared.forEach((scene) => scene.bitmap?.close());
+      prepared.forEach((scene) => {
+        scene.bitmap?.close();
+        scene.videoFrames?.forEach((frame) => frame.close());
+      });
     }
   }
 }

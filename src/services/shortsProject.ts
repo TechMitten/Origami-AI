@@ -1,5 +1,6 @@
 import { generateTTS, getAudioDuration, resolveVoice } from './ttsService';
 import { generateImage, DEFAULT_POLLINATIONS_IMAGE_MODEL } from './pollinationsService';
+import { generateVideo, DEFAULT_POLLINATIONS_VIDEO_MODEL } from './pollinationsVideoService';
 import { buildCaptionTimings, type CaptionChunk } from './shortsCaptions';
 import type { ShortsAspect, ShortsCaptionStyle } from './ShortsVideoRenderer';
 import type { ShortsTone } from './shortsScriptService';
@@ -26,6 +27,11 @@ export interface ShortsScene {
   imageStatus: SceneAssetStatus;
   imageError?: string | null;
 
+  videoBlob?: Blob | null;
+  videoUrl?: string | null;
+  videoStatus: SceneAssetStatus;
+  videoError?: string | null;
+
   audioBlob?: Blob | null;
   audioUrl?: string | null;
   audioDuration?: number;
@@ -39,13 +45,17 @@ export interface ShortsMusic {
   volume: number;
 }
 
+export type ShortsGenerationMode = 'image' | 'video';
+
 export interface ShortsProject {
   topic: string;
   title: string;
   aspect: ShortsAspect;
   targetDurationSec: number;
   voice: string;
+  generationMode: ShortsGenerationMode;
   imageModel: string;
+  videoModel: string;
   visualStyle: string;
   tone: ShortsTone;
   captionsEnabled: boolean;
@@ -112,6 +122,7 @@ export const createScene = (narration: string, imagePrompt: string): ShortsScene
   imagePrompt,
   seed: randomSeed(),
   imageStatus: 'idle',
+  videoStatus: 'idle',
   audioStatus: 'idle',
 });
 
@@ -121,7 +132,9 @@ export const createEmptyProject = (overrides: Partial<ShortsProject> = {}): Shor
   aspect: '9:16',
   targetDurationSec: 30,
   voice: 'af_heart',
+  generationMode: 'image',
   imageModel: DEFAULT_POLLINATIONS_IMAGE_MODEL,
+  videoModel: DEFAULT_POLLINATIONS_VIDEO_MODEL,
   visualStyle: VISUAL_STYLES[0].prompt,
   tone: 'punchy',
   captionsEnabled: true,
@@ -149,6 +162,31 @@ export const generateSceneImage = async (
     {
       prompt: scene.imagePrompt,
       model: project.imageModel,
+      width,
+      height,
+      seed: scene.seed,
+    },
+    opts,
+  );
+  return { blob, url: URL.createObjectURL(blob) };
+};
+
+export interface SceneVideoResult {
+  blob: Blob;
+  url: string;
+}
+
+export const generateSceneVideo = async (
+  scene: ShortsScene,
+  project: Pick<ShortsProject, 'aspect' | 'videoModel'>,
+  opts: { apiKey?: string; signal?: AbortSignal } = {},
+): Promise<SceneVideoResult> => {
+  const { width, height } = imageDimensionsFor(project.aspect);
+  const blob = await generateVideo(
+    {
+      prompt: scene.imagePrompt,
+      model: project.videoModel,
+      aspect: project.aspect,
       width,
       height,
       seed: scene.seed,
@@ -210,7 +248,9 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
   aspect: project.aspect,
   targetDurationSec: project.targetDurationSec,
   voice: project.voice,
+  generationMode: project.generationMode,
   imageModel: project.imageModel,
+  videoModel: project.videoModel,
   visualStyle: project.visualStyle,
   tone: project.tone,
   captionsEnabled: project.captionsEnabled,
@@ -226,6 +266,7 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     imagePrompt: scene.imagePrompt,
     seed: scene.seed,
     imageBlob: scene.imageBlob ?? undefined,
+    videoBlob: scene.videoBlob ?? undefined,
     audioBlob: scene.audioBlob ?? undefined,
     audioDuration: scene.audioDuration,
   })),
@@ -238,7 +279,9 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
   aspect: persisted.aspect,
   targetDurationSec: persisted.targetDurationSec,
   voice: resolveVoice(persisted.voice),
+  generationMode: persisted.generationMode || 'image',
   imageModel: persisted.imageModel || DEFAULT_POLLINATIONS_IMAGE_MODEL,
+  videoModel: persisted.videoModel || DEFAULT_POLLINATIONS_VIDEO_MODEL,
   visualStyle: persisted.visualStyle,
   tone: (persisted.tone as ShortsTone) || 'punchy',
   captionsEnabled: persisted.captionsEnabled,
@@ -259,6 +302,9 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     imageBlob: scene.imageBlob ?? null,
     imageUrl: scene.imageBlob ? URL.createObjectURL(scene.imageBlob) : null,
     imageStatus: scene.imageBlob ? 'ready' : 'idle',
+    videoBlob: scene.videoBlob ?? null,
+    videoUrl: scene.videoBlob ? URL.createObjectURL(scene.videoBlob) : null,
+    videoStatus: scene.videoBlob ? 'ready' : 'idle',
     audioBlob: scene.audioBlob ?? null,
     audioUrl: scene.audioBlob ? URL.createObjectURL(scene.audioBlob) : null,
     audioDuration: scene.audioDuration,
@@ -270,6 +316,7 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
 export const revokeProjectUrls = (project: ShortsProject): void => {
   project.scenes.forEach((scene) => {
     if (scene.imageUrl) URL.revokeObjectURL(scene.imageUrl);
+    if (scene.videoUrl) URL.revokeObjectURL(scene.videoUrl);
     if (scene.audioUrl) URL.revokeObjectURL(scene.audioUrl);
   });
 };

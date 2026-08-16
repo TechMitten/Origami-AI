@@ -301,6 +301,7 @@ export interface PersistedShortsScene {
   narration: string;
   imagePrompt: string;
   imageBlob?: Blob;
+  videoBlob?: Blob;
   audioBlob?: Blob;
   audioDuration?: number;
   seed: number;
@@ -312,7 +313,9 @@ export interface PersistedShortsProject {
   aspect: '9:16' | '16:9' | '1:1';
   targetDurationSec: number;
   voice: string;
+  generationMode?: 'image' | 'video';
   imageModel: string;
+  videoModel?: string;
   visualStyle: string;
   tone: string;
   captionsEnabled: boolean;
