@@ -438,25 +438,8 @@ export const ShortsPage: React.FC = () => {
       const nextProject: ShortsProject = { ...projectRef.current, title: script.title, scenes };
       setProject(nextProject);
       setStage('storyboard');
-
-      setBusyLabel(
-        nextProject.generationMode === 'video'
-          ? 'Generating videos and voiceover...'
-          : 'Generating images and voiceover...',
-      );
-
-      // Visuals fan out (the service caps concurrency); TTS stays sequential
-      // because the Kokoro worker handles one request at a time.
-      const visuals = Promise.all(scenes.map((scene) => runSceneVisual(scene, nextProject, controller.signal)));
-
-      const audio = (async () => {
-        for (const scene of scenes) {
-          if (controller.signal.aborted) return;
-          await runSceneAudio(scene, nextProject.voice, controller.signal);
-        }
-      })();
-
-      await Promise.all([visuals, audio]);
+      
+      // Stop here to allow the user to approve the script before generating media.
     } catch (e) {
       if (controller.signal.aborted) return;
       await showAlert(errorMessage(e), { type: 'error', title: 'Generation failed' });
@@ -465,7 +448,47 @@ export const ShortsPage: React.FC = () => {
       setIsBusy(false);
       setBusyLabel('');
     }
-  }, [project.topic, project.targetDurationSec, project.visualStyle, project.tone, ensureScriptEngineReady, llmOptions, runSceneVisual, runSceneAudio, showAlert]);
+  }, [project.topic, project.targetDurationSec, project.visualStyle, project.tone, ensureScriptEngineReady, llmOptions, showAlert]);
+
+  const handleGenerateMedia = useCallback(async () => {
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+
+    setIsBusy(true);
+    setBusyLabel(
+      projectRef.current.generationMode === 'video'
+        ? 'Generating videos and voiceover...'
+        : 'Generating images and voiceover...',
+    );
+
+    try {
+      const scenes = projectRef.current.scenes;
+      const visuals = Promise.all(scenes.map((scene) => {
+        const needsVisual = ['idle', 'error'].includes(projectRef.current.generationMode === 'video' ? scene.videoStatus : scene.imageStatus);
+        return needsVisual ? runSceneVisual(scene, projectRef.current, controller.signal) : Promise.resolve();
+      }));
+
+      const audio = (async () => {
+        for (const scene of scenes) {
+          if (controller.signal.aborted) return;
+          const needsAudio = ['idle', 'error'].includes(scene.audioStatus);
+          if (needsAudio) {
+            await runSceneAudio(scene, projectRef.current.voice, controller.signal);
+          }
+        }
+      })();
+
+      await Promise.all([visuals, audio]);
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      await showAlert(errorMessage(e), { type: 'error', title: 'Media generation failed' });
+    } finally {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      setIsBusy(false);
+      setBusyLabel('');
+    }
+  }, [runSceneVisual, runSceneAudio, showAlert]);
 
   // --- per-scene actions ------------------------------------------------------
 
@@ -701,6 +724,10 @@ export const ShortsPage: React.FC = () => {
 
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
+  const needsMediaGeneration = project.scenes.some(s => 
+    ['idle', 'error'].includes(s.audioStatus) || 
+    ['idle', 'error'].includes(project.generationMode === 'video' ? s.videoStatus : s.imageStatus)
+  );
 
   return (
     <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pt-8 text-white">
@@ -784,16 +811,16 @@ export const ShortsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setStage('compose')}
-                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white"
+                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
                   >
                     <ArrowLeft className="h-3 w-3" />
                     Setup
                   </button>
-                  <span aria-hidden className="h-px w-6 shrink-0 bg-white/12" />
-                  <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
+                  <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
+                  <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
                     Cut
                   </h2>
-                  <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/12 to-transparent" />
+                  <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent" />
                 </div>
 
                 {isBusy && (
@@ -881,20 +908,46 @@ export const ShortsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleRender}
-                  disabled={!renderable || renderPhase === 'rendering' || isBusy}
-                  className={cn(
-                    'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
-                    renderable && renderPhase !== 'rendering' && !isBusy
-                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
-                      : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
-                  )}
-                >
-                  <Download className="h-4 w-4" />
-                  Export MP4
-                </button>
+                {needsMediaGeneration ? (
+                  <button
+                    type="button"
+                    onClick={handleGenerateMedia}
+                    disabled={isBusy}
+                    className={cn(
+                      'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
+                      !isBusy
+                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
+                        : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
+                    )}
+                  >
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating media...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Approve script & generate media
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRender}
+                    disabled={!renderable || renderPhase === 'rendering' || isBusy}
+                    className={cn(
+                      'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
+                      renderable && renderPhase !== 'rendering' && !isBusy
+                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
+                        : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
+                    )}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export MP4
+                  </button>
+                )}
 
                 <p className="text-center text-xs leading-relaxed text-white/35">
                   {renderable

@@ -183,13 +183,15 @@ const runPrompt = async (
 
 // --- passes -------------------------------------------------------------------
 
-const NARRATION_SYSTEM = `You write voiceover scripts for short-form vertical videos (TikTok, Reels, YouTube Shorts).
+const NARRATION_SYSTEM = `You write voiceover scripts for highly engaging, viral short-form vertical videos (TikTok, Reels, YouTube Shorts).
 
 Rules you must follow exactly:
-- Output ONLY the narration lines. No preamble, no numbering, no markdown, no scene labels, no quotes.
+- Output ONLY the narration lines. NEVER include any preamble, explanations, reasoning, numbering, markdown, scene labels, or quotes.
 - One line per scene. Each line is one complete spoken sentence.
-- The first line is a hook that makes the viewer stop scrolling.
-- The last line lands the payoff or a closing thought.
+- The first line is an aggressive hook that makes the viewer stop scrolling.
+- The middle lines must deliver the core content in a fast-paced, highly engaging viral style.
+- If the topic implies a specific structure (like a "Top 5" list), seamlessly fit the list items into the requested number of lines.
+- The last line lands the payoff, a closing thought, or a strong call to action.
 - Write words a narrator says out loud. No stage directions, no emoji, no hashtags, no "In this video".
 - Stay factually accurate. Do not invent statistics.`;
 
@@ -205,8 +207,9 @@ const generateNarrationLines = async (
 Write exactly ${sceneCount} narration lines for a ${req.targetDurationSec}-second video.
 Each line must be roughly ${wordsPerScene} words.
 Tone: ${TONE_GUIDANCE[req.tone]}
+Ensure you narrate it like a viral short video. If the topic implies a specific list (like "Top N"), incorporate it smoothly into the ${sceneCount} lines.
 
-Output exactly ${sceneCount} lines and nothing else.`;
+OUTPUT EXACTLY ${sceneCount} LINES AND NOTHING ELSE. NO PREAMBLE, NO EXPLANATIONS, NO REASONING.`;
 
   opts.onStage?.('Writing the script...');
 

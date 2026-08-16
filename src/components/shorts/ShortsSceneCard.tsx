@@ -198,7 +198,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               onClick={() => onDelete(scene.id)}
               disabled={disabled}
               title="Delete scene"
-              className="focus-ring rounded-lg border border-white/10 p-1.5 text-white/40 transition-colors hover:border-red-400/40 hover:text-red-300 disabled:opacity-30"
+              className="focus-ring rounded-lg p-1.5 text-white/40 transition-colors hover:text-red-300 disabled:opacity-30"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
