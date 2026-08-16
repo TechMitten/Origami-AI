@@ -33,6 +33,20 @@ const aspectClass: Record<ShortsAspect, string> = {
 const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Viewfinder corner marks — the frame reads as a gate rather than a rounded box. */
+const GateMarks: React.FC = () => (
+  <div aria-hidden className="pointer-events-none absolute inset-0 z-[4]">
+    {[
+      'left-2 top-2 border-l border-t',
+      'right-2 top-2 border-r border-t',
+      'left-2 bottom-2 border-b border-l',
+      'right-2 bottom-2 border-b border-r',
+    ].map((position) => (
+      <span key={position} className={cn('absolute h-3.5 w-3.5 border-white/35', position)} />
+    ))}
+  </div>
+);
+
 export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ project, className }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [sceneIndex, setSceneIndex] = useState(0);
@@ -182,11 +196,81 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
 
   const showTitle = project.showTitleCard && sceneIndex === 0 && sceneTime < 1.6 && !!project.title;
 
+  // Before any scene exists the monitor still has something true to show: the
+  // chosen frame, typeset with the user's own topic in the caption style they
+  // picked. It turns two dropdowns into something they can actually judge.
+  const sampleWords = useMemo(() => {
+    const words = project.topic.trim().split(/\s+/).filter(Boolean);
+    return words.length ? words.slice(0, 7) : ['Your', 'narration', 'lands', 'here'];
+  }, [project.topic]);
+
+  const sampleTitle = useMemo(() => {
+    const source = project.title || project.topic;
+    return source.trim().split(/\s+/).filter(Boolean).slice(0, 6).join(' ');
+  }, [project.title, project.topic]);
+
   if (!scenes.length) {
     return (
-      <div className={cn('rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-md', className)}>
-        <Film className="mx-auto h-6 w-6 text-white/20" />
-        <p className="mt-3 text-sm text-white/40">Your preview will appear here once scenes are generated.</p>
+      <div className={cn('space-y-3', className)}>
+        <div
+          className={cn(
+            'monitor-gate @container relative w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl',
+            'bg-[radial-gradient(120%_90%_at_50%_0%,#1b1b22_0%,#0c0c10_55%,#08080a_100%)]',
+            aspectClass[project.aspect],
+          )}
+        >
+          <GateMarks />
+
+          {project.showTitleCard && sampleTitle && (
+            <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center px-[10%] text-center">
+              <p
+                className="font-display text-[clamp(0.9rem,5cqw,1.7rem)] font-extrabold leading-tight text-white/90"
+                style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}
+              >
+                {sampleTitle}
+              </p>
+            </div>
+          )}
+
+          {project.captionsEnabled && (
+            <div
+              key={project.captionStyle}
+              className={cn(
+                'caption-restate pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[8%] text-center',
+                project.captionStyle === 'clean-lower' ? 'bottom-[14%]' : 'bottom-[24%]',
+              )}
+            >
+              <p
+                className={cn(
+                  'leading-tight',
+                  project.captionStyle === 'clean-lower'
+                    ? 'text-[clamp(0.7rem,3.2cqw,1.05rem)] font-semibold'
+                    : 'text-[clamp(0.85rem,4.4cqw,1.5rem)] font-extrabold',
+                )}
+                style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,1)' }}
+              >
+                {sampleWords.map((word, i) => {
+                  // Frozen mid-line: karaoke has filled the first half, bold pop
+                  // is landing on one word, clean lower third never highlights.
+                  const highlight =
+                    project.captionStyle === 'karaoke'
+                      ? i < Math.ceil(sampleWords.length / 2)
+                      : project.captionStyle === 'bold-pop' && i === Math.floor(sampleWords.length / 2);
+                  return (
+                    <span key={`${word}-${i}`} className={highlight ? 'text-cyan-300' : 'text-white'}>
+                      {word}
+                      {i < sampleWords.length - 1 ? ' ' : ''}
+                    </span>
+                  );
+                })}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <p className="text-center text-[11px] leading-relaxed text-white/35">
+          Framing and captions preview live. Your scenes fill the frame after you generate.
+        </p>
       </div>
     );
   }
@@ -195,10 +279,11 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
     <div className={cn('space-y-3', className)}>
       <div
         className={cn(
-          'relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl',
+          'monitor-gate @container relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl',
           aspectClass[project.aspect],
         )}
       >
+        <GateMarks />
         {project.generationMode === 'video' && scene?.videoUrl ? (
           <video
             key={scene.id}
@@ -223,13 +308,13 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         )}
 
         {project.captionsEnabled && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-1/2 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
         )}
 
         {project.captionsEnabled && activeChunk && (
           <div
             className={cn(
-              'pointer-events-none absolute inset-x-0 flex justify-center px-[8%] text-center',
+              'pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[8%] text-center',
               project.captionStyle === 'clean-lower' ? 'bottom-[14%]' : 'bottom-[24%]',
             )}
           >
@@ -259,7 +344,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         )}
 
         {showTitle && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 px-[10%] text-center">
+          <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center bg-black/45 px-[10%] text-center">
             <p
               className="font-display text-[clamp(1rem,5cqw,1.8rem)] font-extrabold leading-tight text-white"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}
@@ -270,7 +355,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         )}
 
         {/* Scene ticks */}
-        <div className="absolute inset-x-0 top-0 flex gap-1 p-2">
+        <div className="absolute inset-x-0 top-0 z-[5] flex gap-1 p-2">
           {scenes.map((s, i) => (
             <div key={s.id} className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/20">
               <div
@@ -290,20 +375,21 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         <button
           type="button"
           onClick={() => (isPlaying ? stop() : setIsPlaying(true))}
-          className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:border-cyan-400/40"
+          className="focus-ring flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:border-cyan-400/40"
         >
           {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          {isPlaying ? 'Pause' : 'Preview'}
+          {isPlaying ? 'Pause' : 'Play'}
         </button>
         <button
           type="button"
           onClick={reset}
           title="Restart"
-          className="rounded-lg border border-white/10 bg-white/5 p-2 text-white/60 transition-colors hover:border-white/25 hover:text-white"
+          aria-label="Restart preview"
+          className="focus-ring rounded-lg border border-white/10 bg-white/5 p-2 text-white/60 transition-colors hover:border-white/25 hover:text-white"
         >
           <RotateCcw className="h-4 w-4" />
         </button>
-        <span className="ml-auto text-xs tabular-nums text-white/40">
+        <span className="ml-auto font-display text-xs tabular-nums text-white/45">
           {formatDuration(elapsed)} / {formatDuration(totalDuration)}
         </span>
       </div>

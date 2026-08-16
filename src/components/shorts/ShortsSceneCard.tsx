@@ -97,18 +97,21 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
       )}
     >
       <div className="flex gap-4">
-        {/* Drag handle + index */}
-        <div className="flex flex-col items-center gap-2 pt-1">
+        {/* Slate: cut order is real information here, so the number is the anchor
+            and the drag handle sits under it. */}
+        <div className="flex flex-col items-center gap-1.5 pt-0.5">
+          <span className="font-display text-sm font-extrabold tabular-nums leading-none text-white/40">
+            {String(index + 1).padStart(2, '0')}
+          </span>
           <button
             type="button"
             {...attributes}
             {...listeners}
             aria-label={`Reorder scene ${index + 1}`}
-            className="cursor-grab touch-none rounded-md p-1 text-white/30 transition-colors hover:text-white/70 active:cursor-grabbing"
+            className="focus-ring cursor-grab touch-none rounded-md p-1 text-white/25 transition-colors hover:text-white/70 active:cursor-grabbing"
           >
             <GripVertical className="h-4 w-4" />
           </button>
-          <span className="text-[11px] font-bold tabular-nums text-white/30">{index + 1}</span>
         </div>
 
         {/* Thumbnail */}
@@ -140,7 +143,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             onClick={() => onRegenerateVisual(scene.id)}
             disabled={disabled || visualBusy}
             title={isVideo ? 'Regenerate video' : 'Regenerate image'}
-            className="absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 opacity-0 transition-all hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
+            className="focus-ring absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 opacity-0 transition-all hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
           >
             <RefreshCw className="h-3 w-3" />
           </button>
@@ -154,7 +157,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             disabled={disabled}
             rows={2}
             placeholder="Narration for this scene"
-            className="w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
+            className="focus-ring w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
           />
 
           <div className="flex flex-wrap items-center gap-2">
@@ -162,7 +165,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               type="button"
               onClick={togglePlay}
               disabled={!scene.audioUrl || disabled}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
               {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
               {scene.audioDuration ? `${scene.audioDuration.toFixed(1)}s` : 'Preview'}
@@ -173,7 +176,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               onClick={() => onRegenerateAudio(scene.id)}
               disabled={disabled || audioBusy}
               title="Regenerate voiceover for this scene"
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
               {audioBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               Voice
@@ -182,7 +185,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             <button
               type="button"
               onClick={() => setShowPrompt((v) => !v)}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-white/25 hover:text-white"
             >
               <ImageIcon className="h-3 w-3" />
               {showPrompt ? 'Hide prompt' : isVideo ? 'Video prompt' : 'Image prompt'}
@@ -195,7 +198,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               onClick={() => onDelete(scene.id)}
               disabled={disabled}
               title="Delete scene"
-              className="rounded-lg border border-white/10 p-1.5 text-white/40 transition-colors hover:border-red-400/40 hover:text-red-300 disabled:opacity-30"
+              className="focus-ring rounded-lg border border-white/10 p-1.5 text-white/40 transition-colors hover:border-red-400/40 hover:text-red-300 disabled:opacity-30"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -209,13 +212,13 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                 disabled={disabled}
                 rows={2}
                 placeholder={isVideo ? 'Describe the video clip for this scene' : 'Describe the image for this scene'}
-                className="w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-white/80 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
+                className="focus-ring w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-white/80 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => onRewritePrompt(scene.id)}
                 disabled={disabled}
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
+                className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
               >
                 <Wand2 className="h-3 w-3" />
                 Rewrite with AI

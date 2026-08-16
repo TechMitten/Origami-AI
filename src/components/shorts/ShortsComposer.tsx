@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Music, Captions, Loader2, KeyRound, Wand2, Type } from 'lucide-react';
+import { Music, Captions, KeyRound, Type, Cpu, Cloud } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ModelSelectorGrid } from '../ModelSelectorGrid';
@@ -16,6 +16,7 @@ import {
   VISUAL_STYLES,
   type ShortsProject,
 } from '../../services/shortsProject';
+import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -29,7 +30,6 @@ interface ShortsComposerProps {
   onClearMusic: () => void;
   onOpenSettings: () => void;
   isBusy: boolean;
-  busyLabel?: string;
   hasImageKey: boolean;
   useOpenAI: boolean;
   onToggleOpenAI: (value: boolean) => void;
@@ -39,17 +39,37 @@ interface ShortsComposerProps {
   onChangeWebLlmModel: (modelId: string) => void;
 }
 
-const SegmentedGroup: React.FC<{
+/**
+ * A department of the shoot. The rule running out of the label is the divider —
+ * these groups replace what used to be eight identically-weighted cards.
+ */
+const Department: React.FC<{
   label: string;
+  hint?: string;
   children: React.ReactNode;
-}> = ({ label, children }) => (
-  <div className="space-y-2">
-    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">{label}</span>
-    <div className="flex flex-wrap gap-2">{children}</div>
+}> = ({ label, hint, children }) => (
+  <section className="space-y-4">
+    <div className="flex items-baseline gap-3">
+      <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{label}</h2>
+      {hint && <span className="shrink-0 text-[11px] text-white/25">{hint}</span>}
+      <span className="h-px flex-1 bg-gradient-to-r from-white/12 to-transparent" />
+    </div>
+    {children}
+  </section>
+);
+
+const Field: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({
+  label,
+  children,
+  className,
+}) => (
+  <div className={className}>
+    <span className="mb-1.5 block text-xs font-medium text-white/45">{label}</span>
+    {children}
   </div>
 );
 
-const SegmentedButton: React.FC<{
+const Chip: React.FC<{
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
@@ -59,11 +79,12 @@ const SegmentedButton: React.FC<{
     type="button"
     onClick={onClick}
     disabled={disabled}
+    aria-pressed={active}
     className={cn(
-      'rounded-lg border px-4 py-2 text-sm font-medium transition-all',
+      'focus-ring rounded-lg border px-3.5 py-2 text-sm transition-colors',
       active
-        ? 'border-cyan-400/60 bg-cyan-400/10 text-cyan-200 shadow-[0_0_20px_-8px_rgba(34,211,238,0.8)]'
-        : 'border-white/10 bg-white/5 text-white/70 hover:border-white/25 hover:text-white',
+        ? 'border-cyan-400/60 bg-cyan-400/10 font-semibold text-cyan-200'
+        : 'border-white/10 bg-white/[0.03] font-medium text-white/65 hover:border-white/25 hover:text-white',
       disabled && 'cursor-not-allowed opacity-40',
     )}
   >
@@ -71,9 +92,116 @@ const SegmentedButton: React.FC<{
   </button>
 );
 
-const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.2em] text-white/40">{children}</span>
+/**
+ * Two mutually exclusive modes rendered as one track, so the pair reads as a
+ * switch. Real radio inputs rather than buttons: arrow-key navigation between
+ * the options then comes from the browser instead of hand-rolled ARIA.
+ */
+const ModeSwitch: React.FC<{
+  name: string;
+  options: Array<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  label: string;
+}> = ({ name, options, value, onChange, disabled, label }) => (
+  <fieldset
+    disabled={disabled}
+    className={cn(
+      'inline-flex rounded-lg border border-white/10 bg-black/20 p-1',
+      disabled && 'opacity-40',
+    )}
+  >
+    <legend className="sr-only">{label}</legend>
+    {options.map((option) => (
+      <label
+        key={option.value}
+        className={cn(
+          'cursor-pointer rounded-md px-3.5 py-1.5 text-sm transition-colors',
+          'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cyan-400',
+          value === option.value
+            ? 'bg-cyan-400/15 font-semibold text-cyan-200'
+            : 'font-medium text-white/50 hover:text-white',
+          disabled && 'cursor-not-allowed',
+        )}
+      >
+        <input
+          type="radio"
+          name={name}
+          value={option.value}
+          checked={value === option.value}
+          onChange={() => onChange(option.value)}
+          className="sr-only"
+        />
+        {option.label}
+      </label>
+    ))}
+  </fieldset>
 );
+
+const Toggle: React.FC<{
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  children?: React.ReactNode;
+}> = ({ checked, onChange, disabled, title, description, icon, children }) => (
+  <div
+    className={cn(
+      'rounded-xl border p-4 transition-colors',
+      checked ? 'border-white/[0.14] bg-white/[0.05]' : 'border-white/[0.08] bg-white/[0.02]',
+    )}
+  >
+    <label className="flex cursor-pointer items-start justify-between gap-3">
+      <span className="min-w-0">
+        <span className="flex items-center gap-2 text-sm font-semibold text-white">
+          <span className={checked ? 'text-cyan-300' : 'text-white/30'}>{icon}</span>
+          {title}
+        </span>
+        <span className="mt-1 block text-xs leading-relaxed text-white/40">{description}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className={cn(
+          'relative mt-0.5 h-5 w-9 shrink-0 rounded-full border transition-colors',
+          'peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-cyan-400',
+          checked ? 'border-cyan-400/60 bg-cyan-400/25' : 'border-white/15 bg-white/5',
+          disabled && 'opacity-40',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-all',
+            checked ? 'left-[18px] bg-cyan-300' : 'left-[3px] bg-white/40',
+          )}
+        />
+      </span>
+    </label>
+    {children}
+  </div>
+);
+
+const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="flex items-start gap-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.08] px-3 py-2 text-xs leading-relaxed text-amber-200/90">
+    {children}
+  </p>
+);
+
+/** Proportional glyph so the aspect chips show their shape, not just name it. */
+const ratioGlyph: Record<ShortsAspect, string> = {
+  '9:16': 'h-4 w-[9px]',
+  '16:9': 'h-[9px] w-4',
+  '1:1': 'h-3.5 w-3.5',
+};
 
 export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   project,
@@ -83,7 +211,6 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onClearMusic,
   onOpenSettings,
   isBusy,
-  busyLabel,
   hasImageKey,
   useOpenAI,
   onToggleOpenAI,
@@ -93,14 +220,12 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onChangeWebLlmModel,
 }) => {
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
-
-
+  const isVideo = project.generationMode === 'video';
 
   return (
-    <div className="space-y-8">
-      {/* Topic */}
-      <div>
-        <FieldLabel>What is your short about?</FieldLabel>
+    <div className="space-y-9">
+      {/* --- Script ---------------------------------------------------------- */}
+      <Department label="Script">
         <div className="relative">
           <textarea
             value={project.topic}
@@ -110,321 +235,303 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             }}
             rows={4}
             disabled={isBusy}
+            aria-label="Topic for your short"
             placeholder="e.g. Why octopuses have three hearts — and what that means for how they move"
-            className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 p-5 text-base text-white outline-none backdrop-blur-md transition-all placeholder:text-white/25 focus:border-cyan-400/40 focus:bg-white/[0.07] disabled:opacity-50"
+            className="focus-ring w-full resize-none rounded-2xl border border-white/[0.14] bg-white/[0.06] p-5 pb-9 text-base leading-relaxed text-white outline-none backdrop-blur-md transition-colors placeholder:text-white/25 focus:border-white/25 disabled:opacity-50"
           />
-          <span className="pointer-events-none absolute bottom-3 right-4 text-[11px] text-white/25">
-            {project.topic.trim().length > 2 ? 'Ctrl+Enter to generate' : ''}
-          </span>
-        </div>
-      </div>
-
-      {/* Visuals */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <span className="text-sm font-semibold text-white">Visuals</span>
-            <p className="mt-1 text-xs text-white/40">
-              {project.generationMode === 'video'
-                ? 'Pollinations generates a short AI video clip per scene.'
-                : 'Pollinations generates a still image per scene, animated with Ken Burns.'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <SegmentedButton
-              active={project.generationMode !== 'video'}
-              onClick={() => onChange({ generationMode: 'image' })}
-              disabled={isBusy}
-            >
-              AI Images
-            </SegmentedButton>
-            <SegmentedButton
-              active={project.generationMode === 'video'}
-              onClick={() => onChange({ generationMode: 'video' })}
-              disabled={isBusy}
-            >
-              AI Video
-            </SegmentedButton>
-          </div>
-        </div>
-        {project.generationMode === 'video' && (
-          <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-            Video generation is slower and typically costs more per scene than stills.
-          </p>
-        )}
-      </div>
-
-      {/* Format */}
-      <div className="grid gap-6 sm:grid-cols-2">
-        <SegmentedGroup label="Format">
-          {ASPECT_OPTIONS.map((option) => (
-            <SegmentedButton
-              key={option.id}
-              active={project.aspect === option.id}
-              onClick={() => onChange({ aspect: option.id })}
-              disabled={isBusy}
-            >
-              <span className="block">{option.label}</span>
-              <span className="block text-[10px] font-normal text-white/40">{option.hint}</span>
-            </SegmentedButton>
-          ))}
-        </SegmentedGroup>
-
-        <SegmentedGroup label="Target length">
-          {DURATION_OPTIONS.map((seconds) => (
-            <SegmentedButton
-              key={seconds}
-              active={project.targetDurationSec === seconds}
-              onClick={() => onChange({ targetDurationSec: seconds })}
-              disabled={isBusy}
-            >
-              {seconds}s
-            </SegmentedButton>
-          ))}
-        </SegmentedGroup>
-      </div>
-
-      {/* Look and voice */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <FieldLabel>Visual style</FieldLabel>
-          <Dropdown
-            options={VISUAL_STYLES.map((s) => ({ id: s.prompt, name: s.name }))}
-            value={project.visualStyle}
-            onChange={(value) => onChange({ visualStyle: value })}
-            disabled={isBusy}
-          />
-        </div>
-        <div>
-          <FieldLabel>Narration tone</FieldLabel>
-          <Dropdown
-            options={TONE_OPTIONS.map((t) => ({ id: t.id, name: t.name }))}
-            value={project.tone}
-            onChange={(value) => onChange({ tone: value as ShortsProject['tone'] })}
-            disabled={isBusy}
-          />
-        </div>
-        <div>
-          <FieldLabel>Voice</FieldLabel>
-          <Dropdown
-            options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
-            value={project.voice}
-            onChange={(value) => onChange({ voice: value })}
-            disabled={isBusy}
-          />
-        </div>
-        <div>
-          <FieldLabel>{project.generationMode === 'video' ? 'Video model' : 'Image model'}</FieldLabel>
-          {project.generationMode === 'video' ? (
-            <Dropdown
-              options={POLLINATIONS_VIDEO_MODELS.map((m) => ({ id: m.id, name: m.name }))}
-              value={project.videoModel}
-              onChange={(value) => onChange({ videoModel: value })}
-              disabled={isBusy}
-            />
-          ) : (
-            <Dropdown
-              options={POLLINATIONS_IMAGE_MODELS.map((m) => ({ id: m.id, name: m.name }))}
-              value={project.imageModel}
-              onChange={(value) => onChange({ imageModel: value })}
-              disabled={isBusy}
-            />
+          {project.topic.trim().length > 2 && (
+            <span className="pointer-events-none absolute bottom-3.5 right-4 text-[11px] text-white/25">
+              Ctrl+Enter to generate
+            </span>
           )}
         </div>
-      </div>
 
-      {/* Captions, title card, music */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-          <label className="flex cursor-pointer items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Captions className="h-4 w-4 text-cyan-300" />
-              Captions
-            </span>
-            <input
-              type="checkbox"
-              checked={project.captionsEnabled}
-              onChange={(e) => onChange({ captionsEnabled: e.target.checked })}
+        <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <Field label="Target length">
+            <div className="flex flex-wrap gap-2">
+              {DURATION_OPTIONS.map((seconds) => (
+                <Chip
+                  key={seconds}
+                  active={project.targetDurationSec === seconds}
+                  onClick={() => onChange({ targetDurationSec: seconds })}
+                  disabled={isBusy}
+                >
+                  <span className="tabular-nums">{seconds}s</span>
+                </Chip>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Narration tone">
+            <Dropdown
+              options={TONE_OPTIONS.map((t) => ({ id: t.id, name: t.name }))}
+              value={project.tone}
+              onChange={(value) => onChange({ tone: value as ShortsProject['tone'] })}
               disabled={isBusy}
-              className="h-4 w-4 accent-cyan-400"
             />
-          </label>
-          <p className="mt-1 text-xs text-white/40">Burned into the video, timed to the voiceover.</p>
-          {project.captionsEnabled && (
-            <div className="mt-3">
+          </Field>
+        </div>
+      </Department>
+
+      {/* --- Camera ---------------------------------------------------------- */}
+      <Department label="Camera" hint="what is in frame">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-md text-sm leading-relaxed text-white/45">
+            {isVideo
+              ? 'Each scene becomes a short generated clip.'
+              : 'Each scene becomes a still, panned and zoomed on screen.'}
+          </p>
+          <ModeSwitch
+            name="shorts-visual-source"
+            label="Visual source"
+            value={project.generationMode}
+            onChange={(value) => onChange({ generationMode: value as ShortsProject['generationMode'] })}
+            disabled={isBusy}
+            options={[
+              { value: 'image', label: 'Stills' },
+              { value: 'video', label: 'Clips' },
+            ]}
+          />
+        </div>
+
+        {isVideo && <Notice>Clips take longer to generate and cost more per scene than stills.</Notice>}
+
+        <Field label="Frame">
+          <div className="flex flex-wrap gap-2">
+            {ASPECT_OPTIONS.map((option) => (
+              <Chip
+                key={option.id}
+                active={project.aspect === option.id}
+                onClick={() => onChange({ aspect: option.id })}
+                disabled={isBusy}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'shrink-0 rounded-[2px] border',
+                      ratioGlyph[option.id],
+                      project.aspect === option.id ? 'border-cyan-300/80' : 'border-white/35',
+                    )}
+                  />
+                  <span className="text-left">
+                    <span className="block leading-tight">{option.label}</span>
+                    <span className="block text-[10px] font-normal tabular-nums text-white/35">{option.hint}</span>
+                  </span>
+                </span>
+              </Chip>
+            ))}
+          </div>
+        </Field>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Visual style">
+            <Dropdown
+              options={VISUAL_STYLES.map((s) => ({ id: s.prompt, name: s.name }))}
+              value={project.visualStyle}
+              onChange={(value) => onChange({ visualStyle: value })}
+              disabled={isBusy}
+            />
+          </Field>
+          <Field label={isVideo ? 'Video model' : 'Image model'}>
+            {isVideo ? (
               <Dropdown
-                options={CAPTION_STYLES.map((s) => ({ id: s.id, name: s.name }))}
-                value={project.captionStyle}
-                onChange={(value) => onChange({ captionStyle: value as ShortsProject['captionStyle'] })}
+                options={POLLINATIONS_VIDEO_MODELS.map((m) => ({ id: m.id, name: m.name }))}
+                value={project.videoModel}
+                onChange={(value) => onChange({ videoModel: value })}
                 disabled={isBusy}
               />
-            </div>
-          )}
+            ) : (
+              <Dropdown
+                options={POLLINATIONS_IMAGE_MODELS.map((m) => ({ id: m.id, name: m.name }))}
+                value={project.imageModel}
+                onChange={(value) => onChange({ imageModel: value })}
+                disabled={isBusy}
+              />
+            )}
+          </Field>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-          <label className="flex cursor-pointer items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Type className="h-4 w-4 text-cyan-300" />
-              Title card
+        {!hasImageKey && (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-100/90">
+            <KeyRound className="h-4 w-4 shrink-0 text-amber-300/80" />
+            <span className="min-w-0 flex-1 leading-relaxed">
+              You are not connected to Pollinations. {isVideo ? 'Clips' : 'Stills'} will be requested through this
+              server, which works only if it has its own key.
             </span>
-            <input
-              type="checkbox"
-              checked={project.showTitleCard}
-              onChange={(e) => onChange({ showTitleCard: e.target.checked })}
-              disabled={isBusy}
-              className="h-4 w-4 accent-cyan-400"
-            />
-          </label>
-          <p className="mt-1 text-xs text-white/40">Show the title over the first 1.6 seconds.</p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-          <span className="flex items-center gap-2 text-sm font-semibold text-white">
-            <Music className="h-4 w-4 text-cyan-300" />
-            Background music
-          </span>
-          {project.music ? (
-            <div className="mt-2 space-y-3">
-              <p className="truncate text-xs text-white/60" title={project.music.fileName}>
-                {project.music.fileName}
-              </p>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min={0}
-                  max={0.5}
-                  step={0.01}
-                  value={project.music.volume}
-                  onChange={(e) =>
-                    onChange({ music: { ...project.music!, volume: Number(e.target.value) } })
-                  }
-                  disabled={isBusy}
-                  className="flex-1 accent-cyan-400"
-                />
-                <span className="w-10 text-right text-xs tabular-nums text-white/50">
-                  {Math.round(project.music.volume * 100)}%
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={onPickMusic}
-                  disabled={isBusy}
-                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/25 hover:text-white disabled:opacity-40"
-                >
-                  Change
-                </button>
-                <button
-                  type="button"
-                  onClick={onClearMusic}
-                  disabled={isBusy}
-                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition-colors hover:border-red-400/40 hover:text-red-300 disabled:opacity-40"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
             <button
               type="button"
-              onClick={onPickMusic}
-              disabled={isBusy}
-              className="mt-3 w-full rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-40"
+              onClick={onOpenSettings}
+              className="focus-ring rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
             >
-              Browse royalty-free tracks
+              Connect
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* Script engine */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Wand2 className="h-4 w-4 text-cyan-300" />
-              Script engine
-            </span>
-            <p className="mt-1 text-xs text-white/40">
-              {useOpenAI
-                ? 'Using your OpenAI-compatible endpoint.'
-                : `Running locally on WebGPU · ${webLlmModelLabel}`}
-            </p>
           </div>
-          <div className="flex gap-2">
-            <SegmentedButton active={!useOpenAI} onClick={() => onToggleOpenAI(false)} disabled={isBusy}>
-              Local (WebLLM)
-            </SegmentedButton>
-            <SegmentedButton active={useOpenAI} onClick={() => onToggleOpenAI(true)} disabled={isBusy}>
-              API endpoint
-            </SegmentedButton>
-          </div>
-        </div>
-        {useOpenAI && !openAIConfigured && (
-          <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-            No endpoint configured yet.{' '}
-            <button type="button" onClick={onOpenSettings} className="underline underline-offset-2">
-              Add a base URL, model and key in Settings
-            </button>
-            .
-          </p>
         )}
-        {!useOpenAI && (
-          <div className="mt-4">
-            <FieldLabel>WebLLM model</FieldLabel>
-            <ModelSelectorGrid
-              models={AVAILABLE_WEB_LLM_MODELS}
-              value={webLlmModel ?? ''}
-              onChange={onChangeWebLlmModel}
+      </Department>
+
+      {/* --- Sound ----------------------------------------------------------- */}
+      <Department label="Sound">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Voice">
+            <Dropdown
+              options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
+              value={project.voice}
+              onChange={(value) => onChange({ voice: value })}
               disabled={isBusy}
             />
-          </div>
-        )}
-      </div>
+          </Field>
 
-      {/* Image key notice */}
-      {!hasImageKey && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
-          <KeyRound className="h-4 w-4 shrink-0" />
-          <span className="flex-1">
-            Not connected to Pollinations. {project.generationMode === 'video' ? 'Video' : 'Image'} generation will
-            go through this server, which only works if it has a key configured.
-          </span>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
-          >
-            Connect
-          </button>
+          <Field label="Background music">
+            {project.music ? (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div className="flex items-center gap-2">
+                  <Music className="h-3.5 w-3.5 shrink-0 text-white/35" />
+                  <p className="min-w-0 flex-1 truncate text-xs text-white/70" title={project.music.fileName}>
+                    {project.music.fileName}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onPickMusic}
+                    disabled={isBusy}
+                    className="focus-ring rounded px-1.5 py-0.5 text-xs text-white/50 transition-colors hover:text-white disabled:opacity-40"
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClearMusic}
+                    disabled={isBusy}
+                    className="focus-ring rounded px-1.5 py-0.5 text-xs text-white/50 transition-colors hover:text-red-300 disabled:opacity-40"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <label className="text-[11px] text-white/35" htmlFor="shorts-music-volume">
+                    Level
+                  </label>
+                  <input
+                    id="shorts-music-volume"
+                    type="range"
+                    min={0}
+                    max={0.5}
+                    step={0.01}
+                    value={project.music.volume}
+                    onChange={(e) => onChange({ music: { ...project.music!, volume: Number(e.target.value) } })}
+                    disabled={isBusy}
+                    className="focus-ring h-1 flex-1 accent-cyan-400"
+                  />
+                  <span className="w-9 text-right text-xs tabular-nums text-white/50">
+                    {Math.round(project.music.volume * 100)}%
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onPickMusic}
+                disabled={isBusy}
+                className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 px-3 py-2.5 text-sm text-white/55 transition-colors hover:border-white/30 hover:text-white disabled:opacity-40"
+              >
+                <Music className="h-3.5 w-3.5" />
+                Browse royalty-free tracks
+              </button>
+            )}
+          </Field>
         </div>
-      )}
+      </Department>
 
-      {/* Generate */}
-      <button
-        type="button"
-        onClick={onGenerate}
-        disabled={!canGenerate}
-        className={cn(
-          'group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl px-8 py-5 text-base font-bold transition-all',
-          canGenerate
-            ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
-            : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
+      {/* --- Finish ---------------------------------------------------------- */}
+      <Department label="Finish" hint="captions and titles">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Toggle
+            checked={project.captionsEnabled}
+            onChange={(value) => onChange({ captionsEnabled: value })}
+            disabled={isBusy}
+            title="Captions"
+            description="Burned into the video, timed to the voiceover."
+            icon={<Captions className="h-4 w-4" />}
+          >
+            {project.captionsEnabled && (
+              <div className="mt-3">
+                <Dropdown
+                  options={CAPTION_STYLES.map((s) => ({ id: s.id, name: s.name }))}
+                  value={project.captionStyle}
+                  onChange={(value) => onChange({ captionStyle: value as ShortsProject['captionStyle'] })}
+                  disabled={isBusy}
+                />
+              </div>
+            )}
+          </Toggle>
+
+          <Toggle
+            checked={project.showTitleCard}
+            onChange={(value) => onChange({ showTitleCard: value })}
+            disabled={isBusy}
+            title="Title card"
+            description="Holds the title over the opening 1.6 seconds."
+            icon={<Type className="h-4 w-4" />}
+          />
+        </div>
+      </Department>
+
+      {/* --- Engine ---------------------------------------------------------- */}
+      <Department label="Engine" hint="what writes the script">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-sm text-white/45">
+            {useOpenAI ? (
+              <>
+                <Cloud className="h-3.5 w-3.5 shrink-0 text-white/30" />
+                Your own endpoint writes the script.
+              </>
+            ) : (
+              <>
+                <Cpu className="h-3.5 w-3.5 shrink-0 text-white/30" />
+                <span className="min-w-0">
+                  Runs on this machine via WebGPU · <span className="text-white/60">{webLlmModelLabel}</span>
+                </span>
+              </>
+            )}
+          </p>
+          <ModeSwitch
+            name="shorts-script-engine"
+            label="Script engine"
+            value={useOpenAI ? 'api' : 'local'}
+            onChange={(value) => onToggleOpenAI(value === 'api')}
+            disabled={isBusy}
+            options={[
+              { value: 'local', label: 'On device' },
+              { value: 'api', label: 'API endpoint' },
+            ]}
+          />
+        </div>
+
+        {useOpenAI && !openAIConfigured && (
+          <Notice>
+            <span>
+              No endpoint yet.{' '}
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="focus-ring rounded font-semibold underline underline-offset-2"
+              >
+                Add a base URL, model and key
+              </button>{' '}
+              to use this option.
+            </span>
+          </Notice>
         )}
-      >
-        {isBusy ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            {busyLabel || 'Generating...'}
-          </>
-        ) : (
-          <>
-            <Sparkles className="h-5 w-5" />
-            Generate short
-          </>
+
+        {!useOpenAI && (
+          <ModelSelectorGrid
+            models={AVAILABLE_WEB_LLM_MODELS}
+            value={webLlmModel ?? ''}
+            onChange={onChangeWebLlmModel}
+            disabled={isBusy}
+          />
         )}
-      </button>
+      </Department>
     </div>
   );
 };

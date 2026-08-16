@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Clapperboard, Download, Film, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, RotateCcw, Sparkles } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 import backgroundImage from '../assets/images/background.jpg';
 import { Footer } from '../components/Footer';
@@ -71,6 +73,22 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 };
 
 type Stage = 'compose' | 'storyboard';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+/**
+ * The four stages a short passes through, and where each one actually runs.
+ * Rendered in the hero so the single network hop is visible up front rather
+ * than buried in a paragraph — and it tracks the configured script engine.
+ */
+const pipelineStages = (scriptIsLocal: boolean): Array<{ label: string; where: string; local: boolean }> => [
+  { label: 'Script', where: scriptIsLocal ? 'on device' : 'your endpoint', local: scriptIsLocal },
+  { label: 'Frames', where: 'Pollinations', local: false },
+  { label: 'Voice', where: 'on device', local: true },
+  { label: 'MP4', where: 'on device', local: true },
+];
 
 const markWebLLMAsCached = () => {
   try {
@@ -682,6 +700,7 @@ export const ShortsPage: React.FC = () => {
   }, []);
 
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
+  const canGenerate = project.topic.trim().length > 2 && !isBusy;
 
   return (
     <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pt-8 text-white">
@@ -714,111 +733,180 @@ export const ShortsPage: React.FC = () => {
       />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 sm:px-8">
-        {/* Hero */}
+        {/* Hero: the pipeline itself, with the one network hop marked. */}
         <div className="mb-10 mt-4">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-200">
-            <Clapperboard className="h-3 w-3" />
-            Shorts
-          </div>
-          <h1 className="font-display text-3xl font-extrabold leading-tight text-white sm:text-4xl">
-            Turn any topic into a viral short
+          <h1 className="font-display text-[clamp(1.75rem,4.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-white">
+            From a topic to a finished short.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/50">
-            A local WebGPU model writes the script, Pollinations generates the visuals, and Kokoro voices it —
-            then it all renders to MP4 in your browser. Nothing but the image prompts leaves your device.
+
+          <ul className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {pipelineStages(!useOpenAI).map((step, i) => (
+              <li key={step.label} className="flex items-center gap-4">
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className={cn('h-1.5 w-1.5 rounded-full', step.local ? 'bg-cyan-400' : 'bg-amber-400')}
+                  />
+                  <span className="text-xs font-semibold text-white/75">{step.label}</span>
+                  <span className="text-xs text-white/35">{step.where}</span>
+                </span>
+                {i < 3 && <span aria-hidden className="h-3 w-px bg-white/12" />}
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-3 text-xs leading-relaxed text-white/35">
+            Only the image prompts leave this device. Everything else runs in the tab.
           </p>
         </div>
 
-        {stage === 'compose' ? (
-          <ShortsComposer
-            project={project}
-            onChange={patchProject}
-            onGenerate={handleGenerate}
-            onPickMusic={() => setIsMusicPickerOpen(true)}
-            onClearMusic={() => patchProject({ music: null })}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            isBusy={isBusy}
-            busyLabel={busyLabel}
-            hasImageKey={!!pollinationsKey}
-            useOpenAI={useOpenAI}
-            onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
-            openAIConfigured={openAIConfigured}
-            webLlmModelLabel={webLlmModelLabel}
-            webLlmModel={globalSettings.webLlmModel}
-            onChangeWebLlmModel={(modelId) => void saveSettings({ ...globalSettings, webLlmModel: modelId })}
-          />
-        ) : (
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-            {/* Storyboard */}
-            <div className="min-w-0 space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* The bench: controls on the left, a live monitor on the right, in both stages. */}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
+          <div className="min-w-0">
+            {stage === 'compose' ? (
+              <ShortsComposer
+                project={project}
+                onChange={patchProject}
+                onGenerate={handleGenerate}
+                onPickMusic={() => setIsMusicPickerOpen(true)}
+                onClearMusic={() => patchProject({ music: null })}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                isBusy={isBusy}
+                hasImageKey={!!pollinationsKey}
+                useOpenAI={useOpenAI}
+                onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
+                openAIConfigured={openAIConfigured}
+                webLlmModelLabel={webLlmModelLabel}
+                webLlmModel={globalSettings.webLlmModel}
+                onChangeWebLlmModel={(modelId) => void saveSettings({ ...globalSettings, webLlmModel: modelId })}
+              />
+            ) : (
+              <div className="space-y-5">
+                <div className="flex items-baseline gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setStage('compose')}
+                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Setup
+                  </button>
+                  <span aria-hidden className="h-px w-6 shrink-0 bg-white/12" />
+                  <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
+                    Cut
+                  </h2>
+                  <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/12 to-transparent" />
+                </div>
+
+                {isBusy && (
+                  <div
+                    role="status"
+                    className="flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-cyan-400/[0.08] px-4 py-3 text-sm text-cyan-100"
+                  >
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    {busyLabel || 'Working...'}
+                  </div>
+                )}
+
+                <ShortsStoryboard
+                  scenes={project.scenes}
+                  aspect={project.aspect}
+                  generationMode={project.generationMode}
+                  disabled={renderPhase === 'rendering'}
+                  onReorder={(scenes) => patchProject({ scenes })}
+                  onUpdateScene={patchScene}
+                  onRegenerateVisual={handleRegenerateVisual}
+                  onRegenerateAudio={handleRegenerateAudio}
+                  onRewritePrompt={handleRewritePrompt}
+                  onDeleteScene={handleDeleteScene}
+                  onAddScene={handleAddScene}
+                />
+              </div>
+            )}
+          </div>
+
+          <aside className="space-y-4 lg:sticky lg:top-24 lg:h-fit lg:self-start">
+            <ShortsPreviewPlayer project={project} />
+
+            {stage === 'compose' ? (
+              <>
                 <button
                   type="button"
-                  onClick={() => setStage('compose')}
-                  className="flex items-center gap-2 text-sm text-white/50 transition-colors hover:text-white"
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  className={cn(
+                    'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
+                    canGenerate
+                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
+                      : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
+                  )}
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to setup
+                  {isBusy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {busyLabel || 'Generating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generate short
+                    </>
+                  )}
                 </button>
-                <span className="text-xs text-white/40">
-                  {readyScenes}/{project.scenes.length} scenes ready · {formatDuration(totalDuration)}
-                </span>
-              </div>
 
-              {isBusy && (
-                <div className="flex items-center gap-3 rounded-2xl border border-cyan-400/25 bg-cyan-400/10 px-5 py-3 text-sm text-cyan-100">
-                  <Sparkles className="h-4 w-4 animate-pulse" />
-                  {busyLabel || 'Working...'}
-                </div>
-              )}
-
-              <ShortsStoryboard
-                scenes={project.scenes}
-                aspect={project.aspect}
-                generationMode={project.generationMode}
-                disabled={renderPhase === 'rendering'}
-                onReorder={(scenes) => patchProject({ scenes })}
-                onUpdateScene={patchScene}
-                onRegenerateVisual={handleRegenerateVisual}
-                onRegenerateAudio={handleRegenerateAudio}
-                onRewritePrompt={handleRewritePrompt}
-                onDeleteScene={handleDeleteScene}
-                onAddScene={handleAddScene}
-              />
-            </div>
-
-            {/* Preview rail */}
-            <aside className="lg:sticky lg:top-24 lg:h-fit">
-              <ShortsPreviewPlayer project={project} />
-
-              <button
-                type="button"
-                onClick={handleRender}
-                disabled={!renderable || renderPhase === 'rendering' || isBusy}
-                className={
-                  renderable && renderPhase !== 'rendering' && !isBusy
-                    ? 'mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-6 py-4 text-sm font-bold text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] transition-all hover:brightness-110'
-                    : 'mt-5 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-bold text-white/30'
-                }
-              >
-                <Download className="h-4 w-4" />
-                Export MP4
-              </button>
-
-              {!renderable && !isBusy && (
-                <p className="mt-3 text-center text-xs text-white/35">
-                  Every scene needs a voiceover before export.
+                <p className="text-center text-xs text-white/35">
+                  {isBusy
+                    ? 'Keep this tab open while it works.'
+                    : project.topic.trim().length > 2
+                      ? `Aiming for about ${project.targetDurationSec} seconds.`
+                      : 'Describe your topic to get started.'}
                 </p>
-              )}
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-xs text-white/50">Voiced</span>
+                    <span className="font-display text-xs tabular-nums text-white/70">
+                      {readyScenes}/{project.scenes.length} · {formatDuration(totalDuration)}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-cyan-400 transition-[width] duration-300"
+                      style={{
+                        width: project.scenes.length
+                          ? `${(readyScenes / project.scenes.length) * 100}%`
+                          : '0%',
+                      }}
+                    />
+                  </div>
+                </div>
 
-              <p className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-white/30">
-                <Film className="mt-0.5 h-3 w-3 shrink-0" />
-                Caption timings are estimated from each clip's measured length — Kokoro does not provide
-                word-level timestamps.
-              </p>
-            </aside>
-          </div>
-        )}
+                <button
+                  type="button"
+                  onClick={handleRender}
+                  disabled={!renderable || renderPhase === 'rendering' || isBusy}
+                  className={cn(
+                    'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
+                    renderable && renderPhase !== 'rendering' && !isBusy
+                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
+                      : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
+                  )}
+                >
+                  <Download className="h-4 w-4" />
+                  Export MP4
+                </button>
+
+                <p className="text-center text-xs leading-relaxed text-white/35">
+                  {renderable
+                    ? "Caption timing is estimated from each clip's length, so long words can drift."
+                    : 'Every scene needs a voiceover before you can export.'}
+                </p>
+              </>
+            )}
+          </aside>
+        </div>
       </main>
 
       <Footer />
