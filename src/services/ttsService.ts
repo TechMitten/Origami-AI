@@ -11,6 +11,9 @@ export interface Voice {
   name: string;
 }
 
+// These are the 28 voices kokoro-js 1.2.1 actually ships. Its _validate_voice()
+// throws for anything outside this set, so entries must match the package's
+// frozen VOICES map exactly — a bad id rejects generateTTS() at call time.
 export const DEFAULT_VOICES: Voice[] = [
   // American Female
   { id: 'af_heart', name: 'Heart (Default)' },
@@ -44,15 +47,15 @@ export const DEFAULT_VOICES: Voice[] = [
   { id: 'bm_fable', name: 'Fable (British)' },
   { id: 'bm_george', name: 'George (British)' },
   { id: 'bm_lewis', name: 'Lewis (British)' },
-  // French
-  { id: 'ff_siwis', name: 'Siwis (French)' },
-  // High-pitched Female
-  { id: 'hf_alpha', name: 'HF Alpha (High Pitch)' },
-  { id: 'hf_beta', name: 'HF Beta (High Pitch)' },
-  // High-pitched Male
-  { id: 'hm_omega', name: 'HM Omega (High Pitch)' },
-  { id: 'hm_psi', name: 'HM Psi (High Pitch)' },
 ];
+
+/** Voice ids that are valid for the bundled kokoro-js build. */
+export const isSupportedVoice = (voiceId: string | null | undefined): boolean =>
+  !!voiceId && DEFAULT_VOICES.some((voice) => voice.id === voiceId);
+
+/** Falls back to the default voice when a stale/invalid id is loaded from settings. */
+export const resolveVoice = (voiceId: string | null | undefined): string =>
+  isSupportedVoice(voiceId) ? (voiceId as string) : 'af_heart';
 
 export const AVAILABLE_VOICES = DEFAULT_VOICES;
 

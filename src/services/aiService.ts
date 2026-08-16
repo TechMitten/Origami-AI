@@ -113,7 +113,7 @@ const splitIntoSentences = (text: string): string[] => {
   return sentences;
 };
 
-const cleanLLMResponse = (text: string): string => {
+export const cleanLLMResponse = (text: string): string => {
   let cleaned = text.trim();
 
   // Strip hidden reasoning blocks/tags that some models emit.

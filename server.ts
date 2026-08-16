@@ -60,6 +60,19 @@ async function createServer() {
   app.use('/api/llm/analyze-issue', express.json({ limit: '200mb' }));
   app.use(express.json({ limit: '2mb' }));
 
+  // A malformed body otherwise falls through to Express's default handler, which
+  // replies with an HTML error page. API clients parse these responses as JSON,
+  // so keep /api/* on JSON — matching the Cloudflare Pages Functions twins.
+  app.use('/api/', (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      return res.status(400).json({ error: 'Invalid JSON body' });
+    }
+    if ((err as { type?: string })?.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Request body too large' });
+    }
+    return next(err);
+  });
+
   // LLM / Gemini proxy endpoints
   // These keep API keys on the server (process.env.LLM_API_KEY) and avoid exposing them to the client bundle.
   const getServerApiKey = () => process.env.LLM_API_KEY || process.env.VITE_LLM_API_KEY || '';
@@ -331,6 +344,94 @@ async function createServer() {
     } catch (err) {
       console.error('[LLM Proxy] /api/llm/analyze-issue error:', err);
       res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Pollinations image proxy.
+  // Used only when the client has no user-supplied key; keeps POLLINATIONS_API_KEY
+  // server-side so an `sk_` secret key never reaches the browser bundle.
+  // Kept in sync with functions/api/pollinations/image.ts (Cloudflare Pages twin).
+  const POLLINATIONS_ALLOWED_MODELS = new Set([
+    'zimage', 'flux', 'seedream', 'seedream5', 'seedream5-pro', 'seedream-pro',
+    'nanobanana', 'nanobanana-2', 'krea', 'dreamshaper', 'gptimage', 'qwen-image',
+  ]);
+
+  app.post('/api/pollinations/image', async (req: Request, res: Response) => {
+    const apiKey = process.env.POLLINATIONS_API_KEY || '';
+    if (!apiKey) {
+      return res.status(501).json({
+        error: 'Image generation is not configured on this server. Add your Pollinations API key in Settings, or set POLLINATIONS_API_KEY on the host.',
+      });
+    }
+
+    const { prompt, model = 'zimage', width = 1024, height = 1024, seed = 0 } = req.body || {};
+
+    const cleanPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+    if (!cleanPrompt) return res.status(400).json({ error: 'prompt is required' });
+    if (cleanPrompt.length > 2000) return res.status(400).json({ error: 'prompt exceeds 2000 characters' });
+
+    if (typeof model !== 'string' || !POLLINATIONS_ALLOWED_MODELS.has(model)) {
+      return res.status(400).json({ error: `Unsupported model: ${model}` });
+    }
+
+    const asDimension = (value: unknown): number | null => {
+      const num = Math.round(Number(value));
+      if (!Number.isFinite(num) || num < 64 || num > 2048) return null;
+      return num;
+    };
+
+    const safeWidth = asDimension(width);
+    const safeHeight = asDimension(height);
+    if (safeWidth === null || safeHeight === null) {
+      return res.status(400).json({ error: 'width and height must be between 64 and 2048' });
+    }
+
+    const seedNum = Number(seed);
+    const safeSeed = Number.isFinite(seedNum) ? Math.abs(Math.round(seedNum)) % 2147483647 : 0;
+
+    const upstream = new URL(`https://gen.pollinations.ai/image/${encodeURIComponent(cleanPrompt)}`);
+    upstream.searchParams.set('model', model);
+    upstream.searchParams.set('width', String(safeWidth));
+    upstream.searchParams.set('height', String(safeHeight));
+    upstream.searchParams.set('seed', String(safeSeed));
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+
+    try {
+      const response = await fetch(upstream.toString(), {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        console.error(`[Pollinations Proxy] upstream ${response.status}: ${detail.slice(0, 200)}`);
+        return res.status(response.status).json({
+          error: detail.slice(0, 300) || `Pollinations request failed (${response.status})`,
+        });
+      }
+
+      res.setHeader('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.removeHeader('X-Powered-By');
+
+      if (!response.body) {
+        return res.status(502).json({ error: 'Pollinations returned an empty image' });
+      }
+
+      const nodeStream = Readable.fromWeb(response.body as any);
+      await pipeline(nodeStream, res);
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('[Pollinations Proxy] request timed out');
+        return res.status(504).json({ error: 'Image generation timed out' });
+      }
+      console.error('[Pollinations Proxy] error:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to proxy image generation' });
     }
   });
 

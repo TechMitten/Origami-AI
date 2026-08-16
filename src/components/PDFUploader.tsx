@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Layers, Loader2, BrainCircuit, Video, ArrowUpRight, Sparkles } from 'lucide-react';
+import { Layers, Loader2, BrainCircuit, Video, ArrowUpRight, Sparkles, Clapperboard } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -19,6 +19,7 @@ interface PDFUploaderProps {
   onOpenAssistant?: () => void;
   onOpenIssueReporter?: () => void;
   onOpenSlideEditor?: () => void;
+  onOpenShorts?: () => void;
 }
 
 interface SecondaryOption {
@@ -33,7 +34,7 @@ interface SecondaryOption {
   badge?: string;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor, onOpenShorts }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateSlidesModalOpen, setIsCreateSlidesModalOpen] = useState(false);
@@ -154,6 +155,16 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       onClick: onOpenAssistant,
       accent: 'foil',
     },
+    {
+      key: 'shorts',
+      icon: Clapperboard,
+      title: 'Shorts',
+      description: 'Turn any topic into a narrated, captioned vertical video.',
+      cta: 'Open shorts',
+      onClick: onOpenShorts,
+      accent: 'amber',
+      badge: 'Beta',
+    },
   ];
 
   // The OCR service reports progress per page (each page sweeps 0 → 100% and
@@ -267,7 +278,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       </div>
 
       {/* Secondary options */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {secondaryOptions.map((opt, i) => {
           const Icon = opt.icon;
           const isAmber = opt.accent === 'amber';

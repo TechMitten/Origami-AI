@@ -28,6 +28,12 @@ export interface GlobalSettings {
   useOpenAIFixScript?: boolean;
   useOpenAIForSlideGen?: boolean;
   issueReporterRecordingPromptEnabled?: boolean;
+  // Shorts
+  pollinationsApiKey?: string;
+  pollinationsImageModel?: string;
+  shortsVoice?: string;
+  shortsCaptionStyle?: 'bold-pop' | 'clean-lower' | 'karaoke';
+  shortsUseOpenAI?: boolean;
 }
 
 export interface AssistantChatAttachment {
@@ -280,6 +286,55 @@ export async function loadAssistantChatWorkspace(): Promise<AssistantChatWorkspa
 
 export async function saveAssistantChatWorkspace(workspace: AssistantChatWorkspace): Promise<void> {
   await setVal('keyval', 'assistantWorkspace', workspace);
+}
+
+/**
+ * Shorts drafts.
+ *
+ * Scene assets are held as Blobs, not `blob:` URLs — an object URL is scoped to
+ * the document that minted it, so a persisted URL string is dead on reload.
+ * The page mints fresh URLs from these Blobs after loading, mirroring the
+ * slide-asset approach above.
+ */
+export interface PersistedShortsScene {
+  id: string;
+  narration: string;
+  imagePrompt: string;
+  imageBlob?: Blob;
+  audioBlob?: Blob;
+  audioDuration?: number;
+  seed: number;
+}
+
+export interface PersistedShortsProject {
+  topic: string;
+  title: string;
+  aspect: '9:16' | '16:9' | '1:1';
+  targetDurationSec: number;
+  voice: string;
+  imageModel: string;
+  visualStyle: string;
+  tone: string;
+  captionsEnabled: boolean;
+  captionStyle: 'bold-pop' | 'clean-lower' | 'karaoke';
+  showTitleCard: boolean;
+  musicBlob?: Blob;
+  musicFileName?: string;
+  musicVolume?: number;
+  scenes: PersistedShortsScene[];
+  savedAt: number;
+}
+
+export async function loadShortsProject(): Promise<PersistedShortsProject | null> {
+  return getVal<PersistedShortsProject>('keyval', 'shortsProject');
+}
+
+export async function saveShortsProject(project: PersistedShortsProject): Promise<void> {
+  await setVal('keyval', 'shortsProject', project);
+}
+
+export async function clearShortsProject(): Promise<void> {
+  await deleteVal('keyval', 'shortsProject');
 }
 
 export function createAssistantChatTitle(messages: AssistantChatMessage[]): string {

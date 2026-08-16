@@ -8,6 +8,11 @@ import { useModal } from '../context/ModalContext';
 
 import type { InitProgressReport } from '@mlc-ai/web-llm';
 import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
+import {
+  DEFAULT_POLLINATIONS_IMAGE_MODEL,
+  POLLINATIONS_IMAGE_MODELS,
+  isSecretKey,
+} from '../services/pollinationsService';
 
 
 import { reloadTTS, ttsEvents, type ProgressEventDetail } from '../services/ttsService';
@@ -59,6 +64,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [useOpenAIOcr, setUseOpenAIOcr] = useState(currentSettings?.useOpenAIOcr ?? false);
   const [useOpenAIFixScript, setUseOpenAIFixScript] = useState(currentSettings?.useOpenAIFixScript ?? false);
   const [useOpenAIForSlideGen, setUseOpenAIForSlideGen] = useState(currentSettings?.useOpenAIForSlideGen ?? false);
+
+  // Pollinations (Shorts image generation)
+  const [pollinationsApiKey, setPollinationsApiKey] = useState(currentSettings?.pollinationsApiKey ?? '');
+  const [pollinationsImageModel, setPollinationsImageModel] = useState(
+    currentSettings?.pollinationsImageModel ?? DEFAULT_POLLINATIONS_IMAGE_MODEL,
+  );
 
   // Saved API Configs
   const [savedConfigs, setSavedConfigs] = useState<Array<{id: string, name: string, endpoint: string, model: string, apiKey: string}>>(() => {
@@ -344,13 +355,15 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       aiFixScriptContext: aiFixScriptContext.trim() || undefined,
       previewMode: 'modal',
       recordingCountdownEnabled,
-      aspectRatio: currentSettings?.aspectRatio,
+      aspectRatio: currentSettings?.aspectRatio ?? '16:9',
       openaiEndpoint,
       openaiModel,
       openaiApiKey,
       useOpenAIOcr,
       useOpenAIFixScript,
-      useOpenAIForSlideGen
+      useOpenAIForSlideGen,
+      pollinationsApiKey: pollinationsApiKey.trim() || undefined,
+      pollinationsImageModel
     };
 
     // Check if quantization changed to reload model
@@ -1123,6 +1136,67 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             </div>
           ) : activeTab === 'api' ? (
             <div className="space-y-8">
+              {/* Pollinations — powers Shorts image generation */}
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
+                  <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-white">Pollinations (Shorts images)</h3>
+                    <p className="text-xs text-white/60 leading-relaxed">
+                      Used to generate the visuals on the Shorts page. Get a key at{' '}
+                      <a
+                        href="https://enter.pollinations.ai/keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-300 underline underline-offset-2"
+                      >
+                        enter.pollinations.ai
+                      </a>
+                      . Without a key, image requests fall back to this server, which only works if it has
+                      one configured.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Pollinations API Key</label>
+                    <input
+                      type="password"
+                      placeholder="pk_... or sk_..."
+                      value={pollinationsApiKey}
+                      onChange={(e) => setPollinationsApiKey(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
+                    />
+                    {isSecretKey(pollinationsApiKey) ? (
+                      <p className="text-[11px] leading-relaxed text-amber-300/80 pt-1">
+                        This is a secret (<code>sk_</code>) key with full account access. It is stored only in
+                        this browser and sent directly to Pollinations — but for a shared or public machine,
+                        prefer a publishable <code>pk_</code> key with a capped budget.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-white/35 pt-1">
+                        Stored in this browser only. Publishable <code>pk_</code> keys are the safer choice
+                        for a client app.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Default Image Model</label>
+                    <Dropdown
+                      options={POLLINATIONS_IMAGE_MODELS.map((m) => ({ id: m.id, name: m.name }))}
+                      value={pollinationsImageModel}
+                      onChange={setPollinationsImageModel}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-px bg-white/10" />
+
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
                   <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">

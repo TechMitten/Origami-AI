@@ -30,6 +30,7 @@ import { exportProjectArchive, importProjectArchive } from './services/projectAr
 import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
+import { ShortsPage } from './pages/ShortsPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { PageHeader } from './components/PageHeader';
 import { useTransitionNavigate } from './components/TransitionLink';
@@ -1434,6 +1435,7 @@ function MainApp() {
               onStartScreenRecord={handleStartScreenRecord}
               onOpenAssistant={() => navigate('/assistant')}
               onOpenIssueReporter={() => navigate('/issue-reporter')}
+              onOpenShorts={() => navigate('/shorts')}
               onOpenSlideEditor={() => {
                 setActiveTab('edit');
                 setEnteredEditorWithoutPdf(true);
@@ -1683,6 +1685,7 @@ function App() {
             <Route path="/" element={<MainApp />} />
             <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/issue-reporter" element={<IssueReporterPage />} />
+            <Route path="/shorts" element={<ShortsPage />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
           </Routes>

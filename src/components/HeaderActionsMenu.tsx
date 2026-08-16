@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { BookOpen, Bot, Clapperboard, Settings } from 'lucide-react';
+import { BookOpen, Bot, Clapperboard, Film, Settings } from 'lucide-react';
 import { useLocation } from 'react-router';
 import { TransitionNavLink, useTransitionNavigate } from './TransitionLink';
 
@@ -79,6 +79,14 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
                 className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-cyan-400/15 text-cyan-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
               >
                 <Bot className="h-4 w-4" /> Assistant
+              </TransitionNavLink>
+
+              <TransitionNavLink
+                to="/shorts"
+                onClick={closeMenu}
+                className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-cyan-400/15 text-cyan-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
+              >
+                <Film className="h-4 w-4" /> Shorts
               </TransitionNavLink>
 
               <button
