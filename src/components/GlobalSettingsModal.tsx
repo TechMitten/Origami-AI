@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2, Search, ChevronDown, Shirt, Wand2 } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision, type ModelInfo } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -26,6 +26,8 @@ interface GlobalSettingsModalProps {
   initialTab?: 'general' | 'tts' | 'webllm' | 'ai-prompt' | 'api';
   onShowWebGPUModal?: () => void;
 }
+
+import { ModelSelectorGrid } from './ModelSelectorGrid';
 
 const getWebLlmOptionLabel = (model: ModelInfo): string => {
   const capabilityLabel = model.capabilities?.includes('vision') ? 'Vision' : 'Text';
@@ -989,43 +991,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   </div>
 
                   {/* Model Selection */}
-                  <div className="p-4 rounded-xl bg-black/20 border border-white/10 flex gap-4">
-                    <div className="p-2 rounded-lg bg-white/10 text-white/60 h-fit">
-                      <Cpu className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="space-y-4">
-                        <Dropdown
-                          options={filteredWebLlmModels
-                            .map(m => ({
-                              id: m.id,
-                              group: m.capabilities?.includes('vision') ? 'Vision Models' : 'Text Models',
-                              name: `${m.name} (${m.precision.toUpperCase()}) - ${m.size}${m.name.includes('Gemma 2') ? ' ★ (Recommended)' : ''}`
-                            }))}
-                          value={webLlmModel}
-                          onChange={(val) => {
-                            setWebLlmModel(val);
-                          }}
-                          className="bg-black/20"
-                        />
-
-                        {filteredWebLlmModels.length === 0 && (
-                          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
-                            No WebLLM models match the current precision and capability filters.
-                          </div>
-                        )}
-
-                        {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel) && (
-                          <div className="flex flex-wrap items-center gap-3 text-[10px] text-white/40">
-                            <div className="flex items-center gap-2">
-                              <Activity className="w-3 h-3" />
-                              Est. VRAM Usage: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB
-                            </div>
-                            <div>
-                              Mode: {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.capabilities?.includes('vision') ? 'Vision + text' : 'Text only'}
-                            </div>
-                          </div>
-                        )}
+                  <ModelSelectorGrid
+                    models={filteredWebLlmModels}
+                    value={webLlmModel}
+                    onChange={setWebLlmModel}
+                  />
 
                         {/* Status / Loaded Model Info */}
                         <div className="space-y-3">
@@ -1094,10 +1064,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             </div>
                           )}
                         </div>
-
-                      </div>
-                    </div>
-                  </div>
 
                 </>
               )}

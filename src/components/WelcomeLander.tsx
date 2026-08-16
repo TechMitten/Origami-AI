@@ -40,7 +40,7 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
     {
       icon: Clapperboard,
       title: 'Shorts Generator',
-      description: 'Turn a topic into a faceless short in minutes. A local model writes the script, Pollinations generates the images or video clips, and Kokoro TTS voices it with captions.',
+      description: 'Turn any topic into a viral short in minutes. A local model writes the script, Pollinations generates the images or video clips, and Kokoro TTS voices it with captions.',
       color: 'text-amber-300',
       bg: 'bg-amber-500/10',
       border: 'border-amber-400/30',

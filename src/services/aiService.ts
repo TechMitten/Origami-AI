@@ -118,6 +118,10 @@ export const cleanLLMResponse = (text: string): string => {
 
   // Strip hidden reasoning blocks/tags that some models emit.
   cleaned = cleaned.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '');
+  // Reasoning models like DeepSeek R1 inject the opening <think> into the
+  // prompt, so the reply contains only the closing </think> after the reasoning
+  // text. Drop everything up to and including that closing tag.
+  cleaned = cleaned.replace(/^[\s\S]*?<\/think>/i, '');
   cleaned = cleaned.replace(/<\/?think\b[^>]*>/gi, '');
 
   // Remove common conversational prefixes

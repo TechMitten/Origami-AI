@@ -11,8 +11,10 @@ import {
   Send,
   Sparkles,
   Trash2,
-  X
+  X,
+  ChevronDown
 } from 'lucide-react';
+import { ModelSelectorModal } from '../components/ModelSelectorModal';
 
 import backgroundImage from '../assets/images/background.png';
 import { Footer } from '../components/Footer';
@@ -47,6 +49,7 @@ import {
   streamWebLLMChatResponse,
   webLlmModelSupportsVision,
   webLlmEvents,
+  type ModelInfo,
   type WebLLMChatMessage
 } from '../services/webLlmService';
 
@@ -198,6 +201,7 @@ export const AssistantPage: React.FC = () => {
   const [loadedModelId, setLoadedModelId] = useState<string | null>(() => getCurrentWebLLMModel());
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false);
@@ -1049,18 +1053,17 @@ export const AssistantPage: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-1.5">
                     <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Model</span>
-                    <select
-                      value={activeAssistantSelection}
-                      onChange={(event) => setAssistantModelSelection(event.target.value)}
+                    <button
+                      type="button"
+                      onClick={() => setIsModelModalOpen(true)}
                       disabled={isBootstrapping || isSending || isReadingAttachment || isSwitchingModel || selectableAssistantModels.length === 0}
-                      className="h-8 w-full max-w-[260px] min-w-[160px] rounded-lg border border-white/10 bg-black px-2.5 text-xs text-white outline-none transition-all focus:border-branding-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-8 w-full max-w-[260px] min-w-[160px] items-center justify-between rounded-lg border border-white/10 bg-black px-2.5 text-xs text-white outline-none transition-all hover:bg-white/5 focus:border-branding-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {selectableAssistantModels.map((model) => (
-                        <option key={model.id} value={model.id} className="bg-black text-white">
-                          {`${model.name} (${model.precision.toUpperCase()})`}
-                        </option>
-                      ))}
-                    </select>
+                      <span className="truncate">
+                        {selectableAssistantModels.find(m => m.id === activeAssistantSelection)?.name || activeAssistantSelection}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </button>
                     <button
                       onClick={() => void handleApplyAssistantModel()}
                       disabled={isBootstrapping || isSending || isReadingAttachment || isSwitchingModel || selectableAssistantModels.length === 0}
@@ -1139,6 +1142,13 @@ export const AssistantPage: React.FC = () => {
       <WebGPUInstructionsModal
         isOpen={isWebGPUModalOpen}
         onClose={() => setIsWebGPUModalOpen(false)}
+      />
+      <ModelSelectorModal
+        isOpen={isModelModalOpen}
+        onClose={() => setIsModelModalOpen(false)}
+        models={selectableAssistantModels}
+        value={activeAssistantSelection}
+        onChange={setAssistantModelSelection}
       />
       <MobileWarningModal />
 

@@ -84,6 +84,10 @@ const stripLineDecoration = (line: string): string =>
 const stripWrapper = (raw: string): string =>
   raw
     .replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '')
+    // Reasoning models like DeepSeek R1 inject the opening <think> into the
+    // prompt, so the reply contains only the closing </think> after the
+    // reasoning text. Drop everything up to and including that closing tag.
+    .replace(/^[\s\S]*?<\/think>/i, '')
     .replace(/<\/?think\b[^>]*>/gi, '')
     .replace(/^\s*```[\w]*\s*$/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')

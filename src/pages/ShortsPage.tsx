@@ -290,7 +290,7 @@ export const ShortsPage: React.FC = () => {
           configuredModel && (webgpuStatus.hasF16 || configuredModel.precision === 'f32');
         const model = isConfiguredModelCompatible ? configuredModel!.id : getDefaultWebLlmModel(webgpuStatus.hasF16);
 
-        const next = { ...globalSettings, webLlmModel: model };
+        const next = { ...globalSettings, useWebLLM: true, webLlmModel: model };
         await saveGlobalSettings(next);
         setGlobalSettings(next);
 
@@ -721,7 +721,7 @@ export const ShortsPage: React.FC = () => {
             Shorts
           </div>
           <h1 className="font-display text-3xl font-extrabold leading-tight text-white sm:text-4xl">
-            Turn a topic into a faceless short
+            Turn any topic into a viral short
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/50">
             A local WebGPU model writes the script, Pollinations generates the visuals, and Kokoro voices it —
@@ -744,6 +744,8 @@ export const ShortsPage: React.FC = () => {
             onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
             openAIConfigured={openAIConfigured}
             webLlmModelLabel={webLlmModelLabel}
+            webLlmModel={globalSettings.webLlmModel}
+            onChangeWebLlmModel={(modelId) => void saveSettings({ ...globalSettings, webLlmModel: modelId })}
           />
         ) : (
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">

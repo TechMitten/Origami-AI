@@ -26,7 +26,11 @@ export default defineConfig({
     // Optimize HMR and file watching for lower CPU usage
     middlewareMode: true,
     watch: {
-      usePolling: false, // Use native fs events instead of polling
+      // Native fs events (inotify/fs.watch) never fire on 9p/drvfs mounts
+      // (WSL/Windows, devcontainers), so HMR silently stops updating until the
+      // server is restarted. Polling is required for those filesystems.
+      usePolling: true,
+      interval: 100,
       ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.log'],
     },
   },

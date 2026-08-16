@@ -606,6 +606,8 @@ async function createServer() {
       server: {
         middlewareMode: true,
         watch: {
+          usePolling: true,
+          interval: 100,
           ignored: ['**/node_modules/**', '**/dist/**', '**/public/music/**'],
           awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 1000 },
         },

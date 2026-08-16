@@ -2,8 +2,10 @@ import React from 'react';
 import { Sparkles, Music, Captions, Loader2, KeyRound, Wand2, Type } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { ModelSelectorGrid } from '../ModelSelectorGrid';
 import { Dropdown } from '../Dropdown';
 import { DEFAULT_VOICES } from '../../services/ttsService';
+import { AVAILABLE_WEB_LLM_MODELS } from '../../services/webLlmService';
 import { POLLINATIONS_IMAGE_MODELS } from '../../services/pollinationsService';
 import { POLLINATIONS_VIDEO_MODELS } from '../../services/pollinationsVideoService';
 import {
@@ -33,6 +35,8 @@ interface ShortsComposerProps {
   onToggleOpenAI: (value: boolean) => void;
   openAIConfigured: boolean;
   webLlmModelLabel: string;
+  webLlmModel?: string;
+  onChangeWebLlmModel: (modelId: string) => void;
 }
 
 const SegmentedGroup: React.FC<{
@@ -85,8 +89,12 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onToggleOpenAI,
   openAIConfigured,
   webLlmModelLabel,
+  webLlmModel,
+  onChangeWebLlmModel,
 }) => {
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
+
+
 
   return (
     <div className="space-y-8">
@@ -361,6 +369,17 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             </button>
             .
           </p>
+        )}
+        {!useOpenAI && (
+          <div className="mt-4">
+            <FieldLabel>WebLLM model</FieldLabel>
+            <ModelSelectorGrid
+              models={AVAILABLE_WEB_LLM_MODELS}
+              value={webLlmModel ?? ''}
+              onChange={onChangeWebLlmModel}
+              disabled={isBusy}
+            />
+          </div>
         )}
       </div>
 
