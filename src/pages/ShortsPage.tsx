@@ -777,8 +777,6 @@ export const ShortsPage: React.FC = () => {
                 onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
                 openAIConfigured={openAIConfigured}
                 webLlmModelLabel={webLlmModelLabel}
-                webLlmModel={globalSettings.webLlmModel}
-                onChangeWebLlmModel={(modelId) => void saveSettings({ ...globalSettings, webLlmModel: modelId })}
               />
             ) : (
               <div className="space-y-5">

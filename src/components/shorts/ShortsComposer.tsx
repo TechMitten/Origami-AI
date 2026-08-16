@@ -2,10 +2,8 @@ import React from 'react';
 import { Music, Captions, KeyRound, Type, Cpu, Cloud } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ModelSelectorGrid } from '../ModelSelectorGrid';
 import { Dropdown } from '../Dropdown';
 import { DEFAULT_VOICES } from '../../services/ttsService';
-import { AVAILABLE_WEB_LLM_MODELS } from '../../services/webLlmService';
 import { POLLINATIONS_IMAGE_MODELS } from '../../services/pollinationsService';
 import { POLLINATIONS_VIDEO_MODELS } from '../../services/pollinationsVideoService';
 import {
@@ -35,8 +33,6 @@ interface ShortsComposerProps {
   onToggleOpenAI: (value: boolean) => void;
   openAIConfigured: boolean;
   webLlmModelLabel: string;
-  webLlmModel?: string;
-  onChangeWebLlmModel: (modelId: string) => void;
 }
 
 /**
@@ -216,8 +212,6 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onToggleOpenAI,
   openAIConfigured,
   webLlmModelLabel,
-  webLlmModel,
-  onChangeWebLlmModel,
 }) => {
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
   const isVideo = project.generationMode === 'video';
@@ -524,12 +518,17 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
         )}
 
         {!useOpenAI && (
-          <ModelSelectorGrid
-            models={AVAILABLE_WEB_LLM_MODELS}
-            value={webLlmModel ?? ''}
-            onChange={onChangeWebLlmModel}
-            disabled={isBusy}
-          />
+          <p className="text-xs leading-relaxed text-white/35">
+            Change the on-device model in{' '}
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="focus-ring rounded font-semibold text-white/50 underline underline-offset-2 hover:text-white"
+            >
+              Settings
+            </button>
+            .
+          </p>
         )}
       </Department>
     </div>
