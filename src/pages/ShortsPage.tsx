@@ -8,7 +8,9 @@ import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
 import { WebGPUInstructionsModal } from '../components/WebGPUInstructionsModal';
 import { WebLLMLoadingModal } from '../components/WebLLMLoadingModal';
+import { RuntimeResourceModal } from '../components/RuntimeResourceModal';
 import { MusicPickerModal } from '../components/MusicPickerModal';
+import { useBackgroundDownload } from '../context/BackgroundDownloadContext';
 import { ShortsComposer } from '../components/shorts/ShortsComposer';
 import { ShortsStoryboard } from '../components/shorts/ShortsStoryboard';
 import { ShortsPreviewPlayer } from '../components/shorts/ShortsPreviewPlayer';
@@ -18,6 +20,7 @@ import { useModal } from '../context/ModalContext';
 import {
   checkWebGPUSupport,
   getCurrentWebLLMModel,
+  getDefaultWebLlmModel,
   getWebLlmModelInfo,
   initWebLLM,
   isWebLLMLoaded,
@@ -105,6 +108,9 @@ export const ShortsPage: React.FC = () => {
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false);
   const [isMusicPickerOpen, setIsMusicPickerOpen] = useState(false);
+  const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+
+  const { startBackgroundDownloads, endBackgroundDownloads } = useBackgroundDownload();
 
   const [renderPhase, setRenderPhase] = useState<ShortsRenderPhase | null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
@@ -167,6 +173,19 @@ export const ShortsPage: React.FC = () => {
         initTTS(merged.ttsQuantization || 'q4');
       } catch (e) {
         console.warn('[Shorts] TTS init could not be started:', e);
+      }
+
+      // Landing on /shorts directly skips the landing page's one-time WebGPU/WebLLM
+      // setup prompt, so check for it here too or a local model never gets installed
+      // until the user hits an alert mid-generation.
+      if (!merged.shortsUseOpenAI) {
+        const cached = JSON.parse(
+          localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}',
+        );
+        const hideSetupModal = localStorage.getItem('hide_setup_modal') === 'true';
+        if (!cached.webllm && !hideSetupModal) {
+          setIsResourceModalOpen(true);
+        }
       }
     })();
 
@@ -242,6 +261,49 @@ export const ShortsPage: React.FC = () => {
       setIsWebLLMLoadingOpen(false);
     }
   }, [useOpenAI, openAIConfigured, globalSettings.webLlmModel, showAlert]);
+
+  // Mirrors the landing page's one-time setup: pick a WebGPU-compatible default
+  // model and download it in the background, so a direct /shorts visit doesn't
+  // skip the check entirely and only surface it as a mid-generation dead end.
+  const handleResourceSetupConfirm = useCallback(
+    async (dontShowAgain?: boolean) => {
+      setIsResourceModalOpen(false);
+      if (dontShowAgain) {
+        localStorage.setItem('hide_setup_modal', 'true');
+      }
+
+      const cached = JSON.parse(
+        localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}',
+      );
+      if (cached.webllm) return;
+
+      startBackgroundDownloads({ tts: false, ffmpeg: false, webllm: true });
+      try {
+        const webgpuStatus = await checkWebGPUSupport();
+        if (!webgpuStatus.supported) {
+          setIsWebGPUModalOpen(true);
+          return;
+        }
+
+        const configuredModel = getWebLlmModelInfo(globalSettings.webLlmModel);
+        const isConfiguredModelCompatible =
+          configuredModel && (webgpuStatus.hasF16 || configuredModel.precision === 'f32');
+        const model = isConfiguredModelCompatible ? configuredModel!.id : getDefaultWebLlmModel(webgpuStatus.hasF16);
+
+        const next = { ...globalSettings, webLlmModel: model };
+        await saveGlobalSettings(next);
+        setGlobalSettings(next);
+
+        await initWebLLM(model, () => {});
+        markWebLLMAsCached();
+      } catch (e) {
+        console.warn('[Shorts] Background WebLLM setup failed:', e);
+      } finally {
+        endBackgroundDownloads();
+      }
+    },
+    [globalSettings, startBackgroundDownloads, endBackgroundDownloads],
+  );
 
   const llmOptions = useCallback(
     (signal?: AbortSignal) => ({
@@ -626,9 +688,9 @@ export const ShortsPage: React.FC = () => {
       <img
         src={backgroundImage}
         alt=""
-        className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-25 blur-[2px] brightness-50"
+        className="fixed inset-0 -z-50 h-lvh w-full scale-105 object-cover opacity-40 blur-[2px] brightness-50"
       />
-      <div className="fixed inset-0 -z-40 h-lvh w-full bg-[#0a0a0b]/60" />
+      <div className="fixed inset-0 -z-40 h-lvh w-full bg-[#0a0a0b]/40" />
 
       <PageHeader
         title="Shorts"
@@ -775,6 +837,8 @@ export const ShortsPage: React.FC = () => {
         onClose={() => setIsMusicPickerOpen(false)}
         onSelectTrack={handleSelectTrack}
       />
+
+      <RuntimeResourceModal isOpen={isResourceModalOpen} onConfirm={handleResourceSetupConfirm} />
 
       <WebGPUInstructionsModal isOpen={isWebGPUModalOpen} onClose={() => setIsWebGPUModalOpen(false)} />
 
