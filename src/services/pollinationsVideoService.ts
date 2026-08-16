@@ -9,9 +9,9 @@
  * output, no per-request duration — see generateVideo for why).
  */
 
-import { resolvePollinationsKey, isSecretKey, POLLINATIONS_BASE_URL, PollinationsError } from './pollinationsService';
+import { resolvePollinationsKey, POLLINATIONS_BASE_URL, PollinationsError } from './pollinationsService';
 
-export { resolvePollinationsKey, isSecretKey };
+export { resolvePollinationsKey };
 
 export const POLLINATIONS_VIDEO_PROXY_URL = '/api/pollinations/video';
 

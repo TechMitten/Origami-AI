@@ -369,7 +369,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
           <KeyRound className="h-4 w-4 shrink-0" />
           <span className="flex-1">
-            No Pollinations API key saved. {project.generationMode === 'video' ? 'Video' : 'Image'} generation will
+            Not connected to Pollinations. {project.generationMode === 'video' ? 'Video' : 'Image'} generation will
             go through this server, which only works if it has a key configured.
           </span>
           <button
@@ -377,7 +377,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             onClick={onOpenSettings}
             className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
           >
-            Add key
+            Connect
           </button>
         </div>
       )}

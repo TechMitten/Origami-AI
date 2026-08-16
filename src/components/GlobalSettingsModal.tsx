@@ -5,14 +5,15 @@ import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
 import { useModal } from '../context/ModalContext';
+import { useNotifications } from '../context/NotificationContext';
 
 import type { InitProgressReport } from '@mlc-ai/web-llm';
 import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
 import {
   DEFAULT_POLLINATIONS_IMAGE_MODEL,
   POLLINATIONS_IMAGE_MODELS,
-  isSecretKey,
 } from '../services/pollinationsService';
+import { isPollinationsTokenExpired, startPollinationsOAuth } from '../services/pollinationsAuth';
 
 
 import { reloadTTS, ttsEvents, type ProgressEventDetail } from '../services/ttsService';
@@ -46,6 +47,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   onShowWebGPUModal
 }) => {
   const { showAlert } = useModal();
+  const { refresh: refreshNotifications } = useNotifications();
   const [isEnabled, setIsEnabled] = useState(currentSettings?.isEnabled ?? false);
   const [voice, setVoice] = useState(currentSettings?.voice ?? AVAILABLE_VOICES[0].id);
   const [delay, setDelay] = useState(currentSettings?.delay ?? 0.5);
@@ -67,9 +69,30 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   // Pollinations (Shorts image generation)
   const [pollinationsApiKey, setPollinationsApiKey] = useState(currentSettings?.pollinationsApiKey ?? '');
+  const [pollinationsTokenExpiresAt, setPollinationsTokenExpiresAt] = useState(currentSettings?.pollinationsTokenExpiresAt);
+  const [pollinationsAccountName, setPollinationsAccountName] = useState(currentSettings?.pollinationsAccountName);
+  const [pollinationsDisconnecting, setPollinationsDisconnecting] = useState(false);
   const [pollinationsImageModel, setPollinationsImageModel] = useState(
     currentSettings?.pollinationsImageModel ?? DEFAULT_POLLINATIONS_IMAGE_MODEL,
   );
+
+  const handleDisconnectPollinations = async () => {
+    setPollinationsDisconnecting(true);
+    try {
+      await onSave({
+        ...currentSettings,
+        pollinationsApiKey: undefined,
+        pollinationsTokenExpiresAt: undefined,
+        pollinationsAccountName: undefined,
+      } as GlobalSettings);
+      refreshNotifications();
+      setPollinationsApiKey('');
+      setPollinationsTokenExpiresAt(undefined);
+      setPollinationsAccountName(undefined);
+    } finally {
+      setPollinationsDisconnecting(false);
+    }
+  };
 
   // Saved API Configs
   const [savedConfigs, setSavedConfigs] = useState<Array<{id: string, name: string, endpoint: string, model: string, apiKey: string}>>(() => {
@@ -363,6 +386,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useOpenAIFixScript,
       useOpenAIForSlideGen,
       pollinationsApiKey: pollinationsApiKey.trim() || undefined,
+      pollinationsTokenExpiresAt,
+      pollinationsAccountName,
       pollinationsImageModel
     };
 
@@ -415,6 +440,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
         // Save settings and close after TTS reload
         await onSave(settings);
+        refreshNotifications();
         onClose();
         return;
       }
@@ -452,6 +478,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
 
     await onSave(settings);
+    refreshNotifications();
 
     // If the WebLLM model was changed while one was already loaded, prompt the user to reload the browser
     const modelChangedAndLoaded =
@@ -1145,42 +1172,57 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-white">Pollinations (Shorts images)</h3>
                     <p className="text-xs text-white/60 leading-relaxed">
-                      Used to generate the visuals on the Shorts page. Get a key at{' '}
-                      <a
-                        href="https://enter.pollinations.ai/keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-cyan-300 underline underline-offset-2"
-                      >
-                        enter.pollinations.ai
-                      </a>
-                      . Without a key, image requests fall back to this server, which only works if it has
-                      one configured.
+                      Used to generate the visuals on the Shorts page. Connect your Pollinations account to
+                      generate under your own budget-capped, revocable access token. Without a connection,
+                      image requests fall back to this server, which only works if it has a key configured.
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Pollinations API Key</label>
-                    <input
-                      type="password"
-                      placeholder="pk_... or sk_..."
-                      value={pollinationsApiKey}
-                      onChange={(e) => setPollinationsApiKey(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white placeholder-white/30 focus:border-branding-primary focus:ring-1 focus:ring-branding-primary outline-none transition-all"
-                    />
-                    {isSecretKey(pollinationsApiKey) ? (
-                      <p className="text-[11px] leading-relaxed text-amber-300/80 pt-1">
-                        This is a secret (<code>sk_</code>) key with full account access. It is stored only in
-                        this browser and sent directly to Pollinations — but for a shared or public machine,
-                        prefer a publishable <code>pk_</code> key with a capped budget.
-                      </p>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Pollinations Account</label>
+                    {!pollinationsApiKey.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => void startPollinationsOAuth(window.location.pathname)}
+                        className="w-full px-4 py-3 rounded-xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors"
+                      >
+                        Connect with Pollinations
+                      </button>
+                    ) : isPollinationsTokenExpired(pollinationsTokenExpiresAt) ? (
+                      <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-amber-400/10 border border-amber-400/30">
+                        <p className="text-xs text-amber-200/90 leading-relaxed">Your Pollinations connection expired.</p>
+                        <button
+                          type="button"
+                          onClick={() => void startPollinationsOAuth(window.location.pathname)}
+                          className="shrink-0 rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
+                        >
+                          Reconnect
+                        </button>
+                      </div>
                     ) : (
-                      <p className="text-[11px] leading-relaxed text-white/35 pt-1">
-                        Stored in this browser only. Publishable <code>pk_</code> keys are the safer choice
-                        for a client app.
-                      </p>
+                      <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-black/20 border border-white/10">
+                        <div className="space-y-0.5">
+                          <p className="text-sm text-white flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            Connected as {pollinationsAccountName || 'Pollinations user'}
+                          </p>
+                          {pollinationsTokenExpiresAt ? (
+                            <p className="text-[11px] text-white/35 pl-6">
+                              Access expires in {Math.max(0, Math.ceil((pollinationsTokenExpiresAt - Date.now()) / 86_400_000))} days
+                            </p>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={pollinationsDisconnecting}
+                          onClick={() => void handleDisconnectPollinations()}
+                          className="shrink-0 text-xs font-semibold text-white/40 hover:text-white transition-colors disabled:opacity-50"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     )}
                   </div>
 

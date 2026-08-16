@@ -23,6 +23,7 @@ import { RuntimeResourceModal } from './components/RuntimeResourceModal';
 import { WebGPUInstructionsModal } from './components/WebGPUInstructionsModal';
 import { BackgroundDownloadProvider } from './components/BackgroundDownloadProvider';
 import { useBackgroundDownload } from './context/BackgroundDownloadContext';
+import { NotificationProvider } from './components/NotificationProvider';
 import { DownloadBlockedModal } from './components/DownloadBlockedModal';
 import { initWebLLM, webLlmEvents, checkWebGPUSupport, getDefaultWebLlmModel, getWebLlmModelInfo } from './services/webLlmService';
 import { MobileWarningModal } from './components/MobileWarningModal';
@@ -31,6 +32,7 @@ import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { ShortsPage } from './pages/ShortsPage';
+import { PollinationsCallbackPage } from './pages/PollinationsCallbackPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { PageHeader } from './components/PageHeader';
 import { useTransitionNavigate } from './components/TransitionLink';
@@ -1680,16 +1682,19 @@ function App() {
   return (
     <BrowserRouter>
       <BackgroundDownloadProvider>
-        <RouteTransition>
-          <Routes>
-            <Route path="/" element={<MainApp />} />
-            <Route path="/assistant" element={<AssistantPage />} />
-            <Route path="/issue-reporter" element={<IssueReporterPage />} />
-            <Route path="/shorts" element={<ShortsPage />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfService />} />
-          </Routes>
-        </RouteTransition>
+        <NotificationProvider>
+          <RouteTransition>
+            <Routes>
+              <Route path="/" element={<MainApp />} />
+              <Route path="/assistant" element={<AssistantPage />} />
+              <Route path="/issue-reporter" element={<IssueReporterPage />} />
+              <Route path="/shorts" element={<ShortsPage />} />
+              <Route path="/pollinations-callback" element={<PollinationsCallbackPage />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+            </Routes>
+          </RouteTransition>
+        </NotificationProvider>
       </BackgroundDownloadProvider>
     </BrowserRouter>
   );

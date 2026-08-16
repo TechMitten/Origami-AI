@@ -12,6 +12,8 @@
  * drawing it into the render canvas does not taint it.
  */
 
+import { isPollinationsTokenExpired } from './pollinationsAuth';
+
 export const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai';
 
 export const POLLINATIONS_PROXY_URL = '/api/pollinations/image';
@@ -59,20 +61,22 @@ const MAX_CONCURRENT = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 
 /**
- * Resolve the key to use. A key saved in settings always wins; the VITE_ fallback
- * exists purely as a local-dev convenience and is baked into the public bundle,
- * so it must never hold an `sk_` secret key in a real deployment.
+ * Resolve the key to use. A non-expired OAuth token (or legacy pasted key) saved in
+ * settings always wins; an expired token is treated as absent so callers fall through
+ * to the server-proxy transport instead of sending a token that will 401 upstream. The
+ * VITE_ fallback exists purely as a local-dev convenience and is baked into the public
+ * bundle, so it must never hold an `sk_` secret key in a real deployment.
  */
-export const resolvePollinationsKey = (settingsKey?: string | null): string | undefined => {
+export const resolvePollinationsKey = (
+  settingsKey?: string | null,
+  tokenExpiresAt?: number | null,
+): string | undefined => {
   const fromSettings = settingsKey?.trim();
-  if (fromSettings) return fromSettings;
+  if (fromSettings && !isPollinationsTokenExpired(tokenExpiresAt)) return fromSettings;
 
   const fromEnv = import.meta.env?.VITE_POLLINATIONS_API_KEY?.trim();
   return fromEnv || undefined;
 };
-
-/** True when an `sk_` (full-account) key is being held in the browser. */
-export const isSecretKey = (key?: string | null): boolean => !!key?.trim().startsWith('sk_');
 
 // --- concurrency gate ---------------------------------------------------------
 

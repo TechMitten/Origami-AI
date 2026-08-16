@@ -29,7 +29,9 @@ export interface GlobalSettings {
   useOpenAIForSlideGen?: boolean;
   issueReporterRecordingPromptEnabled?: boolean;
   // Shorts
-  pollinationsApiKey?: string;
+  pollinationsApiKey?: string; // OAuth access token (sk_...); legacy manually-pasted keys remain valid until reconnect/expiry
+  pollinationsTokenExpiresAt?: number; // epoch ms; unset = treat as non-expiring (legacy key or pre-migration record)
+  pollinationsAccountName?: string; // best-effort display name from Pollinations userinfo
   pollinationsImageModel?: string;
   shortsVoice?: string;
   shortsCaptionStyle?: 'bold-pop' | 'clean-lower' | 'karaoke';

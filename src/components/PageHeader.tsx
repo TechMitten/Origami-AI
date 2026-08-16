@@ -4,6 +4,7 @@ import { ArrowLeft, Github, Settings, CircleHelp } from 'lucide-react';
 import { TransitionLink } from './TransitionLink';
 import appLogo from '../assets/images/app-logo2.png';
 import { HeaderActionsMenu } from './HeaderActionsMenu';
+import { NotificationBell } from './NotificationBell';
 
 interface PageHeaderProps {
   /** Title to display next to logo, e.g., "Issue Reporter" or "AI Assistant" */
@@ -26,6 +27,8 @@ interface PageHeaderProps {
   showHelp?: boolean;
   /** Show github button (default: true) */
   showGithub?: boolean;
+  /** Show notification bell (default: true) */
+  showNotifications?: boolean;
   /** Keep this header anchored during route transitions (default: true). Disable for overlays that render a second header. */
   pinDuringRouteTransition?: boolean;
   /** Additional class names for the actions menu panel */
@@ -48,13 +51,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   showSettings = true,
   showHelp = true,
   showGithub = true,
+  showNotifications = true,
   pinDuringRouteTransition = true,
   actionMenuClassName = '',
   onSettings,
   onHelp,
   className = '',
 }) => {
-  const hasUtilityButtons = showGithub || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
+  const hasUtilityButtons = showNotifications || showGithub || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
 
   return (
     <header
@@ -103,6 +107,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
         {hasUtilityButtons && (
           <div className="flex items-center gap-1">
+            {showNotifications && <NotificationBell />}
             {showGithub && (
               <a
                 href="https://github.com/TechMitten/Origami-AI"

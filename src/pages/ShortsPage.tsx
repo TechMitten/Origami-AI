@@ -125,8 +125,8 @@ export const ShortsPage: React.FC = () => {
   projectRef.current = project;
 
   const pollinationsKey = useMemo(
-    () => resolvePollinationsKey(globalSettings.pollinationsApiKey),
-    [globalSettings.pollinationsApiKey],
+    () => resolvePollinationsKey(globalSettings.pollinationsApiKey, globalSettings.pollinationsTokenExpiresAt),
+    [globalSettings.pollinationsApiKey, globalSettings.pollinationsTokenExpiresAt],
   );
 
   const openAIConfigured = !!(
