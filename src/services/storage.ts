@@ -51,6 +51,11 @@ export interface AssistantChatMessage {
   content: string;
   createdAt: number;
   attachment?: AssistantChatAttachment;
+  /**
+   * Set when generation failed. The transcript renders these as a failure the
+   * reader can retry rather than as something the model actually said.
+   */
+  isError?: boolean;
 }
 
 export interface AssistantChatSession {

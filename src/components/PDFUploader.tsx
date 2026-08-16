@@ -208,15 +208,12 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       >
         <input {...getInputProps()} />
 
-        <div className={cn(
-          'shrink-0 flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 border transition-all duration-300',
-          isDragActive ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-white/5 border-white/10 group-hover:border-cyan-400/20 group-hover:bg-cyan-500/5'
-        )}>
+        <div className="shrink-0 flex items-center justify-center">
           {isProcessing ? (
-            <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 text-cyan-300 animate-spin" />
+            <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-300 animate-spin" />
           ) : (
             <Layers className={cn(
-              'w-7 h-7 sm:w-8 sm:h-8 transition-colors duration-300',
+              'w-8 h-8 sm:w-10 sm:h-10 transition-colors duration-300',
               isDragActive ? 'text-cyan-300' : 'text-white/50 group-hover:text-cyan-300'
             )} />
           )}
@@ -300,12 +297,9 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
               )}
               style={{ animationDelay: `${160 + i * 90}ms`, ...(isAmber && !opt.disabled ? ({ '--fold-glow': 'linear-gradient(135deg, #f59e0b, #fb923c)' } as React.CSSProperties) : {}), ...(opt.disabled ? { '--fold-glow': 'transparent' } : {}) }}
             >
-              <div className={cn(
-                'mb-4 flex items-center justify-center w-11 h-11 border transition-all duration-300 bg-white/5 border-white/10',
-                opt.disabled ? '' : (isAmber ? 'group-hover:border-amber-400/30 group-hover:bg-amber-500/10' : 'group-hover:border-cyan-400/30 group-hover:bg-cyan-500/10')
-              )}>
+              <div className="mb-4">
                 <Icon className={cn(
-                  'w-5 h-5 text-white/50 transition-colors duration-300',
+                  'w-6 h-6 text-white/50 transition-colors duration-300',
                   opt.disabled ? '' : (isAmber ? 'group-hover:text-amber-300' : 'group-hover:text-cyan-300')
                 )} />
               </div>

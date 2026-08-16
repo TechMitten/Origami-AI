@@ -315,6 +315,43 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
 }
 
 /* ---------------------------------------------------------------------------
+   Assistant transcript
+   A local model can pause mid-sentence while it decodes, which looks identical
+   to a stalled tab. The caret trailing the streamed text is the only signal
+   that the reply is still being written, so it keeps blinking between tokens.
+--------------------------------------------------------------------------- */
+@keyframes stream-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0.12;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background: #22d3ee;
+  animation: stream-caret 1.1s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-caret {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Route transitions (View Transitions API)
    The outgoing page settles back and fades; the incoming page unfolds upward.
    The app header is pinned so it stays anchored while the content swaps.

@@ -514,6 +514,21 @@ export const ensureWebLLMReady = async (modelId: string): Promise<any> => {
 
 export const getWebLLMEngine = () => engine;
 
+/**
+ * Stops the generation that is currently decoding.
+ *
+ * Callers also break out of their own stream loop, but that alone only stops
+ * the UI from reading tokens — the worker keeps decoding, and the next message
+ * would then queue behind a reply nobody is waiting for.
+ */
+export const interruptWebLLMGeneration = () => {
+    try {
+        engine?.interruptGenerate?.();
+    } catch {
+        // The engine may already be idle or torn down; there is nothing to stop.
+    }
+};
+
 const rebuildWebLLMEngine = async (modelId: string): Promise<any> => {
     await tearDownWebLLMEngine();
     return createEngine(modelId, () => { });
