@@ -170,19 +170,19 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       });
     }
 
-    // Check if a model is already loaded when switching to WebLLM tab
-    if (activeTab === 'webllm') {
-      setIsModelLoaded(isWebLLMLoaded());
+    // Check if a model is already loaded when switching to WebLLM tab or opening modal
+    if (activeTab === 'webllm' && isOpen) {
+      const loaded = isWebLLMLoaded();
+      setIsModelLoaded(loaded);
       const currentModelId = getCurrentWebLLMModel();
-      if (currentModelId) {
+      if (loaded && currentModelId) {
         const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === currentModelId);
         setCurrentLoadedModel(modelInfo ? getWebLlmOptionLabel(modelInfo) : currentModelId);
-        setWebLlmModel(currentModelId);
       } else {
         setCurrentLoadedModel(null);
       }
     }
-  }, [activeTab, webGpuSupport, webLlmModel, showAlert]);
+  }, [activeTab, isOpen, webGpuSupport, showAlert]);
 
   // Reset progress when model changes
   useEffect(() => {
@@ -515,7 +515,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white tracking-tight">Settings</h2>
-              <p className="text-xs text-white/40 font-medium">Apply configured settings to all future videos</p>
+              <p className="text-xs text-white/70 font-medium">Apply configured settings to all future videos</p>
             </div>
           </div>
           <button
@@ -909,7 +909,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   {/* Precision Filter */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                      <label className="text-xs font-bold text-white/80 uppercase tracking-widest">
                         Model Precision
                       </label>
                     </div>
@@ -919,7 +919,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">All Models</span>
-                        <span className={`text-[10px] ${precisionFilter === 'all' ? 'text-sky-400/70' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${precisionFilter === 'all' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Show both
                         </span>
                       </button>
@@ -934,7 +934,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                           }`}
                       >
                           <span className="text-sm font-bold">f16 (Better)</span>
-                        <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-sky-400/70' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory'}
                         </span>
                       </button>
@@ -943,19 +943,16 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">f32 (Compatible)</span>
-                        <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-sky-400/70' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Better support
                         </span>
                       </button>
                     </div>
-
-                    {/* Precision Explanation */}
-                    {/* Precision Explanation - Removed per user request */}
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                      <label className="text-xs font-bold text-white/80 uppercase tracking-widest">
                         Model Type
                       </label>
                     </div>
@@ -965,7 +962,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'all' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">All Types</span>
-                        <span className={`text-[10px] ${capabilityFilter === 'all' ? 'text-sky-400/70' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${capabilityFilter === 'all' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Show everything
                         </span>
                       </button>
@@ -974,7 +971,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'vision' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">Vision</span>
-                        <span className={`text-[10px] ${capabilityFilter === 'vision' ? 'text-sky-400/70' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${capabilityFilter === 'vision' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Image-capable
                         </span>
                       </button>
@@ -983,7 +980,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'text' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
                         <span className="text-sm font-bold">Text</span>
-                        <span className={`text-[10px] ${capabilityFilter === 'text' ? 'text-sky-400/70' : 'text-white/40'}`}>
+                        <span className={`text-[10px] ${capabilityFilter === 'text' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Writing only
                         </span>
                       </button>
@@ -995,36 +992,16 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     models={filteredWebLlmModels}
                     value={webLlmModel}
                     onChange={setWebLlmModel}
+                    loadedModelId={isModelLoaded ? getCurrentWebLLMModel() : null}
+                    onUnload={async () => {
+                      await unloadWebLLM();
+                      setIsModelLoaded(false);
+                      setCurrentLoadedModel(null);
+                      setWebLlmDownloadProgress('');
+                    }}
                   />
 
-                        {/* Status / Loaded Model Info */}
-                        <div className="space-y-3">
-                          {/* Always show loaded status if loaded */}
-                          {isModelLoaded && currentLoadedModel && (
-                            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
-                              <div className="flex items-center gap-3 w-full sm:w-auto">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                                <div>
-                                  <p className="text-xs font-bold text-emerald-200 uppercase tracking-wide">Currently Loaded</p>
-                                  <p className="text-sm font-medium text-white">{currentLoadedModel}</p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={async () => {
-                                  await unloadWebLLM();
-                                  setIsModelLoaded(false);
-                                  setCurrentLoadedModel(null);
-                                  setWebLlmDownloadProgress('');
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors uppercase tracking-wider font-bold text-[10px] sm:self-center shrink-0 w-full sm:w-auto justify-center"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Unload AI
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Progress Bar (Visible during automatic load) */}
+                  {/* Progress Bar (Visible during automatic load) */}
                           {webLlmDownloadProgress && (
                             <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
                               <div className="flex items-center justify-between gap-2 overflow-hidden">
@@ -1063,8 +1040,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                               )}
                             </div>
                           )}
-                        </div>
-
                 </>
               )}
             </div>
@@ -1380,20 +1355,38 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-white/5 bg-white/5 flex justify-end gap-3 transition-colors">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isLoadingTTS || isDownloadingWebLlm}
-            className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-          >
-            {isLoadingTTS ? 'Loading TTS...' : (isDownloadingWebLlm && (activeTab === 'webllm' || useWebLLM)) ? 'Loading Model...' : 'Save Settings'}
-          </button>
+        <div className="px-6 py-4 border-t border-white/5 bg-white/5 flex flex-wrap items-center justify-between gap-4 transition-colors">
+          {/* Bottom Left VRAM info */}
+          {activeTab === 'webllm' && AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel) ? (
+            <div className="flex items-center gap-2 text-xs text-white/80 font-medium">
+              <div className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/10">
+                <Activity className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span>Est. VRAM Usage: <strong className="text-white font-semibold">{AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.vram_required_MB} MB</strong></span>
+              </div>
+              <div className="hidden sm:flex items-center bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/10 text-white/70">
+                <span>Mode: <strong className="text-white font-semibold">{AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel)?.capabilities?.includes('vision') ? 'Vision + text' : 'Text only'}</strong></span>
+              </div>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {/* Bottom Right Action Buttons */}
+          <div className="flex items-center gap-3 ml-auto">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 rounded-xl font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isLoadingTTS || isDownloadingWebLlm}
+              className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              {isLoadingTTS ? 'Loading TTS...' : (isDownloadingWebLlm && (activeTab === 'webllm' || useWebLLM)) ? 'Loading Model...' : 'Save Settings'}
+            </button>
+          </div>
         </div>
       </div>
 
