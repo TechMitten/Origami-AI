@@ -58,7 +58,15 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
+
+  const isVideo = generationMode === 'video';
+  const visualStatus = isVideo ? scene.videoStatus : scene.imageStatus;
+  const visualUrl = isVideo ? scene.videoUrl : scene.imageUrl;
+  const visualBusy = visualStatus === 'pending';
+  const audioBusy = scene.audioStatus === 'pending';
+
+  // Automatically expose the prompt input field while reviewing the script before media is generated
+  const [showPrompt, setShowPrompt] = useState(() => !visualUrl && visualStatus !== 'ready');
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -80,12 +88,6 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
       void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     }
   };
-
-  const isVideo = generationMode === 'video';
-  const visualStatus = isVideo ? scene.videoStatus : scene.imageStatus;
-  const visualUrl = isVideo ? scene.videoUrl : scene.imageUrl;
-  const visualBusy = visualStatus === 'pending';
-  const audioBusy = scene.audioStatus === 'pending';
 
   return (
     <div

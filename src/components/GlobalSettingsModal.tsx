@@ -27,7 +27,7 @@ interface GlobalSettingsModalProps {
   onShowWebGPUModal?: () => void;
 }
 
-import { ModelSelectorGrid } from './ModelSelectorGrid';
+import { ModelSelectorGrid, PrecisionInfoCard } from './ModelSelectorGrid';
 
 const getWebLlmOptionLabel = (model: ModelInfo): string => {
   const capabilityLabel = model.capabilities?.includes('vision') ? 'Vision' : 'Text';
@@ -909,9 +909,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   {/* Precision Filter */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-white/80 uppercase tracking-widest">
-                        Model Precision
-                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-white/80 uppercase tracking-widest">
+                          Model Precision
+                        </label>
+                        <PrecisionInfoCard
+                          title="Float Precision in WebGPU"
+                          description="f16 runs faster with ~50% less VRAM on modern GPUs. f32 provides universal compatibility for older or integrated graphics."
+                          environment="f16 is auto-switched to f32 if unsupported."
+                          side="bottom"
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <button
@@ -933,18 +941,34 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                             : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                           }`}
                       >
+                        <div className="flex items-center justify-between">
                           <span className="text-sm font-bold">f16 (Better)</span>
+                          <PrecisionInfoCard
+                            title="f16 (Half-Precision)"
+                            description="Uses ~50% less VRAM and generates tokens faster. Recommended for dedicated GPUs (RTX, Apple Silicon M-series)."
+                            environment="Requires f16 shader support."
+                            side="bottom"
+                          />
+                        </div>
                         <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
-                          {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory'}
+                          {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory & faster'}
                         </span>
                       </button>
                       <button
                         onClick={() => setPrecisionFilter('f32')}
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
-                        <span className="text-sm font-bold">f32 (Compatible)</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold">f32 (Compatible)</span>
+                          <PrecisionInfoCard
+                            title="f32 (Single-Precision)"
+                            description="Universal hardware compatibility. Pick this for Intel Integrated graphics, older GPUs, or if f16 shaders fail."
+                            environment="Uses ~2x more VRAM."
+                            side="bottom"
+                          />
+                        </div>
                         <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
-                          Better support
+                          Maximum compatibility
                         </span>
                       </button>
                     </div>
