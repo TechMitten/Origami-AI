@@ -37,6 +37,11 @@ export interface ShortsScene {
   audioDuration?: number;
   audioStatus: SceneAssetStatus;
   audioError?: string | null;
+
+  /** narration text the current audioBlob was generated from — lets edits be detected as stale. */
+  audioNarrationSnapshot?: string;
+  /** imagePrompt text the current image/videoBlob was generated from. */
+  visualPromptSnapshot?: string;
 }
 
 export interface ShortsMusic {
@@ -233,6 +238,22 @@ export const projectDuration = (scenes: ShortsScene[]): number =>
 export const isProjectRenderable = (project: ShortsProject): boolean =>
   project.scenes.length > 0 && project.scenes.every((scene) => scene.audioStatus === 'ready');
 
+/** True once a scene's narration has been edited since its voiceover was generated. */
+export const isSceneAudioStale = (scene: ShortsScene): boolean =>
+  scene.audioStatus === 'ready' &&
+  scene.audioNarrationSnapshot !== undefined &&
+  scene.audioNarrationSnapshot !== scene.narration;
+
+/** True once a scene's image/video prompt has been edited since its visual was generated. */
+export const isSceneVisualStale = (scene: ShortsScene, mode: ShortsGenerationMode): boolean => {
+  const status = mode === 'video' ? scene.videoStatus : scene.imageStatus;
+  return (
+    status === 'ready' &&
+    scene.visualPromptSnapshot !== undefined &&
+    scene.visualPromptSnapshot !== scene.imagePrompt
+  );
+};
+
 export const formatDuration = (seconds: number): string => {
   const total = Math.round(seconds);
   const mins = Math.floor(total / 60);
@@ -269,6 +290,8 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     videoBlob: scene.videoBlob ?? undefined,
     audioBlob: scene.audioBlob ?? undefined,
     audioDuration: scene.audioDuration,
+    audioNarrationSnapshot: scene.audioNarrationSnapshot,
+    visualPromptSnapshot: scene.visualPromptSnapshot,
   })),
 });
 
@@ -309,6 +332,8 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     audioUrl: scene.audioBlob ? URL.createObjectURL(scene.audioBlob) : null,
     audioDuration: scene.audioDuration,
     audioStatus: scene.audioBlob ? 'ready' : 'idle',
+    audioNarrationSnapshot: scene.audioNarrationSnapshot,
+    visualPromptSnapshot: scene.visualPromptSnapshot,
   })),
 });
 

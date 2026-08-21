@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Download, Loader2, RotateCcw, Sparkles, Mic } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, RefreshCw, RotateCcw, Sparkles, Mic } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -45,6 +45,8 @@ import {
   generateSceneImage,
   generateSceneVideo,
   isProjectRenderable,
+  isSceneAudioStale,
+  isSceneVisualStale,
   projectDuration,
   revokeProjectUrls,
   sceneCaptions,
@@ -362,7 +364,13 @@ export const ShortsPage: React.FC = () => {
         const { blob, url } = await generateSceneImage(scene, target, { apiKey: pollinationsKey, signal });
         // Release the previous URL now that a replacement exists.
         if (scene.imageUrl) URL.revokeObjectURL(scene.imageUrl);
-        patchScene(scene.id, { imageBlob: blob, imageUrl: url, imageStatus: 'ready', imageError: null });
+        patchScene(scene.id, {
+          imageBlob: blob,
+          imageUrl: url,
+          imageStatus: 'ready',
+          imageError: null,
+          visualPromptSnapshot: scene.imagePrompt,
+        });
       } catch (e) {
         if (signal.aborted) return;
         patchScene(scene.id, { imageStatus: 'error', imageError: errorMessage(e) });
@@ -377,7 +385,13 @@ export const ShortsPage: React.FC = () => {
       try {
         const { blob, url } = await generateSceneVideo(scene, target, { apiKey: pollinationsKey, signal });
         if (scene.videoUrl) URL.revokeObjectURL(scene.videoUrl);
-        patchScene(scene.id, { videoBlob: blob, videoUrl: url, videoStatus: 'ready', videoError: null });
+        patchScene(scene.id, {
+          videoBlob: blob,
+          videoUrl: url,
+          videoStatus: 'ready',
+          videoError: null,
+          visualPromptSnapshot: scene.imagePrompt,
+        });
       } catch (e) {
         if (signal.aborted) return;
         patchScene(scene.id, { videoStatus: 'error', videoError: errorMessage(e) });
@@ -410,6 +424,7 @@ export const ShortsPage: React.FC = () => {
           audioDuration: duration,
           audioStatus: 'ready',
           audioError: null,
+          audioNarrationSnapshot: scene.narration,
         });
       } catch (e) {
         if (signal.aborted) return;
@@ -499,6 +514,44 @@ export const ShortsPage: React.FC = () => {
     } catch (e) {
       if (controller.signal.aborted) return;
       await showAlert(errorMessage(e), { type: 'error', title: 'Media generation failed' });
+    } finally {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      setIsBusy(false);
+      setBusyLabel('');
+    }
+  }, [runSceneVisual, runSceneAudio, showAlert]);
+
+  // Re-renders only the audio/visuals whose scripted text or prompt has drifted
+  // from what was actually used to generate the asset currently on the scene.
+  const handleRegenerateStale = useCallback(async () => {
+    const current = projectRef.current;
+    const staleVisualScenes = current.scenes.filter((s) => isSceneVisualStale(s, current.generationMode));
+    const staleAudioScenes = current.scenes.filter((s) => isSceneAudioStale(s));
+    if (!staleVisualScenes.length && !staleAudioScenes.length) return;
+
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+
+    setIsBusy(true);
+    setBusyLabel('Regenerating edited scenes...');
+
+    try {
+      const visuals = Promise.all(
+        staleVisualScenes.map((scene) => runSceneVisual(scene, current, controller.signal)),
+      );
+
+      const audio = (async () => {
+        for (const scene of staleAudioScenes) {
+          if (controller.signal.aborted) return;
+          await runSceneAudio(scene, current.voice, controller.signal);
+        }
+      })();
+
+      await Promise.all([visuals, audio]);
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      await showAlert(errorMessage(e), { type: 'error', title: 'Regeneration failed' });
     } finally {
       if (generationAbortRef.current === controller) generationAbortRef.current = null;
       setIsBusy(false);
@@ -605,6 +658,15 @@ export const ShortsPage: React.FC = () => {
       scenes: [...prev.scenes, createScene('', `${prev.topic}, ${prev.visualStyle}`)],
     }));
   }, []);
+
+  const handleBackToSetup = useCallback(async () => {
+    const confirmed = await showConfirm(
+      'Your scenes and generated media stay saved, but generating a new script from Setup will replace them. Go back anyway?',
+      { title: 'Return to Setup', confirmText: 'Go back' },
+    );
+    if (!confirmed) return;
+    setStage('compose');
+  }, [showConfirm]);
 
   const handleStartOver = useCallback(async () => {
     const confirmed = await showConfirm('Discard this short and start a new one?', {
@@ -740,10 +802,13 @@ export const ShortsPage: React.FC = () => {
 
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
-  const needsMediaGeneration = project.scenes.some(s => 
-    ['idle', 'error'].includes(s.audioStatus) || 
+  const needsMediaGeneration = project.scenes.some(s =>
+    ['idle', 'error'].includes(s.audioStatus) ||
     ['idle', 'error'].includes(project.generationMode === 'video' ? s.videoStatus : s.imageStatus)
   );
+  const staleCount = project.scenes.filter(
+    (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode),
+  ).length;
 
   return (
     <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pt-8 text-white">
@@ -828,7 +893,7 @@ export const ShortsPage: React.FC = () => {
                   <div className="flex items-baseline gap-3">
                     <button
                       type="button"
-                      onClick={() => setStage('compose')}
+                      onClick={() => void handleBackToSetup()}
                       className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
                     >
                       <ArrowLeft className="h-3 w-3" />
@@ -935,6 +1000,23 @@ export const ShortsPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {staleCount > 0 && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-xs text-amber-100">
+                    <span>
+                      {staleCount} scene{staleCount > 1 ? 's' : ''} edited since generation.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleRegenerateStale()}
+                      disabled={isBusy}
+                      className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-400/40 px-3 py-1.5 font-semibold text-amber-200 transition-colors hover:border-amber-400/70 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <RefreshCw className={cn('h-3.5 w-3.5', isBusy && 'animate-spin')} />
+                      Regenerate
+                    </button>
+                  </div>
+                )}
 
                 {needsMediaGeneration ? (
                   <button

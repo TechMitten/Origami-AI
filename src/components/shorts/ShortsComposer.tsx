@@ -301,7 +301,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   return (
     <div className="space-y-9">
       {/* --- Script ---------------------------------------------------------- */}
-      <Department label="Script">
+      <Department label="Topic">
         <div className="relative">
           <textarea
             value={project.topic}

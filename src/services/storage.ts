@@ -312,6 +312,8 @@ export interface PersistedShortsScene {
   audioBlob?: Blob;
   audioDuration?: number;
   seed: number;
+  audioNarrationSnapshot?: string;
+  visualPromptSnapshot?: string;
 }
 
 export interface PersistedShortsProject {

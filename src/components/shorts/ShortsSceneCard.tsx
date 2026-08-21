@@ -14,7 +14,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { ShortsGenerationMode, ShortsScene } from '../../services/shortsProject';
+import { isSceneAudioStale, isSceneVisualStale, type ShortsGenerationMode, type ShortsScene } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
 
 function cn(...inputs: ClassValue[]) {
@@ -66,6 +66,8 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const visualUrl = isVideo ? scene.videoUrl : scene.imageUrl;
   const visualBusy = visualStatus === 'pending';
   const audioBusy = scene.audioStatus === 'pending';
+  const audioStale = isSceneAudioStale(scene);
+  const visualStale = isSceneVisualStale(scene, generationMode);
 
   // Automatically expose the prompt input field while reviewing the script before media is generated
   const [showPrompt, setShowPrompt] = useState(() => !visualUrl && visualStatus !== 'ready');
@@ -158,12 +160,22 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             </div>
           )}
 
+          {visualStale && !visualBusy && (
+            <span
+              title={`Prompt edited since this ${isVideo ? 'video' : 'image'} was generated`}
+              className="absolute left-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]"
+            />
+          )}
+
           <button
             type="button"
             onClick={() => onRegenerateVisual(scene.id)}
             disabled={disabled || visualBusy}
             title={isVideo ? 'Regenerate video' : 'Regenerate image'}
-            className="focus-ring absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 opacity-0 transition-all hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
+            className={cn(
+              'focus-ring absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 transition-all hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed',
+              visualStale ? 'text-amber-300 opacity-100' : 'opacity-0',
+            )}
           >
             <RefreshCw className="h-3 w-3" />
           </button>
@@ -181,7 +193,10 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             disabled={disabled}
             rows={2}
             placeholder="Narration for this scene"
-            className="focus-ring min-h-[64px] w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
+            className={cn(
+              'focus-ring min-h-[64px] w-full resize-none overflow-hidden rounded-lg border bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50',
+              audioStale ? 'border-amber-400/40' : 'border-white/10',
+            )}
           />
 
           <div className="flex flex-wrap items-center gap-2">
@@ -199,20 +214,28 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               type="button"
               onClick={() => onRegenerateAudio(scene.id)}
               disabled={disabled || audioBusy}
-              title="Regenerate voiceover for this scene"
-              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              title={audioStale ? 'Narration edited — regenerate voiceover' : 'Regenerate voiceover for this scene'}
+              className={cn(
+                'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30',
+                audioStale ? 'border-amber-400/40 text-amber-300' : 'border-white/10 text-white/60',
+              )}
             >
               {audioBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               Voice
+              {audioStale && !audioBusy && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
             </button>
 
             <button
               type="button"
               onClick={() => setShowPrompt((v) => !v)}
-              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              className={cn(
+                'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:border-white/25 hover:text-white',
+                visualStale ? 'border-amber-400/40 text-amber-300' : 'border-white/10 text-white/60',
+              )}
             >
               <ImageIcon className="h-3 w-3" />
               {showPrompt ? 'Hide prompt' : isVideo ? 'Video prompt' : 'Image prompt'}
+              {visualStale && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
             </button>
 
             <div className="flex-1" />
@@ -234,15 +257,28 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
                   {isVideo ? 'Video prompt' : 'Image prompt'}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => onRewritePrompt(scene.id)}
-                  disabled={disabled}
-                  className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
-                >
-                  <Wand2 className="h-3 w-3" />
-                  Rewrite with AI
-                </button>
+                <div className="flex items-center gap-2">
+                  {visualStale && (
+                    <button
+                      type="button"
+                      onClick={() => onRegenerateVisual(scene.id)}
+                      disabled={disabled || visualBusy}
+                      className="focus-ring flex items-center gap-1.5 rounded-lg border border-amber-400/40 px-2.5 py-1 text-xs text-amber-300 transition-colors hover:border-amber-400/70 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      {visualBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      {isVideo ? 'Regenerate video' : 'Regenerate image'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRewritePrompt(scene.id)}
+                    disabled={disabled}
+                    className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    Rewrite with AI
+                  </button>
+                </div>
               </div>
               <textarea
                 ref={promptRef}
@@ -253,8 +289,16 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                 }}
                 disabled={disabled}
                 placeholder={isVideo ? 'Describe the video clip for this scene' : 'Describe the image for this scene'}
-                className="focus-ring min-h-[80px] w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-relaxed text-white/85 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
+                className={cn(
+                  'focus-ring min-h-[80px] w-full resize-none overflow-hidden rounded-lg border bg-black/25 p-3 text-xs leading-relaxed text-white/85 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50',
+                  visualStale ? 'border-amber-400/40' : 'border-white/10',
+                )}
               />
+              {visualStale && (
+                <p className="text-[11px] text-amber-300/80">
+                  Edited since the {isVideo ? 'video' : 'image'} was generated — regenerate to apply the change.
+                </p>
+              )}
             </div>
           )}
 

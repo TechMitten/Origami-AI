@@ -2,7 +2,6 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft, Github, Settings, CircleHelp } from 'lucide-react';
 import { TransitionLink } from './TransitionLink';
-import appLogo from '../assets/images/app-logo2.png';
 import { HeaderActionsMenu } from './HeaderActionsMenu';
 import { NotificationBell } from './NotificationBell';
 
@@ -80,16 +79,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           )}
           <TransitionLink
             to="/"
-            className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
+            className="flex items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
             title="Go to Home"
             aria-label="Go to home page"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all duration-500 hover:scale-105">
-              <img src={appLogo} alt="Origami logo" className="w-full h-full object-cover rounded-xl" />
-            </div>
-            <h1 className="hidden sm:block text-xl sm:text-2xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-sm">
-              ORIGAMI
-            </h1>
+            <img
+              src="/modlogo.png"
+              alt="Origami logo"
+              className="h-11 sm:h-14 w-auto object-contain"
+            />
           </TransitionLink>
         </div>
       )}
