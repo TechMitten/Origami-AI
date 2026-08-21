@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Play, Square, Loader2, Volume2, Check, Sparkles, Mic, Radio } from 'lucide-react';
+import { X, Search, Play, Square, Loader2, Volume2, Check, Sparkles, Mic } from 'lucide-react';
 import { DEFAULT_VOICES, generateTTS } from '../../services/ttsService';
 
 interface VoiceAuditionModalProps {

@@ -232,6 +232,20 @@ export const ShortsPage: React.FC = () => {
 
   const patchProject = useCallback((patch: Partial<ShortsProject>) => {
     setProject((prev) => ({ ...prev, ...patch }));
+
+    // Persist the image model choice to global settings immediately (rather than relying
+    // on the project autosave, which only kicks in once scenes exist) so it survives a
+    // refresh even from the composer stage, before anything has been generated yet.
+    if (patch.imageModel) {
+      setGlobalSettings((prev) => {
+        if (prev.pollinationsImageModel === patch.imageModel) return prev;
+        const next = { ...prev, pollinationsImageModel: patch.imageModel };
+        void saveGlobalSettings(next).catch((e) =>
+          console.warn('[Shorts] Could not persist default image model:', e),
+        );
+        return next;
+      });
+    }
   }, []);
 
   const patchScene = useCallback((id: string, patch: Partial<ShortsScene>) => {

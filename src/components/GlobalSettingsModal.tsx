@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2, Search, ChevronDown, Shirt, Wand2, ArrowDownCircle } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision, type ModelInfo } from '../services/webLlmService';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2, ArrowDownCircle } from 'lucide-react';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -28,17 +28,6 @@ interface GlobalSettingsModalProps {
 }
 
 import { ModelSelectorGrid, PrecisionInfoCard } from './ModelSelectorGrid';
-
-const getWebLlmOptionLabel = (model: ModelInfo): string => {
-  const capabilityLabel = model.capabilities?.includes('vision') ? 'Vision' : 'Text';
-  const recommendedLabel = model.name.includes('Gemma 2')
-    ? ' * Recommended'
-    : (model.capabilities?.includes('vision') && model.precision === 'f16')
-      ? ' * Best local vision'
-      : '';
-
-  return `${model.name} (${model.precision.toUpperCase()}) - ${model.size} - ${capabilityLabel}${recommendedLabel}`;
-};
 
 export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   isOpen,
@@ -123,7 +112,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
-  const [currentLoadedModel, setCurrentLoadedModel] = useState<string | null>(null);
   // Reload modal state — shown when the user switches WebLLM models
   const [showReloadModal, setShowReloadModal] = useState(false);
   // TTS Loading State
@@ -175,13 +163,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     if (activeTab === 'webllm' && isOpen) {
       const loaded = isWebLLMLoaded();
       setIsModelLoaded(loaded);
-      const currentModelId = getCurrentWebLLMModel();
-      if (loaded && currentModelId) {
-        const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === currentModelId);
-        setCurrentLoadedModel(modelInfo ? getWebLlmOptionLabel(modelInfo) : currentModelId);
-      } else {
-        setCurrentLoadedModel(null);
-      }
     }
   }, [activeTab, isOpen, webGpuSupport, showAlert]);
 
@@ -280,8 +261,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       setWebLlmPhase('complete');
       setWebLlmProgressPercent(100);
       setIsModelLoaded(true);
-      const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === modelToDownload);
-      setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : modelToDownload);
     } catch (e) {
       console.error(e);
       setWebLlmDownloadProgress(e instanceof Error ? e.message : 'Download failed.');
@@ -461,7 +440,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       setWebLlmDownloadProgress('Unloading current model...');
       await unloadWebLLM();
       setIsModelLoaded(false);
-      setCurrentLoadedModel(null);
       setWebLlmDownloadProgress('');
     }
 
@@ -1040,7 +1018,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     onUnload={async () => {
                       await unloadWebLLM();
                       setIsModelLoaded(false);
-                      setCurrentLoadedModel(null);
                       setWebLlmDownloadProgress('');
                     }}
                   />

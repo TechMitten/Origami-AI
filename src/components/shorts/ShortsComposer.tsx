@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Music, Captions, KeyRound, Type, Cpu, Cloud, Play, Square, Loader2, Sparkles, Mic } from 'lucide-react';
+import { Music, Captions, KeyRound, Type, Cpu, Cloud, Play, Square, Loader2, Sparkles } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';

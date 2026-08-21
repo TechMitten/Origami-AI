@@ -395,7 +395,6 @@ export class ShortsVideoRenderer {
   ) {
     const isClean = style === 'clean-lower';
     const isBoldPop = style === 'bold-pop';
-    const isKaraoke = style === 'karaoke';
 
     const fontSize = Math.round(width * (isClean ? 0.048 : isBoldPop ? 0.076 : 0.072));
     const weight = isClean ? 600 : isBoldPop ? 900 : 800;
