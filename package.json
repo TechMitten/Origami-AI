@@ -2,7 +2,7 @@
   "name": "origami-ai",
   "private": true,
   "version": "0.0.0",
-  "license": "PolyForm-Noncommercial-1.0.0",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.22.0"

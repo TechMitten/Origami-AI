@@ -12,6 +12,7 @@ import { TutorialModal } from './components/TutorialModal';
 import { Footer } from './components/Footer';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
+import { LicensePage } from './pages/LicensePage';
 
 import { saveState, loadState, clearState, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from './services/storage';
 import { Download, Loader2, RotateCcw, VolumeX, XCircle, Trash2, LayoutGrid, List, Upload, Check, Play } from 'lucide-react';
@@ -1692,6 +1693,7 @@ function App() {
               <Route path="/pollinations-callback" element={<PollinationsCallbackPage />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/license" element={<LicensePage />} />
             </Routes>
           </RouteTransition>
         </NotificationProvider>

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Layers, BrainCircuit, ArrowRight, Video, Github, Cpu, ExternalLink, Clapperboard } from 'lucide-react';
+import { Layers, BrainCircuit, ArrowRight, Video, Github, Cpu, ExternalLink, Clapperboard, Scale } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { TransitionLink } from './TransitionLink';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -144,15 +145,24 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
             </p>
           </div>
         </div>
-        <a
-          href="https://github.com/TechMitten/Origami-AI"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm rounded-full transition-all duration-300 whitespace-nowrap shrink-0 hover:scale-105 active:scale-95"
-        >
-          <Github className="w-4 h-4" />
-          View Repository
-        </a>
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <TransitionLink
+            to="/license"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm rounded-full transition-all duration-300 whitespace-nowrap shrink-0 hover:scale-105 active:scale-95"
+          >
+            <Scale className="w-4 h-4 text-cyan-400" />
+            MIT License
+          </TransitionLink>
+          <a
+            href="https://github.com/TechMitten/Origami-AI"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm rounded-full transition-all duration-300 whitespace-nowrap shrink-0 hover:scale-105 active:scale-95"
+          >
+            <Github className="w-4 h-4" />
+            View Repository
+          </a>
+        </div>
       </div>
 
       {/* CTA Button */}

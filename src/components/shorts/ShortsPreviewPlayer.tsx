@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, RotateCcw, Film } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Film,
+  Maximize2,
+  Minimize2,
+  Pause,
+  Play,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCaptionTimings } from '../../services/shortsCaptions';
@@ -49,6 +60,7 @@ const GateMarks: React.FC = () => (
 
 export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ project, className }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isEnlarged, setIsEnlarged] = useState(false);
   const [sceneIndex, setSceneIndex] = useState(0);
   const [sceneTime, setSceneTime] = useState(0);
 
@@ -96,6 +108,64 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
     setSceneIndex(0);
     setSceneTime(0);
   }, [stop]);
+
+  const jumpToScene = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= scenes.length) return;
+      setSceneIndex(index);
+      setSceneTime(0);
+      const targetScene = scenes[index];
+      if (isPlaying && targetScene?.audioUrl && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        void audioRef.current.play().catch(() => {});
+      }
+      fallbackStartRef.current = performance.now();
+    },
+    [isPlaying, scenes],
+  );
+
+  const prevScene = useCallback(() => {
+    jumpToScene(Math.max(0, sceneIndex - 1));
+  }, [jumpToScene, sceneIndex]);
+
+  const nextScene = useCallback(() => {
+    jumpToScene(Math.min(scenes.length - 1, sceneIndex + 1));
+  }, [jumpToScene, scenes.length, sceneIndex]);
+
+  // Lock body scrolling while enlarged modal is active
+  useEffect(() => {
+    if (!isEnlarged) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isEnlarged]);
+
+  // Keyboard shortcuts when enlarged (Space: Play/Pause, Esc: Close, Arrows: Navigation)
+  useEffect(() => {
+    if (!isEnlarged) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsEnlarged(false);
+      } else if (
+        e.key === ' ' &&
+        !['INPUT', 'TEXTAREA', 'BUTTON'].includes((e.target as HTMLElement)?.tagName)
+      ) {
+        e.preventDefault();
+        if (isPlaying) stop();
+        else setIsPlaying(true);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextScene();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevScene();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEnlarged, isPlaying, stop, nextScene, prevScene]);
 
   // Editing the storyboard mid-playback would desync audio from the scene list.
   useEffect(() => {
@@ -209,22 +279,35 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
     return source.trim().split(/\s+/).filter(Boolean).slice(0, 6).join(' ');
   }, [project.title, project.topic]);
 
-  if (!scenes.length) {
-    return (
-      <div className={cn('space-y-3', className)}>
+  // Renders the viewport frame (works in both inline and enlarged modes)
+  const renderFrameContent = (isModal = false) => {
+    if (!scenes.length) {
+      return (
         <div
           className={cn(
-            'monitor-gate @container relative w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl',
+            'monitor-gate @container group relative h-full w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl',
             'bg-[radial-gradient(120%_90%_at_50%_0%,#1b1b22_0%,#0c0c10_55%,#08080a_100%)]',
             aspectClass[project.aspect],
           )}
         >
           <GateMarks />
 
+          {!isModal && (
+            <button
+              type="button"
+              onClick={() => setIsEnlarged(true)}
+              title="Enlarge preview"
+              aria-label="Enlarge preview"
+              className="focus-ring absolute right-2.5 top-2.5 z-[6] rounded-lg bg-black/60 p-1.5 text-white/60 opacity-0 backdrop-blur-md transition-all hover:bg-black/80 hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+
           {project.showTitleCard && sampleTitle && (
             <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center px-[10%] text-center">
               <p
-                className="font-display text-[clamp(0.9rem,5cqw,1.7rem)] font-extrabold leading-tight text-white/90"
+                className="font-display text-[clamp(0.9rem,5cqw,1.7rem)] font-extrabold leading-tight text-white/90 max-w-full break-words [overflow-wrap:anywhere]"
                 style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}
               >
                 {sampleTitle}
@@ -236,54 +319,104 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
             <div
               key={project.captionStyle}
               className={cn(
-                'caption-restate pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[8%] text-center',
-                project.captionStyle === 'clean-lower' ? 'bottom-[14%]' : 'bottom-[24%]',
+                'caption-restate pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[6%] text-center min-w-0 max-w-full overflow-hidden',
+                project.captionStyle === 'clean-lower' ? 'bottom-[12%]' : 'bottom-[22%]',
               )}
             >
-              <p
-                className={cn(
-                  'leading-tight',
-                  project.captionStyle === 'clean-lower'
-                    ? 'text-[clamp(0.7rem,3.2cqw,1.05rem)] font-semibold'
-                    : 'text-[clamp(0.85rem,4.4cqw,1.5rem)] font-extrabold',
-                )}
-                style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,1)' }}
-              >
-                {sampleWords.map((word, i) => {
-                  // Frozen mid-line: karaoke has filled the first half, bold pop
-                  // is landing on one word, clean lower third never highlights.
-                  const highlight =
-                    project.captionStyle === 'karaoke'
-                      ? i < Math.ceil(sampleWords.length / 2)
-                      : project.captionStyle === 'bold-pop' && i === Math.floor(sampleWords.length / 2);
-                  return (
-                    <span key={`${word}-${i}`} className={highlight ? 'text-cyan-300' : 'text-white'}>
-                      {word}
-                      {i < sampleWords.length - 1 ? ' ' : ''}
-                    </span>
-                  );
-                })}
-              </p>
+              {project.captionStyle === 'clean-lower' ? (
+                <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-all">
+                  <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-all whitespace-normal">
+                    {sampleWords.map((word, i) => {
+                      const isMid = i === Math.floor(sampleWords.length / 2);
+                      return (
+                        <span key={`${word}-${i}`} className="break-all">
+                          <span className={isMid ? 'text-cyan-200 font-semibold' : 'text-white'}>
+                            {word}
+                          </span>
+                          {i < sampleWords.length - 1 ? ' ' : ''}
+                        </span>
+                      );
+                    })}
+                  </p>
+                </div>
+              ) : project.captionStyle === 'bold-pop' ? (
+                <p
+                  className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-all whitespace-normal"
+                  style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+                >
+                  {sampleWords.map((word, i) => {
+                    const isPop = i === Math.floor(sampleWords.length / 2);
+                    return (
+                      <span key={`${word}-${i}`} className="break-all">
+                        <span
+                          className={cn(
+                            'inline transition-transform duration-150 break-all',
+                            isPop
+                              ? 'text-yellow-400 font-black drop-shadow-[0_2px_10px_rgba(250,204,21,0.6)]'
+                              : 'text-white font-extrabold'
+                          )}
+                        >
+                          {word.toUpperCase()}
+                        </span>
+                        {i < sampleWords.length - 1 ? ' ' : ''}
+                      </span>
+                    );
+                  })}
+                </p>
+              ) : (
+                /* Karaoke Fill */
+                <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-all whitespace-normal">
+                  {sampleWords.map((word, i) => {
+                    const isSpoken = i < Math.ceil(sampleWords.length / 2);
+                    return (
+                      <span
+                        key={`${word}-${i}`}
+                        className={cn(
+                          'transition-colors duration-150 break-all',
+                          isSpoken
+                            ? 'text-cyan-300 font-black drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]'
+                            : 'text-white/35 font-semibold'
+                        )}
+                        style={
+                          isSpoken
+                            ? { textShadow: '0 0 12px rgba(34,211,238,0.7), 0 2px 8px rgba(0,0,0,0.9)' }
+                            : { textShadow: '0 2px 6px rgba(0,0,0,0.7)' }
+                        }
+                      >
+                        {word}
+                        {i < sampleWords.length - 1 ? ' ' : ''}
+                      </span>
+                    );
+                  })}
+                </p>
+              )}
             </div>
           )}
         </div>
+      );
+    }
 
-        <p className="text-center text-[11px] leading-relaxed text-white/35">
-          Framing and captions preview live. Your scenes fill the frame after you generate.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className={cn('space-y-3', className)}>
+    return (
       <div
         className={cn(
-          'monitor-gate @container relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl',
+          'monitor-gate @container group relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl',
           aspectClass[project.aspect],
         )}
       >
         <GateMarks />
+
+        {!isModal && (
+          <button
+            type="button"
+            onClick={() => setIsEnlarged(true)}
+            title="Enlarge preview"
+            aria-label="Enlarge preview"
+            className="focus-ring absolute right-2.5 top-2.5 z-[6] rounded-lg bg-black/60 p-1.5 text-white/60 opacity-0 backdrop-blur-md transition-all hover:bg-black/80 hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+
         {project.generationMode === 'video' && scene?.videoUrl ? (
           <video
             key={scene.id}
@@ -314,32 +447,77 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         {project.captionsEnabled && activeChunk && (
           <div
             className={cn(
-              'pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[8%] text-center',
-              project.captionStyle === 'clean-lower' ? 'bottom-[14%]' : 'bottom-[24%]',
+              'pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[6%] text-center min-w-0 max-w-full overflow-hidden',
+              project.captionStyle === 'clean-lower' ? 'bottom-[12%]' : 'bottom-[22%]',
             )}
           >
-            <p
-              className={cn(
-                'leading-tight',
-                project.captionStyle === 'clean-lower'
-                  ? 'text-[clamp(0.75rem,3.2cqw,1.1rem)] font-semibold'
-                  : 'text-[clamp(0.9rem,4.4cqw,1.6rem)] font-extrabold',
-              )}
-              style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,1)' }}
-            >
-              {activeChunk.words.map((word, i) => {
-                const isActive = sceneTime >= word.start && sceneTime < word.end;
-                const isPast = sceneTime >= word.start;
-                const highlight =
-                  project.captionStyle === 'karaoke' ? isPast : project.captionStyle === 'bold-pop' && isActive;
-                return (
-                  <span key={`${word.text}-${i}`} className={highlight ? 'text-cyan-300' : 'text-white'}>
-                    {word.text}
-                    {i < activeChunk.words.length - 1 ? ' ' : ''}
-                  </span>
-                );
-              })}
-            </p>
+            {project.captionStyle === 'clean-lower' ? (
+              <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-all">
+                <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-all whitespace-normal">
+                  {activeChunk.words.map((word, i) => {
+                    const isActive = sceneTime >= word.start && sceneTime < word.end;
+                    return (
+                      <span key={`${word.text}-${i}`} className="break-all">
+                        <span className={isActive ? 'text-cyan-200 font-semibold' : 'text-white'}>
+                          {word.text}
+                        </span>
+                        {i < activeChunk.words.length - 1 ? ' ' : ''}
+                      </span>
+                    );
+                  })}
+                </p>
+              </div>
+            ) : project.captionStyle === 'bold-pop' ? (
+              <p
+                className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-all whitespace-normal"
+                style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+              >
+                {activeChunk.words.map((word, i) => {
+                  const isActive = sceneTime >= word.start && sceneTime < word.end;
+                  return (
+                    <span key={`${word.text}-${i}`} className="break-all">
+                      <span
+                        className={cn(
+                          'inline transition-transform duration-100 break-all',
+                          isActive
+                            ? 'text-yellow-400 font-black drop-shadow-[0_2px_10px_rgba(250,204,21,0.6)]'
+                            : 'text-white font-extrabold'
+                        )}
+                      >
+                        {word.text.toUpperCase()}
+                      </span>
+                      {i < activeChunk.words.length - 1 ? ' ' : ''}
+                    </span>
+                  );
+                })}
+              </p>
+            ) : (
+              /* Karaoke Fill */
+              <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-all whitespace-normal">
+                {activeChunk.words.map((word, i) => {
+                  const isSpoken = sceneTime >= word.start;
+                  return (
+                    <span
+                      key={`${word.text}-${i}`}
+                      className={cn(
+                        'transition-colors duration-150 break-all',
+                        isSpoken
+                          ? 'text-cyan-300 font-black drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]'
+                          : 'text-white/35 font-semibold'
+                      )}
+                      style={
+                        isSpoken
+                          ? { textShadow: '0 0 12px rgba(34,211,238,0.7), 0 2px 8px rgba(0,0,0,0.9)' }
+                          : { textShadow: '0 2px 6px rgba(0,0,0,0.7)' }
+                      }
+                    >
+                      {word.text}
+                      {i < activeChunk.words.length - 1 ? ' ' : ''}
+                    </span>
+                  );
+                })}
+              </p>
+            )}
           </div>
         )}
 
@@ -361,21 +539,199 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
               <div
                 className="h-full bg-cyan-300 transition-[width] duration-100"
                 style={{
-                  width: i < sceneIndex ? '100%' : i === sceneIndex
-                    ? `${clamp((sceneTime / (sceneDurations[i] || 1)) * 100, 0, 100)}%`
-                    : '0%',
+                  width:
+                    i < sceneIndex
+                      ? '100%'
+                      : i === sceneIndex
+                        ? `${clamp((sceneTime / (sceneDurations[i] || 1)) * 100, 0, 100)}%`
+                        : '0%',
                 }}
               />
             </div>
           ))}
         </div>
       </div>
+    );
+  };
 
-      <div className="flex items-center gap-3">
+  const enlargedModal = isEnlarged && (
+    createPortal(
+      <div
+        className="fixed inset-0 z-[9995] flex flex-col items-center justify-between bg-black/90 p-4 backdrop-blur-xl animate-fade-in sm:p-6"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setIsEnlarged(false);
+        }}
+      >
+        {/* Top Header */}
+        <div className="flex w-full max-w-5xl items-center justify-between gap-4 pb-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="truncate font-display text-sm font-bold text-white">
+              {project.title || project.topic || 'Video Preview'}
+            </span>
+            <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-white/60">
+              {project.aspect}
+            </span>
+            {scenes.length > 0 && (
+              <span className="text-xs text-white/40">
+                Scene {sceneIndex + 1} of {scenes.length}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEnlarged(false)}
+              title="Minimize preview (Esc)"
+              aria-label="Minimize preview"
+              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/25 hover:text-white"
+            >
+              <Minimize2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Minimize</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEnlarged(false)}
+              title="Close (Esc)"
+              aria-label="Close"
+              className="focus-ring rounded-lg p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Central Expanded Viewport */}
+        <div className="flex w-full flex-1 min-h-0 items-center justify-center py-2">
+          <div
+            className={cn(
+              'relative max-h-full max-w-full',
+              project.aspect === '9:16' && 'h-[min(72vh,700px)] aspect-[9/16]',
+              project.aspect === '16:9' && 'w-[min(90vw,980px)] aspect-video max-h-[72vh]',
+              project.aspect === '1:1' && 'h-[min(70vh,620px)] aspect-square',
+            )}
+          >
+            {renderFrameContent(true)}
+          </div>
+        </div>
+
+        {/* Bottom Control Bar */}
+        <div className="flex w-full max-w-3xl flex-col items-center gap-3 pt-2">
+          {/* Scene selector chips (when scenes exist) */}
+          {scenes.length > 1 && (
+            <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 overflow-x-auto py-1">
+              {scenes.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => jumpToScene(i)}
+                  className={cn(
+                    'focus-ring rounded-md px-2.5 py-1 text-xs font-semibold transition-all',
+                    i === sceneIndex
+                      ? 'border border-cyan-400/60 bg-cyan-400/20 text-cyan-200 shadow-sm'
+                      : 'border border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white',
+                  )}
+                >
+                  Scene {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex w-full items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={prevScene}
+                disabled={sceneIndex === 0}
+                title="Previous scene (Left Arrow)"
+                aria-label="Previous scene"
+                className="focus-ring rounded-lg p-2 text-white/60 transition-colors hover:text-white disabled:opacity-30"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => (isPlaying ? stop() : setIsPlaying(true))}
+                className="focus-ring flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-2 text-sm font-bold text-black shadow-md transition-all hover:brightness-110"
+              >
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {isPlaying ? 'Pause' : 'Play'}
+              </button>
+
+              <button
+                type="button"
+                onClick={nextScene}
+                disabled={sceneIndex >= scenes.length - 1}
+                title="Next scene (Right Arrow)"
+                aria-label="Next scene"
+                className="focus-ring rounded-lg p-2 text-white/60 transition-colors hover:text-white disabled:opacity-30"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={reset}
+                title="Restart preview"
+                aria-label="Restart preview"
+                className="focus-ring rounded-lg border border-white/10 bg-white/5 p-2 text-white/60 transition-colors hover:border-white/25 hover:text-white"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="font-display text-xs tabular-nums text-white/70">
+                {formatDuration(elapsed)} / {formatDuration(totalDuration)}
+              </span>
+              <span className="hidden text-[11px] text-white/30 md:inline">
+                Space to Play · Esc to Close · ←/→ to Skip
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+  );
+
+  if (!scenes.length) {
+    return (
+      <div className={cn('space-y-3', className)}>
+        {renderFrameContent(false)}
+
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-left text-[11px] leading-relaxed text-white/35">
+            Framing and captions preview live.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsEnlarged(true)}
+            title="Enlarge preview"
+            aria-label="Enlarge preview"
+            className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white"
+          >
+            <Maximize2 className="h-3 w-3" />
+            Enlarge
+          </button>
+        </div>
+
+        {enlargedModal}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('space-y-3', className)}>
+      {renderFrameContent(false)}
+
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => (isPlaying ? stop() : setIsPlaying(true))}
-          className="focus-ring flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:border-cyan-400/40"
+          className="focus-ring flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3.5 py-2 text-sm text-white transition-colors hover:border-cyan-400/40"
         >
           {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           {isPlaying ? 'Pause' : 'Play'}
@@ -389,12 +745,24 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         >
           <RotateCcw className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          onClick={() => setIsEnlarged(true)}
+          title="Enlarge preview"
+          aria-label="Enlarge preview"
+          className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Enlarge</span>
+        </button>
         <span className="ml-auto font-display text-xs tabular-nums text-white/45">
           {formatDuration(elapsed)} / {formatDuration(totalDuration)}
         </span>
       </div>
 
       {scene?.audioUrl && <audio ref={audioRef} src={scene.audioUrl} preload="auto" className="hidden" />}
+
+      {enlargedModal}
     </div>
   );
 };

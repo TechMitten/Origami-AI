@@ -1,9 +1,9 @@
-import React from 'react';
-import { Music, Captions, KeyRound, Type, Cpu, Cloud } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Music, Captions, KeyRound, Type, Cpu, Cloud, Play, Square, Loader2, Sparkles, Mic } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';
-import { DEFAULT_VOICES } from '../../services/ttsService';
+import { DEFAULT_VOICES, generateTTS } from '../../services/ttsService';
 import { POLLINATIONS_IMAGE_MODELS } from '../../services/pollinationsService';
 import { POLLINATIONS_VIDEO_MODELS } from '../../services/pollinationsVideoService';
 import {
@@ -27,6 +27,7 @@ interface ShortsComposerProps {
   onPickMusic: () => void;
   onClearMusic: () => void;
   onOpenSettings: () => void;
+  onOpenVoiceAudition?: () => void;
   isBusy: boolean;
   hasImageKey: boolean;
   useOpenAI: boolean;
@@ -206,6 +207,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onPickMusic,
   onClearMusic,
   onOpenSettings,
+  onOpenVoiceAudition,
   isBusy,
   hasImageKey,
   useOpenAI,
@@ -215,6 +217,86 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
 }) => {
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
   const isVideo = project.generationMode === 'video';
+
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isPreviewGenerating, setIsPreviewGenerating] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewCacheRef = useRef<Map<string, string>>(new Map());
+
+  const stopVoicePreview = useCallback(() => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+    setIsPreviewPlaying(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopVoicePreview();
+    };
+  }, [stopVoicePreview]);
+
+  const handleToggleInlineVoicePreview = async () => {
+    if (isPreviewPlaying) {
+      stopVoicePreview();
+      return;
+    }
+
+    const voice = project.voice || 'af_heart';
+    const sampleText = "Hello! This is a sample preview of how my voice will sound in your video shorts.";
+    const cacheKey = `${voice}:${sampleText}`;
+    const cachedUrl = previewCacheRef.current.get(cacheKey);
+
+    if (cachedUrl) {
+      try {
+        const audio = new Audio(cachedUrl);
+        previewAudioRef.current = audio;
+        audio.onended = () => {
+          setIsPreviewPlaying(false);
+          previewAudioRef.current = null;
+        };
+        audio.onerror = () => {
+          setIsPreviewPlaying(false);
+          previewAudioRef.current = null;
+        };
+        setIsPreviewPlaying(true);
+        await audio.play();
+      } catch (err) {
+        console.error('Audio play error', err);
+        setIsPreviewPlaying(false);
+      }
+      return;
+    }
+
+    try {
+      setIsPreviewGenerating(true);
+      const audioUrl = await generateTTS(sampleText, {
+        voice,
+        speed: 1.0,
+        pitch: 1.0,
+      });
+      previewCacheRef.current.set(cacheKey, audioUrl);
+      setIsPreviewGenerating(false);
+
+      const audio = new Audio(audioUrl);
+      previewAudioRef.current = audio;
+      audio.onended = () => {
+        setIsPreviewPlaying(false);
+        previewAudioRef.current = null;
+      };
+      audio.onerror = () => {
+        setIsPreviewPlaying(false);
+        previewAudioRef.current = null;
+      };
+      setIsPreviewPlaying(true);
+      await audio.play();
+    } catch (err) {
+      console.error('Inline voice preview error', err);
+      setIsPreviewGenerating(false);
+      setIsPreviewPlaying(false);
+    }
+  };
 
   return (
     <div className="space-y-9">
@@ -292,29 +374,36 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
 
         <Field label="Frame">
           <div className="flex flex-wrap gap-2">
-            {ASPECT_OPTIONS.map((option) => (
-              <Chip
-                key={option.id}
-                active={project.aspect === option.id}
-                onClick={() => onChange({ aspect: option.id })}
-                disabled={isBusy}
-              >
-                <span className="flex items-center gap-2.5">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'shrink-0 rounded-[2px] border',
-                      ratioGlyph[option.id],
-                      project.aspect === option.id ? 'border-cyan-300/80' : 'border-white/35',
-                    )}
-                  />
-                  <span className="text-left">
-                    <span className="block leading-tight">{option.label}</span>
-                    <span className="block text-[10px] font-normal tabular-nums text-white/35">{option.hint}</span>
+            {ASPECT_OPTIONS.map((option) => {
+              const isActive = project.aspect === option.id;
+              return (
+                <Chip
+                  key={option.id}
+                  active={isActive}
+                  onClick={() => onChange({ aspect: option.id })}
+                  disabled={isBusy}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'shrink-0 rounded-[2px] border transition-colors',
+                        ratioGlyph[option.id],
+                        isActive ? 'border-cyan-300 bg-cyan-400/20' : 'border-white/50 bg-white/5',
+                      )}
+                    />
+                    <span className="text-left">
+                      <span className={cn('block leading-tight font-semibold', isActive ? 'text-cyan-100' : 'text-white')}>
+                        {option.label}
+                      </span>
+                      <span className={cn('block text-[11px] font-medium tabular-nums mt-0.5 transition-colors', isActive ? 'text-cyan-300/90' : 'text-white/70')}>
+                        {option.hint}
+                      </span>
+                    </span>
                   </span>
-                </span>
-              </Chip>
-            ))}
+                </Chip>
+              );
+            })}
           </div>
         </Field>
 
@@ -368,12 +457,68 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department label="Sound">
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Voice">
-            <Dropdown
-              options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
-              value={project.voice}
-              onChange={(value) => onChange({ voice: value })}
-              disabled={isBusy}
-            />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <Dropdown
+                    options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
+                    value={project.voice}
+                    onChange={(value) => {
+                      stopVoicePreview();
+                      onChange({ voice: value });
+                    }}
+                    disabled={isBusy}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleToggleInlineVoicePreview}
+                  disabled={isBusy || isPreviewGenerating}
+                  className={cn(
+                    'focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-all',
+                    isPreviewPlaying
+                      ? 'border-emerald-400/50 bg-emerald-500 text-black shadow-lg shadow-emerald-500/25 animate-pulse'
+                      : isPreviewGenerating
+                      ? 'border-white/10 bg-white/5 text-white/40 cursor-not-allowed'
+                      : 'border-white/10 bg-white/[0.05] text-cyan-300 hover:border-cyan-400/40 hover:bg-cyan-500/15'
+                  )}
+                  title={isPreviewPlaying ? 'Stop audio preview' : 'Quick preview voice'}
+                >
+                  {isPreviewGenerating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span className="hidden sm:inline">Loading...</span>
+                    </>
+                  ) : isPreviewPlaying ? (
+                    <>
+                      <Square className="h-3.5 w-3.5 fill-current" />
+                      <span>Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-3.5 w-3.5 fill-current text-cyan-400" />
+                      <span>Preview</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {onOpenVoiceAudition && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopVoicePreview();
+                    onOpenVoiceAudition();
+                  }}
+                  disabled={isBusy}
+                  className="focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-white/[0.02] py-1.5 text-xs font-medium text-white/60 transition-all hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-40"
+                >
+                  <Sparkles className="h-3 w-3 text-cyan-400" />
+                  Audition &amp; Compare All 28 Voices
+                </button>
+              )}
+            </div>
           </Field>
 
           <Field label="Background music">

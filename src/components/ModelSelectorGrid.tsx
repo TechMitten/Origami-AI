@@ -136,7 +136,7 @@ export const QuantCornerBadge: React.FC<{ precision: ModelInfo['precision'] }> =
     return (
       <span
         title="f16 Precision (16-bit Float)"
-        className="absolute bottom-1.5 right-2 flex items-center justify-center text-emerald-400 opacity-75 group-hover:opacity-100 transition-opacity"
+        className="absolute bottom-1.5 right-2 flex items-center justify-center text-amber-400 opacity-75 group-hover:opacity-100 transition-opacity"
       >
         <Zap className="w-3 h-3" />
       </span>
@@ -177,7 +177,7 @@ const GROUP_CONFIGS = {
     title: 'f16 Models',
     badge: '16-bit Float',
     subtitle: 'High Performance & Lower VRAM',
-    icon: <Zap className="w-3.5 h-3.5 text-emerald-400" />,
+    icon: <Zap className="w-3.5 h-3.5 text-amber-400" />,
     infoTitle: 'f16 (Half-Precision)',
     infoDesc: 'Uses ~50% less GPU memory (VRAM) and delivers faster token generation. Best for modern dedicated GPUs (NVIDIA RTX, Apple Silicon M1-M4, recent AMD).',
     environment: 'Environment: Requires WebGPU f16 shader support.',
@@ -378,7 +378,7 @@ export const ModelSelectorGrid: React.FC<ModelSelectorGridProps> = ({
           </div>
 
           {searchMatchingModels.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {searchMatchingModels.map(model => {
                 const family = getModelFamily(model.name);
                 const isSelected = value === model.id;
@@ -461,7 +461,7 @@ export const ModelSelectorGrid: React.FC<ModelSelectorGridProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
             {availableFamilies.map(family => {
               const isSelectedFamily = family.hasSelected;
               const isLoadedFamily = family.hasLoaded;
@@ -591,7 +591,7 @@ export const ModelSelectorGrid: React.FC<ModelSelectorGridProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {group.models.map(model => {
                         const isSelected = value === model.id;
                         const isLoaded = loadedModelId === model.id;

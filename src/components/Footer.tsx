@@ -26,7 +26,13 @@ export const Footer: React.FC = () => {
             GitHub
           </a>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <TransitionLink
+            to="/license"
+            className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"
+          >
+            MIT License
+          </TransitionLink>
           <TransitionLink
             to="/privacy"
             className="text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-[0.2em]"

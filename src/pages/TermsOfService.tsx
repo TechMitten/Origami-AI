@@ -128,6 +128,9 @@ export const TermsOfService: React.FC = () => {
                 <h3 className="text-base font-bold text-white mb-2">License to Operate the Service</h3>
                 <p>To the extent a license is legally required to provide the Service (for example, to process content on your device at your request, or, if you enable an optional cloud AI feature, to transmit content to the applicable third-party AI provider at your request), you grant TechMitten LLC a limited, non-exclusive, worldwide, royalty-free license to use your content <strong>solely to operate and provide the Service</strong>. This license is limited to what is necessary for the Service to function.</p>
               </div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                <p className="text-white/80 text-xs">The Origami application codebase is free and open-source software distributed under the <TransitionLink to="/license" className="text-branding-primary hover:text-branding-accent font-bold underline">MIT License</TransitionLink>. Rights to use, modify, and distribute the source code are governed by the MIT License terms.</p>
+              </div>
             </div>
           </section>
 

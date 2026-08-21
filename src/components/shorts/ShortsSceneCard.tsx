@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   GripVertical,
   ImageIcon,
@@ -57,6 +57,8 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const narrationRef = useRef<HTMLTextAreaElement | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const isVideo = generationMode === 'video';
@@ -67,6 +69,22 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
 
   // Automatically expose the prompt input field while reviewing the script before media is generated
   const [showPrompt, setShowPrompt] = useState(() => !visualUrl && visualStatus !== 'ready');
+
+  const adjustTextareaHeight = (element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight(narrationRef.current);
+  }, [scene.narration]);
+
+  useEffect(() => {
+    if (showPrompt) {
+      adjustTextareaHeight(promptRef.current);
+    }
+  }, [showPrompt, scene.imagePrompt]);
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -154,12 +172,16 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
         {/* Body */}
         <div className="min-w-0 flex-1 space-y-3">
           <textarea
+            ref={narrationRef}
             value={scene.narration}
-            onChange={(e) => onUpdate(scene.id, { narration: e.target.value })}
+            onChange={(e) => {
+              adjustTextareaHeight(e.target);
+              onUpdate(scene.id, { narration: e.target.value });
+            }}
             disabled={disabled}
             rows={2}
             placeholder="Narration for this scene"
-            className="focus-ring w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
+            className="focus-ring min-h-[64px] w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
           />
 
           <div className="flex flex-wrap items-center gap-2">
@@ -207,24 +229,32 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
           </div>
 
           {showPrompt && (
-            <div className="space-y-2">
+            <div className="space-y-2 pt-0.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                  {isVideo ? 'Video prompt' : 'Image prompt'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRewritePrompt(scene.id)}
+                  disabled={disabled}
+                  className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
+                >
+                  <Wand2 className="h-3 w-3" />
+                  Rewrite with AI
+                </button>
+              </div>
               <textarea
+                ref={promptRef}
                 value={scene.imagePrompt}
-                onChange={(e) => onUpdate(scene.id, { imagePrompt: e.target.value })}
+                onChange={(e) => {
+                  adjustTextareaHeight(e.target);
+                  onUpdate(scene.id, { imagePrompt: e.target.value });
+                }}
                 disabled={disabled}
-                rows={2}
                 placeholder={isVideo ? 'Describe the video clip for this scene' : 'Describe the image for this scene'}
-                className="focus-ring w-full resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-xs leading-relaxed text-white/80 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
+                className="focus-ring min-h-[80px] w-full resize-none overflow-hidden rounded-lg border border-white/10 bg-black/25 p-3 text-xs leading-relaxed text-white/85 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50"
               />
-              <button
-                type="button"
-                onClick={() => onRewritePrompt(scene.id)}
-                disabled={disabled}
-                className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
-              >
-                <Wand2 className="h-3 w-3" />
-                Rewrite with AI
-              </button>
             </div>
           )}
 

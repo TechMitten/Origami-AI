@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2, Search, ChevronDown, Shirt, Wand2 } from 'lucide-react';
+import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2, Search, ChevronDown, Shirt, Wand2, ArrowDownCircle } from 'lucide-react';
 import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision, type ModelInfo } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
@@ -117,6 +117,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webLlmDownloadProgress, setWebLlmDownloadProgress] = useState<string>('');
   const [webLlmProgressPercent, setWebLlmProgressPercent] = useState(0);
   const [isDownloadingWebLlm, setIsDownloadingWebLlm] = useState(false);
+  const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
   const [precisionFilter, setPrecisionFilter] = useState<'all' | 'f16' | 'f32'>('all');
   const [capabilityFilter, setCapabilityFilter] = useState<'all' | 'vision' | 'text'>('all');
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
@@ -184,12 +185,14 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
   }, [activeTab, isOpen, webGpuSupport, showAlert]);
 
-  // Reset progress when model changes
+  // Reset progress when model changes (only when not actively downloading)
   useEffect(() => {
-    setWebLlmDownloadProgress('');
-    setWebLlmProgressPercent(0);
-    setWebLlmPhase('downloading');
-  }, [webLlmModel]);
+    if (!isDownloadingWebLlm) {
+      setWebLlmDownloadProgress('');
+      setWebLlmProgressPercent(0);
+      setWebLlmPhase('downloading');
+    }
+  }, [webLlmModel, isDownloadingWebLlm]);
 
   // Reset TTS download state when quantization changes
 
@@ -213,6 +216,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   const handleDownloadWebLlm = async () => {
     if (!webLlmModel) return;
+    const modelToDownload = webLlmModel;
+    setDownloadingModelId(modelToDownload);
     setIsDownloadingWebLlm(true);
     setWebLlmDownloadProgress('Initializing...');
     setWebLlmProgressPercent(0);
@@ -247,7 +252,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     webLlmEvents.addEventListener('webllm-init-progress', handleProgress);
 
     try {
-      await initWebLLM(webLlmModel, (progress) => {
+      await initWebLLM(modelToDownload, (progress) => {
         const progressPercent = Math.round(progress.progress * 100);
 
         // Detect phase from text
@@ -275,14 +280,15 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       setWebLlmPhase('complete');
       setWebLlmProgressPercent(100);
       setIsModelLoaded(true);
-      const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === webLlmModel);
-      setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : webLlmModel);
+      const modelInfo = AVAILABLE_WEB_LLM_MODELS.find(m => m.id === modelToDownload);
+      setCurrentLoadedModel(modelInfo ? `${modelInfo.name} (${modelInfo.precision})` : modelToDownload);
     } catch (e) {
       console.error(e);
       setWebLlmDownloadProgress(e instanceof Error ? e.message : 'Download failed.');
       setWebLlmPhase('downloading');
     } finally {
       setIsDownloadingWebLlm(false);
+      setDownloadingModelId(null);
       webLlmEvents.removeEventListener('webllm-init-progress', handleProgress);
     }
   };
@@ -506,7 +512,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
+      <div className="w-full max-w-2xl bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh] relative">
+        {/* Top Border Progress Indicator */}
+        {isDownloadingWebLlm && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-white/5 z-50 overflow-hidden">
+            {webLlmPhase === 'shader' ? (
+              <div className="h-full bg-linear-to-r from-purple-500 via-sky-400 to-purple-500 animate-pulse w-full shadow-[0_0_10px_rgba(168,85,247,0.7)]" />
+            ) : (
+              <div
+                className="h-full bg-linear-to-r from-sky-500 via-purple-500 to-emerald-400 transition-all duration-300 shadow-[0_0_10px_rgba(56,189,248,0.7)]"
+                style={{ width: `${webLlmProgressPercent}%` }}
+              />
+            )}
+          </div>
+        )}
+
         {/* Header */}
         <div className="px-4 py-4 sm:px-8 sm:py-6 border-b border-white/5 flex items-center justify-between bg-white/5">
           <div className="flex items-center gap-3">
@@ -563,7 +583,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden space-y-6 flex-1 w-full min-w-0">
 
           {activeTab === 'general' ? (
             <>
@@ -1024,46 +1044,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       setWebLlmDownloadProgress('');
                     }}
                   />
-
-                  {/* Progress Bar (Visible during automatic load) */}
-                          {webLlmDownloadProgress && (
-                            <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-2">
-                              <div className="flex items-center justify-between gap-2 overflow-hidden">
-                                <p className={`font-mono text-xs leading-relaxed truncate min-w-0 ${webLlmDownloadProgress === 'Model loaded successfully!' ? 'text-emerald-400 font-bold' : 'text-white/70'}`} title={webLlmDownloadProgress}>
-                                  {(() => {
-                                    if (webLlmDownloadProgress.includes("Finish loading")) return "Finalizing AI engine...";
-                                    if (webLlmDownloadProgress.includes("Loading model")) return "Loading AI model...";
-                                    if (webLlmDownloadProgress.includes("Fetching param")) return "Downloading parameters...";
-                                    return webLlmDownloadProgress;
-                                  })()}
-                                </p>
-                                {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
-                                  <span className="font-mono text-xs text-white/70">
-                                    {webLlmProgressPercent}%
-                                  </span>
-                                )}
-                                {isDownloadingWebLlm && webLlmPhase === 'shader' && (
-                                  <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
-                                    <RefreshCw className="w-3 h-3 animate-spin" />
-                                    Optimizing
-                                  </span>
-                                )}
-                              </div>
-                              {isDownloadingWebLlm && webLlmPhase !== 'shader' && (
-                                <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-300"
-                                    style={{ width: `${webLlmProgressPercent}%` }}
-                                  />
-                                </div>
-                              )}
-                              {isDownloadingWebLlm && webLlmPhase === 'shader' && (
-                                <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                  <div className="h-full bg-linear-to-r from-purple-500/50 via-blue-500 to-purple-500/50 animate-pulse w-full" />
-                                </div>
-                              )}
-                            </div>
-                          )}
                 </>
               )}
             </div>
@@ -1378,6 +1358,73 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
           ) : null}
         </div>
 
+        {/* Sticky Download Progress Banner (Always visible without scrolling) */}
+        {isDownloadingWebLlm && (
+          <div className="px-6 py-3 bg-[#141414] border-t border-white/10 shadow-lg flex flex-col gap-2 z-20 animate-fade-in">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center shrink-0">
+                  {webLlmPhase === 'shader' ? (
+                    <RefreshCw className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+                  ) : (
+                    <ArrowDownCircle className="w-3.5 h-3.5 text-sky-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white truncate">
+                      {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === (downloadingModelId || webLlmModel))?.name || 'WebLLM Model'}
+                    </span>
+                    <span className="text-[10px] text-white/50 px-1.5 py-0.5 rounded bg-white/10 font-medium">
+                      {AVAILABLE_WEB_LLM_MODELS.find(m => m.id === (downloadingModelId || webLlmModel))?.size || 'Local AI'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-white/70 font-mono truncate" title={webLlmDownloadProgress}>
+                    {(() => {
+                      if (webLlmPhase === 'shader' || webLlmDownloadProgress.toLowerCase().includes('shader')) {
+                        return 'Compiling WebGPU shaders (first-time optimization)...';
+                      }
+                      if (webLlmDownloadProgress.includes('Finish loading') || webLlmDownloadProgress.includes('Loading model')) {
+                        return 'Loading model into GPU memory...';
+                      }
+                      if (webLlmDownloadProgress.includes('Fetching param') || webLlmDownloadProgress.includes('fetch')) {
+                        return 'Downloading model parameters...';
+                      }
+                      if (webLlmDownloadProgress.includes('Initializing')) {
+                        return 'Initializing WebGPU engine...';
+                      }
+                      return webLlmDownloadProgress || 'Preparing model download...';
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 text-right">
+                {webLlmPhase === 'shader' ? (
+                  <span className="text-xs font-semibold text-purple-300 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    Optimizing
+                  </span>
+                ) : (
+                  <span className="text-xs font-mono font-bold text-sky-300">{webLlmProgressPercent}%</span>
+                )}
+              </div>
+            </div>
+
+            {/* Progress Track */}
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              {webLlmPhase === 'shader' ? (
+                <div className="h-full bg-linear-to-r from-purple-500/60 via-sky-400 to-purple-500/60 animate-pulse w-full" />
+              ) : (
+                <div
+                  className="h-full bg-linear-to-r from-sky-500 to-emerald-400 transition-all duration-300 rounded-full"
+                  style={{ width: `${webLlmProgressPercent}%` }}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="px-6 py-4 border-t border-white/5 bg-white/5 flex flex-wrap items-center justify-between gap-4 transition-colors">
           {/* Bottom Left VRAM info */}
@@ -1406,9 +1453,25 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             <button
               onClick={handleSave}
               disabled={isLoadingTTS || isDownloadingWebLlm}
-              className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              className="px-8 py-2.5 rounded-xl bg-white/10 text-white font-extrabold hover:bg-white/20 hover:scale-105 active:scale-95 transition-all text-sm border border-white/10 hover:border-white/20 shadow-lg shadow-black/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
             >
-              {isLoadingTTS ? 'Loading TTS...' : (isDownloadingWebLlm && (activeTab === 'webllm' || useWebLLM)) ? 'Loading Model...' : 'Save Settings'}
+              {isLoadingTTS ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Loading TTS...</span>
+                </>
+              ) : isDownloadingWebLlm ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                  <span>
+                    {webLlmPhase === 'shader'
+                      ? 'Optimizing Shaders...'
+                      : `Downloading (${webLlmProgressPercent}%)...`}
+                  </span>
+                </>
+              ) : (
+                'Save Settings'
+              )}
             </button>
           </div>
         </div>

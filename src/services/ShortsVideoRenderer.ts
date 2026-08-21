@@ -393,23 +393,31 @@ export class ShortsVideoRenderer {
     style: ShortsCaptionStyle,
     accent: string,
   ) {
-    const fontSize = Math.round(width * (style === 'clean-lower' ? 0.055 : 0.072));
-    const weight = style === 'clean-lower' ? 600 : 800;
+    const isClean = style === 'clean-lower';
+    const isBoldPop = style === 'bold-pop';
+    const isKaraoke = style === 'karaoke';
+
+    const fontSize = Math.round(width * (isClean ? 0.048 : isBoldPop ? 0.076 : 0.072));
+    const weight = isClean ? 600 : isBoldPop ? 900 : 800;
     ctx.font = `${weight} ${fontSize}px Roboto, "Helvetica Neue", Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const maxWidth = width * 0.84;
-    const lines = this.layoutCaptionLines(ctx, chunk.words, maxWidth);
-    const lineHeight = fontSize * 1.18;
+    const maxWidth = width * (isClean ? 0.80 : 0.84);
+    // For bold-pop, format words in uppercase for measurement and rendering
+    const wordsForLayout = isBoldPop
+      ? chunk.words.map((w) => ({ ...w, text: w.text.toUpperCase() }))
+      : chunk.words;
+    const lines = this.layoutCaptionLines(ctx, wordsForLayout, maxWidth);
+    const lineHeight = fontSize * (isClean ? 1.25 : 1.18);
 
     // Pop-in over the first 140ms of the chunk.
     const age = localTime - chunk.start;
     const popT = clamp(age / 0.14, 0, 1);
-    const scale = style === 'bold-pop' ? 0.86 + easeOutBack(popT) * 0.14 : 1;
+    const scale = isBoldPop ? 0.86 + easeOutBack(popT) * 0.14 : 1;
     const fadeIn = easeOutCubic(clamp(age / 0.1, 0, 1));
 
-    const baselineY = style === 'clean-lower' ? height * 0.82 : height * 0.72;
+    const baselineY = isClean ? height * 0.84 : height * 0.72;
     const blockHeight = lines.length * lineHeight;
     const startY = baselineY - blockHeight / 2 + lineHeight / 2;
 
@@ -419,13 +427,40 @@ export class ShortsVideoRenderer {
     ctx.scale(scale, scale);
     ctx.translate(-width / 2, -baselineY);
 
+    // If clean-lower, draw a frosted pill background container behind the captions
+    if (isClean) {
+      let maxLineWidth = 0;
+      lines.forEach((line) => {
+        const lineText = line.map((w) => w.text).join(' ');
+        const lw = ctx.measureText(lineText).width;
+        if (lw > maxLineWidth) maxLineWidth = lw;
+      });
+
+      const padX = fontSize * 0.9;
+      const padY = fontSize * 0.45;
+      const pillW = maxLineWidth + padX * 2;
+      const pillH = blockHeight + padY * 2;
+      const pillX = width / 2 - pillW / 2;
+      const pillY = baselineY - pillH / 2;
+      const radius = Math.min(16, pillH / 2);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(pillX, pillY, pillW, pillH, radius);
+      } else {
+        ctx.rect(pillX, pillY, pillW, pillH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.lineJoin = 'round';
     ctx.miterLimit = 2;
-    ctx.lineWidth = Math.max(6, fontSize * 0.14);
-    ctx.strokeStyle = 'rgba(0,0,0,0.92)';
-    ctx.shadowColor = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur = fontSize * 0.22;
-    ctx.shadowOffsetY = fontSize * 0.06;
 
     lines.forEach((line, lineIndex) => {
       const y = startY + lineIndex * lineHeight;
@@ -433,27 +468,72 @@ export class ShortsVideoRenderer {
       const lineWidth = ctx.measureText(lineText).width;
       let x = width / 2 - lineWidth / 2;
 
-      // Stroke the whole line first so per-word fills never clip a neighbour's outline.
-      ctx.textAlign = 'center';
-      ctx.strokeText(lineText, width / 2, y);
-
       ctx.textAlign = 'left';
-      ctx.shadowColor = 'transparent';
 
       line.forEach((word, wordIndex) => {
         const spacer = wordIndex === line.length - 1 ? '' : ' ';
         const wordWidth = ctx.measureText(word.text + spacer).width;
         const isActive = localTime >= word.start && localTime < word.end;
+        const isSpoken = localTime >= word.start;
 
-        ctx.fillStyle = style === 'karaoke'
-          ? (localTime >= word.start ? accent : 'rgba(255,255,255,0.96)')
-          : (isActive && style === 'bold-pop' ? accent : '#ffffff');
+        if (isClean) {
+          ctx.lineWidth = Math.max(3, fontSize * 0.08);
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+          ctx.shadowColor = 'transparent';
+          ctx.strokeText(word.text, x, y);
 
-        ctx.fillText(word.text, x, y);
+          ctx.fillStyle = isActive ? (accent || '#67E8F9') : '#FFFFFF';
+          ctx.fillText(word.text, x, y);
+        } else if (isBoldPop) {
+          // Bold Pop: punchy yellow active word with heavy black stroke
+          if (isActive) {
+            ctx.lineWidth = Math.max(8, fontSize * 0.18);
+            ctx.strokeStyle = '#000000';
+            ctx.shadowColor = 'rgba(250, 204, 21, 0.65)';
+            ctx.shadowBlur = fontSize * 0.32;
+            ctx.shadowOffsetY = fontSize * 0.04;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = '#FACC15'; // Vibrant Yellow
+            ctx.fillText(word.text, x, y);
+          } else {
+            ctx.lineWidth = Math.max(6, fontSize * 0.14);
+            ctx.strokeStyle = '#000000';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = fontSize * 0.22;
+            ctx.shadowOffsetY = fontSize * 0.05;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(word.text, x, y);
+          }
+        } else {
+          // Karaoke: glowing cyan for spoken words, softly dimmed for unspoken
+          if (isSpoken) {
+            ctx.lineWidth = Math.max(6, fontSize * 0.14);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
+            ctx.shadowColor = 'rgba(34, 211, 238, 0.8)';
+            ctx.shadowBlur = fontSize * 0.35;
+            ctx.shadowOffsetY = fontSize * 0.04;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = '#22D3EE'; // Electric Cyan
+            ctx.fillText(word.text, x, y);
+          } else {
+            ctx.lineWidth = Math.max(4, fontSize * 0.09);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+            ctx.fillText(word.text, x, y);
+          }
+        }
+
         x += wordWidth;
       });
-
-      ctx.shadowColor = 'rgba(0,0,0,0.55)';
     });
 
     ctx.restore();

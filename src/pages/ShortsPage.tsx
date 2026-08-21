@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Download, Loader2, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, RotateCcw, Sparkles, Mic } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -17,6 +17,7 @@ import { ShortsComposer } from '../components/shorts/ShortsComposer';
 import { ShortsStoryboard } from '../components/shorts/ShortsStoryboard';
 import { ShortsPreviewPlayer } from '../components/shorts/ShortsPreviewPlayer';
 import { ShortsRenderModal, type ShortsRenderPhase } from '../components/shorts/ShortsRenderModal';
+import { VoiceAuditionModal } from '../components/shorts/VoiceAuditionModal';
 import { useModal } from '../context/ModalContext';
 
 import {
@@ -27,7 +28,7 @@ import {
   initWebLLM,
   isWebLLMLoaded,
 } from '../services/webLlmService';
-import { initTTS } from '../services/ttsService';
+import { initTTS, DEFAULT_VOICES } from '../services/ttsService';
 import { resolvePollinationsKey } from '../services/pollinationsService';
 import { generateShortsScript, regenerateImagePrompt } from '../services/shortsScriptService';
 import {
@@ -126,6 +127,7 @@ export const ShortsPage: React.FC = () => {
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
   const [isWebLLMLoadingOpen, setIsWebLLMLoadingOpen] = useState(false);
   const [isMusicPickerOpen, setIsMusicPickerOpen] = useState(false);
+  const [isVoiceAuditionOpen, setIsVoiceAuditionOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
 
   const { startBackgroundDownloads, endBackgroundDownloads } = useBackgroundDownload();
@@ -798,6 +800,7 @@ export const ShortsPage: React.FC = () => {
                 onPickMusic={() => setIsMusicPickerOpen(true)}
                 onClearMusic={() => patchProject({ music: null })}
                 onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenVoiceAudition={() => setIsVoiceAuditionOpen(true)}
                 isBusy={isBusy}
                 hasImageKey={!!pollinationsKey}
                 useOpenAI={useOpenAI}
@@ -807,20 +810,31 @@ export const ShortsPage: React.FC = () => {
               />
             ) : (
               <div className="space-y-5">
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-baseline gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setStage('compose')}
+                      className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      Setup
+                    </button>
+                    <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
+                    <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+                      Cut
+                    </h2>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setStage('compose')}
-                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
+                    onClick={() => setIsVoiceAuditionOpen(true)}
+                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 transition-all"
+                    title="Audition or switch voice"
                   >
-                    <ArrowLeft className="h-3 w-3" />
-                    Setup
+                    <Mic className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Voice: <strong className="text-white">{DEFAULT_VOICES.find(v => v.id === project.voice)?.name || project.voice}</strong></span>
                   </button>
-                  <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
-                  <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
-                    Cut
-                  </h2>
-                  <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent" />
                 </div>
 
                 {isBusy && (
@@ -982,6 +996,15 @@ export const ShortsPage: React.FC = () => {
       <RuntimeResourceModal isOpen={isResourceModalOpen} onConfirm={handleResourceSetupConfirm} />
 
       <WebGPUInstructionsModal isOpen={isWebGPUModalOpen} onClose={() => setIsWebGPUModalOpen(false)} />
+
+      <VoiceAuditionModal
+        isOpen={isVoiceAuditionOpen}
+        onClose={() => setIsVoiceAuditionOpen(false)}
+        selectedVoice={project.voice}
+        onSelectVoice={(voiceId) => {
+          patchProject({ voice: voiceId });
+        }}
+      />
 
       <WebLLMLoadingModal
         isOpen={isWebLLMLoadingOpen}

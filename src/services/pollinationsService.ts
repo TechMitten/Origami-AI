@@ -20,8 +20,8 @@ export const POLLINATIONS_PROXY_URL = '/api/pollinations/image';
 
 /** Models that reliably accept width/height and produce usable stills for shorts. */
 export const POLLINATIONS_IMAGE_MODELS: Array<{ id: string; name: string }> = [
-  { id: 'zimage', name: 'Z-Image (default, fast)' },
-  { id: 'flux', name: 'Flux (balanced)' },
+  { id: 'zimage', name: 'Z-Image (fast)' },
+  { id: 'flux', name: 'Flux (default, balanced)' },
   { id: 'seedream', name: 'Seedream (cinematic)' },
   { id: 'seedream5', name: 'Seedream 5' },
   { id: 'nanobanana', name: 'Nano Banana' },
@@ -29,7 +29,7 @@ export const POLLINATIONS_IMAGE_MODELS: Array<{ id: string; name: string }> = [
   { id: 'dreamshaper', name: 'Dreamshaper (stylised)' },
 ];
 
-export const DEFAULT_POLLINATIONS_IMAGE_MODEL = 'zimage';
+export const DEFAULT_POLLINATIONS_IMAGE_MODEL = 'flux';
 
 export interface PollinationsImageRequest {
   prompt: string;
