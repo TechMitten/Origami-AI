@@ -9,7 +9,6 @@
     <a href="https://github.com/TechMitten/Origami-AI/issues"><img src="https://img.shields.io/github/issues/techmitten/origami-ai" alt="Open issues"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/techmitten/origami-ai" alt="License"></a>
     <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen" alt="Node version"></a>
-    <a href="https://github.com/TechMitten/Origami-AI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome"></a>
   </p>
 
   <p>
@@ -50,6 +49,7 @@ It also doubles as a screen recorder with cinematic auto-zoom, an MP4 scene anal
 - 🔒 **Server-side key proxying** — `LLM_API_KEY` never ships in the production client bundle
 - 🎵 **Background music & mixing** — auto-ducking under narration with per-slide control
 - 📦 **Portable projects** — export/import a full project (slides, media, audio, settings) as a `.origami` archive
+- 🎞️ **Shorts generator** — turn a topic into a vertical (or square/landscape) short: AI script, Pollinations image/video generation, Kokoro TTS voiceover, and burned-in captions
 
 ## 🚀 Quick Start
 
@@ -110,6 +110,16 @@ You can also download a packaged ZIP from inside the app (header menu → **Down
 
 Typical end-to-end time is 2–5 minutes, depending on slide count and GPU.
 
+**Shorts — topic → vertical video** (`/shorts`):
+
+1. Enter a topic and pick length (15–90s), tone, visual source (AI stills or clips), frame (9:16 / 16:9 / 1:1), visual style, an image or video model, and a Kokoro voice
+2. An LLM (local WebLLM or your configured API) drafts a scene-by-scene script and image prompts — review and edit before generating any media
+3. Approve to generate each scene's image or video clip via [Pollinations](https://pollinations.ai) and a Kokoro TTS voiceover in parallel; regenerate individual scenes as needed
+4. Add optional background music and burned-in captions (Bold Pop, Karaoke Fill, or Clean Lower Third)
+5. Export renders the final MP4 fully client-side (H.264/AAC, up to 1080×1920)
+
+Reach it from the **Shorts** button on the upload screen, or by visiting `/shorts` directly.
+
 **Other entry points:**
 - **Screen recording** — capture a tab or desktop, auto-zoom on idle (>2s), combine with PDF slides or use standalone
 - **Scene analysis** — upload an MP4, get a timestamped scene breakdown via the Gemini API
@@ -148,15 +158,18 @@ In **production**, set `LLM_API_KEY` (no `VITE_` prefix) on the server/host inst
 > [!WARNING]
 > Never set `VITE_LLM_API_KEY` in production — anything with the `VITE_` prefix is compiled into the public client bundle.
 
+**Shorts** image/video generation uses [Pollinations](https://pollinations.ai). Sign in with Pollinations from the Shorts composer to use your own account (a `pk_...`/`sk_...` key pair obtained via OAuth and stored locally in IndexedDB), or set `POLLINATIONS_API_KEY` on the server as a fallback used by the `/api/pollinations/image` and `/api/pollinations/video` proxies. Without either one configured, Shorts media generation is unavailable.
+
 <details>
 <summary><strong>Full environment variable reference</strong></summary>
 
 | Variable | Context | Purpose |
 |---|---|---|
 | `VITE_LLM_API_KEY` | Client (dev only) | Exposes the API key to the browser for development. **Never set in production.** |
-| `LLM_API_KEY` | Server (prod) | Server-side key used by the proxy endpoints; never sent to the client. |
+| `LLM_API_KEY` | Server (prod) | Server-side key used by the LLM proxy endpoints; never sent to the client. |
 | `VITE_LLM_BASE_URL` | Client | OpenAI-compatible endpoint base URL |
 | `VITE_LLM_MODEL` | Client | Model identifier (e.g. `gemini-flash-latest`) |
+| `POLLINATIONS_API_KEY` | Server (prod) | Server-side fallback key for the Pollinations image/video proxy, used when a user hasn't connected their own account |
 | `CLIENT_URL` | Server | Comma-separated allowed CORS origins |
 | `PORT` | Server | Port to listen on (default `3000`) |
 | `NODE_ENV` | Server | Set to `production` for production builds |
@@ -212,7 +225,7 @@ AI assistant chat model options:
 - [`kokoro-js`](https://github.com/Kokoro-js) — text-to-speech
 - [`@dnd-kit`](https://docs.dndkit.com) — drag-and-drop slide reordering
 
-**Backend** — Express 5 + TypeScript (`server.ts`).
+**Backend** — Express 5 + TypeScript (`server.ts`), proxying optional cloud LLM calls and [Pollinations](https://pollinations.ai) image/video generation for Shorts.
 
 **Chrome extension** — plain JS Manifest V3, MessagePort-based telemetry, optional
 
@@ -257,7 +270,7 @@ Licensed under the [MIT](LICENSE).
 
 ## 🙏 Credits
 
-[WebLLM](https://github.com/mlc-ai/web-llm) · [Kokoro.js](https://github.com/Kokoro-js) · [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) · [PDF.js](https://mozilla.github.io/pdf.js/) · [React](https://react.dev) · [Tailwind CSS](https://tailwindcss.com) · [Lucide](https://lucide.dev) · [dnd-kit](https://docs.dndkit.com)
+[WebLLM](https://github.com/mlc-ai/web-llm) · [Kokoro.js](https://github.com/Kokoro-js) · [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) · [PDF.js](https://mozilla.github.io/pdf.js/) · [Pollinations](https://pollinations.ai) · [React](https://react.dev) · [Tailwind CSS](https://tailwindcss.com) · [Lucide](https://lucide.dev) · [dnd-kit](https://docs.dndkit.com)
 
 ---
 
