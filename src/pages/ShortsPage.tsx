@@ -260,11 +260,7 @@ export const ShortsPage: React.FC = () => {
   const [project, setProject] = useState<ShortsProject>(() => createEmptyProject());
   const [stage, setStage] = useState<Stage>('compose');
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
-  const [splashPhase, setSplashPhase] = useState<'fade-in' | 'fade-out' | 'done'>(() =>
-    typeof window !== 'undefined' && sessionStorage.getItem('shorts_splash_shown') === 'true'
-      ? 'done'
-      : 'fade-in',
-  );
+  const [splashPhase, setSplashPhase] = useState<'fade-in' | 'fade-out' | 'done'>('fade-in');
 
   const [isBusy, setIsBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
@@ -317,13 +313,12 @@ export const ShortsPage: React.FC = () => {
   const webLlmModelLabel =
     getWebLlmModelInfo(globalSettings.webLlmModel)?.name ?? globalSettings.webLlmModel ?? 'No model selected';
 
-  // Show the branded splash once per session (first /shorts visit), fading in on
-  // mount and fading back out before it unmounts. Subsequent visits skip it.
-  // Each phase owns its own timer so a skip mid-fade still lands on 'done'.
+  // Show the branded splash on every /shorts visit, fading in on mount and
+  // fading back out before it unmounts. Each phase owns its own timer so a
+  // skip mid-fade still lands on 'done'.
   useEffect(() => {
     if (splashPhase === 'fade-in') {
-      sessionStorage.setItem('shorts_splash_shown', 'true');
-      const timer = window.setTimeout(() => setSplashPhase('fade-out'), 2500);
+      const timer = window.setTimeout(() => setSplashPhase('fade-out'), 1000);
       return () => window.clearTimeout(timer);
     }
     if (splashPhase === 'fade-out') {
@@ -676,45 +671,60 @@ export const ShortsPage: React.FC = () => {
     showAlert,
   ]);
 
-  const handleGenerateMedia = useCallback(async () => {
+  const handleGenerateVisuals = useCallback(async () => {
     generationAbortRef.current?.abort();
     const controller = new AbortController();
     generationAbortRef.current = controller;
 
+    const isVideo = projectRef.current.generationMode === 'video';
     setIsBusy(true);
-    setBusyLabel(
-      projectRef.current.generationMode === 'video'
-        ? 'Generating videos and voiceover...'
-        : 'Generating images and voiceover...',
-    );
+    setBusyLabel(isVideo ? 'Generating clips...' : 'Generating images...');
 
     try {
       const scenes = projectRef.current.scenes;
-      const visuals = Promise.all(scenes.map((scene) => {
-        const needsVisual = ['idle', 'error'].includes(projectRef.current.generationMode === 'video' ? scene.videoStatus : scene.imageStatus);
+      await Promise.all(scenes.map((scene) => {
+        const needsVisual = ['idle', 'error'].includes(isVideo ? scene.videoStatus : scene.imageStatus);
         return needsVisual ? runSceneVisual(scene, projectRef.current, controller.signal) : Promise.resolve();
       }));
-
-      const audio = (async () => {
-        for (const scene of scenes) {
-          if (controller.signal.aborted) return;
-          const needsAudio = ['idle', 'error'].includes(scene.audioStatus);
-          if (needsAudio) {
-            await runSceneAudio(scene, projectRef.current.voice, controller.signal);
-          }
-        }
-      })();
-
-      await Promise.all([visuals, audio]);
     } catch (e) {
       if (controller.signal.aborted) return;
-      await showAlert(errorMessage(e), { type: 'error', title: 'Media generation failed' });
+      await showAlert(errorMessage(e), {
+        type: 'error',
+        title: isVideo ? 'Clip generation failed' : 'Image generation failed',
+      });
     } finally {
       if (generationAbortRef.current === controller) generationAbortRef.current = null;
       setIsBusy(false);
       setBusyLabel('');
     }
-  }, [runSceneVisual, runSceneAudio, showAlert]);
+  }, [runSceneVisual, showAlert]);
+
+  const handleGenerateAudio = useCallback(async () => {
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+
+    setIsBusy(true);
+    setBusyLabel('Generating voiceover...');
+
+    try {
+      const scenes = projectRef.current.scenes;
+      for (const scene of scenes) {
+        if (controller.signal.aborted) return;
+        const needsAudio = ['idle', 'error'].includes(scene.audioStatus);
+        if (needsAudio) {
+          await runSceneAudio(scene, projectRef.current.voice, controller.signal);
+        }
+      }
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      await showAlert(errorMessage(e), { type: 'error', title: 'Voiceover generation failed' });
+    } finally {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      setIsBusy(false);
+      setBusyLabel('');
+    }
+  }, [runSceneAudio, showAlert]);
 
   // Re-renders only the audio/visuals whose scripted text or prompt has drifted
   // from what was actually used to generate the asset currently on the scene.
@@ -1094,9 +1104,8 @@ export const ShortsPage: React.FC = () => {
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
   const readyVisuals = project.scenes.filter((s) => visualStatusOf(s) === 'ready').length;
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
-  const needsMediaGeneration = project.scenes.some(
-    (s) => ['idle', 'error'].includes(s.audioStatus) || ['idle', 'error'].includes(visualStatusOf(s)),
-  );
+  const needsVisualGeneration = project.scenes.some((s) => ['idle', 'error'].includes(visualStatusOf(s)));
+  const needsAudioGeneration = project.scenes.some((s) => ['idle', 'error'].includes(s.audioStatus));
   const staleCount = project.scenes.filter(
     (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode),
   ).length;
@@ -1140,27 +1149,42 @@ export const ShortsPage: React.FC = () => {
               ? `Aiming for about ${project.targetDurationSec} seconds.`
               : 'Describe your topic to get started.',
         }
-      : needsMediaGeneration
+      : needsVisualGeneration
         ? {
-            label: isBusy ? busyLabel || 'Generating media...' : 'Approve script & generate media',
-            icon: <Sparkles className="h-4 w-4 shrink-0" />,
-            onClick: handleGenerateMedia,
+            label: isBusy
+              ? busyLabel || (isVideoMode ? 'Generating clips...' : 'Generating images...')
+              : isVideoMode
+                ? 'Generate video clips'
+                : 'Generate images',
+            icon: isVideoMode ? <Film className="h-4 w-4 shrink-0" /> : <ImageIcon className="h-4 w-4 shrink-0" />,
+            onClick: handleGenerateVisuals,
             disabled: isBusy,
             busy: isBusy,
             hint: isBusy
               ? 'Keep this tab open while it works.'
-              : 'Read the script through first — this step generates every visual and voiceover.',
+              : `Read the script through first — this step generates every scene's ${isVideoMode ? 'clip' : 'image'}.`,
           }
-        : {
-            label: 'Export MP4',
-            icon: <Download className="h-4 w-4 shrink-0" />,
-            onClick: handleRender,
-            disabled: !renderable || renderPhase === 'rendering' || isBusy,
-            busy: renderPhase === 'rendering',
-            hint: renderable
-              ? "Caption timing is estimated from each clip's length, so long words can drift."
-              : 'Every scene needs a voiceover before you can export.',
-          };
+        : needsAudioGeneration
+          ? {
+              label: isBusy ? busyLabel || 'Generating voiceover...' : 'Generate voiceover',
+              icon: <Mic className="h-4 w-4 shrink-0" />,
+              onClick: handleGenerateAudio,
+              disabled: isBusy,
+              busy: isBusy,
+              hint: isBusy
+                ? 'Keep this tab open while it works.'
+                : 'Local text-to-speech reads each scene’s narration aloud, on device.',
+            }
+          : {
+              label: 'Export MP4',
+              icon: <Download className="h-4 w-4 shrink-0" />,
+              onClick: handleRender,
+              disabled: !renderable || renderPhase === 'rendering' || isBusy,
+              busy: renderPhase === 'rendering',
+              hint: renderable
+                ? "Caption timing is estimated from each clip's length, so long words can drift."
+                : 'Every scene needs a voiceover before you can export.',
+            };
 
   return (
     <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pb-36 pt-8 text-white lg:pb-0">
@@ -1174,23 +1198,29 @@ export const ShortsPage: React.FC = () => {
       {splashPhase !== 'done' && (
         <div
           onClick={skipSplash}
-          className={cn(
-            'fixed inset-0 z-[100] flex cursor-pointer items-center justify-center bg-[#0a0a0b] p-6 sm:p-12',
-            splashPhase === 'fade-out' ? 'animate-fade-out' : 'animate-fade-in',
-          )}
+          // The backdrop itself must be opaque from the very first frame — animating
+          // its own opacity would let the page underneath flash through while it fades in.
+          className="fixed inset-0 z-[100] cursor-pointer bg-[#0a0a0b]"
         >
-          <img
-            src="/shortsplash.png"
-            alt="Shorts"
-            className="max-h-full max-w-full rounded-2xl object-contain"
-          />
-          <button
-            type="button"
-            onClick={skipSplash}
-            className="focus-ring absolute bottom-6 right-6 rounded px-2 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white"
+          <div
+            className={cn(
+              'absolute inset-0 flex items-center justify-center p-6 sm:p-12',
+              splashPhase === 'fade-out' ? 'animate-fade-out' : 'animate-fade-in',
+            )}
           >
-            Skip
-          </button>
+            <img
+              src="/shortsplash.png"
+              alt="Shorts"
+              className="max-h-full max-w-full rounded-2xl object-contain"
+            />
+            <button
+              type="button"
+              onClick={skipSplash}
+              className="focus-ring absolute bottom-6 right-6 rounded px-2 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white"
+            >
+              Skip
+            </button>
+          </div>
         </div>
       )}
 

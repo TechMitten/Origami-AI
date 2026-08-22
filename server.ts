@@ -646,10 +646,31 @@ async function createServer() {
     if (vite) app.use(vite.middlewares);
   }
 
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Port ${port} is already in use. Free it with \`npm run stop\`, or start on another port with \`PORT=3100 npm run dev\`.\n`);
+      process.exit(1);
+    }
+    throw err;
+  });
+
   const server = httpServer.listen(port, '0.0.0.0', () => {
+    // Report the port the OS actually bound rather than the requested one, so the
+    // banner can never advertise a URL the server isn't listening on.
+    const address = server.address();
+    const boundPort = typeof address === 'object' && address ? address.port : port;
+
     console.log('\n🚀 Origami AI is ready!');
-    console.log(`- Local:   http://localhost:${port}`);
-    console.log(`- Network: http://0.0.0.0:${port}\n`);
+    console.log(`- Local:   http://localhost:${boundPort}`);
+    console.log(`- Network: http://0.0.0.0:${boundPort}`);
+
+    // Inside a dev container / Codespace this is the *container* port. The editor
+    // forwards it to the host and remaps when the host port is taken, so the URL
+    // to open in the browser can differ (a common cause of "page not found").
+    if (process.env.REMOTE_CONTAINERS || process.env.CODESPACES || process.env.DEVCONTAINER) {
+      console.log('  (container port — check the editor\'s PORTS panel for the forwarded host URL)');
+    }
+    console.log('');
   });
 
   server.timeout = 900000;
