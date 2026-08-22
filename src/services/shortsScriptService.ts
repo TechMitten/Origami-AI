@@ -66,18 +66,22 @@ export const WORDS_PER_SECOND = 2.6;
  * Scene duration on screen is driven entirely by the measured TTS audio length
  * (see ShortsVideoRenderer), not by this constant — it only sets the scene
  * count and, through that, the per-line word budget below. A lower value packs
- * in more, shorter-held cuts at the cost of thinner narration per line; 4.5s
- * leaves enough room for a line to both name its subject and land a concrete
- * supporting detail, which is what the outline/narration prompts demand.
+ * in more, shorter-held cuts at the cost of thinner narration per line, and at
+ * 4.5s the budget worked out at roughly eleven words: one bare sentence per
+ * scene, which reads as a caption rather than as narration. 7.5s buys about
+ * twenty — a claim plus the detail that backs it up — while still cutting
+ * often enough that nothing sits on screen for long. Video-clip scenes loop
+ * their clip to fill the extra time (see drawSceneImage).
  */
-const SECONDS_PER_SCENE = 4.5;
+const SECONDS_PER_SCENE = 7.5;
 const MIN_SCENES = 3;
 /**
- * Above what the 90s duration preset naturally needs (90s / 4.5s = 20 scenes) —
- * this is a safety ceiling for list topics whose item count pushes the scene
- * count past the duration-derived value (see buildBeats).
+ * Above both what the 90s duration preset needs (90s / 7.5s = 12 scenes) and
+ * the largest list skeleton (12 entries + intro + payoff) — this is a safety
+ * ceiling for list topics whose item count pushes the scene count past the
+ * duration-derived value (see buildBeats).
  */
-const MAX_SCENES = 26;
+const MAX_SCENES = 16;
 
 const TONE_GUIDANCE: Record<ShortsTone, string> = {
   punchy:
@@ -99,6 +103,52 @@ const TONE_GUIDANCE: Record<ShortsTone, string> = {
 
 export const clampSceneCount = (targetDurationSec: number): number =>
   Math.max(MIN_SCENES, Math.min(MAX_SCENES, Math.round(targetDurationSec / SECONDS_PER_SCENE)));
+
+/**
+ * The floor on any line's word budget: what a spoken sentence carrying one
+ * concrete detail costs. Below it a pass is being asked for a fragment, and a
+ * list topic with many entries would otherwise drive the budget there.
+ */
+const MIN_WORDS_PER_SCENE = 12;
+
+interface WordBudgets {
+  /** Every beat between the intro and the payoff — where the substance goes. */
+  body: number;
+  intro: number;
+  payoff: number;
+}
+
+/**
+ * How the runtime is divided between the lines, shared by the outline and
+ * narration passes so the notes carry enough material for the lines written
+ * from them.
+ *
+ * Not an even split: an opener as long as a body line is the clearest tell of
+ * an AI-written short, and a payoff that runs on stops landing. Both are held
+ * to one tight sentence — and the runtime that frees up is handed to the body
+ * beats rather than lost, so the finished script still fills the duration the
+ * user asked for instead of coming in under it.
+ */
+const wordBudgets = (targetDurationSec: number, sceneCount: number): WordBudgets => {
+  const evenShare = Math.max(MIN_WORDS_PER_SCENE, Math.round((targetDurationSec / sceneCount) * WORDS_PER_SECOND));
+  const intro = Math.max(6, Math.min(12, Math.round(evenShare * 0.6)));
+  const payoff = Math.max(5, Math.min(12, Math.round(evenShare * 0.55)));
+  const bodyBeats = Math.max(1, sceneCount - 2);
+  const body = Math.max(
+    MIN_WORDS_PER_SCENE,
+    Math.round((targetDurationSec * WORDS_PER_SECOND - intro - payoff) / bodyBeats),
+  );
+
+  return { body, intro, payoff };
+};
+
+/** How many sentences a word budget is actually asking for. */
+const sentenceBudget = (words: number): string => {
+  if (words >= 34) return '3 to 4 sentences';
+  if (words >= 24) return '2 to 3 sentences';
+  if (words >= 16) return '2 sentences';
+  return 'one sentence';
+};
 
 // --- beat structure -----------------------------------------------------------
 
@@ -333,6 +383,40 @@ const splitIntoSentences = (text: string): string[] =>
     .map((s) => s.trim())
     .filter((s) => s.length > 1);
 
+/**
+ * Deal a sentence list into `count` scenes, in order.
+ *
+ * The prose fallback used to hand the sentences straight to fitToCount, which
+ * keeps the first `count` of them — so a model that answered in a paragraph
+ * lost most of its script and left every scene holding a single sentence. Every
+ * sentence now lands in a scene instead. Spare sentences go to the body beats
+ * first: the intro and the payoff are meant to be one line each.
+ */
+const groupSentences = (sentences: string[], count: number): string[] => {
+  if (count <= 0 || sentences.length <= count) return sentences;
+
+  const sizes = new Array<number>(count).fill(Math.floor(sentences.length / count));
+  let extra = sentences.length % count;
+  // Body beats first (1 .. count - 2), then wrap round to the intro and payoff.
+  const order = [
+    ...Array.from({ length: Math.max(0, count - 2) }, (_, i) => i + 1),
+    ...(count >= 2 ? [count - 1] : []),
+    0,
+  ];
+  for (let i = 0; extra > 0; i += 1) {
+    sizes[order[i % order.length]] += 1;
+    extra -= 1;
+  }
+
+  const grouped: string[] = [];
+  let cursor = 0;
+  for (const size of sizes) {
+    grouped.push(sentences.slice(cursor, cursor + size).join(' '));
+    cursor += size;
+  }
+  return grouped.filter((line) => line.length > 1);
+};
+
 const STOP_WORDS = new Set([
   'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'in', 'on', 'at', 'for', 'with', 'from',
   'is', 'are', 'was', 'were', 'be', 'been', 'it', 'its', 'this', 'that', 'these', 'those',
@@ -486,15 +570,24 @@ const wordCount = (line: string): number => line.trim().split(/\s+/).filter(Bool
 const openingSignature = (line: string): string =>
   line.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).slice(0, 4).join(' ');
 
-const HOOK_MAX_WORDS = 12;
-
 /**
  * Count the narration lines that are actually usable, the mirror of
  * scoreImagePrompts. Drives the retry: a script can be perfectly well-formed
  * and still be clichéd, repetitive or badly paced, and those never used to
  * trigger a second attempt.
+ *
+ * The intro and payoff caps are the same budgets the prompt handed those two
+ * lines, passed in rather than fixed here so the two can never disagree — and
+ * so the deliberately short payoff is not scored against the body-line floor.
  */
-const scoreNarration = (lines: string[], topic: string, sceneCount: number, wordsPerScene: number): number => {
+const scoreNarration = (
+  lines: string[],
+  topic: string,
+  sceneCount: number,
+  wordsPerScene: number,
+  hookMaxWords: number,
+  payoffMaxWords: number,
+): number => {
   const signatures = lines.map(openingSignature);
   const looped = repeatedEntities(lines, topic);
 
@@ -511,9 +604,13 @@ const scoreNarration = (lines: string[], topic: string, sceneCount: number, word
 
     const words = wordCount(line);
     if (i === 0) {
-      if (words > HOOK_MAX_WORDS) return score;
+      if (words > hookMaxWords) return score;
+    } else if (i === lines.length - 1) {
+      // The payoff is capped, not floored: landing it in five words is the point.
+      if (words > payoffMaxWords * 1.5) return score;
     } else if (words > wordsPerScene * 1.8 || words < wordsPerScene * 0.7) {
-      // Below the floor the line is a title or a fragment, not a spoken sentence.
+      // Below the floor the line stopped at the bare claim — a caption, not the
+      // explanation the beat was budgeted for. Above it, the line overruns.
       return score;
     }
 
@@ -576,187 +673,89 @@ const runPrompt = async (
   );
 };
 
-// --- passes -------------------------------------------------------------------
-
-const OUTLINE_SYSTEM = `You are a researcher for a viral short-form video channel. You plan what a video will SAY before anyone writes the voiceover.
-
-Rules you must follow exactly:
-- Output ONLY the beat notes, one per line, in order. No numbering, no markdown, no headings, no commentary, no preamble.
-- Each line is a terse factual note, not narration. Write the fact, not a sentence a narrator would say.
-- Every beat must carry something concrete and checkable: a number, a name, a place, a date, a mechanism, or a direct comparison.
-- Every beat must be NEW information. Never restate an earlier beat in different words.
-- Order the beats so each one earns the next. Front-load: the opening beat is the reason to keep watching, never a warm-up.
-- Stay factually accurate. If you are not sure of a number, describe the fact without the number instead of inventing one.
-- When a beat is assigned a list entry, that beat covers THAT entry and nothing else. Every entry the plan names must get its own beat — never let one entry swallow the video.
-- List entries must be DIFFERENT real things. Never reuse a name, person, title, show or place across entries. If you cannot name enough distinct real entries, say what you do know about each one rather than repeating a name you already used.
-- Never invent a name to fill a slot. A real entry described vaguely beats a made-up one described precisely.`;
-
-/**
- * Pass 1: plan what the video actually says.
- *
- * Without this the narration pass has to invent structure and content at the
- * same time, and reliably chooses generic filler over specifics. The beats come
- * from buildBeats so the model only has to supply content.
- */
-const generateOutline = async (
-  req: ShortsScriptRequest,
-  beats: Beat[],
-  opts: ShortsScriptOptions,
-): Promise<string[]> => {
-  const itemCount = detectListCount(req.topic);
-
-  const briefs = beats.map((beat, i) => `${i + 1}. ${beat.role} — ${beat.brief}`).join('\n');
-
-  const user = `Topic: ${req.topic}
-
-Plan exactly ${beats.length} beats for a ${req.targetDurationSec}-second video. Each beat has an assigned job:
-
-${briefs}
-
-Write one factual note per beat, in this exact order. Keep each note under 20 words.${
-    itemCount
-      ? `\nAll ${itemCount} list entries must be different from one another — different titles, different people, different places. Naming the same one twice is a failure.`
-      : ''
-  }
-
-OUTPUT EXACTLY ${beats.length} LINES AND NOTHING ELSE. NO PREAMBLE, NO EXPLANATIONS, NO REASONING.`;
-
-  opts.onStage?.('Researching the angle...');
-
-  /** Models tend to echo the role label back ("HOOK — ..."); drop it. */
-  const stripRoleLabel = (line: string): string =>
-    line.replace(/^\s*(?:intro|hook|context|item|entry|payload|turn|payoff|beat)\s*\d*\s*(?:of\s*\d+)?\s*[:.\-–—]\s*/i, '').trim();
-
-  const parseAttempt = (raw: string): string[] =>
-    toLines(raw).map(stripRoleLabel).filter((line) => line.length > 1);
-
-  /** The list entries this attempt produced, for distinctness checking. */
-  const entryNotes = (lines: string[]): string[] =>
-    beats.map((beat, i) => (beat.role === 'ITEM' ? lines[i] : '')).filter(Boolean);
-
-  const enough = (lines: string[]): boolean => lines.length >= Math.max(2, Math.floor(beats.length / 2));
-
-  /**
-   * Retry only on a real defect — too few beats, or one entity looping across
-   * the list entries. Scoring every outline out of a perfect score would retry
-   * almost every generation, and each retry is a full model call.
-   */
-  const defects = (lines: string[]): number => {
-    if (!enough(lines)) return 99;
-    const scope = itemCount ? entryNotes(lines) : lines;
-    return repeatedEntities(scope, req.topic).length;
-  };
-
-  let best: string[] = [];
-  try {
-    best = parseAttempt(await runPrompt(OUTLINE_SYSTEM, user, 0.8, opts));
-  } catch (e) {
-    if (opts.signal?.aborted) throw e;
-    console.warn('[Shorts] Outline pass failed; retrying.', e);
-  }
-
-  if (defects(best) > 0) {
-    try {
-      const retry = parseAttempt(
-        await runPrompt(
-          OUTLINE_SYSTEM,
-          `${user}\n\nIMPORTANT: respond with exactly ${beats.length} plain lines, one note per line, nothing else. Each line must be about a different thing — do not reuse a name, title or person across lines.`,
-          0.6,
-          opts,
-        ),
-      );
-      if (defects(retry) < defects(best)) best = retry;
-    } catch (e) {
-      if (opts.signal?.aborted) throw e;
-      console.warn('[Shorts] Outline retry failed; using the first attempt.', e);
-    }
-  }
-
-  // A near-complete outline is still useful; fitToCount handles the shortfall.
-  if (enough(best)) return fitToCount(best, beats.length);
-
-  console.warn('[Shorts] Outline pass returned too few beats; falling back to role-only beats.');
-
-  // Deterministic fallback: the narration pass still gets its skeleton, just
-  // without researched content, which is exactly the old behaviour.
-  return beats.map((beat) => `${beat.brief}, about ${req.topic}`);
-};
+// Removed OUTLINE_SYSTEM and generateOutline as they are now merged into NARRATION_SYSTEM
 
 const NARRATION_SYSTEM = `You write voiceover scripts for highly engaging, viral short-form vertical videos (TikTok, Reels, YouTube Shorts).
 
-You are given a beat plan. Turn it into spoken lines. You keep the facts and choose how they land.
+You are given a beat plan. You must plan the facts and write the spoken lines.
 
 Rules you must follow exactly:
-- Output ONLY the narration lines. NEVER include any preamble, explanations, reasoning, numbering, markdown, scene labels, or quotes.
-- One line per beat, in the same order. Each line is one complete spoken sentence.
-- Every line must carry the concrete detail from its beat — the number, name, place, date, or comparison. A line with no specific in it is a failed line.
-- Never restate the previous line. Every line moves forward.
-- Line 1 is the INTRO. It states plainly what the video is about — name the subject — and it hooks. Short, hard, no wind-up, no throat-clearing.
-- When a beat is a list entry, the line must NAME that entry, and every entry must be a DIFFERENT thing. Never attach the same name, person, show, or place to more than one entry.
-- Every line is a complete spoken sentence with a verb. A bare title, a name on its own, or a fragment is a failed line.
-- Do not copy a beat note word for word. Rewrite it as something a person says out loud.
-- The last line lands the payoff or the consequence, and it stops. Do not trail off.
-- Vary sentence length on purpose. Never open two lines the same way.
+- For EACH beat, you must output EXACTLY two lines: a NOTE line and a NARRATION line.
+- The NOTE line must start with "NOTE: " and contain the concrete facts (numbers, names, dates) you will use for that beat. For list entries, name the specific entry here.
+- The NARRATION line must start with "NARRATION: " and contain the spoken voiceover.
+- Never output any other text. No preamble, no markdown, no empty lines between beats.
+
+Narration Rules:
+- One NARRATION line per beat. A line is one beat's whole voiceover and may run to several sentences — write them on the SAME line, separated by spaces.
+- Spend the word budget. Say the thing, then explain it.
+- Every NARRATION line must carry the concrete details from its NOTE.
+- Never restate the previous line.
+- Line 1 is the INTRO. State plainly what the video is about and hook the viewer. Short, hard, no wind-up.
+- When a beat is a list entry, the line must NAME that entry, and every entry must be a DIFFERENT thing. Never attach the same name to more than one entry.
+- The last line lands the payoff and stops.
 - Speak to the viewer: second person, present tense, active voice, contractions.
-- NEVER open a line with these dead phrases: "Did you know", "You won't believe", "Buckle up", "Here's the kicker", "Let's dive in", "Let's talk about", "Stay tuned", "In this video", "Welcome back", "Imagine this", "Picture this", "Get ready".
-- Write words a narrator says out loud. No stage directions, no emoji, no hashtags, no sound effects.
-- Stay factually accurate. Do not invent statistics.`;
+- NEVER open a line with dead phrases: "Did you know", "You won't believe", "Let's dive in".
+- Write words a narrator says out loud. No stage directions.
+- Stay factually accurate.
+
+CRITICAL: You MUST use a <think>...</think> block to plan your response before outputting the requested lines. After the </think> tag, output ONLY the requested NOTE and NARRATION lines.`;
 
 const generateNarrationLines = async (
   req: ShortsScriptRequest,
   beats: Beat[],
-  outline: string[],
   opts: ShortsScriptOptions,
 ): Promise<string[]> => {
   const sceneCount = beats.length;
-  const wordsPerScene = Math.max(9, Math.round((req.targetDurationSec / sceneCount) * WORDS_PER_SECOND));
-
-  /**
-   * Per-line word budgets, not one flat number. An opener the same length as a
-   * body line is the clearest tell of an AI-written short — real ones open fast
-   * and close hard. The intro gets a little extra room because it has to name
-   * the subject as well as hook.
-   */
-  const introWords = Math.max(6, Math.min(10, wordsPerScene + 2));
-  const payoffWords = Math.max(5, Math.min(10, wordsPerScene));
+  const { body: wordsPerScene, intro: introWords, payoff: payoffWords } = wordBudgets(
+    req.targetDurationSec,
+    sceneCount,
+  );
 
   const budgetFor = (role: BeatRole): string => {
-    if (role === 'INTRO') return `at most ${introWords} words`;
-    if (role === 'PAYOFF') return `at most ${payoffWords} words`;
-    return `about ${wordsPerScene} words`;
+    if (role === 'INTRO') return `one sentence, at most ${introWords} words`;
+    if (role === 'PAYOFF') return `one sentence, at most ${payoffWords} words`;
+    return `${sentenceBudget(wordsPerScene)}, about ${wordsPerScene} words`;
   };
 
-  const beatPlan = outline
-    .map((note, i) => `${i + 1}. [${beats[i].role}, ${budgetFor(beats[i].role)}] ${note}`)
+  const beatPlan = beats
+    .map((beat, i) => `${i + 1}. [${beat.role}, ${budgetFor(beat.role)}] ${beat.brief}`)
     .join('\n');
 
   const user = `Topic: ${req.topic}
 
-Beat plan for a ${req.targetDurationSec}-second video. Write one narration line per beat, in order:
+Beat plan for a ${req.targetDurationSec}-second video. Write one NOTE line and one NARRATION line per beat, in order:
 
 ${beatPlan}
 
 Tone: ${TONE_GUIDANCE[req.tone]}
-Respect each beat's word budget — the intro is short and the payoff is short; the middle lines run longer.
-Line 1 is the INTRO: it must say plainly what this video is about — the subject "${req.topic}" named outright — and make it impossible to scroll past. Phrase it fresh for this exact topic.
-Every ITEM beat must NAME its own entry, and the entries must all be different from each other. Never spend two ITEM beats on the same entry unless the beat says so, and never let one name or one entry take over the video.
+Respect each beat's word budget — the intro is one short sentence and the payoff is one short sentence; every beat in between gets ${sentenceBudget(wordsPerScene)} on ONE line.
+Line 1 is the INTRO: it must say plainly what this video is about — the subject "${req.topic}" named outright.
+Every ITEM beat must NAME its own entry, and the entries must all be different from each other.
 Write full spoken sentences, not titles or fragments.
 
-OUTPUT EXACTLY ${sceneCount} LINES AND NOTHING ELSE. NO PREAMBLE, NO EXPLANATIONS, NO REASONING.`;
+OUTPUT EXACTLY ${sceneCount * 2} LINES AFTER YOUR <think> BLOCK. NO PREAMBLE.`;
 
   opts.onStage?.('Writing the script...');
 
   /**
    * Parse one model response into narration lines.
-   * If the model wrote a paragraph instead of a list, recover by sentence-splitting.
    */
   const parseAttempt = (raw: string): string[] => {
-    let lines = toLines(raw);
+    const rawLines = toLines(raw);
+    let lines = rawLines
+      .filter((l) => l.toUpperCase().startsWith('NARRATION:'))
+      .map((l) => l.replace(/^NARRATION:\s*/i, ''));
 
-    // Far fewer lines than asked for usually means prose, not a list.
+    // Fallback if the model didn't use the NARRATION: prefix properly
+    if (lines.length < Math.max(2, Math.floor(sceneCount / 2))) {
+      lines = rawLines.filter((l) => !l.toUpperCase().startsWith('NOTE:'));
+    }
+
     if (lines.length < Math.max(2, Math.floor(sceneCount / 2))) {
       const sentences = splitIntoSentences(stripWrapper(raw).replace(/\s*\n\s*/g, ' '));
-      if (sentences.length > lines.length) lines = sentences.map(stripLineDecoration);
+      if (sentences.length > lines.length) {
+        lines = groupSentences(sentences.map(stripLineDecoration), sceneCount);
+      }
     }
 
     return lines.map(normalizeNarrationLine).filter((line) => line.length > 1);
@@ -770,12 +769,8 @@ OUTPUT EXACTLY ${sceneCount} LINES AND NOTHING ELSE. NO PREAMBLE, NO EXPLANATION
     console.warn('[Shorts] Narration pass failed, retrying with a stricter prompt.', e);
   }
 
-  /**
-   * Retry on quality, not just on emptiness. A script that parses cleanly but
-   * opens on a cliché, repeats itself or ignores the word budgets used to sail
-   * straight through; now it gets a second attempt and the better one wins.
-   */
-  const scoreOf = (candidate: string[]): number => scoreNarration(candidate, req.topic, sceneCount, wordsPerScene);
+  const scoreOf = (candidate: string[]): number =>
+    scoreNarration(candidate, req.topic, sceneCount, wordsPerScene, introWords, payoffWords);
   const passMark = Math.ceil(sceneCount * 0.75);
 
   if (scoreOf(lines) < passMark) {
@@ -783,10 +778,7 @@ OUTPUT EXACTLY ${sceneCount} LINES AND NOTHING ELSE. NO PREAMBLE, NO EXPLANATION
     try {
       const retry = await runPrompt(
         NARRATION_SYSTEM,
-        `${user}
-
-IMPORTANT: respond with ${sceneCount} plain lines separated by newlines. Nothing else.
-Every line must contain a concrete specific from its beat. Do not open any line with a stock phrase, and do not open two lines the same way.`,
+        `${user}\n\nIMPORTANT: output exactly two lines per beat (NOTE: and NARRATION:). Every line must hit its word budget and contain concrete specifics. Do not open any line with a stock phrase.`,
         0.7,
         opts,
       );
@@ -818,6 +810,7 @@ Rules you must follow exactly:
 - Output ONLY the prompts, one per line, in the same order as the input. No numbering, no markdown, no quotes, no commentary.
 - Each prompt is a comma-separated list of visual nouns and adjectives describing ONE still image.
 - ANCHOR ON THE LINE. Find the most concrete thing the line names — an animal, an object, a place, a machine, a moment in time — and make that thing the visible subject. If the line names it, the image shows it.
+- A line can run to several sentences. It still gets ONE image: pick the single subject the whole line is about, usually the thing its first sentence names, and let the rest inform the detail and the setting.
 - If the line is abstract, pick a concrete physical stand-in drawn from the video's subject. Never a person at a desk, never a lightbulb, never a handshake, never a rising graph.
 - Every image must be recognisably part of the same video about the stated subject.
 - Change the camera distance and angle from the previous prompt — two neighbouring images must never be the same shot. When consecutive lines are about the same thing, keep that subject and change the view instead.
@@ -831,33 +824,12 @@ Narration: "Ninety percent of deep-sea species make their own light."
 Prompt: lone anglerfish in black water, bioluminescent lure glowing pale blue, needle teeth catching the light, close-up, deep shadow
 
 Narration: "In 1969, humanity took its first steps on the Moon."
-Prompt: apollo boot pressing into grey lunar dust, sharp tread print, harsh white sunlight, black sky above, low close-up`;
+Prompt: apollo boot pressing into grey lunar dust, sharp tread print, harsh white sunlight, black sky above, low close-up
 
-/**
- * Prompts are requested in small batches. WebLLM caps every reply at 1024
- * tokens, so a 26-scene short asked for in one go truncates and the tail scenes
- * silently fall through to the keyword fallback.
- */
-const IMAGE_PROMPT_BATCH = 6;
+Narration: "The Hoover Dam still holds back Lake Mead with concrete poured in the 1930s. Engineers ran ice water through pipes inside it, because a solid pour would have taken a century to cool."
+Prompt: curved concrete dam wall from the reservoir side, cooling pipe seams tracing the face, turquoise water below, hard desert sun, wide shot
 
-/** Build the user prompt for one batch, giving the whole script as context. */
-const imagePromptUser = (
-  narrationLines: string[],
-  batch: { start: number; lines: string[] },
-  req: ShortsScriptRequest,
-): string => {
-  const script = narrationLines.map((line, i) => `${i + 1}. ${line}`).join('\n');
-  const asked = batch.lines.map((line, i) => `${batch.start + i + 1}. ${line}`).join('\n');
-
-  return `Video subject: ${req.topic}
-
-Full script, for context only:
-${script}
-
-Write exactly ${batch.lines.length} image prompts, one per line, for these lines and no others:
-
-${asked}`;
-};
+CRITICAL: You MUST use a <think>...</think> block to plan your response before outputting the requested lines. After the </think> tag, output ONLY the requested prompts.`;
 
 const generateImagePrompts = async (
   narrationLines: string[],
@@ -866,56 +838,38 @@ const generateImagePrompts = async (
 ): Promise<string[]> => {
   opts.onStage?.('Designing the visuals...');
 
-  const batches: Array<{ start: number; lines: string[] }> = [];
-  for (let start = 0; start < narrationLines.length; start += IMAGE_PROMPT_BATCH) {
-    batches.push({ start, lines: narrationLines.slice(start, start + IMAGE_PROMPT_BATCH) });
+  const script = narrationLines.map((line, i) => `${i + 1}. ${line}`).join('\n');
+  const user = `Video subject: ${req.topic}\n\nWrite exactly ${narrationLines.length} image prompts, one per line, for these lines and no others. Remember to think in a <think> block first:\n\n${script}`;
+
+  let candidates: string[] = [];
+  try {
+    candidates = toLines(await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts));
+  } catch (e) {
+    if (opts.signal?.aborted) throw e;
+    console.warn('[Shorts] Image prompt pass failed; deriving prompts from narration.', e);
   }
 
-  const best: string[] = [];
-
-  // Sequential, not parallel: WebLLM is a single engine and resetChat()s per
-  // call, so concurrent requests would interleave on the same context.
-  for (const [batchIndex, batch] of batches.entries()) {
-    if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    if (batches.length > 1) {
-      opts.onStage?.(`Designing the visuals... (${batchIndex + 1}/${batches.length})`);
-    }
-
-    const user = imagePromptUser(narrationLines, batch, req);
-
-    let candidates: string[] = [];
+  if (scoreImagePrompts(candidates, narrationLines) < narrationLines.length) {
     try {
-      candidates = toLines(await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts));
+      const retry = toLines(
+        await runPrompt(
+          IMAGE_PROMPT_SYSTEM,
+          `${user}\n\nIMPORTANT: after your <think> block, respond with exactly ${narrationLines.length} plain lines, one prompt per line. No extra text.`,
+          0.6,
+          opts,
+        ),
+      );
+      if (scoreImagePrompts(retry, narrationLines) > scoreImagePrompts(candidates, narrationLines)) {
+        candidates = retry;
+      }
     } catch (e) {
       if (opts.signal?.aborted) throw e;
-      console.warn('[Shorts] Image prompt batch failed; deriving prompts from narration.', e);
+      console.warn('[Shorts] Image prompt retry failed; using first attempt.', e);
     }
-
-    // Retry this batch when it missed the line count or didn't produce enough
-    // usable (non-echoed, non-thin, non-duplicate) prompts.
-    if (scoreImagePrompts(candidates, batch.lines) < batch.lines.length) {
-      try {
-        const retry = toLines(
-          await runPrompt(
-            IMAGE_PROMPT_SYSTEM,
-            `${user}\n\nIMPORTANT: respond with exactly ${batch.lines.length} plain lines, one prompt per line. Nothing else.`,
-            0.6,
-            opts,
-          ),
-        );
-        if (scoreImagePrompts(retry, batch.lines) > scoreImagePrompts(candidates, batch.lines)) candidates = retry;
-      } catch (e) {
-        if (opts.signal?.aborted) throw e;
-        console.warn('[Shorts] Image prompt batch retry failed; using first attempt.', e);
-      }
-    }
-
-    best.push(...batch.lines.map((_, i) => candidates[i]?.trim() ?? ''));
   }
 
-  // Fall back per line rather than discarding the whole batch: a weak or
-  // echoed line at index i falls back to the keyword-derived prompt while
-  // every other usable line still gets the LLM-authored one.
+  const best = narrationLines.map((_, i) => candidates[i]?.trim() ?? '');
+
   return narrationLines.map((line, i) => {
     const candidate = best[i];
     return candidate && !isUnusable(candidate, line, best, i)
@@ -945,8 +899,7 @@ export const generateShortsScript = async (
   const scoped = { ...req, topic };
   const beats = buildBeats(topic, req.targetDurationSec);
 
-  const outline = await generateOutline(scoped, beats, opts);
-  const narrationLines = await generateNarrationLines(scoped, beats, outline, opts);
+  const narrationLines = await generateNarrationLines(scoped, beats, opts);
   const imagePrompts = await generateImagePrompts(narrationLines, scoped, opts);
 
   return {

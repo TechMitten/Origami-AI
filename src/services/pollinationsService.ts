@@ -1,10 +1,12 @@
 /**
  * Pollinations image generation client.
  *
- * Two transports, chosen automatically:
- *   1. A user-supplied key (BYOK, stored in IndexedDB settings) → call
+ * Three transports, chosen automatically:
+ *   1. The "Free (slow)" model → call the keyless image.pollinations.ai endpoint
+ *      directly, with no key on either side. Always wins when selected.
+ *   2. A user-supplied key (BYOK, stored in IndexedDB settings) → call
  *      gen.pollinations.ai directly with an Authorization header.
- *   2. No user key → POST /api/pollinations/image, where the server attaches its
+ *   3. No user key → POST /api/pollinations/image, where the server attaches its
  *      own POLLINATIONS_API_KEY. Mirrors the existing /api/llm/chat pattern.
  *
  * Images are always fetched as bytes and wrapped in a blob: URL rather than
@@ -18,6 +20,20 @@ export const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai';
 
 export const POLLINATIONS_PROXY_URL = '/api/pollinations/image';
 
+/**
+ * The legacy anonymous endpoint (https://image.pollinations.ai/image/<prompt>).
+ * It needs no key at all, which is the whole point of the "Free (slow)" model:
+ * it is the one option that works with neither a user key nor a server key.
+ */
+export const FREE_POLLINATIONS_BASE_URL = 'https://image.pollinations.ai';
+
+/**
+ * Not a real upstream model id — a transport marker. Selecting it routes the
+ * request to the keyless endpoint above instead of gen.pollinations.ai, so it
+ * must never be sent to the server proxy or the upstream `model` parameter.
+ */
+export const FREE_POLLINATIONS_IMAGE_MODEL = 'free';
+
 /** Models that reliably accept width/height and produce usable stills for shorts. */
 export const POLLINATIONS_IMAGE_MODELS: Array<{ id: string; name: string }> = [
   { id: 'zimage', name: 'Z-Image (fast)' },
@@ -27,6 +43,7 @@ export const POLLINATIONS_IMAGE_MODELS: Array<{ id: string; name: string }> = [
   { id: 'nanobanana', name: 'Nano Banana' },
   { id: 'krea', name: 'Krea (photoreal)' },
   { id: 'dreamshaper', name: 'Dreamshaper (stylised)' },
+  { id: FREE_POLLINATIONS_IMAGE_MODEL, name: 'Free (slow)' },
 ];
 
 export const DEFAULT_POLLINATIONS_IMAGE_MODEL = 'flux';
@@ -60,6 +77,16 @@ const MAX_ATTEMPTS = 3;
 const MAX_CONCURRENT = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 
+// The keyless endpoint queues anonymous traffic, so a single image can sit for
+// minutes and parallel requests just collect 429s. Free requests therefore get
+// their own gate: one at a time, spaced out, with a much longer patience.
+const FREE_MAX_CONCURRENT = 1;
+const FREE_MIN_INTERVAL_MS = 3_000;
+const FREE_REQUEST_TIMEOUT_MS = 300_000;
+
+export const isFreePollinationsModel = (model: string): boolean =>
+  model === FREE_POLLINATIONS_IMAGE_MODEL;
+
 /**
  * Resolve the key to use. A non-expired OAuth token (or legacy pasted key) saved in
  * settings always wins; an expired token is treated as absent so callers fall through
@@ -78,25 +105,51 @@ export const resolvePollinationsKey = (
   return fromEnv || undefined;
 };
 
-// --- concurrency gate ---------------------------------------------------------
+// --- concurrency gates ---------------------------------------------------------
 
-let active = 0;
-const waiters: Array<() => void> = [];
+interface Gate {
+  acquire: () => Promise<void>;
+  release: () => void;
+}
 
-const acquire = async (): Promise<void> => {
-  if (active < MAX_CONCURRENT) {
+/**
+ * A slot gate with an optional cooldown, so the next waiter is admitted only
+ * after a quiet period rather than the instant a slot frees up.
+ */
+const createGate = (limit: number, cooldownMs = 0): Gate => {
+  let active = 0;
+  const waiters: Array<() => void> = [];
+
+  const pump = (): void => {
+    if (active >= limit) return;
+    const next = waiters.shift();
+    if (!next) return;
     active += 1;
-    return;
-  }
-  await new Promise<void>((resolve) => waiters.push(resolve));
-  active += 1;
+    next();
+  };
+
+  return {
+    acquire: async () => {
+      // Queue behind existing waiters even when a slot is free, so a cooldown
+      // cannot be skipped by a request that arrives late.
+      if (active < limit && !waiters.length) {
+        active += 1;
+        return;
+      }
+      await new Promise<void>((resolve) => waiters.push(resolve));
+    },
+    release: () => {
+      active -= 1;
+      if (cooldownMs > 0) setTimeout(pump, cooldownMs);
+      else pump();
+    },
+  };
 };
 
-const release = (): void => {
-  active -= 1;
-  const next = waiters.shift();
-  if (next) next();
-};
+const keyedGate = createGate(MAX_CONCURRENT);
+const freeGate = createGate(FREE_MAX_CONCURRENT, FREE_MIN_INTERVAL_MS);
+
+const gateFor = (model: string): Gate => (isFreePollinationsModel(model) ? freeGate : keyedGate);
 
 // --- helpers ------------------------------------------------------------------
 
@@ -181,6 +234,20 @@ const describeFailure = async (response: Response): Promise<PollinationsError> =
   }
 };
 
+/**
+ * The keyless form, e.g.
+ * https://image.pollinations.ai/image/dog%20wearing%20a%20tuxedo — no `model`
+ * parameter (the endpoint picks its own) and no Authorization header.
+ */
+const buildFreeUrl = (req: PollinationsImageRequest): string => {
+  const url = new URL(`${FREE_POLLINATIONS_BASE_URL}/image/${encodeURIComponent(req.prompt)}`);
+  url.searchParams.set('width', String(Math.round(req.width)));
+  url.searchParams.set('height', String(Math.round(req.height)));
+  url.searchParams.set('seed', String(Math.round(req.seed)));
+  url.searchParams.set('nologo', 'true');
+  return url.toString();
+};
+
 const buildDirectUrl = (req: PollinationsImageRequest): string => {
   const url = new URL(`${POLLINATIONS_BASE_URL}/image/${encodeURIComponent(req.prompt)}`);
   url.searchParams.set('model', req.model);
@@ -200,6 +267,12 @@ const attemptFetch = async (
   apiKey: string | undefined,
   signal: AbortSignal,
 ): Promise<Response> => {
+  // Free runs keyless in every case: sending it through the proxy would only
+  // spend the server's key on a model id that upstream does not know.
+  if (isFreePollinationsModel(req.model)) {
+    return fetch(buildFreeUrl(req), { method: 'GET', signal });
+  }
+
   if (apiKey) {
     return fetch(buildDirectUrl(req), {
       method: 'GET',
@@ -235,7 +308,10 @@ export const generateImage = async (
   const prompt = req.prompt.trim();
   if (!prompt) throw new PollinationsError('Image prompt is empty.', 400);
 
-  await acquire();
+  const gate = gateFor(req.model);
+  const timeoutMs = isFreePollinationsModel(req.model) ? FREE_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+
+  await gate.acquire();
   try {
     let lastError: unknown = null;
 
@@ -244,7 +320,7 @@ export const generateImage = async (
 
       // Per-attempt timeout, still cancellable by the caller's signal.
       const timeoutController = new AbortController();
-      const timer = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+      const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
       const onOuterAbort = () => timeoutController.abort();
       opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
 
@@ -284,7 +360,7 @@ export const generateImage = async (
       ? lastError
       : new PollinationsError('Image generation failed after several attempts.', 500);
   } finally {
-    release();
+    gate.release();
   }
 };
 
@@ -302,7 +378,10 @@ export const listImageModels = async (): Promise<Array<{ id: string; name: strin
     if (!ids.length) return POLLINATIONS_IMAGE_MODELS;
 
     // Keep our curated ordering/labels first, then append anything new upstream.
-    const curated = POLLINATIONS_IMAGE_MODELS.filter((m) => ids.includes(m.id));
+    // 'free' is ours, not upstream's, so it is never filtered out by the catalogue.
+    const curated = POLLINATIONS_IMAGE_MODELS.filter(
+      (m) => ids.includes(m.id) || isFreePollinationsModel(m.id),
+    );
     const extras = (ids as string[])
       .filter((id) => !POLLINATIONS_IMAGE_MODELS.some((m) => m.id === id))
       .map((id) => ({ id, name: id }));

@@ -370,8 +370,40 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
   animation: signal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* The dashes on the network hop march only while a request is actually in
+   flight, so the one leg that leaves the device is also the one leg that
+   visibly moves. */
+@keyframes signal-flow {
+  to {
+    background-position: 9px 0;
+  }
+}
+
+.signal-flow {
+  animation: signal-flow 700ms linear infinite;
+}
+
+/* A stage that is working right now, as opposed to finished or not started. */
+@keyframes stage-live {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.45);
+    opacity: 0.6;
+  }
+}
+
+.stage-live {
+  animation: stage-live 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .signal-in {
+  .signal-in,
+  .signal-flow,
+  .stage-live {
     animation: none;
   }
 }

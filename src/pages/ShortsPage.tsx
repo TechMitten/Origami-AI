@@ -1,5 +1,16 @@
-import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Download, KeyRound, Loader2, RefreshCw, RotateCcw, Sparkles, Mic } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  Download,
+  Film,
+  Image as ImageIcon,
+  KeyRound,
+  Loader2,
+  Mic,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+} from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -31,7 +42,7 @@ import {
   isWebLLMLoaded,
 } from '../services/webLlmService';
 import { initTTS, DEFAULT_VOICES } from '../services/ttsService';
-import { resolvePollinationsKey } from '../services/pollinationsService';
+import { isFreePollinationsModel, resolvePollinationsKey } from '../services/pollinationsService';
 import { composeVisualPrompt, extendNarration, generateShortsScript, regenerateImagePrompt } from '../services/shortsScriptService';
 import {
   ShortsRenderAbortedError,
@@ -83,17 +94,136 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+type StageState = 'pending' | 'live' | 'done';
+
+interface PipelineStage {
+  key: string;
+  label: string;
+  where: string;
+  local: boolean;
+  state: StageState;
+}
+
 /**
- * The four stages a short passes through, and where each one actually runs.
- * Rendered in the hero so the single network hop is visible up front rather
- * than buried in a paragraph — and it tracks the configured script engine.
+ * The four stages a short passes through: where each one runs, and how far it
+ * has got. Rendered in the hero so the single network hop is visible up front
+ * rather than buried in a paragraph — and so the same strip reports progress
+ * once work starts, instead of staying a static diagram.
  */
-const pipelineStages = (scriptIsLocal: boolean): Array<{ label: string; where: string; local: boolean }> => [
-  { label: 'Script', where: scriptIsLocal ? 'on device' : 'your endpoint', local: scriptIsLocal },
-  { label: 'Frames', where: 'Pollinations', local: false },
-  { label: 'Voice', where: 'on device', local: true },
-  { label: 'MP4', where: 'on device', local: true },
+const pipelineStages = (
+  scriptIsLocal: boolean,
+  state: Record<'script' | 'frames' | 'voice' | 'mp4', StageState>,
+  visualsAreClips: boolean,
+): PipelineStage[] => [
+  {
+    key: 'script',
+    label: 'Script',
+    where: scriptIsLocal ? 'on device' : 'your endpoint',
+    local: scriptIsLocal,
+    state: state.script,
+  },
+  {
+    key: 'visuals',
+    label: visualsAreClips ? 'Clips' : 'Frames',
+    where: 'Pollinations',
+    local: false,
+    state: state.frames,
+  },
+  { key: 'voice', label: 'Voice', where: 'on device', local: true, state: state.voice },
+  { key: 'mp4', label: 'MP4', where: 'on device', local: true, state: state.mp4 },
 ];
+
+const stageDotClass = (step: PipelineStage): string =>
+  step.state === 'pending'
+    ? 'border border-white/25'
+    : step.local
+      ? 'bg-cyan-400 shadow-[0_0_9px_rgba(34,211,238,0.8)]'
+      : 'bg-amber-400 shadow-[0_0_9px_rgba(251,191,36,0.8)]';
+
+const stageLabelClass = (step: PipelineStage): string =>
+  step.state === 'pending' ? 'text-white/40' : step.local ? 'text-white/90' : 'text-amber-200';
+
+const stageStateWord: Record<StageState, string> = {
+  pending: 'not started',
+  live: 'in progress',
+  done: 'done',
+};
+
+/**
+ * One asset track in the monitor. The bar stays neutral while a track is part
+ * way there and only turns cyan on the last scene, so "all of them" reads at a
+ * glance rather than having to be counted.
+ */
+const ReadyTrack: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  ready: number;
+  total: number;
+}> = ({ label, icon, ready, total }) => {
+  const complete = total > 0 && ready === total;
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <span aria-hidden className={cn('shrink-0', complete ? 'text-cyan-300' : 'text-white/30')}>
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1 text-xs text-white/55">{label}</span>
+        <span className={cn('font-mono text-xs tabular-nums', complete ? 'text-cyan-200' : 'text-white/70')}>
+          {ready}/{total}
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label={`${label} ready`}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={ready}
+        className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10"
+      >
+        <div
+          className={cn(
+            'h-full rounded-full transition-[width] duration-500',
+            complete ? 'bg-cyan-400' : 'bg-white/40',
+          )}
+          style={{ width: total ? `${(ready / total) * 100}%` : '0%' }}
+        />
+      </div>
+    </div>
+  );
+};
+
+/**
+ * The page has exactly one next action at any moment — write the script,
+ * generate the media, or export. All three share this button so the step you
+ * are on is always in the same place, in the same shape.
+ */
+const PrimaryAction: React.FC<{
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  disabled: boolean;
+  busy: boolean;
+  className?: string;
+}> = ({ onClick, icon, label, disabled, busy, className }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled || busy}
+    aria-busy={busy || undefined}
+    className={cn(
+      'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
+      busy
+        ? 'animate-pulse-glow cursor-wait border border-cyan-400/30 bg-cyan-500/10 text-cyan-100'
+        : disabled
+          ? 'cursor-not-allowed border border-white/10 bg-white/[0.06] text-white/40'
+          : 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110 active:brightness-95',
+      className,
+    )}
+  >
+    {busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : icon}
+    <span className="truncate">{label}</span>
+  </button>
+);
 
 const markWebLLMAsCached = () => {
   try {
@@ -171,6 +301,11 @@ export const ShortsPage: React.FC = () => {
     [globalSettings.pollinationsApiKey, globalSettings.pollinationsTokenExpiresAt],
   );
 
+  // The free image model runs against the keyless endpoint, so "not connected"
+  // is not a dead end for stills the way it is for clips and paid models.
+  const usingFreeImageModel =
+    project.generationMode !== 'video' && isFreePollinationsModel(project.imageModel);
+
   const openAIConfigured = !!(
     globalSettings.openaiEndpoint &&
     globalSettings.openaiModel &&
@@ -179,23 +314,34 @@ export const ShortsPage: React.FC = () => {
 
   const useOpenAI = !!globalSettings.shortsUseOpenAI;
 
-  const stages = useMemo(() => pipelineStages(!useOpenAI), [useOpenAI]);
-
   const webLlmModelLabel =
     getWebLlmModelInfo(globalSettings.webLlmModel)?.name ?? globalSettings.webLlmModel ?? 'No model selected';
 
   // Show the branded splash once per session (first /shorts visit), fading in on
   // mount and fading back out before it unmounts. Subsequent visits skip it.
+  // Each phase owns its own timer so a skip mid-fade still lands on 'done'.
+  useEffect(() => {
+    if (splashPhase === 'fade-in') {
+      sessionStorage.setItem('shorts_splash_shown', 'true');
+      const timer = window.setTimeout(() => setSplashPhase('fade-out'), 2500);
+      return () => window.clearTimeout(timer);
+    }
+    if (splashPhase === 'fade-out') {
+      const timer = window.setTimeout(() => setSplashPhase('done'), 500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [splashPhase]);
+
+  const skipSplash = useCallback(() => {
+    setSplashPhase((phase) => (phase === 'fade-in' ? 'fade-out' : phase));
+  }, []);
+
+  // A splash nobody can dismiss is a three-second wall in front of the work.
   useEffect(() => {
     if (splashPhase !== 'fade-in') return;
-    sessionStorage.setItem('shorts_splash_shown', 'true');
-    const fadeOutTimer = window.setTimeout(() => setSplashPhase('fade-out'), 2500);
-    const removeTimer = window.setTimeout(() => setSplashPhase('done'), 3000);
-    return () => {
-      window.clearTimeout(fadeOutTimer);
-      window.clearTimeout(removeTimer);
-    };
-  }, [splashPhase]);
+    window.addEventListener('keydown', skipSplash);
+    return () => window.removeEventListener('keydown', skipSplash);
+  }, [splashPhase, skipSplash]);
 
   const totalDuration = useMemo(() => projectDuration(project.scenes), [project.scenes]);
   const renderable = isProjectRenderable(project);
@@ -941,18 +1087,83 @@ export const ShortsPage: React.FC = () => {
     setGlobalSettings(next);
   }, []);
 
+  const isVideoMode = project.generationMode === 'video';
+  const visualStatusOf = (scene: ShortsScene) => (isVideoMode ? scene.videoStatus : scene.imageStatus);
+
+  const sceneCount = project.scenes.length;
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
+  const readyVisuals = project.scenes.filter((s) => visualStatusOf(s) === 'ready').length;
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
-  const needsMediaGeneration = project.scenes.some(s =>
-    ['idle', 'error'].includes(s.audioStatus) ||
-    ['idle', 'error'].includes(project.generationMode === 'video' ? s.videoStatus : s.imageStatus)
+  const needsMediaGeneration = project.scenes.some(
+    (s) => ['idle', 'error'].includes(s.audioStatus) || ['idle', 'error'].includes(visualStatusOf(s)),
   );
   const staleCount = project.scenes.filter(
     (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode),
   ).length;
 
+  // The hero strip doubles as the progress readout: a stage is live while any
+  // of its scenes are in flight, and done only once every scene has landed.
+  const stages = pipelineStages(
+    !useOpenAI,
+    {
+      script: sceneCount > 0 ? 'done' : isBusy && stage === 'compose' ? 'live' : 'pending',
+      frames:
+        sceneCount > 0 && readyVisuals === sceneCount
+          ? 'done'
+          : project.scenes.some((s) => visualStatusOf(s) === 'pending')
+            ? 'live'
+            : 'pending',
+      voice:
+        sceneCount > 0 && readyScenes === sceneCount
+          ? 'done'
+          : project.scenes.some((s) => s.audioStatus === 'pending')
+            ? 'live'
+            : 'pending',
+      mp4: renderedBlob ? 'done' : renderPhase === 'rendering' ? 'live' : 'pending',
+    },
+    isVideoMode,
+  );
+
+  // One next action at a time, shown in the rail on desktop and in the docked
+  // bar on narrow screens where the rail sits below a long form.
+  const primary =
+    stage === 'compose'
+      ? {
+          label: isBusy ? busyLabel || 'Generating...' : 'Generate short',
+          icon: <Sparkles className="h-4 w-4 shrink-0" />,
+          onClick: handleGenerate,
+          disabled: !canGenerate,
+          busy: isBusy,
+          hint: isBusy
+            ? 'Keep this tab open while it works.'
+            : project.topic.trim().length > 2
+              ? `Aiming for about ${project.targetDurationSec} seconds.`
+              : 'Describe your topic to get started.',
+        }
+      : needsMediaGeneration
+        ? {
+            label: isBusy ? busyLabel || 'Generating media...' : 'Approve script & generate media',
+            icon: <Sparkles className="h-4 w-4 shrink-0" />,
+            onClick: handleGenerateMedia,
+            disabled: isBusy,
+            busy: isBusy,
+            hint: isBusy
+              ? 'Keep this tab open while it works.'
+              : 'Read the script through first — this step generates every visual and voiceover.',
+          }
+        : {
+            label: 'Export MP4',
+            icon: <Download className="h-4 w-4 shrink-0" />,
+            onClick: handleRender,
+            disabled: !renderable || renderPhase === 'rendering' || isBusy,
+            busy: renderPhase === 'rendering',
+            hint: renderable
+              ? "Caption timing is estimated from each clip's length, so long words can drift."
+              : 'Every scene needs a voiceover before you can export.',
+          };
+
   return (
-    <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pt-8 text-white">
+    <div className="isolate flex min-h-screen flex-col bg-[#0a0a0b] pb-36 pt-8 text-white lg:pb-0">
       <img
         src={backgroundImage}
         alt=""
@@ -962,8 +1173,9 @@ export const ShortsPage: React.FC = () => {
 
       {splashPhase !== 'done' && (
         <div
+          onClick={skipSplash}
           className={cn(
-            'fixed inset-0 z-[100] flex items-center justify-center bg-[#0a0a0b] p-6 sm:p-12',
+            'fixed inset-0 z-[100] flex cursor-pointer items-center justify-center bg-[#0a0a0b] p-6 sm:p-12',
             splashPhase === 'fade-out' ? 'animate-fade-out' : 'animate-fade-in',
           )}
         >
@@ -972,6 +1184,13 @@ export const ShortsPage: React.FC = () => {
             alt="Shorts"
             className="max-h-full max-w-full rounded-2xl object-contain"
           />
+          <button
+            type="button"
+            onClick={skipSplash}
+            className="focus-ring absolute bottom-6 right-6 rounded px-2 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white"
+          >
+            Skip
+          </button>
         </div>
       )}
 
@@ -997,56 +1216,92 @@ export const ShortsPage: React.FC = () => {
       />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 sm:px-8">
-        {/* Hero: the pipeline is the thesis — one network hop, everything else on-device. */}
-        <div className="mb-10 mt-4">
-          <h1 className="font-display text-[clamp(1.75rem,4.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-white">
-            From a topic to a finished short.
-          </h1>
+        {/* Hero: the pipeline is the thesis — one network hop, everything else
+            on-device — and once scenes exist it reports how far each stage got.
+            The heading gives way to the short's own title in Cut, where the
+            title is the thing being worked on. */}
+        <div className="mb-8 mt-4 sm:mb-10">
+          {stage === 'compose' ? (
+            <h1 className="font-display text-[clamp(1.75rem,4.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-white">
+              From a topic to a finished short.
+            </h1>
+          ) : (
+            <div>
+              <h1 className="sr-only">Editing {project.title || project.topic || 'your short'}</h1>
+              <label
+                htmlFor="shorts-title"
+                className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-white/45"
+              >
+                Title
+              </label>
+              <input
+                id="shorts-title"
+                value={project.title ?? ''}
+                onChange={(e) => patchProject({ title: e.target.value })}
+                placeholder="Untitled short"
+                className="focus-ring -ml-2 w-full rounded-lg bg-transparent px-2 py-1 font-display text-[clamp(1.5rem,4vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.02em] text-white outline-none transition-colors placeholder:text-white/25 hover:bg-white/[0.04] focus:bg-white/[0.06]"
+              />
+              <p className="mt-1.5 text-xs text-white/40">
+                Used on the title card and for the exported file name.
+              </p>
+            </div>
+          )}
 
           <ol className="mt-6 hidden items-start sm:flex">
             {stages.map((step, i) => {
               const previous = stages[i - 1];
               const hopIsNetwork = previous ? !previous.local || !step.local : false;
+              const hopIsCarrying = !!previous && (step.state === 'live' || previous.state === 'live');
               return (
-                <Fragment key={step.label}>
+                <li
+                  key={step.key}
+                  className={cn('signal-in flex items-start', previous ? 'min-w-0 flex-1' : 'shrink-0')}
+                  style={{ animationDelay: `${i * 70}ms` }}
+                >
                   {previous && (
                     <span
                       aria-hidden
                       className={cn(
-                        'signal-in mx-3 mt-[3.5px] h-px flex-1 self-start',
+                        'mx-3 mt-[3.5px] h-px flex-1 self-start transition-opacity',
                         hopIsNetwork
                           ? 'bg-[repeating-linear-gradient(to_right,rgba(251,191,36,0.55)_0,rgba(251,191,36,0.55)_5px,transparent_5px,transparent_9px)]'
                           : 'bg-white/15',
+                        // The dashes only march while something is actually on the wire.
+                        hopIsNetwork && hopIsCarrying && 'signal-flow',
+                        previous.state === 'pending' && 'opacity-40',
                       )}
-                      style={{ animationDelay: `${i * 70}ms` }}
                     />
                   )}
-                  <div
-                    className="signal-in flex flex-col items-start gap-1.5"
-                    style={{ animationDelay: `${i * 70}ms` }}
-                  >
+                  <span className="flex shrink-0 flex-col items-start gap-1.5">
                     <span className="flex items-center gap-2">
                       <span
                         aria-hidden
                         className={cn(
-                          'h-2 w-2 rounded-full',
-                          step.local
-                            ? 'bg-cyan-400 shadow-[0_0_9px_rgba(34,211,238,0.8)]'
-                            : 'bg-amber-400 shadow-[0_0_9px_rgba(251,191,36,0.8)]',
+                          'h-2 w-2 shrink-0 rounded-full transition-colors',
+                          stageDotClass(step),
+                          step.state === 'live' && 'stage-live',
                         )}
                       />
                       <span
                         className={cn(
-                          'text-[13px] font-semibold leading-none',
-                          step.local ? 'text-white/90' : 'text-amber-200',
+                          'text-[13px] font-semibold leading-none transition-colors',
+                          stageLabelClass(step),
                         )}
                       >
                         {step.label}
                       </span>
                     </span>
-                    <span className="pl-4 text-[11px] leading-none text-white/50">{step.where}</span>
-                  </div>
-                </Fragment>
+                    <span
+                      className={cn(
+                        'pl-4 text-[11px] leading-none transition-colors',
+                        step.state === 'pending' ? 'text-white/35' : 'text-white/55',
+                      )}
+                    >
+                      {step.where}
+                      <span className="sr-only"> — {stageStateWord[step.state]}</span>
+                    </span>
+                  </span>
+                </li>
               );
             })}
           </ol>
@@ -1054,43 +1309,61 @@ export const ShortsPage: React.FC = () => {
           {/* Mobile: a compact vertical read of the same path. */}
           <ul className="mt-5 flex flex-col gap-2 sm:hidden">
             {stages.map((step) => (
-              <li key={step.label} className="flex items-center gap-2">
+              <li key={step.key} className="flex items-center gap-2">
                 <span
                   aria-hidden
-                  className={cn('h-1.5 w-1.5 rounded-full', step.local ? 'bg-cyan-400' : 'bg-amber-400')}
+                  className={cn(
+                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                    step.state === 'pending'
+                      ? 'border border-white/30'
+                      : step.local
+                        ? 'bg-cyan-400'
+                        : 'bg-amber-400',
+                    step.state === 'live' && 'stage-live',
+                  )}
                 />
-                <span className="text-xs font-semibold text-white/80">{step.label}</span>
+                <span
+                  className={cn(
+                    'text-xs font-semibold',
+                    step.state === 'pending' ? 'text-white/40' : 'text-white/80',
+                  )}
+                >
+                  {step.label}
+                </span>
                 <span className="text-xs text-white/45">{step.where}</span>
+                <span className="sr-only">{stageStateWord[step.state]}</span>
               </li>
             ))}
           </ul>
-
-          <p className="mt-4 text-xs leading-relaxed text-white/55">
-            Only the amber hops leave this device — everything else runs locally in this tab.
-          </p>
         </div>
 
         {!pollinationsKey && (
-          <div className="mb-10 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-100/90">
+          <div
+            role="status"
+            className="mb-8 flex flex-col gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] p-4 sm:mb-10 sm:flex-row sm:items-center"
+          >
             <KeyRound className="h-4 w-4 shrink-0 text-amber-300/80" />
-            <span className="min-w-0 flex-1 leading-relaxed">
-              You are not connected to Pollinations. Images and clips will be requested through this server,
-              which works only if it has its own key.
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsPollinationsInfoOpen(true)}
-              className="focus-ring rounded font-semibold text-amber-200/80 underline underline-offset-2 transition-colors hover:text-amber-100"
-            >
-              Learn more
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              className="focus-ring rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
-            >
-              Connect
-            </button>
+            <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-100/90">
+              {usingFreeImageModel
+                ? 'You are not connected to Pollinations. The Free (slow) model needs no key, but images are queued behind everyone else\u2019s \u2014 expect a long wait per scene.'
+                : 'You are not connected to Pollinations. Images and clips will be requested through this server, which works only if it has its own key.'}
+            </p>
+            <div className="flex shrink-0 items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setIsPollinationsInfoOpen(true)}
+                className="focus-ring rounded text-sm font-semibold text-amber-200/80 underline underline-offset-2 transition-colors hover:text-amber-100"
+              >
+                Learn more
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                className="focus-ring rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
+              >
+                Connect
+              </button>
+            </div>
           </div>
         )}
 
@@ -1175,59 +1448,35 @@ export const ShortsPage: React.FC = () => {
           <aside className="space-y-4 lg:sticky lg:top-24 lg:h-fit lg:self-start">
             <ShortsPreviewPlayer project={project} />
 
-            {stage === 'compose' ? (
+            {stage === 'storyboard' && (
               <>
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
-                  className={cn(
-                    'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
-                    isBusy
-                      ? 'animate-pulse-glow cursor-not-allowed border border-cyan-400/30 bg-cyan-500/10 text-cyan-100'
-                      : canGenerate
-                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
-                        : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
-                  )}
-                >
-                  {isBusy ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {busyLabel || 'Generating...'}
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Generate short
-                    </>
-                  )}
-                </button>
-
-                <p className="text-center text-xs text-white/45">
-                  {isBusy
-                    ? 'Keep this tab open while it works.'
-                    : project.topic.trim().length > 2
-                      ? `Aiming for about ${project.targetDurationSec} seconds.`
-                      : 'Describe your topic to get started.'}
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+                {/* The monitor's readout: what exists, per asset track. Audio
+                    alone used to stand in for readiness, which under-reported
+                    it whenever the visuals were the ones still missing. */}
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-xs text-white/50">Scenes voiced</span>
-                    <span className="font-mono text-xs text-white/80">
-                      {readyScenes}/{project.scenes.length} · {formatDuration(totalDuration)}
+                    <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">
+                      Ready
+                    </span>
+                    <span className="font-mono text-xs tabular-nums text-white/60">
+                      {formatDuration(totalDuration)}
                     </span>
                   </div>
-                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-cyan-400 transition-[width] duration-300"
-                      style={{
-                        width: project.scenes.length
-                          ? `${(readyScenes / project.scenes.length) * 100}%`
-                          : '0%',
-                      }}
+
+                  <div className="mt-3 space-y-3">
+                    <ReadyTrack
+                      label={isVideoMode ? 'Clips' : 'Frames'}
+                      icon={
+                        isVideoMode ? <Film className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />
+                      }
+                      ready={readyVisuals}
+                      total={sceneCount}
+                    />
+                    <ReadyTrack
+                      label="Voice"
+                      icon={<Mic className="h-3.5 w-3.5" />}
+                      ready={readyScenes}
+                      total={sceneCount}
                     />
                   </div>
                 </div>
@@ -1248,58 +1497,36 @@ export const ShortsPage: React.FC = () => {
                     </button>
                   </div>
                 )}
-
-                {needsMediaGeneration ? (
-                  <button
-                    type="button"
-                    onClick={handleGenerateMedia}
-                    disabled={isBusy}
-                    className={cn(
-                      'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
-                      !isBusy
-                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
-                        : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
-                    )}
-                  >
-                    {isBusy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating media...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Approve script & generate media
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleRender}
-                    disabled={!renderable || renderPhase === 'rendering' || isBusy}
-                    className={cn(
-                      'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
-                      renderable && renderPhase !== 'rendering' && !isBusy
-                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
-                        : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
-                    )}
-                  >
-                    <Download className="h-4 w-4" />
-                    Export MP4
-                  </button>
-                )}
-
-                <p className="text-center text-xs leading-relaxed text-white/45">
-                  {renderable
-                    ? "Caption timing is estimated from each clip's length, so long words can drift."
-                    : 'Every scene needs a voiceover before you can export.'}
-                </p>
               </>
             )}
+
+            {/* Narrow screens get this same action docked at the bottom instead,
+                where it stays reachable without scrolling past the whole form. */}
+            <div className="hidden lg:block">
+              <PrimaryAction
+                onClick={primary.onClick}
+                icon={primary.icon}
+                label={primary.label}
+                disabled={primary.disabled}
+                busy={primary.busy}
+              />
+              <p className="mt-3 text-center text-xs leading-relaxed text-white/45">{primary.hint}</p>
+            </div>
           </aside>
         </div>
       </main>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0a0a0b]/90 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden">
+        <PrimaryAction
+          onClick={primary.onClick}
+          icon={primary.icon}
+          label={primary.label}
+          disabled={primary.disabled}
+          busy={primary.busy}
+          className="py-3.5"
+        />
+        <p className="mt-2 text-center text-[11px] leading-relaxed text-white/40">{primary.hint}</p>
+      </div>
 
       <Footer />
 

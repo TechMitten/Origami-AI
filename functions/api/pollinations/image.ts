@@ -14,7 +14,9 @@ const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai';
 
 // Kept in sync with POLLINATIONS_IMAGE_MODELS in src/services/pollinationsService.ts.
 // An allow-list keeps a compromised client from steering the server's key at
-// arbitrary (and differently-priced) upstream models.
+// arbitrary (and differently-priced) upstream models. 'free' is intentionally
+// absent: that model is a client-side marker for the keyless
+// image.pollinations.ai endpoint and never reaches this proxy.
 const ALLOWED_MODELS = new Set([
   'zimage',
   'flux',

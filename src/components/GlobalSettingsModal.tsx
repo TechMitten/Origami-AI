@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Music, Trash2, Settings, Mic, Clock, ChevronRight, Sparkles, Play, Square, Activity, RefreshCw, Cpu, CheckCircle2, Timer, Loader2, ArrowDownCircle } from 'lucide-react';
-import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision } from '../services/webLlmService';
+import { AVAILABLE_WEB_LLM_MODELS, initWebLLM, checkWebGPUSupport, webLlmEvents, isWebLLMLoaded, isWebLLMInitializing, getCurrentWebLLMModel, unloadWebLLM, DEFAULT_WEB_LLM_MODEL_ID, getDefaultModelByPrecision } from '../services/webLlmService';
 import { AVAILABLE_VOICES, generateTTS } from '../services/ttsService';
 import { Dropdown } from './Dropdown';
 import type { GlobalSettings } from '../services/storage';
@@ -9,10 +9,6 @@ import { useNotifications } from '../context/NotificationContext';
 
 import type { InitProgressReport } from '@mlc-ai/web-llm';
 import { DEFAULT_SYSTEM_PROMPT } from '../services/aiService';
-import {
-  DEFAULT_POLLINATIONS_IMAGE_MODEL,
-  POLLINATIONS_IMAGE_MODELS,
-} from '../services/pollinationsService';
 import { isPollinationsTokenExpired, startPollinationsOAuth } from '../services/pollinationsAuth';
 
 
@@ -57,15 +53,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [useOpenAIOcr, setUseOpenAIOcr] = useState(currentSettings?.useOpenAIOcr ?? false);
   const [useOpenAIFixScript, setUseOpenAIFixScript] = useState(currentSettings?.useOpenAIFixScript ?? false);
   const [useOpenAIForSlideGen, setUseOpenAIForSlideGen] = useState(currentSettings?.useOpenAIForSlideGen ?? false);
+  const [shortsUseOpenAI, setShortsUseOpenAI] = useState(currentSettings?.shortsUseOpenAI ?? false);
 
   // Pollinations (Shorts image generation)
   const [pollinationsApiKey, setPollinationsApiKey] = useState(currentSettings?.pollinationsApiKey ?? '');
   const [pollinationsTokenExpiresAt, setPollinationsTokenExpiresAt] = useState(currentSettings?.pollinationsTokenExpiresAt);
   const [pollinationsAccountName, setPollinationsAccountName] = useState(currentSettings?.pollinationsAccountName);
   const [pollinationsDisconnecting, setPollinationsDisconnecting] = useState(false);
-  const [pollinationsImageModel, setPollinationsImageModel] = useState(
-    currentSettings?.pollinationsImageModel ?? DEFAULT_POLLINATIONS_IMAGE_MODEL,
-  );
 
   const handleDisconnectPollinations = async () => {
     setPollinationsDisconnecting(true);
@@ -112,8 +106,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [webGpuSupport, setWebGpuSupport] = useState<{ supported: boolean; hasF16: boolean; error?: string } | null>(null);
   const [webLlmPhase, setWebLlmPhase] = useState<'downloading' | 'loading' | 'shader' | 'complete'>('downloading');
   const [isModelLoaded, setIsModelLoaded] = useState(false);
-  // Reload modal state — shown when the user switches WebLLM models
-  const [showReloadModal, setShowReloadModal] = useState(false);
   // TTS Loading State
   const [isLoadingTTS, setIsLoadingTTS] = useState(false);
   const [ttsLoadProgress, setTtsLoadProgress] = useState('');
@@ -268,6 +260,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     } finally {
       setIsDownloadingWebLlm(false);
       setDownloadingModelId(null);
+      // A failed or cancelled load leaves nothing resident; keep the "Loaded" chip honest.
+      setIsModelLoaded(isWebLLMLoaded());
       webLlmEvents.removeEventListener('webllm-init-progress', handleProgress);
     }
   };
@@ -372,10 +366,11 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useOpenAIOcr,
       useOpenAIFixScript,
       useOpenAIForSlideGen,
+      shortsUseOpenAI,
       pollinationsApiKey: pollinationsApiKey.trim() || undefined,
       pollinationsTokenExpiresAt,
       pollinationsAccountName,
-      pollinationsImageModel
+      pollinationsImageModel: currentSettings?.pollinationsImageModel,
     };
 
     // Check if quantization changed to reload model
@@ -433,10 +428,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       }
     }
 
-    // If WebLLM was already loaded with a different model, unload first
-    const currentWebLlmModel = getCurrentWebLLMModel();
-    const shouldUnloadBeforeSwitch = useWebLLM && currentWebLlmModel && webLlmModel && webLlmModel !== currentWebLlmModel && isWebLLMLoaded();
-    if (shouldUnloadBeforeSwitch) {
+    // This modal is already loading something — never tear that load down from under itself.
+    if (isDownloadingWebLlm) {
+      showAlert("Model is currently loading. Please wait.", { type: 'info', title: 'Loading in progress' });
+      return;
+    }
+
+    // Switching models: unload the resident one first. `isWebLLMInitializing()` matters as much
+    // as `isWebLLMLoaded()` here — a load kicked off elsewhere (the background download queue,
+    // the Assistant or Shorts page) has no engine yet but is already holding the GPU.
+    const targetModelChanged = useWebLLM && webLlmModel && webLlmModel !== getCurrentWebLLMModel();
+    if (targetModelChanged && (isWebLLMLoaded() || isWebLLMInitializing())) {
       setWebLlmDownloadProgress('Unloading current model...');
       await unloadWebLLM();
       setIsModelLoaded(false);
@@ -444,39 +446,26 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
     }
 
     // Only automatically load WebLLM model if WebLLM settings actually changed
-    const webLlmSettingsChanged = 
-      useWebLLM !== (currentSettings?.useWebLLM ?? false) || 
+    const webLlmSettingsChanged =
+      useWebLLM !== (currentSettings?.useWebLLM ?? false) ||
       webLlmModel !== (currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID);
 
     if (webLlmSettingsChanged && useWebLLM && webLlmModel && webLlmModel !== getCurrentWebLLMModel()) {
-      if (isDownloadingWebLlm) {
-        showAlert("Model is currently loading. Please wait.", { type: 'info', title: 'Loading in progress' });
-        return;
-      }
-
       await handleDownloadWebLlm();
 
-      // If after attempting load, the model is still not the current one, it failed.
-      // Don't close the modal so the user sees the error.
+      // If after attempting load, the model is still not the current one, it failed. Keep every
+      // other edit, but leave the persisted model on the last one that actually worked, and keep
+      // the modal open so the user sees the error.
       if (webLlmModel !== getCurrentWebLLMModel()) {
+        await onSave({ ...settings, webLlmModel: currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID });
+        refreshNotifications();
         return;
       }
     }
 
     await onSave(settings);
     refreshNotifications();
-
-    // If the WebLLM model was changed while one was already loaded, prompt the user to reload the browser
-    const modelChangedAndLoaded =
-      useWebLLM &&
-      webLlmModel !== (currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID) &&
-      isWebLLMLoaded();
-
-    if (modelChangedAndLoaded) {
-      setShowReloadModal(true);
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
   const removeMusic = () => {
@@ -1156,15 +1145,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       </div>
                     )}
                   </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">Default Image Model</label>
-                    <Dropdown
-                      options={POLLINATIONS_IMAGE_MODELS.map((m) => ({ id: m.id, name: m.name }))}
-                      value={pollinationsImageModel}
-                      onChange={setPollinationsImageModel}
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -1339,6 +1319,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     </button>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      Use for Shorts
+                    </div>
+                    <p className="text-[10px] text-white/30">Use this endpoint for Shorts script and image-prompt writing instead of local WebLLM</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{shortsUseOpenAI ? 'On' : 'Off'}</span>
+                    <button
+                      onClick={() => setShortsUseOpenAI(!shortsUseOpenAI)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${shortsUseOpenAI ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${shortsUseOpenAI ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
@@ -1465,44 +1463,6 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
         </div>
       </div>
 
-      {/* Reload Browser Confirmation Modal */}
-      {showReloadModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-sm bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
-            {/* Icon + Title */}
-            <div className="px-6 pt-7 pb-4 flex flex-col items-center gap-3 text-center">
-              <div className="w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
-                <RefreshCw className="w-6 h-6 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-white tracking-tight">Reload browser?</h3>
-                <p className="text-xs text-white/50 mt-1 leading-relaxed">
-                  Switching WebLLM models requires a page reload to fully take effect. Would you like to reload now?
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="px-6 pb-6 flex flex-col gap-2 mt-1">
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-sm transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-amber-500/20"
-              >
-                Reload Now
-              </button>
-              <button
-                onClick={() => {
-                  setShowReloadModal(false);
-                  onClose();
-                }}
-                className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-sm transition-all border border-white/10"
-              >
-                Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

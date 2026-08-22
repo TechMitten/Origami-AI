@@ -248,6 +248,17 @@ let pendingModelId: string | null = null;
 // Set while an init is in flight so the UI can abandon a load that hasn't produced an
 // engine yet. Terminating on cancel matters: an in-flight load still holds the GPU.
 let cancelPendingInit: (() => void) | null = null;
+// The worker behind an in-flight load. Cancelling has to terminate it right away; waiting for
+// CreateWebWorkerMLCEngine to settle first meant an abandoned multi-GB download kept the GPU
+// (and the network) busy for minutes while the model the user actually picked loaded beside it.
+let pendingWorker: Worker | null = null;
+// Bumped by every init and every teardown. A load may only install itself while its generation
+// is still the newest one, so a slow load can never overwrite the engine that superseded it.
+let initGeneration = 0;
+// Identifies the init that owns pendingInitPromise/pendingModelId/cancelPendingInit. Separate
+// from initGeneration because an init's own failure path tears the engine down, which bumps the
+// generation — that must not stop the failing init from cleaning up after itself.
+let activeInitToken: object | null = null;
 
 // Every call into a WebWorkerMLCEngine is a postMessage round-trip. If the worker wedges
 // (GPU OOM, lost device, corrupted WASM state) the reply never arrives and the promise
@@ -326,10 +337,12 @@ const tearDownWebLLMEngine = async () => {
     const previousWorker = engineWorker;
 
     // Clear module state up front so a slow unload can never leave callers looking at a
-    // half-dead engine.
+    // half-dead engine. Bumping the generation invalidates any load still in flight, so it
+    // cannot install itself on top of the teardown.
     engine = null;
     engineWorker = null;
     currentModelId = null;
+    initGeneration++;
 
     if (previousEngine) {
         // Best effort: lets WebLLM release GPU buffers cleanly when the worker is healthy.
@@ -367,6 +380,8 @@ const createEngine = async (
 ): Promise<any> => {
     const { CreateWebWorkerMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
     const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
+    // Publish the handle before the load starts so a cancel can terminate it mid-download.
+    pendingWorker = worker;
 
     let newEngine: any;
     try {
@@ -376,9 +391,12 @@ const createEngine = async (
         });
     } catch (error) {
         // Never strand a worker behind a failed load.
+        if (pendingWorker === worker) pendingWorker = null;
         worker.terminate();
         throw error;
     }
+
+    if (pendingWorker === worker) pendingWorker = null;
 
     if (isAbandoned()) {
         await withTimeout(newEngine.unload(), UNLOAD_TIMEOUT_MS, 'WebLLM unload').catch(() => { });
@@ -407,8 +425,13 @@ const handleWebLLMDeviceLost = async (error: unknown): Promise<Error> => {
 
 export const unloadWebLLM = async () => {
     // Abandon an in-flight load first — at that point there is no engine to tear down yet,
-    // but the worker is already downloading/compiling and holding the GPU.
+    // but the worker is already downloading/compiling and holding the GPU. Waiting for it to
+    // settle is what lets callers treat this returning as "nothing is holding the GPU".
+    const inFlight = pendingInitPromise;
     cancelPendingInit?.();
+    if (inFlight) {
+        await inFlight.catch(() => { });
+    }
     await tearDownWebLLMEngine();
 };
 
@@ -426,18 +449,57 @@ export const initWebLLM = async (
         return pendingInitPromise;
     }
 
+    // Switching models mid-load: abandon the in-flight load and wait for it to settle before
+    // starting the next one. Without this the two loads raced, and whichever finished last
+    // installed itself — leaving the loser's worker alive and holding VRAM, and often leaving
+    // currentModelId pointing at the model the user had just switched away from.
+    if (pendingInitPromise && pendingModelId !== modelId) {
+        const supersededInit = pendingInitPromise;
+        cancelPendingInit?.();
+        await supersededInit.catch(() => { });
+    }
+
     // Apply WebGPU patch
-    await patchWebGPU();
+    patchWebGPU();
 
     // Start a new initialization
+    const initToken = {};
+    activeInitToken = initToken;
     pendingModelId = modelId;
     pendingInitPromise = (async () => {
         let stallTimer: ReturnType<typeof setTimeout> | undefined;
         let abandoned = false;
+        // Assigned after the teardown below, which bumps the generation itself.
+        let generation = initGeneration;
+
+        // Marks this load dead and kills its worker right away. Leaving the worker to finish
+        // and clean itself up meant an abandoned multi-GB download kept the GPU busy while the
+        // model the user actually asked for was loading beside it.
+        const abandonLoad = () => {
+            abandoned = true;
+            pendingWorker?.terminate();
+            pendingWorker = null;
+        };
+
+        // Installed before the first await so a cancel arriving during the teardown below still
+        // takes effect. The rejection is pre-handled because the race that consumes it starts later.
+        const cancelled = new Promise<never>((_, reject) => {
+            cancelPendingInit = () => {
+                abandonLoad();
+                reject(new WebLLMCancelledError('WebLLM initialization was cancelled.'));
+            };
+        });
+        cancelled.catch(() => { });
 
         try {
             // Switching models: tear the old engine down completely, including its worker.
             await tearDownWebLLMEngine();
+            generation = ++initGeneration;
+
+            // Cancelled while the previous model was being torn down — never start the download.
+            if (abandoned) {
+                throw new WebLLMCancelledError('WebLLM initialization was cancelled.');
+            }
 
             // Reject if the load makes no forward progress for a while. A wall-clock
             // timeout would kill legitimate multi-GB downloads on slow connections.
@@ -446,7 +508,7 @@ export const initWebLLM = async (
                 resetStall = () => {
                     clearTimeout(stallTimer);
                     stallTimer = setTimeout(() => {
-                        abandoned = true;
+                        abandonLoad();
                         reject(new Error(
                             'WebLLM model loading stalled. Check your connection, or pick a smaller model in Settings.'
                         ));
@@ -462,15 +524,12 @@ export const initWebLLM = async (
                 webLlmEvents.dispatchEvent(new CustomEvent('webllm-init-progress', { detail: report }));
             };
 
-            // Lets the UI abandon a load that hasn't produced an engine yet.
-            const cancelled = new Promise<never>((_, reject) => {
-                cancelPendingInit = () => {
-                    abandoned = true;
-                    reject(new WebLLMCancelledError('WebLLM initialization was cancelled.'));
-                };
-            });
-
-            const creation = createEngine(modelId, wrappedCallback, () => abandoned);
+            // A load that has been superseded by a newer one must not install itself either.
+            const creation = createEngine(
+                modelId,
+                wrappedCallback,
+                () => abandoned || generation !== initGeneration
+            );
             // The watchdog or a cancel may win the race; keep the loser's rejection handled
             // so it never surfaces as an unhandled promise rejection.
             creation.catch(() => { });
@@ -494,10 +553,15 @@ export const initWebLLM = async (
             throw error;
         } finally {
             clearTimeout(stallTimer);
-            cancelPendingInit = null;
-            // Clear the pending promise so future calls can start fresh if needed
-            pendingInitPromise = null;
-            pendingModelId = null;
+            // Only the newest init owns this state; a superseded one clearing it would strand
+            // the load that replaced it with no way to be cancelled.
+            if (activeInitToken === initToken) {
+                activeInitToken = null;
+                cancelPendingInit = null;
+                // Clear the pending promise so future calls can start fresh if needed
+                pendingInitPromise = null;
+                pendingModelId = null;
+            }
         }
     })();
 
@@ -545,7 +609,7 @@ export const generateWebLLMChatResponse = async (
 
     const {
         temperature = 0.7,
-        maxTokens = 1024,
+        maxTokens = 4096,
         resetChat = true
     } = options;
 
@@ -559,7 +623,6 @@ export const generateWebLLMChatResponse = async (
             temperature,
             max_tokens: maxTokens,
             stream: true,
-            extra_body: { enable_thinking: false },
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
 
         let content = "";
@@ -567,6 +630,12 @@ export const generateWebLLMChatResponse = async (
             const delta = chunk.choices[0]?.delta?.content;
             if (delta) content += delta;
         }
+
+        content = content.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '')
+                         .replace(/^[\s\S]*?<\/think>/i, '')
+                         .replace(/<think\b[^>]*>[\s\S]*$/gi, '')
+                         .replace(/<\/?think\b[^>]*>/gi, '')
+                         .trim();
 
         return normalizeMessageContent(content);
     } catch (error) {
@@ -598,7 +667,7 @@ export async function* streamWebLLMChatResponse(
 
     const {
         temperature = 0.7,
-        maxTokens = 1024,
+        maxTokens = 4096,
         resetChat = true
     } = options;
 
@@ -616,16 +685,63 @@ export async function* streamWebLLMChatResponse(
             temperature,
             max_tokens: maxTokens,
             stream: true,
-            extra_body: { enable_thinking: false },
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
+
+        let buffer = "";
+        let inThinkBlock = false;
 
         for await (const chunk of stream) {
             const delta = chunk.choices[0]?.delta?.content;
             const text = normalizeMessageContent(delta);
             if (!text) continue;
 
+            buffer += text;
+
+            while (buffer.length > 0) {
+                if (inThinkBlock) {
+                    const closeIdx = buffer.indexOf('</think>');
+                    if (closeIdx !== -1) {
+                        inThinkBlock = false;
+                        buffer = buffer.slice(closeIdx + 8);
+                    } else {
+                        // Still inside <think>, keep the last 7 chars in case they are part of </think>
+                        buffer = buffer.slice(-7);
+                        break;
+                    }
+                } else {
+                    const openIdx = buffer.indexOf('<think>');
+                    if (openIdx !== -1) {
+                        const before = buffer.slice(0, openIdx);
+                        if (before) {
+                            yieldedAnyContent = true;
+                            yield before;
+                        }
+                        inThinkBlock = true;
+                        buffer = buffer.slice(openIdx + 7);
+                    } else {
+                        const lastLt = buffer.lastIndexOf('<');
+                        if (lastLt !== -1 && '<think>'.startsWith(buffer.toLowerCase().slice(lastLt))) {
+                            // Might be start of a <think> tag
+                            const safePart = buffer.slice(0, lastLt);
+                            if (safePart) {
+                                yieldedAnyContent = true;
+                                yield safePart;
+                            }
+                            buffer = buffer.slice(lastLt);
+                            break;
+                        } else {
+                            yieldedAnyContent = true;
+                            yield buffer;
+                            buffer = "";
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (!inThinkBlock && buffer) {
             yieldedAnyContent = true;
-            yield text;
+            yield buffer;
         }
     } catch (error) {
         console.error("WebLLM Streaming Error:", error);
@@ -669,9 +785,8 @@ export const generateWebLLMResponse = async (
         const stream = await withEngineTimeout(engine.chat.completions.create({
             messages,
             temperature,
-            max_tokens: 1024, // Cap output to prevent runaway generation and context overflow
+            max_tokens: 4096, // Increased to allow reasoning models room to finish thinking
             stream: true,
-            extra_body: { enable_thinking: false },
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
         
         let content = "";
@@ -680,6 +795,12 @@ export const generateWebLLMResponse = async (
             if (delta) content += delta;
         }
         console.log("[WebLLM] Streamed Reply length:", content.length);
+
+        content = content.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '')
+                         .replace(/^[\s\S]*?<\/think>/i, '')
+                         .replace(/<think\b[^>]*>[\s\S]*$/gi, '')
+                         .replace(/<\/?think\b[^>]*>/gi, '')
+                         .trim();
 
         return content;
     } catch (error) {

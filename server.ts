@@ -351,6 +351,8 @@ async function createServer() {
   // Used only when the client has no user-supplied key; keeps POLLINATIONS_API_KEY
   // server-side so an `sk_` secret key never reaches the browser bundle.
   // Kept in sync with functions/api/pollinations/image.ts (Cloudflare Pages twin).
+  // 'free' is intentionally absent: that model is a client-side marker for the
+  // keyless image.pollinations.ai endpoint and never reaches this proxy.
   const POLLINATIONS_ALLOWED_MODELS = new Set([
     'zimage', 'flux', 'seedream', 'seedream5', 'seedream5-pro', 'seedream-pro',
     'nanobanana', 'nanobanana-2', 'krea', 'dreamshaper', 'gptimage', 'qwen-image',
