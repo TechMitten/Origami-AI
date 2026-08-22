@@ -13,6 +13,7 @@ import { ChatEmptyState } from '../components/assistant/ChatEmptyState';
 import { ChatMessages } from '../components/assistant/ChatMessages';
 import { ChatRail } from '../components/assistant/ChatRail';
 import { useModal } from '../context/ModalContext';
+import { usePageMeta } from '../hooks/usePageMeta';
 import type {
   AssistantChatAttachment,
   AssistantChatMessage,
@@ -157,6 +158,13 @@ Important: you cannot directly inspect WebM or video attachments in this local c
 };
 
 export const AssistantPage: React.FC = () => {
+  usePageMeta({
+    title: 'AI Assistant — Origami AI',
+    description:
+      'Chat with a private, local AI assistant that runs entirely on-device via WebGPU. No cloud, no account, your conversations stay in your browser.',
+    path: '/assistant',
+  });
+
   const { showAlert, showConfirm } = useModal();
   // Set while a reply is being stopped, so the token loop can bail between
   // chunks without unwinding the generator mid-write.

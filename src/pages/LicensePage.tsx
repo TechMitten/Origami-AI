@@ -4,6 +4,7 @@ import { Footer } from '../components/Footer';
 import backgroundImage from '../assets/images/background.jpg';
 import { PageHeader } from '../components/PageHeader';
 import { TransitionLink } from '../components/TransitionLink';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const MIT_LICENSE_TEXT = `MIT License
 
@@ -67,6 +68,13 @@ const OPEN_SOURCE_ECOSYSTEM = [
 ];
 
 export const LicensePage: React.FC = () => {
+  usePageMeta({
+    title: 'License — Origami AI',
+    description:
+      'Origami AI is free and open-source under the MIT License. Review the license and the open-source projects that power it.',
+    path: '/license',
+  });
+
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {

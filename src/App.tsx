@@ -35,6 +35,7 @@ import { IssueReporterPage } from './pages/IssueReporterPage';
 import { ShortsPage } from './pages/ShortsPage';
 import { PollinationsCallbackPage } from './pages/PollinationsCallbackPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
+import { usePageMeta } from './hooks/usePageMeta';
 import { PageHeader } from './components/PageHeader';
 import { useTransitionNavigate } from './components/TransitionLink';
 import { RouteTransition } from './components/RouteTransition';
@@ -44,6 +45,13 @@ import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
 
 function MainApp() {
+  usePageMeta({
+    title: 'Origami AI — Local AI Video Studio: PDF to Video & Shorts',
+    description:
+      'Origami AI is a browser-based AI video studio: turn PDF slides into narrated videos, record cinematic screen tutorials with auto-zoom, generate faceless AI shorts, and chat with a local AI assistant. Runs entirely on-device via WebGPU. Free and open-source.',
+    path: '/',
+  });
+
   const navigate = useTransitionNavigate();
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [showWelcomeLander, setShowWelcomeLander] = useState(() => {

@@ -5,32 +5,30 @@
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   <url>
     <loc>https://origami.techmitten.com/</loc>
-    <lastmod>2026-08-16</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+    <lastmod>2026-08-22</lastmod>
   </url>
   <url>
     <loc>https://origami.techmitten.com/shorts</loc>
-    <lastmod>2026-08-16</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <lastmod>2026-08-22</lastmod>
   </url>
   <url>
     <loc>https://origami.techmitten.com/assistant</loc>
-    <lastmod>2026-08-16</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <lastmod>2026-08-22</lastmod>
+  </url>
+  <url>
+    <loc>https://origami.techmitten.com/issue-reporter</loc>
+    <lastmod>2026-08-22</lastmod>
+  </url>
+  <url>
+    <loc>https://origami.techmitten.com/license</loc>
+    <lastmod>2026-08-22</lastmod>
   </url>
   <url>
     <loc>https://origami.techmitten.com/privacy</loc>
-    <lastmod>2026-08-16</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <lastmod>2026-08-22</lastmod>
   </url>
   <url>
     <loc>https://origami.techmitten.com/terms</loc>
-    <lastmod>2026-08-16</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <lastmod>2026-08-22</lastmod>
   </url>
 </urlset>

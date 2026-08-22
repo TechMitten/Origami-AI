@@ -4,8 +4,16 @@ import { TransitionLink } from '../components/TransitionLink';
 import { Footer } from '../components/Footer';
 import backgroundImage from '../assets/images/background.jpg';
 import { PageHeader } from '../components/PageHeader';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 export const TermsOfService: React.FC = () => {
+  usePageMeta({
+    title: 'Terms of Service — Origami AI',
+    description:
+      'The terms governing your use of Origami AI, the browser-based AI video studio by TechMitten LLC.',
+    path: '/terms',
+  });
+
   return (
     <div className="min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col px-4 sm:px-8">
       {/* Background Image */}

@@ -3,8 +3,16 @@ import { Shield, Eye, Server, Lock, Cookie, Clock, Globe } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import backgroundImage from '../assets/images/background.jpg';
 import { PageHeader } from '../components/PageHeader';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 export const PrivacyPolicy: React.FC = () => {
+  usePageMeta({
+    title: 'Privacy Policy — Origami AI',
+    description:
+      'How Origami AI handles your data: everything runs locally in your browser via WebGPU. Read about the limited data we process and your privacy rights.',
+    path: '/privacy',
+  });
+
   return (
     <div className="min-h-screen bg-branding-dark text-white pt-8 pb-2 flex flex-col px-4 sm:px-8">
       {/* Background Image */}

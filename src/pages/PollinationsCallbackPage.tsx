@@ -10,6 +10,7 @@ import {
 } from '../services/pollinationsAuth';
 import { loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from '../services/storage';
 import { useNotifications } from '../context/NotificationContext';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   isEnabled: true,
@@ -23,6 +24,12 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 };
 
 export const PollinationsCallbackPage: React.FC = () => {
+  usePageMeta({
+    title: 'Connecting Pollinations — Origami AI',
+    path: '/pollinations-callback',
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { refresh: refreshNotifications } = useNotifications();
   const ranRef = useRef(false);

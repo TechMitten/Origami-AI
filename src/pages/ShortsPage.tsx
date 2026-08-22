@@ -19,6 +19,7 @@ import { ShortsPreviewPlayer } from '../components/shorts/ShortsPreviewPlayer';
 import { ShortsRenderModal, type ShortsRenderPhase } from '../components/shorts/ShortsRenderModal';
 import { VoiceAuditionModal } from '../components/shorts/VoiceAuditionModal';
 import { useModal } from '../context/ModalContext';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 import {
   checkWebGPUSupport,
@@ -116,6 +117,13 @@ const errorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : 'Something went wrong.';
 
 export const ShortsPage: React.FC = () => {
+  usePageMeta({
+    title: 'AI Shorts Generator — Origami AI',
+    description:
+      'Create faceless AI shorts with generated visuals, auto-captions, and local text-to-speech. Script, storyboard, and render short-form videos entirely in your browser.',
+    path: '/shorts',
+  });
+
   const { showAlert, showConfirm } = useModal();
 
   const [project, setProject] = useState<ShortsProject>(() => createEmptyProject());

@@ -16,6 +16,7 @@ import { Footer } from '../components/Footer';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
 import { useModal } from '../context/ModalContext';
+import { usePageMeta } from '../hooks/usePageMeta';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
 import { PageHeader } from '../components/PageHeader';
 import { analyzeIssueCaptureWithGemini, type IssueCaptureAnalysis } from '../services/aiService';
@@ -134,6 +135,13 @@ const downloadBlob = (blob: Blob, filename: string) => {
 };
 
 export const IssueReporterPage: React.FC = () => {
+  usePageMeta({
+    title: 'Issue Reporter — Origami AI',
+    description:
+      'Record and submit bug reports for Origami AI with screen capture and auto-generated context to help us reproduce and fix issues faster.',
+    path: '/issue-reporter',
+  });
+
   const { showAlert, showConfirm } = useModal();
   const captureRef = useRef<CaptureState | null>(null);
   const hideRecordingPromptChoiceRef = useRef(false);
