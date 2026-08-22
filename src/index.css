@@ -126,8 +126,21 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
   }
 }
 
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-fade-out {
+  animation: fadeOut 0.5s ease-out forwards;
 }
 
 .animate-slide-in-right {
@@ -151,7 +164,10 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-pulse-glow {
+  .animate-pulse-glow,
+  .animate-fade-in,
+  .animate-fade-out,
+  .animate-slide-in-right {
     animation: none;
   }
 }
@@ -332,6 +348,30 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
 
 @media (prefers-reduced-motion: reduce) {
   .caption-restate {
+    animation: none;
+  }
+}
+
+/* Shorts hero pipeline: the stages assemble left-to-right on load, so the
+   single dashed network hop reads as an interruption in an otherwise local
+   chain rather than a static list of dots. */
+@keyframes signal-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.signal-in {
+  animation: signal-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-in {
     animation: none;
   }
 }

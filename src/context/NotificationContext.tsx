@@ -9,6 +9,8 @@ export interface AppNotification {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+  learnMoreLabel?: string;
+  onLearnMore?: () => void;
 }
 
 interface NotificationContextType {

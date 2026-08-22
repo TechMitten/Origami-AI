@@ -922,9 +922,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <button
                         onClick={() => setPrecisionFilter('all')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'all' ? 'bg-white/5 border-sky-400 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
-                        <span className="text-sm font-bold">All Models</span>
+                        <span className={`text-sm font-bold ${precisionFilter === 'all' ? 'text-sky-300' : ''}`}>All Models</span>
                         <span className={`text-[10px] ${precisionFilter === 'all' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Show both
                         </span>
@@ -933,20 +933,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                         onClick={() => setPrecisionFilter('f16')}
                         disabled={webGpuSupport?.supported && !webGpuSupport.hasF16}
                         className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f16'
-                          ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg'
+                          ? 'bg-white/5 border-sky-400 text-white'
                           : (webGpuSupport?.supported && !webGpuSupport.hasF16)
                             ? 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'
                             : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
                           }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold">f16 (Better)</span>
-                          <PrecisionInfoCard
-                            title="f16 (Half-Precision)"
-                            description="Uses ~50% less VRAM and generates tokens faster. Recommended for dedicated GPUs (RTX, Apple Silicon M-series)."
-                            environment="Requires f16 shader support."
-                            side="bottom"
-                          />
+                        <div className="flex items-center justify-center">
+                          <span className={`relative text-sm font-bold ${precisionFilter === 'f16' ? 'text-sky-300' : ''}`}>
+                            f16 (Better)
+                            <span className="absolute left-full top-1/2 -translate-y-1/2 ml-1 flex items-center">
+                              <PrecisionInfoCard
+                                title="f16 (Half-Precision)"
+                                description="Uses ~50% less VRAM and generates tokens faster. Recommended for dedicated GPUs (RTX, Apple Silicon M-series)."
+                                environment="Requires f16 shader support."
+                                side="bottom"
+                              />
+                            </span>
+                          </span>
                         </div>
                         <span className={`text-[10px] ${precisionFilter === 'f16' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           {(webGpuSupport?.supported && !webGpuSupport.hasF16) ? 'Not Supported' : 'Lower memory & faster'}
@@ -954,16 +958,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       </button>
                       <button
                         onClick={() => setPrecisionFilter('f32')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${precisionFilter === 'f32' ? 'bg-white/5 border-sky-400 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold">f32 (Compatible)</span>
-                          <PrecisionInfoCard
-                            title="f32 (Single-Precision)"
-                            description="Universal hardware compatibility. Pick this for Intel Integrated graphics, older GPUs, or if f16 shaders fail."
-                            environment="Uses ~2x more VRAM."
-                            side="bottom"
-                          />
+                        <div className="flex items-center justify-center">
+                          <span className={`relative text-sm font-bold ${precisionFilter === 'f32' ? 'text-sky-300' : ''}`}>
+                            f32 (Compatible)
+                            <span className="absolute left-full top-1/2 -translate-y-1/2 ml-1 flex items-center">
+                              <PrecisionInfoCard
+                                title="f32 (Single-Precision)"
+                                description="Universal hardware compatibility. Pick this for Intel Integrated graphics, older GPUs, or if f16 shaders fail."
+                                environment="Uses ~2x more VRAM."
+                                side="bottom"
+                                align="right"
+                              />
+                            </span>
+                          </span>
                         </div>
                         <span className={`text-[10px] ${precisionFilter === 'f32' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Maximum compatibility
@@ -981,27 +990,27 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <button
                         onClick={() => setCapabilityFilter('all')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'all' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'all' ? 'bg-white/5 border-sky-400 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
-                        <span className="text-sm font-bold">All Types</span>
+                        <span className={`text-sm font-bold ${capabilityFilter === 'all' ? 'text-sky-300' : ''}`}>All Types</span>
                         <span className={`text-[10px] ${capabilityFilter === 'all' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Show everything
                         </span>
                       </button>
                       <button
                         onClick={() => setCapabilityFilter('vision')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'vision' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'vision' ? 'bg-white/5 border-sky-400 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
-                        <span className="text-sm font-bold">Vision</span>
+                        <span className={`text-sm font-bold ${capabilityFilter === 'vision' ? 'text-sky-300' : ''}`}>Vision</span>
                         <span className={`text-[10px] ${capabilityFilter === 'vision' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Image-capable
                         </span>
                       </button>
                       <button
                         onClick={() => setCapabilityFilter('text')}
-                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'text' ? 'bg-sky-500/20 text-sky-300 border-sky-500 shadow-lg' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                        className={`p-3 rounded-xl border flex flex-col gap-1 transition-all ${capabilityFilter === 'text' ? 'bg-white/5 border-sky-400 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
                       >
-                        <span className="text-sm font-bold">Text</span>
+                        <span className={`text-sm font-bold ${capabilityFilter === 'text' ? 'text-sky-300' : ''}`}>Text</span>
                         <span className={`text-[10px] ${capabilityFilter === 'text' ? 'text-sky-400/80 font-medium' : 'text-white/60'}`}>
                           Writing only
                         </span>
@@ -1446,6 +1455,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       : `Downloading (${webLlmProgressPercent}%)...`}
                   </span>
                 </>
+              ) : activeTab === 'webllm' ? (
+                'Load Settings'
               ) : (
                 'Save Settings'
               )}

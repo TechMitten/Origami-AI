@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Music, Captions, KeyRound, Type, Cpu, Cloud, Play, Square, Loader2, Sparkles } from 'lucide-react';
+import { Music, Captions, Type, Cpu, Cloud, Play, Square, Loader2, Sparkles } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';
@@ -29,7 +29,6 @@ interface ShortsComposerProps {
   onOpenSettings: () => void;
   onOpenVoiceAudition?: () => void;
   isBusy: boolean;
-  hasImageKey: boolean;
   useOpenAI: boolean;
   onToggleOpenAI: (value: boolean) => void;
   openAIConfigured: boolean;
@@ -209,7 +208,6 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onOpenSettings,
   onOpenVoiceAudition,
   isBusy,
-  hasImageKey,
   useOpenAI,
   onToggleOpenAI,
   openAIConfigured,
@@ -434,23 +432,6 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             )}
           </Field>
         </div>
-
-        {!hasImageKey && (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-100/90">
-            <KeyRound className="h-4 w-4 shrink-0 text-amber-300/80" />
-            <span className="min-w-0 flex-1 leading-relaxed">
-              You are not connected to Pollinations. {isVideo ? 'Clips' : 'Stills'} will be requested through this
-              server, which works only if it has its own key.
-            </span>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="focus-ring rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
-            >
-              Connect
-            </button>
-          </div>
-        )}
       </Department>
 
       {/* --- Sound ----------------------------------------------------------- */}

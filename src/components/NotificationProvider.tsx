@@ -8,6 +8,7 @@ import { getFFmpeg } from '../services/ffmpegLoader';
 import { loadGlobalSettings } from '../services/storage';
 import { isPollinationsTokenExpired, startPollinationsOAuth } from '../services/pollinationsAuth';
 import { WebGPUInstructionsModal } from './WebGPUInstructionsModal';
+import { PollinationsInfoModal } from './shorts/PollinationsInfoModal';
 
 interface AssetsCache {
   tts: boolean;
@@ -42,6 +43,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [pollinations, setPollinations] = useState<PollinationsStatus | null>(null);
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
+  const [isPollinationsInfoOpen, setIsPollinationsInfoOpen] = useState(false);
 
   useEffect(() => {
     checkWebGPUSupport().then(setWebgpu);
@@ -179,6 +181,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           : 'Connect your Pollinations account to generate images and video for Shorts.',
         actionLabel: pollinations.expired ? 'Reconnect' : 'Connect',
         onAction: () => void startPollinationsOAuth(window.location.pathname),
+        learnMoreLabel: 'Learn more',
+        onLearnMore: () => setIsPollinationsInfoOpen(true),
       });
     }
 
@@ -203,6 +207,14 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     <NotificationContext.Provider value={value}>
       {children}
       <WebGPUInstructionsModal isOpen={isWebGPUModalOpen} onClose={() => setIsWebGPUModalOpen(false)} />
+      <PollinationsInfoModal
+        isOpen={isPollinationsInfoOpen}
+        onClose={() => setIsPollinationsInfoOpen(false)}
+        onConnect={() => {
+          setIsPollinationsInfoOpen(false);
+          void startPollinationsOAuth(window.location.pathname);
+        }}
+      />
     </NotificationContext.Provider>
   );
 };

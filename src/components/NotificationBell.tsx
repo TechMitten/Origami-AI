@@ -59,16 +59,31 @@ export const NotificationBell: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white">{notification.title}</p>
                         <p className="text-sm text-white/60 mt-0.5">{notification.message}</p>
-                        {notification.actionLabel && notification.onAction && (
-                          <button
-                            onClick={() => {
-                              notification.onAction?.();
-                              closePanel();
-                            }}
-                            className="mt-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
-                          >
-                            {notification.actionLabel}
-                          </button>
+                        {(notification.actionLabel || notification.learnMoreLabel) && (
+                          <div className="mt-2 flex items-center gap-4">
+                            {notification.actionLabel && notification.onAction && (
+                              <button
+                                onClick={() => {
+                                  notification.onAction?.();
+                                  closePanel();
+                                }}
+                                className="text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
+                              >
+                                {notification.actionLabel}
+                              </button>
+                            )}
+                            {notification.learnMoreLabel && notification.onLearnMore && (
+                              <button
+                                onClick={() => {
+                                  notification.onLearnMore?.();
+                                  closePanel();
+                                }}
+                                className="text-sm font-semibold text-white/50 underline underline-offset-2 hover:text-white transition-colors"
+                              >
+                                {notification.learnMoreLabel}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

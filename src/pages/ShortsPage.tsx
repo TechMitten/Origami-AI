@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Download, Loader2, RefreshCw, RotateCcw, Sparkles, Mic } from 'lucide-react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Download, KeyRound, Loader2, RefreshCw, RotateCcw, Sparkles, Mic } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -18,6 +18,7 @@ import { ShortsStoryboard } from '../components/shorts/ShortsStoryboard';
 import { ShortsPreviewPlayer } from '../components/shorts/ShortsPreviewPlayer';
 import { ShortsRenderModal, type ShortsRenderPhase } from '../components/shorts/ShortsRenderModal';
 import { VoiceAuditionModal } from '../components/shorts/VoiceAuditionModal';
+import { PollinationsInfoModal } from '../components/shorts/PollinationsInfoModal';
 import { useModal } from '../context/ModalContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 
@@ -129,6 +130,11 @@ export const ShortsPage: React.FC = () => {
   const [project, setProject] = useState<ShortsProject>(() => createEmptyProject());
   const [stage, setStage] = useState<Stage>('compose');
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
+  const [splashPhase, setSplashPhase] = useState<'fade-in' | 'fade-out' | 'done'>(() =>
+    typeof window !== 'undefined' && sessionStorage.getItem('shorts_splash_shown') === 'true'
+      ? 'done'
+      : 'fade-in',
+  );
 
   const [isBusy, setIsBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
@@ -144,6 +150,7 @@ export const ShortsPage: React.FC = () => {
   const [isMusicPickerOpen, setIsMusicPickerOpen] = useState(false);
   const [isVoiceAuditionOpen, setIsVoiceAuditionOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [isPollinationsInfoOpen, setIsPollinationsInfoOpen] = useState(false);
 
   const { startBackgroundDownloads, endBackgroundDownloads } = useBackgroundDownload();
 
@@ -172,8 +179,23 @@ export const ShortsPage: React.FC = () => {
 
   const useOpenAI = !!globalSettings.shortsUseOpenAI;
 
+  const stages = useMemo(() => pipelineStages(!useOpenAI), [useOpenAI]);
+
   const webLlmModelLabel =
     getWebLlmModelInfo(globalSettings.webLlmModel)?.name ?? globalSettings.webLlmModel ?? 'No model selected';
+
+  // Show the branded splash once per session (first /shorts visit), fading in on
+  // mount and fading back out before it unmounts. Subsequent visits skip it.
+  useEffect(() => {
+    if (splashPhase !== 'fade-in') return;
+    sessionStorage.setItem('shorts_splash_shown', 'true');
+    const fadeOutTimer = window.setTimeout(() => setSplashPhase('fade-out'), 2500);
+    const removeTimer = window.setTimeout(() => setSplashPhase('done'), 3000);
+    return () => {
+      window.clearTimeout(fadeOutTimer);
+      window.clearTimeout(removeTimer);
+    };
+  }, [splashPhase]);
 
   const totalDuration = useMemo(() => projectDuration(project.scenes), [project.scenes]);
   const renderable = isProjectRenderable(project);
@@ -938,6 +960,21 @@ export const ShortsPage: React.FC = () => {
       />
       <div className="fixed inset-0 -z-40 h-lvh w-full bg-[#0a0a0b]/40" />
 
+      {splashPhase !== 'done' && (
+        <div
+          className={cn(
+            'fixed inset-0 z-[100] flex items-center justify-center bg-[#0a0a0b] p-6 sm:p-12',
+            splashPhase === 'fade-out' ? 'animate-fade-out' : 'animate-fade-in',
+          )}
+        >
+          <img
+            src="/shortsplash.png"
+            alt="Shorts"
+            className="max-h-full max-w-full rounded-2xl object-contain"
+          />
+        </div>
+      )}
+
       <PageHeader
         title="Shorts"
         onSettings={() => setIsSettingsOpen(true)}
@@ -960,32 +997,102 @@ export const ShortsPage: React.FC = () => {
       />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 sm:px-8">
-        {/* Hero: the pipeline itself, with the one network hop marked. */}
+        {/* Hero: the pipeline is the thesis — one network hop, everything else on-device. */}
         <div className="mb-10 mt-4">
           <h1 className="font-display text-[clamp(1.75rem,4.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-white">
             From a topic to a finished short.
           </h1>
 
-          <ul className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {pipelineStages(!useOpenAI).map((step, i) => (
-              <li key={step.label} className="flex items-center gap-4">
-                <span className="flex items-center gap-2">
-                  <span
-                    aria-hidden
-                    className={cn('h-1.5 w-1.5 rounded-full', step.local ? 'bg-cyan-400' : 'bg-amber-400')}
-                  />
-                  <span className="text-xs font-semibold text-white/75">{step.label}</span>
-                  <span className="text-xs text-white/35">{step.where}</span>
-                </span>
-                {i < 3 && <span aria-hidden className="h-3 w-px bg-white/12" />}
+          <ol className="mt-6 hidden items-start sm:flex">
+            {stages.map((step, i) => {
+              const previous = stages[i - 1];
+              const hopIsNetwork = previous ? !previous.local || !step.local : false;
+              return (
+                <Fragment key={step.label}>
+                  {previous && (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'signal-in mx-3 mt-[3.5px] h-px flex-1 self-start',
+                        hopIsNetwork
+                          ? 'bg-[repeating-linear-gradient(to_right,rgba(251,191,36,0.55)_0,rgba(251,191,36,0.55)_5px,transparent_5px,transparent_9px)]'
+                          : 'bg-white/15',
+                      )}
+                      style={{ animationDelay: `${i * 70}ms` }}
+                    />
+                  )}
+                  <div
+                    className="signal-in flex flex-col items-start gap-1.5"
+                    style={{ animationDelay: `${i * 70}ms` }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'h-2 w-2 rounded-full',
+                          step.local
+                            ? 'bg-cyan-400 shadow-[0_0_9px_rgba(34,211,238,0.8)]'
+                            : 'bg-amber-400 shadow-[0_0_9px_rgba(251,191,36,0.8)]',
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'text-[13px] font-semibold leading-none',
+                          step.local ? 'text-white/90' : 'text-amber-200',
+                        )}
+                      >
+                        {step.label}
+                      </span>
+                    </span>
+                    <span className="pl-4 text-[11px] leading-none text-white/50">{step.where}</span>
+                  </div>
+                </Fragment>
+              );
+            })}
+          </ol>
+
+          {/* Mobile: a compact vertical read of the same path. */}
+          <ul className="mt-5 flex flex-col gap-2 sm:hidden">
+            {stages.map((step) => (
+              <li key={step.label} className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className={cn('h-1.5 w-1.5 rounded-full', step.local ? 'bg-cyan-400' : 'bg-amber-400')}
+                />
+                <span className="text-xs font-semibold text-white/80">{step.label}</span>
+                <span className="text-xs text-white/45">{step.where}</span>
               </li>
             ))}
           </ul>
 
-          <p className="mt-3 text-xs leading-relaxed text-white/35">
-            Only the image prompts leave this device. Everything else runs in the tab.
+          <p className="mt-4 text-xs leading-relaxed text-white/55">
+            Only the amber hops leave this device — everything else runs locally in this tab.
           </p>
         </div>
+
+        {!pollinationsKey && (
+          <div className="mb-10 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-100/90">
+            <KeyRound className="h-4 w-4 shrink-0 text-amber-300/80" />
+            <span className="min-w-0 flex-1 leading-relaxed">
+              You are not connected to Pollinations. Images and clips will be requested through this server,
+              which works only if it has its own key.
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsPollinationsInfoOpen(true)}
+              className="focus-ring rounded font-semibold text-amber-200/80 underline underline-offset-2 transition-colors hover:text-amber-100"
+            >
+              Learn more
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="focus-ring rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
+            >
+              Connect
+            </button>
+          </div>
+        )}
 
         {/* The bench: controls on the left, a live monitor on the right, in both stages. */}
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
@@ -1000,7 +1107,6 @@ export const ShortsPage: React.FC = () => {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenVoiceAudition={() => setIsVoiceAuditionOpen(true)}
                 isBusy={isBusy}
-                hasImageKey={!!pollinationsKey}
                 useOpenAI={useOpenAI}
                 onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
                 openAIConfigured={openAIConfigured}
@@ -1097,7 +1203,7 @@ export const ShortsPage: React.FC = () => {
                   )}
                 </button>
 
-                <p className="text-center text-xs text-white/35">
+                <p className="text-center text-xs text-white/45">
                   {isBusy
                     ? 'Keep this tab open while it works.'
                     : project.topic.trim().length > 2
@@ -1109,8 +1215,8 @@ export const ShortsPage: React.FC = () => {
               <>
                 <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-xs text-white/50">Voiced</span>
-                    <span className="font-display text-xs tabular-nums text-white/70">
+                    <span className="text-xs text-white/50">Scenes voiced</span>
+                    <span className="font-mono text-xs text-white/80">
                       {readyScenes}/{project.scenes.length} · {formatDuration(totalDuration)}
                     </span>
                   </div>
@@ -1184,7 +1290,7 @@ export const ShortsPage: React.FC = () => {
                   </button>
                 )}
 
-                <p className="text-center text-xs leading-relaxed text-white/35">
+                <p className="text-center text-xs leading-relaxed text-white/45">
                   {renderable
                     ? "Caption timing is estimated from each clip's length, so long words can drift."
                     : 'Every scene needs a voiceover before you can export.'}
@@ -1224,6 +1330,15 @@ export const ShortsPage: React.FC = () => {
         selectedVoice={project.voice}
         onSelectVoice={(voiceId) => {
           patchProject({ voice: voiceId });
+        }}
+      />
+
+      <PollinationsInfoModal
+        isOpen={isPollinationsInfoOpen}
+        onClose={() => setIsPollinationsInfoOpen(false)}
+        onConnect={() => {
+          setIsPollinationsInfoOpen(false);
+          setIsSettingsOpen(true);
         }}
       />
 

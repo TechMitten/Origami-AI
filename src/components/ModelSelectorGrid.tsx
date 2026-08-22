@@ -103,14 +103,20 @@ export const PrecisionInfoCard: React.FC<{
   description: string;
   environment?: string;
   side?: 'top' | 'bottom';
-}> = ({ title, description, environment, side = 'top' }) => {
+  align?: 'left' | 'center' | 'right';
+}> = ({ title, description, environment, side = 'top', align = 'center' }) => {
+  const alignClass =
+    align === 'right' ? 'right-0' : align === 'left' ? 'left-0' : 'left-1/2 -translate-x-1/2';
+  // Keep the arrow pointing at the icon's center for whichever edge the card anchors to
+  const arrowAlignClass =
+    align === 'right' ? 'right-1/2 translate-x-1/2' : 'left-1/2 -translate-x-1/2';
   return (
     <span className="group/info relative inline-flex items-center cursor-help shrink-0">
       <span className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center">
         <Info className="w-3.5 h-3.5" />
       </span>
       <span
-        className={`pointer-events-none opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-hover/info:pointer-events-auto transition-all duration-150 absolute left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3.5 rounded-xl bg-[#1c1c1c] border border-white/20 shadow-2xl text-left z-50 normal-case tracking-normal ${
+        className={`pointer-events-none opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-hover/info:pointer-events-auto transition-all duration-150 absolute ${alignClass} w-64 sm:w-72 p-3.5 rounded-xl bg-[#1c1c1c] border border-white/20 shadow-2xl text-left z-50 normal-case tracking-normal ${
           side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'
         }`}
       >
@@ -122,7 +128,7 @@ export const PrecisionInfoCard: React.FC<{
           </span>
         )}
         <span
-          className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
+          className={`absolute ${arrowAlignClass} border-4 border-transparent ${
             side === 'top' ? 'top-full -mt-px border-t-[#1c1c1c]' : 'bottom-full -mb-px border-b-[#1c1c1c]'
           }`}
         />

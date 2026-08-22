@@ -683,7 +683,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="font-display text-xs tabular-nums text-white/70">
+              <span className="font-mono text-xs tabular-nums text-white/70">
                 {formatDuration(elapsed)} / {formatDuration(totalDuration)}
               </span>
               <span className="hidden text-[11px] text-white/30 md:inline">
@@ -755,7 +755,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
           <Maximize2 className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Enlarge</span>
         </button>
-        <span className="ml-auto font-display text-xs tabular-nums text-white/45">
+        <span className="ml-auto font-mono text-xs tabular-nums text-white/45">
           {formatDuration(elapsed)} / {formatDuration(totalDuration)}
         </span>
       </div>
