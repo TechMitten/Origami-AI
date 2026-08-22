@@ -33,7 +33,6 @@ Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform
 - **🎙️ Screen recording** — cinematic auto-zoom with DOM telemetry
 - **💬 AI assistant chat** — local models with image/video analysis
 - **🎯 Video scene analysis** — MP4 breakdown with timestamped scenes
-- **🐛 Issue reporting** — record bugs and get AI-generated debugging summaries
 
 |  | Traditional tools | Cloud AI services | **Origami AI** |
 |---|---|---|---|
@@ -53,7 +52,6 @@ Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform
 - 🎯 **Smart screen recording** — auto-zoom on idle, with optional Chrome extension for richer DOM telemetry
 - 🔍 **Scene-aware video analysis** — turn an MP4 into a timestamped scene breakdown
 - 💬 **AI assistant chat** — local WebLLM models or cloud fallback, with image/video attachments
-- 🐛 **Issue reporter** — record a bug, get an AI-generated debugging writeup
 - 🎬 **Shorts generator** — turn a topic into a vertical short: AI script, image/video generation, TTS voiceover, burned-in captions
 - 🔒 **Server-side key proxying** — API keys never ship in the production client bundle
 - 🎵 **Background music & mixing** — auto-ducking under narration with per-slide control
@@ -120,9 +118,6 @@ Record a browser tab or desktop, and Origami AI automatically adds cinematic zoo
 ### Interactive AI Chat
 Ask questions, attach images or video clips, and get answers powered by local LLMs — no internet required.
 
-### Bug Reporting + AI Analysis
-Record your screen while reproducing a bug. Origami AI generates a scene breakdown and AI-powered debugging suggestions.
-
 ## 🧭 How It Works
 
 **Primary flow — PDF → video:**
@@ -150,7 +145,6 @@ Reach it from the **Shorts** button on the upload screen, or by visiting `/short
 - **Screen recording** — capture a tab or desktop, auto-zoom on idle (>2s), combine with PDF slides or use standalone
 - **Scene analysis** — upload an MP4, get a timestamped scene breakdown via the Gemini API
 - **AI assistant chat** — ask questions, attach images/video, local or cloud models
-- **Issue reporter** — record a bug, get an AI-generated analysis and debugging suggestions
 
 ## ⚙️ Configuration
 
@@ -166,7 +160,7 @@ Open the app and click **⚙️ Settings** for:
 
 ### API keys: dev vs. production
 
-Origami AI works with **zero API keys** via local WebLLM. Cloud APIs (Gemini, OpenAI-compatible) are optional, for narration, video analysis, and issue reporting.
+Origami AI works with **zero API keys** via local WebLLM. Cloud APIs (Gemini, OpenAI-compatible) are optional, for narration and video analysis.
 
 ```bash
 cp .env.example .env
@@ -262,7 +256,7 @@ AI assistant chat model options:
 ```
 src/
 ├── components/      # React UI components
-├── pages/           # Routed pages (AssistantPage, IssueReporterPage, ...)
+├── pages/           # Routed pages (AssistantPage, etc.)
 ├── services/        # Business logic — aiService, webLlmService, ttsService,
 │                     #   BrowserVideoRenderer, storage, projectArchiveService
 ├── hooks/           # Custom React hooks
