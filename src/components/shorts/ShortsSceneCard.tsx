@@ -24,6 +24,12 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const aspectClass: Record<ShortsAspect, string> = {
+  '9:16': 'aspect-[9/16]',
+  '16:9': 'aspect-video',
+  '1:1': 'aspect-square',
+};
+
 interface ShortsSceneCardProps {
   scene: ShortsScene;
   index: number;
@@ -41,12 +47,6 @@ interface ShortsSceneCardProps {
   onExtend: (id: string) => void;
   onDelete: (id: string) => void;
 }
-
-const aspectClass: Record<ShortsAspect, string> = {
-  '9:16': 'aspect-[9/16]',
-  '16:9': 'aspect-video',
-  '1:1': 'aspect-square',
-};
 
 export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   scene,
@@ -82,13 +82,15 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const audioStale = isSceneAudioStale(scene);
   const visualStale = isSceneVisualStale(scene, generationMode, visualModel, aspect);
 
-  // Automatically expose the prompt input field while reviewing the script before media is generated
-  const [showPrompt, setShowPrompt] = useState(() => !visualUrl && visualStatus !== 'ready');
+  const [showPrompt, setShowPrompt] = useState(false);
 
+  // Sets a min-height rather than a fixed height so the narration box can still
+  // grow beyond its content via flex-1 (filling the space next to a tall
+  // thumbnail) while shrinking back down whenever its own text gets shorter.
   const adjustTextareaHeight = (element: HTMLTextAreaElement | null) => {
     if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${element.scrollHeight}px`;
+    element.style.minHeight = '0px';
+    element.style.minHeight = `${element.scrollHeight}px`;
   };
 
   useEffect(() => {
@@ -164,7 +166,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
           }}
           title={visualUrl ? `View full-size ${isVideo ? 'clip' : 'image'}` : undefined}
           className={cn(
-            'group/thumb relative w-24 shrink-0 overflow-hidden rounded-xl bg-black/40 sm:w-28',
+            'group/thumb relative w-32 shrink-0 self-start overflow-hidden rounded-xl bg-black/40 sm:w-40',
             aspectClass[aspect],
             visualUrl ? 'focus-ring cursor-zoom-in' : 'cursor-default',
           )}
@@ -229,8 +231,11 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
           label={`Scene ${index + 1} ${isVideo ? 'clip' : 'image'}`}
         />
 
-        {/* Body */}
-        <div className="min-w-0 flex-1 space-y-3">
+        {/* Body: a flex column stretched to the thumbnail's height, with the
+            narration box (flex-1) absorbing whatever space the rest of the
+            content doesn't need — so a tall portrait thumbnail next to a
+            short caption doesn't read as dead space. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
           <textarea
             ref={narrationRef}
             value={scene.narration}
@@ -242,7 +247,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             rows={2}
             placeholder="Narration for this scene"
             className={cn(
-              'focus-ring min-h-[64px] w-full resize-none overflow-hidden rounded-lg border bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50',
+              'focus-ring min-h-[64px] w-full flex-1 resize-none overflow-hidden rounded-lg border bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50',
               audioStale ? 'border-amber-400/40' : 'border-white/10',
             )}
           />

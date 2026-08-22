@@ -65,11 +65,36 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
   const [sceneTime, setSceneTime] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const fallbackStartRef = useRef<number>(0);
 
   const scenes = project.scenes;
   const scene = scenes[sceneIndex];
+
+  // Background music plays underneath the whole preview, independent of scene
+  // transitions — it should keep rolling (and looping) across cuts, not
+  // restart per scene the way each scene's narration does.
+  const musicBlob = project.music?.blob ?? null;
+  const musicVolume = project.music?.volume ?? 0;
+  const musicUrl = useMemo(() => (musicBlob ? URL.createObjectURL(musicBlob) : null), [musicBlob]);
+  useEffect(() => {
+    return () => {
+      if (musicUrl) URL.revokeObjectURL(musicUrl);
+    };
+  }, [musicUrl]);
+  useEffect(() => {
+    if (musicRef.current) musicRef.current.volume = clamp(musicVolume, 0, 1);
+  }, [musicVolume]);
+  useEffect(() => {
+    const music = musicRef.current;
+    if (!music) return;
+    if (isPlaying) {
+      void music.play().catch(() => {});
+    } else {
+      music.pause();
+    }
+  }, [isPlaying, musicUrl]);
 
   // Caption timings are derived per scene; recompute only when text/duration move.
   const captionsByScene = useMemo(
@@ -100,6 +125,11 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
+    }
+    const music = musicRef.current;
+    if (music) {
+      music.pause();
+      music.currentTime = 0;
     }
   }, []);
 
@@ -266,18 +296,23 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
 
   const showTitle = project.showTitleCard && sceneIndex === 0 && sceneTime < 1.6 && !!project.title;
 
-  // Before any scene exists the monitor still has something true to show: the
-  // chosen frame, typeset with the user's own topic in the caption style they
-  // picked. It turns two dropdowns into something they can actually judge.
-  const sampleWords = useMemo(() => {
-    const words = project.topic.trim().split(/\s+/).filter(Boolean);
-    return words.length ? words.slice(0, 7) : ['Your', 'narration', 'lands', 'here'];
-  }, [project.topic]);
-
   const sampleTitle = useMemo(() => {
     const source = project.title || project.topic;
     return source.trim().split(/\s+/).filter(Boolean).slice(0, 6).join(' ');
   }, [project.title, project.topic]);
+
+  // Before any scene exists the monitor still has something true to show: the
+  // chosen frame, typeset with the user's own topic in the caption style they
+  // picked. It turns two dropdowns into something they can actually judge.
+  // But when the title card is already showing that same topic text centered
+  // on the frame, echoing it again as the caption preview reads as a
+  // duplicated title rather than two independent previews — so fall back to a
+  // generic caption sample whenever the title card is covering that ground.
+  const sampleWords = useMemo(() => {
+    if (project.showTitleCard && sampleTitle) return ['Your', 'narration', 'lands', 'here'];
+    const words = project.topic.trim().split(/\s+/).filter(Boolean);
+    return words.length ? words.slice(0, 7) : ['Your', 'narration', 'lands', 'here'];
+  }, [project.topic, project.showTitleCard, sampleTitle]);
 
   // Renders the viewport frame (works in both inline and enlarged modes)
   const renderFrameContent = (isModal = false) => {
@@ -761,6 +796,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
       </div>
 
       {scene?.audioUrl && <audio ref={audioRef} src={scene.audioUrl} preload="auto" className="hidden" />}
+      {musicUrl && <audio ref={musicRef} src={musicUrl} loop preload="auto" className="hidden" />}
 
       {enlargedModal}
     </div>
