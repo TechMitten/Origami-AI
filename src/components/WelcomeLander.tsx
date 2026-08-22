@@ -54,9 +54,15 @@ export const WelcomeLander: React.FC<WelcomeLanderProps> = ({ onContinue }) => {
       <div className="text-center mb-16 relative">
         <div className="absolute inset-0 -top-24 bg-gradient-to-b from-cyan-500/20 via-violet-500/10 to-transparent blur-3xl rounded-full opacity-50 w-3/4 mx-auto h-64 -z-10" />
         
-        <span className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono uppercase tracking-[0.2em] text-cyan-200 mb-6 shadow-[0_0_15px_rgba(34,211,238,0.15)]">
-          Welcome to Origami
-        </span>
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+          <span className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono uppercase tracking-[0.2em] text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.15)]">
+            Welcome to Origami
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-500/10 border border-sky-400/30 text-[11px] font-medium text-sky-200 shadow-[0_0_15px_rgba(56,189,248,0.15)]">
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+            Works best in Google Chrome
+          </span>
+        </div>
         
         <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-6 tracking-tight leading-tight">
           Your Local <br className="sm:hidden" />

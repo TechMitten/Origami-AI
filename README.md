@@ -10,6 +10,7 @@
     <a href="https://github.com/TechMitten/Origami-AI/issues"><img src="https://img.shields.io/github/issues/techmitten/origami-ai" alt="Open issues"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/techmitten/origami-ai" alt="License"></a>
     <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen" alt="Node version"></a>
+    <a href="https://www.google.com/chrome/"><img src="https://img.shields.io/badge/works%20best%20in-Chrome-4285F4?logo=googlechrome&logoColor=white" alt="Works best in Chrome"></a>
   </p>
 
   <p>
