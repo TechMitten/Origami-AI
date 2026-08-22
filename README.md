@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/modlogo.png" alt="Origami AI logo" width="280" />
+  <img src="logo/modlogo.png" alt="Origami AI logo" width="280" />
 
   <h3>Turn PDF slides into narrated videos — entirely in your browser.</h3>
   <p>AI-written narration, local text-to-speech, in-browser FFmpeg rendering, and smart screen recording. No upload, no render farm, no subscription.</p>
