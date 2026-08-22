@@ -261,10 +261,12 @@ For comprehensive debugging and platform-specific tips, see [TROUBLESHOOTING.md]
 
 | Issue | Recommended Solution |
 |---|---|
-| **WebGPU not detected** | Enable hardware acceleration in your browser settings, update GPU drivers, or switch to a supported Chromium browser. |
-| **Dev server errors** | Start the app with `npm run dev` to ensure required security headers (`Cross-Origin-Opener-Policy`, `Cross-Origin-Embedder-Policy`) are applied. |
-| **Model download failures** | Verify connection stability, clear browser cache / site data, and ensure sufficient disk space. |
-| **Out of memory during rendering** | Select a lighter LLM model, close resource-heavy background applications, or reduce export video resolution. |
+| **WebGPU not detected** | Enable hardware acceleration in browser settings, update GPU drivers, or use custom OpenAI-compatible API providers in **⚙️ Settings → API**. |
+| **Dev server & header errors** | Always start via `npm run dev` (or `npm run pages:dev`) to ensure required COOP/COEP security headers are applied for FFmpeg.wasm and WebWorkers. |
+| **Model download failures** | Verify connection stability, clear browser cache / site data in DevTools, and ensure sufficient storage space. |
+| **Out of memory during rendering** | Select a lighter LLM model (e.g. Gemma 2 2B / Llama 3.2 1B), switch export resolution to 720p, or run via Docker. |
+| **Shorts / Pollinations generation issues** | Connect your Pollinations account in **⚙️ Settings → API**, or select the `free` slow model fallback. |
+| **Project import / export issues** | Verify `.origami` archive integrity and check browser IndexedDB storage quota. |
 
 ---
 
