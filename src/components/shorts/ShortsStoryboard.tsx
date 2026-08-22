@@ -28,6 +28,7 @@ interface ShortsStoryboardProps {
   disabled: boolean;
   extendingIds: Set<string>;
   isExtendingAll: boolean;
+  rewritingPromptIds?: Set<string>;
   onReorder: (scenes: ShortsScene[]) => void;
   onUpdateScene: (id: string, patch: Partial<ShortsScene>) => void;
   onRegenerateVisual: (id: string) => void;
@@ -47,6 +48,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   disabled,
   extendingIds,
   isExtendingAll,
+  rewritingPromptIds,
   onReorder,
   onUpdateScene,
   onRegenerateVisual,
@@ -115,6 +117,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
                 visualModel={visualModel}
                 disabled={disabled}
                 isExtending={extendingIds.has(scene.id)}
+                isRewritingPrompt={rewritingPromptIds?.has(scene.id)}
                 onUpdate={onUpdateScene}
                 onRegenerateVisual={onRegenerateVisual}
                 onRegenerateAudio={onRegenerateAudio}

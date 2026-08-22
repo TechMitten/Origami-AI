@@ -35,6 +35,7 @@ interface ShortsComposerProps {
   webLlmModelLabel: string;
   /** Live Pollinations catalogue; falls back to the static list when omitted. */
   imageModels?: Array<{ id: string; name: string }>;
+  videoModels?: Array<{ id: string; name: string }>;
 }
 
 /**
@@ -215,10 +216,12 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   openAIConfigured,
   webLlmModelLabel,
   imageModels,
+  videoModels,
 }) => {
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
   const isVideo = project.generationMode === 'video';
   const resolvedImageModels = imageModels ?? POLLINATIONS_IMAGE_MODELS;
+  const resolvedVideoModels = videoModels ?? POLLINATIONS_VIDEO_MODELS;
 
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [isPreviewGenerating, setIsPreviewGenerating] = useState(false);
@@ -421,7 +424,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
           <Field label={isVideo ? 'Video model' : 'Image model'}>
             {isVideo ? (
               <Dropdown
-                options={POLLINATIONS_VIDEO_MODELS.map((m) => ({ id: m.id, name: m.name }))}
+                options={resolvedVideoModels.map((m) => ({ id: m.id, name: m.name }))}
                 value={project.videoModel}
                 onChange={(value) => onChange({ videoModel: value })}
                 disabled={isBusy}

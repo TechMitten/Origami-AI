@@ -316,6 +316,7 @@ export interface PersistedShortsScene {
   audioNarrationSnapshot?: string;
   visualPromptSnapshot?: string;
   visualModelSnapshot?: string;
+  visualAspectSnapshot?: '9:16' | '16:9' | '1:1';
 }
 
 export interface PersistedShortsProject {

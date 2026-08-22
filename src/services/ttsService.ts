@@ -72,7 +72,7 @@ export interface ProgressEventDetail {
 }
 
 
-function getWorker(quantization: 'q8' | 'q4' = 'q4'): Worker {
+function getWorker(quantization: 'q8' | 'q4' = 'q8'): Worker {
   if (!worker) {
     worker = new TTSWorker();
     worker!.onmessage = (e: MessageEvent) => {
@@ -110,7 +110,7 @@ function getWorker(quantization: 'q8' | 'q4' = 'q4'): Worker {
 }
 
 
-export function initTTS(quantization: 'q8' | 'q4' = 'q4') {
+export function initTTS(quantization: 'q8' | 'q4' = 'q8') {
     getWorker(quantization);
 }
 

@@ -153,7 +153,7 @@ Open the app and click **⚙️ Settings** for:
 | Tab | Controls |
 |---|---|
 | General | Intro fade timing, post-audio delay, default transition, recording options |
-| TTS Model | Kokoro.js quantization (`q4` quality vs. `q8` speed) |
+| TTS Model | Kokoro.js quantization (`q8` high quality vs. `q4` speed) |
 | WebLLM | Enable/disable local AI, model selection, precision filter (f16/f32) |
 | API | Remote OpenAI-compatible provider (Gemini, OpenRouter, Ollama, etc.) |
 | AI Prompt | Narration script generation behavior |

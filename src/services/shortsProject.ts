@@ -44,6 +44,8 @@ export interface ShortsScene {
   visualPromptSnapshot?: string;
   /** model id the current image/videoBlob was generated with — lets model switches be detected as stale. */
   visualModelSnapshot?: string;
+  /** aspect ratio the current image/videoBlob was generated with. */
+  visualAspectSnapshot?: ShortsAspect;
 }
 
 export interface ShortsMusic {
@@ -106,15 +108,17 @@ export const CAPTION_STYLES: Array<{ id: ShortsCaptionStyle; name: string }> = [
 ];
 
 /**
- * Generation size per aspect. Capped at 1536 on the long edge: bigger costs more
- * and takes longer upstream, and the renderer's Ken Burns zoom tops out at 1.12x
- * so a 1536px source still oversamples a 1080p output.
+ * Generation dimensions per user aspect ratio choice (Portrait 9:16, Landscape 16:9, Square 1:1).
+ * Matches the 1080p full resolution specifications of the short video renderer.
  */
 export const imageDimensionsFor = (aspect: ShortsAspect): { width: number; height: number } => {
   switch (aspect) {
-    case '9:16': return { width: 864, height: 1536 };
-    case '16:9': return { width: 1536, height: 864 };
-    case '1:1': return { width: 1024, height: 1024 };
+    case '9:16':
+      return { width: 1080, height: 1920 };
+    case '16:9':
+      return { width: 1920, height: 1080 };
+    case '1:1':
+      return { width: 1080, height: 1080 };
   }
 };
 
@@ -248,24 +252,35 @@ export const isSceneAudioStale = (scene: ShortsScene): boolean =>
 
 /**
  * True once a scene's image/video prompt has been edited since its visual was
- * generated, or once the project's active model no longer matches the one
- * that generated it (`activeModel` optional so non-project callers can omit it).
+ * generated, or once the project's active model or aspect ratio no longer matches
+ * the one that generated it.
  */
 export const isSceneVisualStale = (
   scene: ShortsScene,
   mode: ShortsGenerationMode,
   activeModel?: string,
+  activeAspect?: ShortsAspect,
 ): boolean => {
   const status = mode === 'video' ? scene.videoStatus : scene.imageStatus;
   if (status !== 'ready') return false;
   if (scene.visualPromptSnapshot !== undefined && scene.visualPromptSnapshot !== scene.imagePrompt) {
     return true;
   }
-  return (
+  if (
     activeModel !== undefined &&
     scene.visualModelSnapshot !== undefined &&
     scene.visualModelSnapshot !== activeModel
-  );
+  ) {
+    return true;
+  }
+  if (
+    activeAspect !== undefined &&
+    scene.visualAspectSnapshot !== undefined &&
+    scene.visualAspectSnapshot !== activeAspect
+  ) {
+    return true;
+  }
+  return false;
 };
 
 export const formatDuration = (seconds: number): string => {
@@ -307,6 +322,7 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     audioNarrationSnapshot: scene.audioNarrationSnapshot,
     visualPromptSnapshot: scene.visualPromptSnapshot,
     visualModelSnapshot: scene.visualModelSnapshot,
+    visualAspectSnapshot: scene.visualAspectSnapshot,
   })),
 });
 
@@ -350,6 +366,7 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     audioNarrationSnapshot: scene.audioNarrationSnapshot,
     visualPromptSnapshot: scene.visualPromptSnapshot,
     visualModelSnapshot: scene.visualModelSnapshot,
+    visualAspectSnapshot: scene.visualAspectSnapshot,
   })),
 });
 

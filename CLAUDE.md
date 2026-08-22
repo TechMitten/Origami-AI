@@ -54,7 +54,7 @@ This is the core security model of the app — preserve it when touching LLM/Pol
 
 Heavy AI work runs in Web Workers, not the main thread:
 - `src/services/webLlmService.ts` + `src/services/webLlm.worker.ts` — local LLM inference via `@mlc-ai/web-llm`, gated by `checkWebGPUSupport()`. WebLLM is **never** eagerly initialized on app start (see comment in `src/App.tsx` around the `WebLLMInitModal`/`useEffect` — eager init caused tab instability on some systems); it's loaded on demand.
-- `src/services/tts.worker.ts` + `src/services/ttsService.ts` — Kokoro.js TTS, quantization is user-selectable (`q4` quality vs `q8` speed).
+- `src/services/tts.worker.ts` + `src/services/ttsService.ts` — Kokoro.js TTS, quantization is user-selectable (`q8` quality vs `q4` speed).
 - `src/services/ffmpegLoader.ts` + `src/services/BrowserVideoRenderer.ts` / `ShortsVideoRenderer.ts` — FFmpeg.wasm rendering. `@ffmpeg/ffmpeg` and `@ffmpeg/util` are excluded from Vite's dep pre-bundling (`vite.config.ts`) and get their own chunk.
 - Heavy downloads (TTS model, FFmpeg core, WebLLM model) are serialized to run **one at a time**, coordinated through `BackgroundDownloadContext`/`BackgroundDownloadProvider` — see the comment in `App.tsx` ("Downloads run strictly one at a time: TTS -> FFmpeg -> WebLLM").
 

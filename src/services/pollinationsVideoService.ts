@@ -15,12 +15,27 @@ export { resolvePollinationsKey };
 
 export const POLLINATIONS_VIDEO_PROXY_URL = '/api/pollinations/video';
 
-/** Curated, roughly fast-to-slow / cheap-to-premium spread of video models. */
+/**
+ * Every video model the Pollinations video endpoint documents (`GET /video/{prompt}`,
+ * see Docs/pollinations.md), ordered roughly fast-to-slow / cheap-to-premium.
+ * Serves as the fallback when the live catalogue from `listVideoModels()` cannot
+ * be fetched, so it must stay a complete list rather than a curated subset.
+ */
 export const POLLINATIONS_VIDEO_MODELS: Array<{ id: string; name: string }> = [
   { id: 'wan-fast', name: 'Wan Fast (default, quickest)' },
   { id: 'wan', name: 'Wan' },
+  { id: 'wan-pro', name: 'Wan Pro' },
   { id: 'seedance-2.0-fast', name: 'Seedance 2.0 Fast' },
+  { id: 'seedance-2.0-mini', name: 'Seedance 2.0 Mini' },
+  { id: 'seedance-2.0', name: 'Seedance 2.0' },
+  { id: 'seedance-2.5', name: 'Seedance 2.5' },
   { id: 'seedance-pro', name: 'Seedance Pro (higher quality)' },
+  { id: 'grok-imagine-video-1.5', name: 'Grok Imagine Video 1.5' },
+  { id: 'grok-video-pro', name: 'Grok Video Pro' },
+  { id: 'happyhorse-1.1', name: 'Happyhorse 1.1' },
+  { id: 'minimax-h3', name: 'MiniMax H3' },
+  { id: 'p-video', name: 'P-Video' },
+  { id: 'nova-reel', name: 'Nova Reel' },
   { id: 'veo', name: 'Veo (premium)' },
 ];
 
@@ -147,12 +162,9 @@ const describeFailure = async (response: Response): Promise<PollinationsError> =
 };
 
 const applyAspectParams = (url: URL, req: PollinationsVideoRequest): void => {
-  // aspectRatio only covers 16:9 / 9:16 upstream; 1:1 has to fall back to
-  // explicit equal width/height, which the video endpoint also accepts.
-  if (req.aspect === '1:1') {
-    url.searchParams.set('width', String(Math.round(req.width)));
-    url.searchParams.set('height', String(Math.round(req.height)));
-  } else {
+  url.searchParams.set('width', String(Math.round(req.width)));
+  url.searchParams.set('height', String(Math.round(req.height)));
+  if (req.aspect !== '1:1') {
     url.searchParams.set('aspectRatio', req.aspect);
   }
 };
@@ -261,5 +273,53 @@ export const generateVideo = async (
       : new PollinationsError('Video generation failed after several attempts.', 500);
   } finally {
     release();
+  }
+};
+
+/**
+ * Public, unauthenticated video catalogue. The endpoint is the same shared
+ * image+video list `listImageModels()` reads; here the stills are dropped and
+ * the video entries kept instead. Falls back to the static list.
+ */
+export const listVideoModels = async (): Promise<Array<{ id: string; name: string }>> => {
+  try {
+    const response = await fetch(`${POLLINATIONS_BASE_URL}/image/models`);
+    if (!response.ok) return POLLINATIONS_VIDEO_MODELS;
+
+    const payload: unknown = await response.json();
+    // The catalogue is normally a bare array of model objects, but accept the
+    // OpenAI-style `{ data: [...] }` envelope too rather than assume one shape.
+    const entries: unknown[] = Array.isArray(payload)
+      ? payload
+      : Array.isArray((payload as { data?: unknown[] })?.data)
+        ? (payload as { data: unknown[] }).data
+        : [];
+
+    // Video entries carry `category: "video"` and only "video" in
+    // `output_modalities` (snake_case, per the live API). Entries lacking both
+    // discriminators are dropped: appending an unclassified (likely stills)
+    // model to a video dropdown would be worse than leaving it out, and the
+    // static list is a complete fallback anyway.
+    const ids = entries
+      .map((entry) => {
+        const obj = entry as { name?: unknown; category?: unknown; output_modalities?: unknown };
+        if (typeof obj?.name !== 'string') return null;
+        if (obj.category === 'video') return obj.name;
+        const modalities = Array.isArray(obj.output_modalities) ? obj.output_modalities : [];
+        return modalities.includes('video') ? obj.name : null;
+      })
+      .filter((id): id is string => !!id);
+
+    if (!ids.length) return POLLINATIONS_VIDEO_MODELS;
+
+    // Keep our curated ordering/labels first, then append anything new upstream.
+    const curated = POLLINATIONS_VIDEO_MODELS.filter((m) => ids.includes(m.id));
+    const extras = ids
+      .filter((id) => !POLLINATIONS_VIDEO_MODELS.some((m) => m.id === id))
+      .map((id) => ({ id, name: id }));
+
+    return [...(curated.length ? curated : POLLINATIONS_VIDEO_MODELS), ...extras];
+  } catch {
+    return POLLINATIONS_VIDEO_MODELS;
   }
 };

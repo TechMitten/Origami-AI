@@ -43,7 +43,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [musicVolume, setMusicVolume] = useState(currentSettings?.music?.volume ?? 0.16);
   const [savedMusicName, setSavedMusicName] = useState<string | null>(currentSettings?.music?.fileName ?? null);
   const [activeTab, setActiveTab] = useState<'general' | 'tts' | 'webllm' | 'ai-prompt' | 'api'>(initialTab ?? 'general');
-  const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q4');
+  const [ttsQuantization, setTtsQuantization] = useState<'q4' | 'q8'>(currentSettings?.ttsQuantization ?? 'q8');
   const [disableAudioNormalization, setDisableAudioNormalization] = useState(currentSettings?.disableAudioNormalization ?? false);
   
   // OpenAI Settings

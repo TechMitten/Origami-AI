@@ -275,7 +275,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       </div>
 
       {/* Secondary options */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {secondaryOptions.map((opt, i) => {
           const Icon = opt.icon;
           const isAmber = opt.accent === 'amber';
@@ -290,23 +290,23 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
                 if (e.key === 'Enter' || e.key === ' ') opt.onClick?.();
               }}
               className={cn(
-                "fold-card origami-unfold group relative border bg-white/5 backdrop-blur-md p-6 flex flex-col min-h-[190px] transition-all duration-300 shadow-xl",
+                "fold-card origami-unfold group relative border bg-white/5 backdrop-blur-md p-7 sm:p-8 flex flex-col min-h-[210px] transition-all duration-300 shadow-xl",
                 opt.disabled
                   ? "border-white/5 cursor-not-allowed select-none opacity-80"
                   : "cursor-pointer border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
               )}
               style={{ animationDelay: `${160 + i * 90}ms`, ...(isAmber && !opt.disabled ? ({ '--fold-glow': 'linear-gradient(135deg, #f59e0b, #fb923c)' } as React.CSSProperties) : {}), ...(opt.disabled ? { '--fold-glow': 'transparent' } : {}) }}
             >
-              <div className="mb-4">
+              <div className="mb-5">
                 <Icon className={cn(
-                  'w-6 h-6 text-white/50 transition-colors duration-300',
+                  'w-7 h-7 text-white/50 transition-colors duration-300',
                   opt.disabled ? '' : (isAmber ? 'group-hover:text-amber-300' : 'group-hover:text-cyan-300')
                 )} />
               </div>
 
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-2 mb-2">
                 <h3 className={cn(
-                  'font-display text-base font-semibold text-white transition-colors duration-300',
+                  'font-display text-lg font-semibold text-white transition-colors duration-300',
                   opt.disabled ? '' : (isAmber ? 'group-hover:text-amber-200' : 'group-hover:text-cyan-200')
                 )}>
                   {opt.title}
@@ -320,12 +320,12 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
                   </span>
                 )}
               </div>
-              <p className="text-xs text-white/50 leading-relaxed mb-4">
+              <p className="text-sm text-white/50 leading-relaxed mb-5 max-w-md">
                 {opt.description}
               </p>
 
               <div className={cn(
-                'mt-auto inline-flex items-center gap-1 self-start text-[11px] font-semibold border px-3 py-1.5 transition-all duration-300 bg-white/5 text-white/60 border-white/10',
+                'mt-auto inline-flex items-center gap-1.5 self-start text-xs font-semibold border px-3.5 py-2 transition-all duration-300 bg-white/5 text-white/60 border-white/10',
                 opt.disabled ? '' : (isAmber ? 'group-hover:border-amber-400/30 group-hover:text-amber-200' : 'group-hover:border-cyan-400/30 group-hover:text-cyan-200')
               )}>
                 {opt.cta}

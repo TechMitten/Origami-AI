@@ -21,15 +21,35 @@ const ALLOWED_MODELS = new Set([
   'zimage',
   'flux',
   'seedream',
+  'seedream-pro',
   'seedream5',
   'seedream5-pro',
-  'seedream-pro',
   'nanobanana',
   'nanobanana-2',
+  'nanobanana-2-lite',
+  'nanobanana-pro',
   'krea',
   'dreamshaper',
+  'kontext',
   'gptimage',
+  'gptimage-large',
+  'gpt-image-2',
+  'ideogram-v4-turbo',
+  'ideogram-v4-balanced',
+  'ideogram-v4-quality',
+  'zimage-fal',
+  'wan-image',
+  'wan-image-pro',
   'qwen-image',
+  'qwen-image-3',
+  'grok-imagine',
+  'grok-imagine-pro',
+  'grok-imagine-image-2.0',
+  'recraft-v4.1-vector',
+  'klein',
+  'p-image',
+  'p-image-edit',
+  'nova-canvas',
 ]);
 
 const MAX_PROMPT_LENGTH = 2000;
@@ -88,6 +108,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     upstream.searchParams.set('width', String(width));
     upstream.searchParams.set('height', String(height));
     upstream.searchParams.set('seed', String(seed));
+    upstream.searchParams.set('nologo', 'true');
 
     const response = await fetch(upstream.toString(), {
       headers: { Authorization: `Bearer ${apiKey}` },

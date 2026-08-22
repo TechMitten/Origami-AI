@@ -1,6 +1,6 @@
 import { KokoroTTS } from 'kokoro-js';
 
-const isProd = import.meta.env.PROD;
+const isProd = import.meta.env?.PROD ?? false;
 
 // Types for worker messages
 export type TTSWorkerRequest = 
@@ -30,9 +30,9 @@ console.warn = (...args) => {
     originalConsoleWarn.apply(console, args);
 };
 
-const ctx = self as unknown as Worker;
+const ctx = (typeof self !== 'undefined' ? self : globalThis) as unknown as Worker;
 
-async function getModel(quantization: 'q8' | 'q4' = 'q4'): Promise<KokoroTTS> {
+async function getModel(quantization: 'q8' | 'q4' = 'q8'): Promise<KokoroTTS> {
   // If model exists but quantization is different, we'd ideally reload. 
   // For simplicity in this worker pattern, we assume 'init' is called only once or we assume the worker is terminated and recreated on change.
   // However, let's support minimal re-init if ttsModel is null.
@@ -119,12 +119,13 @@ function floatTo16BitPCM(output: DataView, offset: number, input: Float32Array) 
   }
 }
 
-ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
+if (typeof self !== 'undefined') {
+  ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
 
 
   try {
     if (e.data.type === 'init') {
-      await getModel(e.data.quantization || 'q4');
+      await getModel(e.data.quantization || 'q8');
     } else if (e.data.type === 'generate') {
       const { text, options, id } = e.data;
       const model = await getModel();
@@ -186,7 +187,8 @@ ctx.onmessage = async (e: MessageEvent<TTSWorkerRequest>) => {
       id: (e.data as { id?: string }).id 
     });
   }
-};
+  };
+}
 
 function chunkText(text: string): string[] {
     // Split by simple punctuation, keeping the punctuation

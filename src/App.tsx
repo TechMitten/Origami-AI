@@ -495,7 +495,7 @@ function MainApp() {
       const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
 
       // Always init preinstalled/cached resources immediately
-      if (cached.tts) initTTS(settings?.ttsQuantization || 'q4');
+      if (cached.tts) initTTS(settings?.ttsQuantization || 'q8');
       if (cached.ffmpeg) renderer.load().catch(console.error);
 
       // Do not eagerly initialize WebLLM on startup.
@@ -533,7 +533,7 @@ function MainApp() {
     try {
       // Downloads run strictly one at a time: TTS -> FFmpeg -> WebLLM.
       if (queue.tts) {
-        await waitForTTSInitialization(globalSettings?.ttsQuantization || 'q4');
+        await waitForTTSInitialization(globalSettings?.ttsQuantization || 'q8');
       }
 
       if (queue.ffmpeg) {

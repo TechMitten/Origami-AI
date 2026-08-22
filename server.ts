@@ -354,8 +354,38 @@ async function createServer() {
   // 'free' is intentionally absent: that model is a client-side marker for the
   // keyless image.pollinations.ai endpoint and never reaches this proxy.
   const POLLINATIONS_ALLOWED_MODELS = new Set([
-    'zimage', 'flux', 'seedream', 'seedream5', 'seedream5-pro', 'seedream-pro',
-    'nanobanana', 'nanobanana-2', 'krea', 'dreamshaper', 'gptimage', 'qwen-image',
+    'zimage',
+    'flux',
+    'seedream',
+    'seedream-pro',
+    'seedream5',
+    'seedream5-pro',
+    'nanobanana',
+    'nanobanana-2',
+    'nanobanana-2-lite',
+    'nanobanana-pro',
+    'krea',
+    'dreamshaper',
+    'kontext',
+    'gptimage',
+    'gptimage-large',
+    'gpt-image-2',
+    'ideogram-v4-turbo',
+    'ideogram-v4-balanced',
+    'ideogram-v4-quality',
+    'zimage-fal',
+    'wan-image',
+    'wan-image-pro',
+    'qwen-image',
+    'qwen-image-3',
+    'grok-imagine',
+    'grok-imagine-pro',
+    'grok-imagine-image-2.0',
+    'recraft-v4.1-vector',
+    'klein',
+    'p-image',
+    'p-image-edit',
+    'nova-canvas',
   ]);
 
   app.post('/api/pollinations/image', async (req: Request, res: Response) => {
@@ -396,6 +426,7 @@ async function createServer() {
     upstream.searchParams.set('width', String(safeWidth));
     upstream.searchParams.set('height', String(safeHeight));
     upstream.searchParams.set('seed', String(safeSeed));
+    upstream.searchParams.set('nologo', 'true');
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);

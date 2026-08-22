@@ -103,6 +103,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       // Downloads run one at a time (TTS -> FFmpeg -> WebLLM), matching App.tsx's setup flow.
       if (queue.tts) {
+        const settings = await loadGlobalSettings();
         await new Promise<void>((resolve, reject) => {
           const handleInitComplete = () => {
             ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
@@ -110,7 +111,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           };
           ttsEvents.addEventListener('tts-init-complete', handleInitComplete);
           try {
-            initTTS();
+            initTTS(settings?.ttsQuantization || 'q8');
           } catch (error) {
             ttsEvents.removeEventListener('tts-init-complete', handleInitComplete);
             reject(error);

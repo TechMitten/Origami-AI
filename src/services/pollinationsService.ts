@@ -84,6 +84,7 @@ export interface PollinationsImageRequest {
   width: number;
   height: number;
   seed: number;
+  nologo?: boolean;
 }
 
 export interface PollinationsRequestOptions {
@@ -284,6 +285,7 @@ const buildDirectUrl = (req: PollinationsImageRequest): string => {
   url.searchParams.set('width', String(Math.round(req.width)));
   url.searchParams.set('height', String(Math.round(req.height)));
   url.searchParams.set('seed', String(Math.round(req.seed)));
+  url.searchParams.set('nologo', 'true');
   return url.toString();
 };
 
@@ -320,6 +322,7 @@ const attemptFetch = async (
       width: Math.round(req.width),
       height: Math.round(req.height),
       seed: Math.round(req.seed),
+      nologo: true,
     }),
     signal,
   });

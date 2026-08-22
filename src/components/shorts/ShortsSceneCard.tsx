@@ -33,6 +33,7 @@ interface ShortsSceneCardProps {
   visualModel: string;
   disabled: boolean;
   isExtending: boolean;
+  isRewritingPrompt?: boolean;
   onUpdate: (id: string, patch: Partial<ShortsScene>) => void;
   onRegenerateVisual: (id: string) => void;
   onRegenerateAudio: (id: string) => void;
@@ -55,6 +56,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   visualModel,
   disabled,
   isExtending,
+  isRewritingPrompt,
   onUpdate,
   onRegenerateVisual,
   onRegenerateAudio,
@@ -78,7 +80,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const visualBusy = visualStatus === 'pending';
   const audioBusy = scene.audioStatus === 'pending';
   const audioStale = isSceneAudioStale(scene);
-  const visualStale = isSceneVisualStale(scene, generationMode, visualModel);
+  const visualStale = isSceneVisualStale(scene, generationMode, visualModel, aspect);
 
   // Automatically expose the prompt input field while reviewing the script before media is generated
   const [showPrompt, setShowPrompt] = useState(() => !visualUrl && visualStatus !== 'ready');
@@ -335,12 +337,12 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                   <button
                     type="button"
                     onClick={() => onRewritePrompt(scene.id)}
-                    disabled={disabled}
-                    title="Rebuild this prompt from the current voiceover, discarding manual edits"
-                    className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
+                    disabled={disabled || isRewritingPrompt}
+                    title="Rewrite this visual prompt with AI based on the current voiceover"
+                    className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                   >
-                    <Wand2 className="h-3 w-3" />
-                    Reset from voiceover
+                    {isRewritingPrompt ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                    AI rewrite prompt
                   </button>
                 </div>
               </div>

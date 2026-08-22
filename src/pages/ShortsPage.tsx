@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Download,
   Film,
   Image as ImageIcon,
@@ -44,7 +45,7 @@ import {
 } from '../services/webLlmService';
 import { initTTS, DEFAULT_VOICES } from '../services/ttsService';
 import { isFreePollinationsModel, listImageModels, POLLINATIONS_IMAGE_MODELS, resolvePollinationsKey } from '../services/pollinationsService';
-import { POLLINATIONS_VIDEO_MODELS } from '../services/pollinationsVideoService';
+import { listVideoModels, POLLINATIONS_VIDEO_MODELS } from '../services/pollinationsVideoService';
 import { composeVisualPrompt, extendNarration, generateShortsScript, regenerateImagePrompt } from '../services/shortsScriptService';
 import {
   ShortsRenderAbortedError,
@@ -95,61 +96,6 @@ type Stage = 'compose' | 'storyboard';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-type StageState = 'pending' | 'live' | 'done';
-
-interface PipelineStage {
-  key: string;
-  label: string;
-  where: string;
-  local: boolean;
-  state: StageState;
-}
-
-/**
- * The four stages a short passes through: where each one runs, and how far it
- * has got. Rendered in the hero so the single network hop is visible up front
- * rather than buried in a paragraph — and so the same strip reports progress
- * once work starts, instead of staying a static diagram.
- */
-const pipelineStages = (
-  scriptIsLocal: boolean,
-  state: Record<'script' | 'frames' | 'voice' | 'mp4', StageState>,
-  visualsAreClips: boolean,
-): PipelineStage[] => [
-  {
-    key: 'script',
-    label: 'Script',
-    where: scriptIsLocal ? 'on device' : 'your endpoint',
-    local: scriptIsLocal,
-    state: state.script,
-  },
-  {
-    key: 'visuals',
-    label: visualsAreClips ? 'Clips' : 'Frames',
-    where: 'Pollinations',
-    local: false,
-    state: state.frames,
-  },
-  { key: 'voice', label: 'Voice', where: 'on device', local: true, state: state.voice },
-  { key: 'mp4', label: 'MP4', where: 'on device', local: true, state: state.mp4 },
-];
-
-const stageDotClass = (step: PipelineStage): string =>
-  step.state === 'pending'
-    ? 'border border-white/25'
-    : step.local
-      ? 'bg-cyan-400 shadow-[0_0_9px_rgba(34,211,238,0.8)]'
-      : 'bg-amber-400 shadow-[0_0_9px_rgba(251,191,36,0.8)]';
-
-const stageLabelClass = (step: PipelineStage): string =>
-  step.state === 'pending' ? 'text-white/40' : step.local ? 'text-white/90' : 'text-amber-200';
-
-const stageStateWord: Record<StageState, string> = {
-  pending: 'not started',
-  live: 'in progress',
-  done: 'done',
-};
 
 /**
  * One asset track in the monitor. The bar stays neutral while a track is part
@@ -268,6 +214,7 @@ export const ShortsPage: React.FC = () => {
   // unauthenticated read) replaces it on mount so every model the Pollinations
   // API offers is selectable, not just the ones baked into the bundle.
   const [imageModels, setImageModels] = useState(POLLINATIONS_IMAGE_MODELS);
+  const [videoModels, setVideoModels] = useState(POLLINATIONS_VIDEO_MODELS);
 
   const [isBusy, setIsBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
@@ -276,6 +223,7 @@ export const ShortsPage: React.FC = () => {
   // batch is the "extend every scene" bulk action rather than a single card.
   const [extendingIds, setExtendingIds] = useState<Set<string>>(new Set());
   const [isExtendingAll, setIsExtendingAll] = useState(false);
+  const [rewritingPromptIds, setRewritingPromptIds] = useState<Set<string>>(new Set());
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
@@ -375,7 +323,7 @@ export const ShortsPage: React.FC = () => {
 
       // The TTS worker downloads ~80MB on first use; start it while the user types.
       try {
-        initTTS(merged.ttsQuantization || 'q4');
+        initTTS(merged.ttsQuantization || 'q8');
       } catch (e) {
         console.warn('[Shorts] TTS init could not be started:', e);
       }
@@ -394,9 +342,13 @@ export const ShortsPage: React.FC = () => {
       }
     })();
 
-    // listImageModels never rejects; it resolves the static fallback on failure.
+    // listImageModels/listVideoModels never reject; they resolve the static
+    // fallback on failure.
     void listImageModels().then((models) => {
       if (mounted) setImageModels(models);
+    });
+    void listVideoModels().then((models) => {
+      if (mounted) setVideoModels(models);
     });
 
     return () => {
@@ -559,6 +511,7 @@ export const ShortsPage: React.FC = () => {
           imageError: null,
           visualPromptSnapshot: scene.imagePrompt,
           visualModelSnapshot: target.imageModel,
+          visualAspectSnapshot: target.aspect,
         });
       } catch (e) {
         if (signal.aborted) return;
@@ -581,6 +534,7 @@ export const ShortsPage: React.FC = () => {
           videoError: null,
           visualPromptSnapshot: scene.imagePrompt,
           visualModelSnapshot: target.videoModel,
+          visualAspectSnapshot: target.aspect,
         });
       } catch (e) {
         if (signal.aborted) return;
@@ -747,7 +701,7 @@ export const ShortsPage: React.FC = () => {
     const activeVisualModel =
       current.generationMode === 'video' ? current.videoModel : current.imageModel;
     const staleVisualScenes = current.scenes.filter((s) =>
-      isSceneVisualStale(s, current.generationMode, activeVisualModel),
+      isSceneVisualStale(s, current.generationMode, activeVisualModel, current.aspect),
     );
     const staleAudioScenes = current.scenes.filter((s) => isSceneAudioStale(s));
     if (!staleVisualScenes.length && !staleAudioScenes.length) return;
@@ -836,21 +790,36 @@ export const ShortsPage: React.FC = () => {
   );
 
   const handleRewritePrompt = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const current = projectRef.current;
       const scene = current.scenes.find((s) => s.id === id);
       if (!scene) return;
 
-      const prompt = regenerateImagePrompt(scene.narration, {
-        topic: current.topic,
-        visualStyle: current.visualStyle,
-        aspect: current.aspect,
-        captionsEnabled: current.captionsEnabled,
-        generationMode: current.generationMode,
-      });
-      patchScene(id, { imagePrompt: prompt });
+      setRewritingPromptIds((prev) => new Set(prev).add(id));
+      try {
+        const prompt = await regenerateImagePrompt(
+          scene.narration,
+          {
+            topic: current.topic,
+            visualStyle: current.visualStyle,
+            aspect: current.aspect,
+            captionsEnabled: current.captionsEnabled,
+            generationMode: current.generationMode,
+          },
+          llmOptions(),
+        );
+        patchScene(id, { imagePrompt: prompt });
+      } catch (e) {
+        console.warn('[Shorts] Rewrite prompt failed:', e);
+      } finally {
+        setRewritingPromptIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
     },
-    [patchScene],
+    [llmOptions, patchScene],
   );
 
   const handleExtendScene = useCallback(
@@ -956,14 +925,9 @@ export const ShortsPage: React.FC = () => {
     }));
   }, []);
 
-  const handleBackToSetup = useCallback(async () => {
-    const confirmed = await showConfirm(
-      'Your scenes and generated media stay saved, but generating a new script from Setup will replace them. Go back anyway?',
-      { title: 'Return to Setup', confirmText: 'Go back' },
-    );
-    if (!confirmed) return;
+  const handleBackToSetup = useCallback(() => {
     setStage('compose');
-  }, [showConfirm]);
+  }, []);
 
   const handleStartOver = useCallback(async () => {
     const confirmed = await showConfirm('Discard this short and start a new one?', {
@@ -1109,6 +1073,11 @@ export const ShortsPage: React.FC = () => {
     return [{ id: project.imageModel, name: project.imageModel }, ...imageModels];
   }, [imageModels, project.imageModel]);
 
+  const videoModelOptions = useMemo(() => {
+    if (videoModels.some((m) => m.id === project.videoModel)) return videoModels;
+    return [{ id: project.videoModel, name: project.videoModel }, ...videoModels];
+  }, [videoModels, project.videoModel]);
+
   const sceneCount = project.scenes.length;
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
   const readyVisuals = project.scenes.filter((s) => visualStatusOf(s) === 'ready').length;
@@ -1118,29 +1087,6 @@ export const ShortsPage: React.FC = () => {
   const staleCount = project.scenes.filter(
     (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode, activeVisualModel),
   ).length;
-
-  // The hero strip doubles as the progress readout: a stage is live while any
-  // of its scenes are in flight, and done only once every scene has landed.
-  const stages = pipelineStages(
-    !useOpenAI,
-    {
-      script: sceneCount > 0 ? 'done' : isBusy && stage === 'compose' ? 'live' : 'pending',
-      frames:
-        sceneCount > 0 && readyVisuals === sceneCount
-          ? 'done'
-          : project.scenes.some((s) => visualStatusOf(s) === 'pending')
-            ? 'live'
-            : 'pending',
-      voice:
-        sceneCount > 0 && readyScenes === sceneCount
-          ? 'done'
-          : project.scenes.some((s) => s.audioStatus === 'pending')
-            ? 'live'
-            : 'pending',
-      mp4: renderedBlob ? 'done' : renderPhase === 'rendering' ? 'live' : 'pending',
-    },
-    isVideoMode,
-  );
 
   // One next action at a time, shown in the rail on desktop and in the docked
   // bar on narrow screens where the rail sits below a long form.
@@ -1255,10 +1201,8 @@ export const ShortsPage: React.FC = () => {
       />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 sm:px-8">
-        {/* Hero: the pipeline is the thesis — one network hop, everything else
-            on-device — and once scenes exist it reports how far each stage got.
-            The heading gives way to the short's own title in Cut, where the
-            title is the thing being worked on. */}
+        {/* Hero: the heading gives way to the short's own title in Edit, where
+            the title is the thing being worked on. */}
         <div className="mb-8 mt-4 sm:mb-10">
           {stage === 'compose' ? (
             <h1 className="font-display text-[clamp(1.75rem,4.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-white">
@@ -1280,100 +1224,8 @@ export const ShortsPage: React.FC = () => {
                 placeholder="Untitled short"
                 className="focus-ring -ml-2 w-full rounded-lg bg-transparent px-2 py-1 font-display text-[clamp(1.5rem,4vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.02em] text-white outline-none transition-colors placeholder:text-white/25 hover:bg-white/[0.04] focus:bg-white/[0.06]"
               />
-              <p className="mt-1.5 text-xs text-white/40">
-                Used on the title card and for the exported file name.
-              </p>
             </div>
           )}
-
-          <ol className="mt-6 hidden items-start sm:flex">
-            {stages.map((step, i) => {
-              const previous = stages[i - 1];
-              const hopIsNetwork = previous ? !previous.local || !step.local : false;
-              const hopIsCarrying = !!previous && (step.state === 'live' || previous.state === 'live');
-              return (
-                <li
-                  key={step.key}
-                  className={cn('signal-in flex items-start', previous ? 'min-w-0 flex-1' : 'shrink-0')}
-                  style={{ animationDelay: `${i * 70}ms` }}
-                >
-                  {previous && (
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'mx-3 mt-[3.5px] h-px flex-1 self-start transition-opacity',
-                        hopIsNetwork
-                          ? 'bg-[repeating-linear-gradient(to_right,rgba(251,191,36,0.55)_0,rgba(251,191,36,0.55)_5px,transparent_5px,transparent_9px)]'
-                          : 'bg-white/15',
-                        // The dashes only march while something is actually on the wire.
-                        hopIsNetwork && hopIsCarrying && 'signal-flow',
-                        previous.state === 'pending' && 'opacity-40',
-                      )}
-                    />
-                  )}
-                  <span className="flex shrink-0 flex-col items-start gap-1.5">
-                    <span className="flex items-center gap-2">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'h-2 w-2 shrink-0 rounded-full transition-colors',
-                          stageDotClass(step),
-                          step.state === 'live' && 'stage-live',
-                        )}
-                      />
-                      <span
-                        className={cn(
-                          'text-[13px] font-semibold leading-none transition-colors',
-                          stageLabelClass(step),
-                        )}
-                      >
-                        {step.label}
-                      </span>
-                    </span>
-                    <span
-                      className={cn(
-                        'pl-4 text-[11px] leading-none transition-colors',
-                        step.state === 'pending' ? 'text-white/35' : 'text-white/55',
-                      )}
-                    >
-                      {step.where}
-                      <span className="sr-only"> — {stageStateWord[step.state]}</span>
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          {/* Mobile: a compact vertical read of the same path. */}
-          <ul className="mt-5 flex flex-col gap-2 sm:hidden">
-            {stages.map((step) => (
-              <li key={step.key} className="flex items-center gap-2">
-                <span
-                  aria-hidden
-                  className={cn(
-                    'h-1.5 w-1.5 shrink-0 rounded-full',
-                    step.state === 'pending'
-                      ? 'border border-white/30'
-                      : step.local
-                        ? 'bg-cyan-400'
-                        : 'bg-amber-400',
-                    step.state === 'live' && 'stage-live',
-                  )}
-                />
-                <span
-                  className={cn(
-                    'text-xs font-semibold',
-                    step.state === 'pending' ? 'text-white/40' : 'text-white/80',
-                  )}
-                >
-                  {step.label}
-                </span>
-                <span className="text-xs text-white/45">{step.where}</span>
-                <span className="sr-only">{stageStateWord[step.state]}</span>
-              </li>
-            ))}
-          </ul>
         </div>
 
         {!pollinationsKey && (
@@ -1410,41 +1262,70 @@ export const ShortsPage: React.FC = () => {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
           <div className="min-w-0">
             {stage === 'compose' ? (
-              <ShortsComposer
-                project={project}
-                onChange={patchProject}
-                onGenerate={handleGenerate}
-                onPickMusic={() => setIsMusicPickerOpen(true)}
-                onClearMusic={() => patchProject({ music: null })}
-                onOpenSettings={() => setIsSettingsOpen(true)}
-                onOpenVoiceAudition={() => setIsVoiceAuditionOpen(true)}
-                isBusy={isBusy}
-                useOpenAI={useOpenAI}
-                onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
-                openAIConfigured={openAIConfigured}
-                webLlmModelLabel={webLlmModelLabel}
-                imageModels={imageModelOptions}
-              />
+              <div className="space-y-5">
+                {/* Mirror of the Edit header's "← Build" crumb: once scenes
+                    exist, Build is not a one-way door — Edit stays one tap
+                    away with every scene and asset intact. No confirmation
+                    needed, unlike the reverse trip, because nothing is at
+                    risk of being replaced. */}
+                {project.scenes.length > 0 && (
+                  <div className="flex items-baseline gap-3">
+                    <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+                      Build
+                    </h2>
+                    <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
+                    <button
+                      type="button"
+                      onClick={() => setStage('storyboard')}
+                      disabled={isBusy}
+                      className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Edit
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                    <span className="text-[11px] text-white/35">
+                      {project.scenes.length} scene{project.scenes.length > 1 ? 's' : ''} in progress
+                    </span>
+                  </div>
+                )}
+
+                <ShortsComposer
+                  project={project}
+                  onChange={patchProject}
+                  onGenerate={handleGenerate}
+                  onPickMusic={() => setIsMusicPickerOpen(true)}
+                  onClearMusic={() => patchProject({ music: null })}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  onOpenVoiceAudition={() => setIsVoiceAuditionOpen(true)}
+                  isBusy={isBusy}
+                  useOpenAI={useOpenAI}
+                  onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
+                  openAIConfigured={openAIConfigured}
+                  webLlmModelLabel={webLlmModelLabel}
+                  imageModels={imageModelOptions}
+                  videoModels={videoModelOptions}
+                />
+              </div>
             ) : (
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-baseline gap-3">
                     <button
                       type="button"
-                      onClick={() => void handleBackToSetup()}
+                      onClick={handleBackToSetup}
                       className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
                     >
                       <ArrowLeft className="h-3 w-3" />
-                      Setup
+                      Build
                     </button>
                     <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
                     <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
-                      Cut
+                      Edit
                     </h2>
                   </div>
 
                   <div className="flex flex-wrap items-end gap-2">
-                    {/* Same model selector as Setup, so a mid-project switch
+                    {/* Same model selector as Build, so a mid-project switch
                         doesn't cost a round trip back to the composer. Changing
                         it marks ready visuals stale (see isSceneVisualStale) and
                         they regenerate through the usual stale flow. */}
@@ -1453,7 +1334,7 @@ export const ShortsPage: React.FC = () => {
                         {isVideoMode ? 'Video model' : 'Image model'}
                       </span>
                       <Dropdown
-                        options={(isVideoMode ? POLLINATIONS_VIDEO_MODELS : imageModelOptions).map(
+                        options={(isVideoMode ? videoModelOptions : imageModelOptions).map(
                           (m) => ({ id: m.id, name: m.name }),
                         )}
                         value={activeVisualModel}
@@ -1494,6 +1375,7 @@ export const ShortsPage: React.FC = () => {
                   disabled={renderPhase === 'rendering' || isExtendingAll}
                   extendingIds={extendingIds}
                   isExtendingAll={isExtendingAll}
+                  rewritingPromptIds={rewritingPromptIds}
                   onReorder={(scenes) => patchProject({ scenes })}
                   onUpdateScene={patchScene}
                   onRegenerateVisual={handleRegenerateVisual}
