@@ -109,7 +109,7 @@ export const LicensePage: React.FC = () => {
         {/* Hero Card */}
         <div className="glass rounded-3xl border border-white/10 p-8 sm:p-12 mb-8 neon-border">
           <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 shrink-0">
+            <div className="p-3 rounded-2xl border border-cyan-500/20 shrink-0">
               <Scale className="w-8 h-8 text-cyan-400" />
             </div>
             <div>
@@ -169,30 +169,30 @@ export const LicensePage: React.FC = () => {
           {/* Permissions */}
           <div className="glass rounded-2xl border border-emerald-500/20 p-6 bg-emerald-500/5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <div className="p-1.5 rounded-lg text-emerald-400">
                 <Check className="w-4 h-4" />
               </div>
               <h3 className="text-base font-bold text-white">Permissions</h3>
             </div>
             <ul className="space-y-2 text-xs text-white/70">
               <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold shrink-0">&check;</span>
+                <span className="text-emerald-400 font-bold shrink-0">✓</span>
                 <span><strong className="text-white">Commercial Use:</strong> Use freely in commercial applications.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold shrink-0">&check;</span>
+                <span className="text-emerald-400 font-bold shrink-0">✓</span>
                 <span><strong className="text-white">Modification:</strong> Modify and create derivative works.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold shrink-0">&check;</span>
+                <span className="text-emerald-400 font-bold shrink-0">✓</span>
                 <span><strong className="text-white">Distribution:</strong> Distribute copies or forks of the code.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold shrink-0">&check;</span>
+                <span className="text-emerald-400 font-bold shrink-0">✓</span>
                 <span><strong className="text-white">Private Use:</strong> Run and customize privately or internally.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-400 font-bold shrink-0">&check;</span>
+                <span className="text-emerald-400 font-bold shrink-0">✓</span>
                 <span><strong className="text-white">Sublicensing:</strong> Grant sublicenses to modified software.</span>
               </li>
             </ul>
@@ -201,7 +201,7 @@ export const LicensePage: React.FC = () => {
           {/* Conditions */}
           <div className="glass rounded-2xl border border-blue-500/20 p-6 bg-blue-500/5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400">
+              <div className="p-1.5 rounded-lg text-blue-400">
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <h3 className="text-base font-bold text-white">Conditions</h3>
@@ -221,7 +221,7 @@ export const LicensePage: React.FC = () => {
           {/* Limitations */}
           <div className="glass rounded-2xl border border-amber-500/20 p-6 bg-amber-500/5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400">
+              <div className="p-1.5 rounded-lg text-amber-400">
                 <AlertCircle className="w-4 h-4" />
               </div>
               <h3 className="text-base font-bold text-white">Limitations</h3>
@@ -369,7 +369,7 @@ export const LicensePage: React.FC = () => {
         {/* Community & Contributing Section */}
         <section className="glass rounded-2xl border border-white/10 p-6 sm:p-8 neon-border">
           <div className="text-center max-w-xl mx-auto">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 rounded-2xl border border-cyan-500/20 flex items-center justify-center mx-auto mb-4">
               <Github className="w-6 h-6 text-cyan-400" />
             </div>
             <h2 className="text-2xl font-black text-white mb-2">Contribute to Origami</h2>
