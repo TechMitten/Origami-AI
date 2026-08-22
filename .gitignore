@@ -34,6 +34,7 @@ public/music/*
 public/uploads/*
 !public/uploads/.gitkeep
 !public/app-logo.png
+!public/modlogo.png
 !public/_headers
 !public/favicon.ico
 !public/favicon-16x16.png
