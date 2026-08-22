@@ -2,6 +2,22 @@
 
 :root {
   color-scheme: dark;
+
+  /* The fold axis. Origami's mark is a folded crane running cyan -> blue ->
+     orange, and .fold-card's --fold-glow already samples the first two stops.
+     Naming the whole ramp gives the app one accent scale instead of a set of
+     unrelated hues, and lets position on it carry meaning: cold is source
+     material you brought, warm is material the machine made. Mirrored in JS by
+     AXIS in src/components/lander/LanderPanels.tsx, which is what the panels
+     interpolate against inline.
+
+     Plain custom properties rather than an @theme block on purpose: nothing
+     needs text-fold-cold utilities, and v4 tree-shakes theme colors that no
+     utility references, so @theme emitted nothing at all. */
+  --fold-cold: #22d3ee;
+  --fold-mid: #3b82f6;
+  --fold-warm: #ff8a1e;
+  --ember: #ff5c1a;
   --bg-dark: #0a0a0b;
   --bg-surface: #121214;
   --primary: #00d1ff;
@@ -526,4 +542,50 @@ input[type="text"], input[type="number"], input[type="url"], textarea, select {
   .origami-route-enter {
     animation: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Welcome lander
+   The page is built out of creases rather than rules, so the sheet metaphor in
+   the product name survives past the logo.
+--------------------------------------------------------------------------- */
+
+/* A folded edge catching light: a bright hairline with its own shadow above,
+   which reads as a crease where a plain 1px border reads as a divider. */
+.crease {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* The spine runs the height of the page and heats from cold to ember, so a
+   reader's vertical position and the pipeline's position are the same axis.
+   Decorative: hidden from assistive tech and dropped on narrow viewports where
+   there is no gutter to hold it. */
+.fold-spine {
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--fold-cold) 55%, transparent) 12%,
+    color-mix(in srgb, var(--fold-mid) 50%, transparent) 45%,
+    color-mix(in srgb, var(--fold-warm) 55%, transparent) 78%,
+    transparent 100%
+  );
+}
+
+/* The lander's tabs reuse .fold-card's dog-ear, but each one re-points the
+   foil at its own place on the axis (set inline as --fold-glow), so the corner
+   that lifts on hover names the feature's position in the pipeline. */
+.fold-tab {
+  transition:
+    border-color 240ms ease,
+    background-color 240ms ease;
+}
+
+/* .fold-card clips its own top-right corner, and clip-path cuts away anything
+   painted outside the border box -- an outline focus ring included. The tabs are
+   the primary keyboard target here, so they draw the indicator inside the border
+   box instead, where the clip cannot reach it. */
+.fold-tab.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(0, 209, 255, 0.9);
 }
