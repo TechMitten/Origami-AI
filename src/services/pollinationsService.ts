@@ -409,15 +409,18 @@ export const listImageModels = async (): Promise<Array<{ id: string; name: strin
         ? (payload as { data: unknown[] }).data
         : [];
 
-    // The endpoint also lists video models; only stills belong in this list.
-    // Entries without `outputModalities` are kept so schema drift upstream
-    // cannot silently empty the dropdown.
+    // The endpoint is a shared image+video catalogue. Video entries carry
+    // `category: "video"` and only "video" in `output_modalities` (snake_case,
+    // per the live API) — drop them, keeping stills only. Entries lacking both
+    // discriminators are kept so schema drift upstream cannot silently empty
+    // the dropdown.
     const ids = entries
       .map((entry) => {
         if (typeof entry === 'string') return entry;
-        const obj = entry as { name?: unknown; outputModalities?: unknown };
+        const obj = entry as { name?: unknown; category?: unknown; output_modalities?: unknown };
         if (typeof obj.name !== 'string') return null;
-        const modalities = Array.isArray(obj.outputModalities) ? obj.outputModalities : [];
+        if (obj.category === 'video') return null;
+        const modalities = Array.isArray(obj.output_modalities) ? obj.output_modalities : [];
         return modalities.length && !modalities.includes('image') ? null : obj.name;
       })
       .filter((id): id is string => !!id);
