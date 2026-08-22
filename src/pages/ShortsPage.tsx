@@ -30,7 +30,7 @@ import {
 } from '../services/webLlmService';
 import { initTTS, DEFAULT_VOICES } from '../services/ttsService';
 import { resolvePollinationsKey } from '../services/pollinationsService';
-import { generateShortsScript, regenerateImagePrompt } from '../services/shortsScriptService';
+import { composeVisualPrompt, extendNarration, generateShortsScript, regenerateImagePrompt } from '../services/shortsScriptService';
 import {
   ShortsRenderAbortedError,
   ShortsVideoRenderer,
@@ -124,6 +124,11 @@ export const ShortsPage: React.FC = () => {
 
   const [isBusy, setIsBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
+
+  // Per-scene "extend narration" requests in flight, plus whether the current
+  // batch is the "extend every scene" bulk action rather than a single card.
+  const [extendingIds, setExtendingIds] = useState<Set<string>>(new Set());
+  const [isExtendingAll, setIsExtendingAll] = useState(false);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isWebGPUModalOpen, setIsWebGPUModalOpen] = useState(false);
@@ -456,6 +461,9 @@ export const ShortsPage: React.FC = () => {
           targetDurationSec: project.targetDurationSec,
           visualStyle: project.visualStyle,
           tone: project.tone,
+          aspect: project.aspect,
+          captionsEnabled: project.captionsEnabled,
+          generationMode: project.generationMode,
         },
         { ...llmOptions(controller.signal), onStage: setBusyLabel },
       );
@@ -479,7 +487,18 @@ export const ShortsPage: React.FC = () => {
       setIsBusy(false);
       setBusyLabel('');
     }
-  }, [project.topic, project.targetDurationSec, project.visualStyle, project.tone, ensureScriptEngineReady, llmOptions, showAlert]);
+  }, [
+    project.topic,
+    project.targetDurationSec,
+    project.visualStyle,
+    project.tone,
+    project.aspect,
+    project.captionsEnabled,
+    project.generationMode,
+    ensureScriptEngineReady,
+    llmOptions,
+    showAlert,
+  ]);
 
   const handleGenerateMedia = useCallback(async () => {
     generationAbortRef.current?.abort();
@@ -626,7 +645,13 @@ export const ShortsPage: React.FC = () => {
       try {
         const prompt = await regenerateImagePrompt(
           scene.narration,
-          { topic: current.topic, visualStyle: current.visualStyle },
+          {
+            topic: current.topic,
+            visualStyle: current.visualStyle,
+            aspect: current.aspect,
+            captionsEnabled: current.captionsEnabled,
+            generationMode: current.generationMode,
+          },
           llmOptions(),
         );
         patchScene(id, {
@@ -642,6 +667,90 @@ export const ShortsPage: React.FC = () => {
     [ensureScriptEngineReady, llmOptions, patchScene],
   );
 
+  const handleExtendScene = useCallback(
+    async (id: string) => {
+      const current = projectRef.current;
+      const scene = current.scenes.find((s) => s.id === id);
+      if (!scene) return;
+
+      const ready = await ensureScriptEngineReady();
+      if (!ready) return;
+
+      setExtendingIds((prev) => new Set(prev).add(id));
+      try {
+        const extended = await extendNarration(
+          scene.narration,
+          { topic: current.topic, tone: current.tone },
+          llmOptions(),
+        );
+        patchScene(id, { narration: extended });
+      } catch (e) {
+        await showAlert(errorMessage(e), { type: 'error', title: 'Could not extend line' });
+      } finally {
+        setExtendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [ensureScriptEngineReady, llmOptions, patchScene, showAlert],
+  );
+
+  // Sequential, not parallel: extendNarration goes through the same single
+  // WebLLM engine as every other script pass (see shortsScriptService), which
+  // resetChat()s per call and cannot serve concurrent requests.
+  const handleExtendAllScenes = useCallback(async () => {
+    const current = projectRef.current;
+    if (!current.scenes.length) return;
+
+    const ready = await ensureScriptEngineReady();
+    if (!ready) return;
+
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+
+    setIsExtendingAll(true);
+    let failures = 0;
+    try {
+      for (const scene of current.scenes) {
+        if (controller.signal.aborted) return;
+        if (!scene.narration.trim()) continue;
+
+        setExtendingIds((prev) => new Set(prev).add(scene.id));
+        try {
+          const extended = await extendNarration(
+            scene.narration,
+            { topic: current.topic, tone: current.tone },
+            llmOptions(controller.signal),
+          );
+          patchScene(scene.id, { narration: extended });
+        } catch (e) {
+          if (controller.signal.aborted) return;
+          failures += 1;
+          console.warn('[Shorts] Failed to extend scene', scene.id, e);
+        } finally {
+          setExtendingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(scene.id);
+            return next;
+          });
+        }
+      }
+
+      if (failures > 0) {
+        await showAlert(`Could not extend ${failures} of ${current.scenes.length} scene${current.scenes.length > 1 ? 's' : ''}. Try those individually.`, {
+          type: 'warning',
+          title: 'Some scenes were not extended',
+        });
+      }
+    } finally {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      setIsExtendingAll(false);
+    }
+  }, [ensureScriptEngineReady, llmOptions, patchScene, showAlert]);
+
   const handleDeleteScene = useCallback((id: string) => {
     setProject((prev) => {
       const scene = prev.scenes.find((s) => s.id === id);
@@ -655,7 +764,9 @@ export const ShortsPage: React.FC = () => {
   const handleAddScene = useCallback(() => {
     setProject((prev) => ({
       ...prev,
-      scenes: [...prev.scenes, createScene('', `${prev.topic}, ${prev.visualStyle}`)],
+      // Same composer the script pass uses, so a hand-added scene inherits the
+      // project's framing and no-text clauses rather than just the raw style.
+      scenes: [...prev.scenes, createScene('', composeVisualPrompt(prev.topic, prev))],
     }));
   }, []);
 
@@ -930,12 +1041,16 @@ export const ShortsPage: React.FC = () => {
                   scenes={project.scenes}
                   aspect={project.aspect}
                   generationMode={project.generationMode}
-                  disabled={renderPhase === 'rendering'}
+                  disabled={renderPhase === 'rendering' || isExtendingAll}
+                  extendingIds={extendingIds}
+                  isExtendingAll={isExtendingAll}
                   onReorder={(scenes) => patchProject({ scenes })}
                   onUpdateScene={patchScene}
                   onRegenerateVisual={handleRegenerateVisual}
                   onRegenerateAudio={handleRegenerateAudio}
                   onRewritePrompt={handleRewritePrompt}
+                  onExtendScene={handleExtendScene}
+                  onExtendAll={handleExtendAllScenes}
                   onDeleteScene={handleDeleteScene}
                   onAddScene={handleAddScene}
                 />

@@ -57,7 +57,7 @@ export const WebLLMLoadingModal: React.FC<WebLLMLoadingModalProps> = ({ isOpen, 
   let userMessage = text;
   // Common WebLLM strings to pretty print
   if (text.includes("Finish loading")) userMessage = "Finalizing AI engine...";
-  else if (text.includes("Loading model")) userMessage = "Loading AI model...";
+  else if (text.includes("Loading model")) userMessage = "Warming up...";
   else if (text.includes("Fetching param")) userMessage = "Downloading parameters...";
 
   return (

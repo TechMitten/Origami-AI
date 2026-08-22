@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   GripVertical,
   ImageIcon,
+  ListPlus,
   Loader2,
   Pause,
   Play,
@@ -27,10 +28,12 @@ interface ShortsSceneCardProps {
   aspect: ShortsAspect;
   generationMode: ShortsGenerationMode;
   disabled: boolean;
+  isExtending: boolean;
   onUpdate: (id: string, patch: Partial<ShortsScene>) => void;
   onRegenerateVisual: (id: string) => void;
   onRegenerateAudio: (id: string) => void;
   onRewritePrompt: (id: string) => void;
+  onExtend: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -46,10 +49,12 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   aspect,
   generationMode,
   disabled,
+  isExtending,
   onUpdate,
   onRegenerateVisual,
   onRegenerateAudio,
   onRewritePrompt,
+  onExtend,
   onDelete,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -236,6 +241,23 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               <ImageIcon className="h-3 w-3" />
               {showPrompt ? 'Hide prompt' : isVideo ? 'Video prompt' : 'Image prompt'}
               {visualStale && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onExtend(scene.id)}
+              disabled={disabled || isExtending || !scene.narration.trim()}
+              title="Add a few more sentences to this scene's narration"
+              className={cn(
+                'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed',
+                // Loading is a disabled state too, but it should read as "working",
+                // not as unavailable — the generic disabled:opacity-30 dims
+                // text-white/60 down to the point of being unreadable.
+                isExtending ? 'border-cyan-400/30 text-cyan-200' : 'border-white/10 text-white/60 disabled:opacity-30',
+              )}
+            >
+              {isExtending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListPlus className="h-3 w-3" />}
+              Extend
             </button>
 
             <div className="flex-1" />

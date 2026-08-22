@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { ListPlus, Loader2, Plus } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -24,11 +24,15 @@ interface ShortsStoryboardProps {
   aspect: ShortsAspect;
   generationMode: ShortsGenerationMode;
   disabled: boolean;
+  extendingIds: Set<string>;
+  isExtendingAll: boolean;
   onReorder: (scenes: ShortsScene[]) => void;
   onUpdateScene: (id: string, patch: Partial<ShortsScene>) => void;
   onRegenerateVisual: (id: string) => void;
   onRegenerateAudio: (id: string) => void;
   onRewritePrompt: (id: string) => void;
+  onExtendScene: (id: string) => void;
+  onExtendAll: () => void;
   onDeleteScene: (id: string) => void;
   onAddScene: () => void;
 }
@@ -38,11 +42,15 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   aspect,
   generationMode,
   disabled,
+  extendingIds,
+  isExtendingAll,
   onReorder,
   onUpdateScene,
   onRegenerateVisual,
   onRegenerateAudio,
   onRewritePrompt,
+  onExtendScene,
+  onExtendAll,
   onDeleteScene,
   onAddScene,
 }) => {
@@ -66,6 +74,31 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
 
   return (
     <div className="space-y-4">
+      {scenes.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-white/40">
+            {scenes.length} scene{scenes.length === 1 ? '' : 's'}
+          </p>
+          <button
+            type="button"
+            onClick={onExtendAll}
+            disabled={disabled || isExtendingAll}
+            title="Add a few more sentences to every scene's narration"
+            className={
+              // Loading is a disabled state too, but it should read as "working",
+              // not as unavailable — the generic disabled:opacity-40 dims
+              // text-white/70 down to the point of being unreadable.
+              isExtendingAll
+                ? 'focus-ring flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-200 transition-colors'
+                : 'focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
+            }
+          >
+            {isExtendingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListPlus className="h-3.5 w-3.5" />}
+            Extend all scripts
+          </button>
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={scenes.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-3">
@@ -77,10 +110,12 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
                 aspect={aspect}
                 generationMode={generationMode}
                 disabled={disabled}
+                isExtending={extendingIds.has(scene.id)}
                 onUpdate={onUpdateScene}
                 onRegenerateVisual={onRegenerateVisual}
                 onRegenerateAudio={onRegenerateAudio}
                 onRewritePrompt={onRewritePrompt}
+                onExtend={onExtendScene}
                 onDelete={onDeleteScene}
               />
             ))}
