@@ -954,9 +954,11 @@ export const ShortsPage: React.FC = () => {
                   disabled={!canGenerate}
                   className={cn(
                     'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
-                    canGenerate
-                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
-                      : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
+                    isBusy
+                      ? 'animate-pulse-glow cursor-not-allowed border border-cyan-400/30 bg-cyan-500/10 text-cyan-100'
+                      : canGenerate
+                        ? 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110'
+                        : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30',
                   )}
                 >
                   {isBusy ? (

@@ -122,6 +122,9 @@ export const cleanLLMResponse = (text: string): string => {
   // prompt, so the reply contains only the closing </think> after the reasoning
   // text. Drop everything up to and including that closing tag.
   cleaned = cleaned.replace(/^[\s\S]*?<\/think>/i, '');
+  // max_tokens can cut generation off mid-reasoning, before a closing tag
+  // ever appears. Drop an unclosed <think> and everything after it.
+  cleaned = cleaned.replace(/<think\b[^>]*>[\s\S]*$/gi, '');
   cleaned = cleaned.replace(/<\/?think\b[^>]*>/gi, '');
 
   // Remove common conversational prefixes

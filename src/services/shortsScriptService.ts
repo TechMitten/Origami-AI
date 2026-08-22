@@ -88,6 +88,9 @@ const stripWrapper = (raw: string): string =>
     // prompt, so the reply contains only the closing </think> after the
     // reasoning text. Drop everything up to and including that closing tag.
     .replace(/^[\s\S]*?<\/think>/i, '')
+    // max_tokens can cut generation off mid-reasoning, before a closing tag
+    // ever appears. Drop an unclosed <think> and everything after it.
+    .replace(/<think\b[^>]*>[\s\S]*$/gi, '')
     .replace(/<\/?think\b[^>]*>/gi, '')
     .replace(/^\s*```[\w]*\s*$/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -145,11 +148,35 @@ const isWeak = (candidate: string): boolean => {
   return terms.length < 2 && words.length < 4;
 };
 
-/** Count how many candidates at matching indices are usable (present, not echoed, not weak). */
+/**
+ * The few-shot examples baked into IMAGE_PROMPT_SYSTEM. Weaker models
+ * sometimes parrot one of these verbatim instead of writing a real prompt,
+ * so an exact match to either one is always a failure, never a real answer.
+ */
+const EXAMPLE_IMAGE_PROMPTS = [
+  'vast dark ocean trench, bioluminescent creatures glowing, sunbeams piercing deep water, wide-angle underwater shot, moody blue lighting, cinematic',
+  'astronaut in white spacesuit on lunar surface, footprints in grey dust, earth rising in black sky, low-angle shot, stark sunlight, cinematic',
+].map((s) => s.toLowerCase());
+
+/** True when a candidate is the literal few-shot example, not a real answer. */
+const isExampleEcho = (candidate: string): boolean =>
+  EXAMPLE_IMAGE_PROMPTS.includes(candidate.trim().toLowerCase());
+
+/** True when a candidate repeats verbatim at another index — the model failed to vary the prompts per line. */
+const isDuplicate = (candidates: string[], index: number): boolean => {
+  const value = candidates[index]?.trim().toLowerCase();
+  if (!value) return false;
+  return candidates.some((other, i) => i !== index && other?.trim().toLowerCase() === value);
+};
+
+/** True when a candidate fails any of the usability checks above. */
+const isUnusable = (candidate: string | undefined, narrationLine: string, allCandidates: string[], index: number): boolean =>
+  !candidate || isEchoed(candidate, narrationLine) || isWeak(candidate) || isExampleEcho(candidate) || isDuplicate(allCandidates, index);
+
+/** Count how many candidates at matching indices are usable (present, not echoed, not weak, not a duplicate/example echo). */
 const scoreImagePrompts = (candidates: string[], narrationLines: string[]): number =>
   narrationLines.reduce((score, line, i) => {
-    const candidate = candidates[i]?.trim();
-    if (!candidate || isEchoed(candidate, line) || isWeak(candidate)) return score;
+    if (isUnusable(candidates[i]?.trim(), line, candidates, i)) return score;
     return score + 1;
   }, 0);
 
@@ -345,7 +372,7 @@ ${numbered}`;
   // every other usable line still gets the LLM-authored one.
   return narrationLines.map((line, i) => {
     const candidate = best[i]?.trim();
-    return candidate && !isEchoed(candidate, line) && !isWeak(candidate)
+    return !isUnusable(candidate, line, best, i)
       ? `${candidate}, ${req.visualStyle}`
       : deriveImagePrompt(line, req.visualStyle);
   });

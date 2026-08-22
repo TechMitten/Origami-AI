@@ -559,6 +559,7 @@ export const generateWebLLMChatResponse = async (
             temperature,
             max_tokens: maxTokens,
             stream: true,
+            extra_body: { enable_thinking: false },
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
 
         let content = "";
@@ -566,7 +567,7 @@ export const generateWebLLMChatResponse = async (
             const delta = chunk.choices[0]?.delta?.content;
             if (delta) content += delta;
         }
-        
+
         return normalizeMessageContent(content);
     } catch (error) {
         console.error("WebLLM Chat Generation Error:", error);
@@ -615,6 +616,7 @@ export async function* streamWebLLMChatResponse(
             temperature,
             max_tokens: maxTokens,
             stream: true,
+            extra_body: { enable_thinking: false },
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
 
         for await (const chunk of stream) {
@@ -669,6 +671,7 @@ export const generateWebLLMResponse = async (
             temperature,
             max_tokens: 1024, // Cap output to prevent runaway generation and context overflow
             stream: true,
+            extra_body: { enable_thinking: false },
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
         
         let content = "";
