@@ -36,6 +36,7 @@ export interface GlobalSettings {
   shortsVoice?: string;
   shortsCaptionStyle?: 'bold-pop' | 'clean-lower' | 'karaoke';
   shortsUseOpenAI?: boolean;
+  assistantUseOpenAI?: boolean;
 }
 
 export interface AssistantChatAttachment {
@@ -314,6 +315,7 @@ export interface PersistedShortsScene {
   seed: number;
   audioNarrationSnapshot?: string;
   visualPromptSnapshot?: string;
+  visualModelSnapshot?: string;
 }
 
 export interface PersistedShortsProject {

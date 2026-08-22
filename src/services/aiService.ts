@@ -1,4 +1,4 @@
-import { ensureWebLLMReady, generateWebLLMResponse, getCurrentWebLLMModel, isWebLLMLoaded } from './webLlmService';
+import { ensureWebLLMReady, generateWebLLMResponse, getCurrentWebLLMModel, isWebLLMLoaded, type WebLLMChatMessage } from './webLlmService';
 
 export interface LLMSettings {
   apiKey: string;
@@ -360,6 +360,85 @@ export const postChatCompletions = async (settings: LLMSettings, messages: ChatM
   const data = await response.json();
   return data.choices?.[0]?.message?.content || '';
 };
+
+export interface CustomApiStreamOptions {
+  temperature?: number;
+  maxTokens?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * Streams a chat completion from a user-configured OpenAI-compatible endpoint
+ * via SSE. Only used with a client-supplied key (the endpoint is the user's
+ * own), so unlike postChatCompletions there is no server-proxy fallback here.
+ */
+export async function* streamCustomApiChatResponse(
+  settings: Pick<LLMSettings, 'apiKey' | 'baseUrl' | 'model'>,
+  messages: WebLLMChatMessage[],
+  options: CustomApiStreamOptions = {},
+): AsyncGenerator<string, void, void> {
+  const { temperature = 0.7, maxTokens, signal } = options;
+  const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
+  const normalizedModel = normalizeModelForRequest((settings.model || '').trim());
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: normalizedModel,
+      messages,
+      temperature,
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
+      stream: true,
+    }),
+    signal,
+  });
+
+  if (!response.ok || !response.body) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Failed to generate content: ${response.statusText}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+
+        const data = trimmed.slice(5).trim();
+        if (data === '[DONE]') return;
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta?.content;
+          if (typeof delta === 'string' && delta) {
+            yield delta;
+          }
+        } catch {
+          // Ignore malformed/partial SSE lines.
+        }
+      }
+    }
+  } finally {
+    // Breaking the consumer's for-await loop resumes here, so cancelling the
+    // reader on the way out stops the network read instead of draining it.
+    reader.cancel().catch(() => {});
+  }
+}
 
 const parseMMSS = (value: string): number => {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());

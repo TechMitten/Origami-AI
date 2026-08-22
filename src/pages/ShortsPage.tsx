@@ -26,6 +26,7 @@ import { MusicPickerModal } from '../components/MusicPickerModal';
 import { useBackgroundDownload } from '../context/BackgroundDownloadContext';
 import { ShortsComposer } from '../components/shorts/ShortsComposer';
 import { ShortsStoryboard } from '../components/shorts/ShortsStoryboard';
+import { Dropdown } from '../components/Dropdown';
 import { ShortsPreviewPlayer } from '../components/shorts/ShortsPreviewPlayer';
 import { ShortsRenderModal, type ShortsRenderPhase } from '../components/shorts/ShortsRenderModal';
 import { VoiceAuditionModal } from '../components/shorts/VoiceAuditionModal';
@@ -42,7 +43,8 @@ import {
   isWebLLMLoaded,
 } from '../services/webLlmService';
 import { initTTS, DEFAULT_VOICES } from '../services/ttsService';
-import { isFreePollinationsModel, resolvePollinationsKey } from '../services/pollinationsService';
+import { isFreePollinationsModel, listImageModels, POLLINATIONS_IMAGE_MODELS, resolvePollinationsKey } from '../services/pollinationsService';
+import { POLLINATIONS_VIDEO_MODELS } from '../services/pollinationsVideoService';
 import { composeVisualPrompt, extendNarration, generateShortsScript, regenerateImagePrompt } from '../services/shortsScriptService';
 import {
   ShortsRenderAbortedError,
@@ -262,6 +264,11 @@ export const ShortsPage: React.FC = () => {
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
   const [splashPhase, setSplashPhase] = useState<'fade-in' | 'fade-out' | 'done'>('fade-in');
 
+  // The static list renders instantly; the live catalogue (a public,
+  // unauthenticated read) replaces it on mount so every model the Pollinations
+  // API offers is selectable, not just the ones baked into the bundle.
+  const [imageModels, setImageModels] = useState(POLLINATIONS_IMAGE_MODELS);
+
   const [isBusy, setIsBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
 
@@ -386,6 +393,11 @@ export const ShortsPage: React.FC = () => {
         }
       }
     })();
+
+    // listImageModels never rejects; it resolves the static fallback on failure.
+    void listImageModels().then((models) => {
+      if (mounted) setImageModels(models);
+    });
 
     return () => {
       mounted = false;
@@ -546,6 +558,7 @@ export const ShortsPage: React.FC = () => {
           imageStatus: 'ready',
           imageError: null,
           visualPromptSnapshot: scene.imagePrompt,
+          visualModelSnapshot: target.imageModel,
         });
       } catch (e) {
         if (signal.aborted) return;
@@ -567,6 +580,7 @@ export const ShortsPage: React.FC = () => {
           videoStatus: 'ready',
           videoError: null,
           visualPromptSnapshot: scene.imagePrompt,
+          visualModelSnapshot: target.videoModel,
         });
       } catch (e) {
         if (signal.aborted) return;
@@ -730,7 +744,11 @@ export const ShortsPage: React.FC = () => {
   // from what was actually used to generate the asset currently on the scene.
   const handleRegenerateStale = useCallback(async () => {
     const current = projectRef.current;
-    const staleVisualScenes = current.scenes.filter((s) => isSceneVisualStale(s, current.generationMode));
+    const activeVisualModel =
+      current.generationMode === 'video' ? current.videoModel : current.imageModel;
+    const staleVisualScenes = current.scenes.filter((s) =>
+      isSceneVisualStale(s, current.generationMode, activeVisualModel),
+    );
     const staleAudioScenes = current.scenes.filter((s) => isSceneAudioStale(s));
     if (!staleVisualScenes.length && !staleAudioScenes.length) return;
 
@@ -818,39 +836,21 @@ export const ShortsPage: React.FC = () => {
   );
 
   const handleRewritePrompt = useCallback(
-    async (id: string) => {
+    (id: string) => {
       const current = projectRef.current;
       const scene = current.scenes.find((s) => s.id === id);
       if (!scene) return;
 
-      const ready = await ensureScriptEngineReady();
-      if (!ready) return;
-
-      const isVideo = current.generationMode === 'video';
-      patchScene(id, isVideo ? { videoStatus: 'pending' } : { imageStatus: 'pending' });
-      try {
-        const prompt = await regenerateImagePrompt(
-          scene.narration,
-          {
-            topic: current.topic,
-            visualStyle: current.visualStyle,
-            aspect: current.aspect,
-            captionsEnabled: current.captionsEnabled,
-            generationMode: current.generationMode,
-          },
-          llmOptions(),
-        );
-        patchScene(id, {
-          imagePrompt: prompt,
-          ...(isVideo
-            ? { videoStatus: scene.videoUrl ? 'ready' : 'idle' }
-            : { imageStatus: scene.imageUrl ? 'ready' : 'idle' }),
-        });
-      } catch (e) {
-        patchScene(id, isVideo ? { videoStatus: 'error', videoError: errorMessage(e) } : { imageStatus: 'error', imageError: errorMessage(e) });
-      }
+      const prompt = regenerateImagePrompt(scene.narration, {
+        topic: current.topic,
+        visualStyle: current.visualStyle,
+        aspect: current.aspect,
+        captionsEnabled: current.captionsEnabled,
+        generationMode: current.generationMode,
+      });
+      patchScene(id, { imagePrompt: prompt });
     },
-    [ensureScriptEngineReady, llmOptions, patchScene],
+    [patchScene],
   );
 
   const handleExtendScene = useCallback(
@@ -1098,7 +1098,16 @@ export const ShortsPage: React.FC = () => {
   }, []);
 
   const isVideoMode = project.generationMode === 'video';
+  const activeVisualModel = isVideoMode ? project.videoModel : project.imageModel;
   const visualStatusOf = (scene: ShortsScene) => (isVideoMode ? scene.videoStatus : scene.imageStatus);
+
+  // A saved project can reference a model the live catalogue no longer lists
+  // (or the fetch failed); keep it selectable so the label never goes blank
+  // and stale-visual detection still has an id to compare against.
+  const imageModelOptions = useMemo(() => {
+    if (imageModels.some((m) => m.id === project.imageModel)) return imageModels;
+    return [{ id: project.imageModel, name: project.imageModel }, ...imageModels];
+  }, [imageModels, project.imageModel]);
 
   const sceneCount = project.scenes.length;
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
@@ -1107,7 +1116,7 @@ export const ShortsPage: React.FC = () => {
   const needsVisualGeneration = project.scenes.some((s) => ['idle', 'error'].includes(visualStatusOf(s)));
   const needsAudioGeneration = project.scenes.some((s) => ['idle', 'error'].includes(s.audioStatus));
   const staleCount = project.scenes.filter(
-    (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode),
+    (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode, activeVisualModel),
   ).length;
 
   // The hero strip doubles as the progress readout: a stage is live while any
@@ -1414,10 +1423,11 @@ export const ShortsPage: React.FC = () => {
                 onToggleOpenAI={(value) => void saveSettings({ ...globalSettings, shortsUseOpenAI: value })}
                 openAIConfigured={openAIConfigured}
                 webLlmModelLabel={webLlmModelLabel}
+                imageModels={imageModelOptions}
               />
             ) : (
               <div className="space-y-5">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-baseline gap-3">
                     <button
                       type="button"
@@ -1433,15 +1443,37 @@ export const ShortsPage: React.FC = () => {
                     </h2>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsVoiceAuditionOpen(true)}
-                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 transition-all"
-                    title="Audition or switch voice"
-                  >
-                    <Mic className="h-3.5 w-3.5 text-cyan-400" />
-                    <span>Voice: <strong className="text-white">{DEFAULT_VOICES.find(v => v.id === project.voice)?.name || project.voice}</strong></span>
-                  </button>
+                  <div className="flex flex-wrap items-end gap-2">
+                    {/* Same model selector as Setup, so a mid-project switch
+                        doesn't cost a round trip back to the composer. Changing
+                        it marks ready visuals stale (see isSceneVisualStale) and
+                        they regenerate through the usual stale flow. */}
+                    <div className="w-44">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+                        {isVideoMode ? 'Video model' : 'Image model'}
+                      </span>
+                      <Dropdown
+                        options={(isVideoMode ? POLLINATIONS_VIDEO_MODELS : imageModelOptions).map(
+                          (m) => ({ id: m.id, name: m.name }),
+                        )}
+                        value={activeVisualModel}
+                        onChange={(value) =>
+                          patchProject(isVideoMode ? { videoModel: value } : { imageModel: value })
+                        }
+                        disabled={renderPhase === 'rendering' || isBusy}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsVoiceAuditionOpen(true)}
+                      className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 transition-all"
+                      title="Audition or switch voice"
+                    >
+                      <Mic className="h-3.5 w-3.5 text-cyan-400" />
+                      <span>Voice: <strong className="text-white">{DEFAULT_VOICES.find(v => v.id === project.voice)?.name || project.voice}</strong></span>
+                    </button>
+                  </div>
                 </div>
 
                 {isBusy && (
@@ -1458,6 +1490,7 @@ export const ShortsPage: React.FC = () => {
                   scenes={project.scenes}
                   aspect={project.aspect}
                   generationMode={project.generationMode}
+                  visualModel={activeVisualModel}
                   disabled={renderPhase === 'rendering' || isExtendingAll}
                   extendingIds={extendingIds}
                   isExtendingAll={isExtendingAll}
@@ -1514,7 +1547,7 @@ export const ShortsPage: React.FC = () => {
                 {staleCount > 0 && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-xs text-amber-100">
                     <span>
-                      {staleCount} scene{staleCount > 1 ? 's' : ''} edited since generation.
+                      {staleCount} scene{staleCount > 1 ? 's' : ''} changed since generation.
                     </span>
                     <button
                       type="button"

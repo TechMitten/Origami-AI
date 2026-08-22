@@ -42,6 +42,8 @@ export interface ShortsScene {
   audioNarrationSnapshot?: string;
   /** imagePrompt text the current image/videoBlob was generated from. */
   visualPromptSnapshot?: string;
+  /** model id the current image/videoBlob was generated with — lets model switches be detected as stale. */
+  visualModelSnapshot?: string;
 }
 
 export interface ShortsMusic {
@@ -244,13 +246,25 @@ export const isSceneAudioStale = (scene: ShortsScene): boolean =>
   scene.audioNarrationSnapshot !== undefined &&
   scene.audioNarrationSnapshot !== scene.narration;
 
-/** True once a scene's image/video prompt has been edited since its visual was generated. */
-export const isSceneVisualStale = (scene: ShortsScene, mode: ShortsGenerationMode): boolean => {
+/**
+ * True once a scene's image/video prompt has been edited since its visual was
+ * generated, or once the project's active model no longer matches the one
+ * that generated it (`activeModel` optional so non-project callers can omit it).
+ */
+export const isSceneVisualStale = (
+  scene: ShortsScene,
+  mode: ShortsGenerationMode,
+  activeModel?: string,
+): boolean => {
   const status = mode === 'video' ? scene.videoStatus : scene.imageStatus;
+  if (status !== 'ready') return false;
+  if (scene.visualPromptSnapshot !== undefined && scene.visualPromptSnapshot !== scene.imagePrompt) {
+    return true;
+  }
   return (
-    status === 'ready' &&
-    scene.visualPromptSnapshot !== undefined &&
-    scene.visualPromptSnapshot !== scene.imagePrompt
+    activeModel !== undefined &&
+    scene.visualModelSnapshot !== undefined &&
+    scene.visualModelSnapshot !== activeModel
   );
 };
 
@@ -292,6 +306,7 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     audioDuration: scene.audioDuration,
     audioNarrationSnapshot: scene.audioNarrationSnapshot,
     visualPromptSnapshot: scene.visualPromptSnapshot,
+    visualModelSnapshot: scene.visualModelSnapshot,
   })),
 });
 
@@ -334,6 +349,7 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     audioStatus: scene.audioBlob ? 'ready' : 'idle',
     audioNarrationSnapshot: scene.audioNarrationSnapshot,
     visualPromptSnapshot: scene.visualPromptSnapshot,
+    visualModelSnapshot: scene.visualModelSnapshot,
   })),
 });
 

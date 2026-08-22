@@ -18,6 +18,8 @@ const ENGINE_STATUS: Record<EngineState, { label: string; dot: string; text: str
   none: { label: 'No model chosen', dot: 'bg-amber-400', text: 'text-amber-300/80' },
 };
 
+export type EngineMode = 'webllm' | 'api';
+
 interface ChatComposerProps {
   value: string;
   onChange: (value: string) => void;
@@ -38,6 +40,9 @@ interface ChatComposerProps {
   supportsVision: boolean;
   onChangeModel: () => void;
   onLoadModel: () => void;
+
+  engineMode: EngineMode;
+  onEngineModeChange: (mode: EngineMode) => void;
 }
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
@@ -58,6 +63,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   supportsVision,
   onChangeModel,
   onLoadModel,
+  engineMode,
+  onEngineModeChange,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -86,6 +93,39 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             what it can read — the facts that decide whether a reply will be
             fast, and previously spread across a header pill and two footnotes. */}
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
+          <fieldset
+            disabled={isDisabled || isStreaming}
+            className={cn(
+              'inline-flex rounded-md border border-white/10 bg-black/20 p-0.5',
+              (isDisabled || isStreaming) && 'opacity-40',
+            )}
+          >
+            <legend className="sr-only">Assistant engine</legend>
+            {(['webllm', 'api'] as const).map((mode) => (
+              <label
+                key={mode}
+                className={cn(
+                  'cursor-pointer rounded px-2 py-0.5 text-[11px] font-semibold transition-colors',
+                  'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cyan-400',
+                  engineMode === mode
+                    ? 'bg-cyan-400/15 text-cyan-200'
+                    : 'text-white/45 hover:text-white',
+                  (isDisabled || isStreaming) && 'cursor-not-allowed',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="assistant-engine-mode"
+                  value={mode}
+                  checked={engineMode === mode}
+                  onChange={() => onEngineModeChange(mode)}
+                  className="sr-only"
+                />
+                {mode === 'webllm' ? 'On device' : 'API endpoint'}
+              </label>
+            ))}
+          </fieldset>
+
           <span aria-hidden className={cn('h-1.5 w-1.5 shrink-0 rounded-full', status.dot)} />
           <span className="font-display truncate text-xs text-white/75">
             {modelName || 'No model'}
@@ -97,7 +137,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           <span className={cn('text-[11px] font-semibold', status.text)}>{status.label}</span>
 
           <div className="ml-auto flex items-center gap-2">
-            {engineState !== 'ready' && (
+            {engineMode === 'webllm' && engineState !== 'ready' && (
               <button
                 type="button"
                 onClick={onLoadModel}
@@ -114,7 +154,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               disabled={isDisabled || isStreaming || engineState === 'loading'}
               className="focus-ring rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-bold text-white/60 transition-colors hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Change
+              {engineMode === 'api' ? 'Configure' : 'Change'}
             </button>
           </div>
         </div>

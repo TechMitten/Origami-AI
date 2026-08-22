@@ -34,15 +34,45 @@ export const FREE_POLLINATIONS_BASE_URL = 'https://image.pollinations.ai';
  */
 export const FREE_POLLINATIONS_IMAGE_MODEL = 'free';
 
-/** Models that reliably accept width/height and produce usable stills for shorts. */
+/**
+ * Every image model the Pollinations image endpoint documents (`GET /image/{prompt}`,
+ * see Docs/pollinations.md), plus our keyless `free` transport marker at the end.
+ * Serves as the fallback when the live catalogue from `listImageModels()` cannot
+ * be fetched, so it must stay a complete list rather than a curated subset.
+ */
 export const POLLINATIONS_IMAGE_MODELS: Array<{ id: string; name: string }> = [
   { id: 'zimage', name: 'Z-Image (fast)' },
   { id: 'flux', name: 'Flux (default, balanced)' },
   { id: 'seedream', name: 'Seedream (cinematic)' },
+  { id: 'seedream-pro', name: 'Seedream Pro' },
   { id: 'seedream5', name: 'Seedream 5' },
+  { id: 'seedream5-pro', name: 'Seedream 5 Pro' },
   { id: 'nanobanana', name: 'Nano Banana' },
+  { id: 'nanobanana-2', name: 'Nano Banana 2' },
+  { id: 'nanobanana-2-lite', name: 'Nano Banana 2 Lite' },
+  { id: 'nanobanana-pro', name: 'Nano Banana Pro' },
   { id: 'krea', name: 'Krea (photoreal)' },
   { id: 'dreamshaper', name: 'Dreamshaper (stylised)' },
+  { id: 'kontext', name: 'Kontext' },
+  { id: 'gptimage', name: 'GPT Image' },
+  { id: 'gptimage-large', name: 'GPT Image (large)' },
+  { id: 'gpt-image-2', name: 'GPT Image 2' },
+  { id: 'ideogram-v4-turbo', name: 'Ideogram v4 (turbo)' },
+  { id: 'ideogram-v4-balanced', name: 'Ideogram v4 (balanced)' },
+  { id: 'ideogram-v4-quality', name: 'Ideogram v4 (quality)' },
+  { id: 'zimage-fal', name: 'Z-Image (fal)' },
+  { id: 'wan-image', name: 'Wan Image' },
+  { id: 'wan-image-pro', name: 'Wan Image Pro' },
+  { id: 'qwen-image', name: 'Qwen Image' },
+  { id: 'qwen-image-3', name: 'Qwen Image 3' },
+  { id: 'grok-imagine', name: 'Grok Imagine' },
+  { id: 'grok-imagine-pro', name: 'Grok Imagine Pro' },
+  { id: 'grok-imagine-image-2.0', name: 'Grok Imagine Image 2.0' },
+  { id: 'recraft-v4.1-vector', name: 'Recraft v4.1 (vector)' },
+  { id: 'klein', name: 'Klein' },
+  { id: 'p-image', name: 'P-Image' },
+  { id: 'p-image-edit', name: 'P-Image Edit' },
+  { id: 'nova-canvas', name: 'Nova Canvas' },
   { id: FREE_POLLINATIONS_IMAGE_MODEL, name: 'Free (slow)' },
 ];
 
@@ -370,10 +400,27 @@ export const listImageModels = async (): Promise<Array<{ id: string; name: strin
     const response = await fetch(`${POLLINATIONS_BASE_URL}/image/models`);
     if (!response.ok) return POLLINATIONS_IMAGE_MODELS;
 
-    const data: unknown = await response.json();
-    const ids = Array.isArray(data)
-      ? data.map((entry) => (typeof entry === 'string' ? entry : (entry as { name?: string })?.name)).filter(Boolean)
-      : [];
+    const payload: unknown = await response.json();
+    // The catalogue is normally a bare array of model objects, but accept the
+    // OpenAI-style `{ data: [...] }` envelope too rather than assume one shape.
+    const entries: unknown[] = Array.isArray(payload)
+      ? payload
+      : Array.isArray((payload as { data?: unknown[] })?.data)
+        ? (payload as { data: unknown[] }).data
+        : [];
+
+    // The endpoint also lists video models; only stills belong in this list.
+    // Entries without `outputModalities` are kept so schema drift upstream
+    // cannot silently empty the dropdown.
+    const ids = entries
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        const obj = entry as { name?: unknown; outputModalities?: unknown };
+        if (typeof obj.name !== 'string') return null;
+        const modalities = Array.isArray(obj.outputModalities) ? obj.outputModalities : [];
+        return modalities.length && !modalities.includes('image') ? null : obj.name;
+      })
+      .filter((id): id is string => !!id);
 
     if (!ids.length) return POLLINATIONS_IMAGE_MODELS;
 
@@ -382,7 +429,7 @@ export const listImageModels = async (): Promise<Array<{ id: string; name: strin
     const curated = POLLINATIONS_IMAGE_MODELS.filter(
       (m) => ids.includes(m.id) || isFreePollinationsModel(m.id),
     );
-    const extras = (ids as string[])
+    const extras = ids
       .filter((id) => !POLLINATIONS_IMAGE_MODELS.some((m) => m.id === id))
       .map((id) => ({ id, name: id }));
 

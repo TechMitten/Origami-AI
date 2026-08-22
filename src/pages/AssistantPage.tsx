@@ -8,7 +8,7 @@ import { ModelSelectorModal } from '../components/ModelSelectorModal';
 import { PageHeader } from '../components/PageHeader';
 import { WebGPUInstructionsModal } from '../components/WebGPUInstructionsModal';
 import { WebLLMLoadingModal } from '../components/WebLLMLoadingModal';
-import { ChatComposer, type EngineState } from '../components/assistant/ChatComposer';
+import { ChatComposer, type EngineMode, type EngineState } from '../components/assistant/ChatComposer';
 import { ChatEmptyState } from '../components/assistant/ChatEmptyState';
 import { ChatMessages } from '../components/assistant/ChatMessages';
 import { ChatRail } from '../components/assistant/ChatRail';
@@ -42,6 +42,7 @@ import {
   webLlmEvents,
   type WebLLMChatMessage
 } from '../services/webLlmService';
+import { streamCustomApiChatResponse } from '../services/aiService';
 
 const ASSISTANT_SYSTEM_PROMPT = `You are Origami Assistant, a helpful AI chatbot running locally in the browser through WebLLM.
 
@@ -83,6 +84,8 @@ const getModelName = (modelId: string | null | undefined): string | null => {
   if (!modelId) return null;
   return AVAILABLE_WEB_LLM_MODELS.find((model) => model.id === modelId)?.name || modelId;
 };
+
+type AssistantEngine = { mode: 'webllm'; modelId: string } | { mode: 'api' };
 
 const resolvePreferredAssistantModel = (
   configuredModelId: string | null | undefined,
@@ -169,6 +172,9 @@ export const AssistantPage: React.FC = () => {
   // Set while a reply is being stopped, so the token loop can bail between
   // chunks without unwinding the generator mid-write.
   const stopRequestedRef = useRef(false);
+  // Only used for the custom-API engine: aborts the in-flight SSE fetch when
+  // the user hits stop, since interruptWebLLMGeneration() has no effect on it.
+  const apiAbortControllerRef = useRef<AbortController | null>(null);
 
   const [chatSessions, setChatSessions] = useState<AssistantChatSession[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -206,19 +212,28 @@ export const AssistantPage: React.FC = () => {
       || selectableAssistantModels[0]?.id
       || assistantModelSelection);
 
+  const engineMode: EngineMode = globalSettings.assistantUseOpenAI ? 'api' : 'webllm';
+  const customApiConfigured = !!(
+    globalSettings.openaiEndpoint && globalSettings.openaiModel && globalSettings.openaiApiKey
+  );
+
   // The dock speaks about the model you would send to next: the selection,
   // which only reads "Ready" once those exact weights are the ones in memory.
   const dockModelId = activeAssistantSelection || globalSettings.webLlmModel || null;
   const dockModelInfo = getWebLlmModelInfo(dockModelId);
-  const dockModelName = getModelName(dockModelId);
-  const dockSupportsVision = webLlmModelSupportsVision(dockModelId);
-  const engineState: EngineState = isSwitchingModel || isWebLLMLoadingOpen
-    ? 'loading'
-    : !dockModelId
-      ? 'none'
-      : loadedModelId === dockModelId
-        ? 'ready'
-        : 'idle';
+  const dockModelName = engineMode === 'api'
+    ? (globalSettings.openaiModel || null)
+    : getModelName(dockModelId);
+  const dockSupportsVision = engineMode === 'api' ? true : webLlmModelSupportsVision(dockModelId);
+  const engineState: EngineState = engineMode === 'api'
+    ? (customApiConfigured ? 'ready' : 'none')
+    : isSwitchingModel || isWebLLMLoadingOpen
+      ? 'loading'
+      : !dockModelId
+        ? 'none'
+        : loadedModelId === dockModelId
+          ? 'ready'
+          : 'idle';
 
   const mutateSession = (
     sessionId: string,
@@ -258,11 +273,20 @@ export const AssistantPage: React.FC = () => {
   };
 
   /**
-   * Resolves the model a send should use. Sending is the request, so an unset
-   * model is answered by loading the current selection rather than by bouncing
-   * the message into a settings modal.
+   * Resolves the engine a send should use. Sending is the request, so an unset
+   * WebLLM model is answered by loading the current selection rather than by
+   * bouncing the message into a settings modal; an unconfigured custom API
+   * has nothing to auto-load, so that case opens Settings directly.
    */
-  const ensureAssistantReady = async (): Promise<string | null> => {
+  const ensureAssistantReady = async (): Promise<AssistantEngine | null> => {
+    if (globalSettings.assistantUseOpenAI) {
+      if (!customApiConfigured) {
+        setIsSettingsOpen(true);
+        return null;
+      }
+      return { mode: 'api' };
+    }
+
     const support = webGpuSupport ?? await checkWebGPUSupport();
     setWebGpuSupport(support);
 
@@ -279,7 +303,7 @@ export const AssistantPage: React.FC = () => {
 
     if (isWebLLMLoaded() && getCurrentWebLLMModel() === modelId) {
       setLoadedModelId(modelId);
-      return modelId;
+      return { mode: 'webllm', modelId };
     }
 
     if (globalSettings.webLlmModel !== modelId || !globalSettings.useWebLLM) {
@@ -287,7 +311,7 @@ export const AssistantPage: React.FC = () => {
     }
 
     const initialized = await initializeModel(modelId);
-    return initialized ? modelId : null;
+    return initialized ? { mode: 'webllm', modelId } : null;
   };
 
   useEffect(() => {
@@ -571,6 +595,7 @@ export const AssistantPage: React.FC = () => {
     sessionId: string,
     history: AssistantChatMessage[],
     assistantMessageId: string,
+    engine: AssistantEngine,
   ) => {
     const chatMessages: WebLLMChatMessage[] = [
       { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
@@ -584,14 +609,38 @@ export const AssistantPage: React.FC = () => {
     stopRequestedRef.current = false;
     setIsSending(true);
 
-    try {
-      let fullResponse = '';
+    // Removes the empty placeholder reply left behind when a stream is
+    // stopped or aborted before any tokens arrived.
+    const discardEmptyPlaceholder = () => {
+      mutateSession(sessionId, (session) => ({
+        ...session,
+        messages: session.messages.filter((message) => message.id !== assistantMessageId),
+      }), false);
+    };
 
-      for await (const chunk of streamWebLLMChatResponse(chatMessages, {
-        temperature: 0.7,
-        maxTokens: 768,
-        resetChat: true,
-      })) {
+    let fullResponse = '';
+    try {
+      const chunkStream = engine.mode === 'api'
+        ? (() => {
+          const controller = new AbortController();
+          apiAbortControllerRef.current = controller;
+          return streamCustomApiChatResponse(
+            {
+              apiKey: globalSettings.openaiApiKey ?? '',
+              baseUrl: globalSettings.openaiEndpoint ?? '',
+              model: globalSettings.openaiModel ?? '',
+            },
+            chatMessages,
+            { temperature: 0.7, maxTokens: 768, signal: controller.signal },
+          );
+        })()
+        : streamWebLLMChatResponse(chatMessages, {
+          temperature: 0.7,
+          maxTokens: 768,
+          resetChat: true,
+        });
+
+      for await (const chunk of chunkStream) {
         if (stopRequestedRef.current) break;
 
         fullResponse += chunk;
@@ -607,12 +656,7 @@ export const AssistantPage: React.FC = () => {
 
       if (stopRequestedRef.current) {
         // Stopping before the first token leaves nothing worth keeping.
-        if (!fullResponse.trim()) {
-          mutateSession(sessionId, (session) => ({
-            ...session,
-            messages: session.messages.filter((message) => message.id !== assistantMessageId),
-          }), false);
-        }
+        if (!fullResponse.trim()) discardEmptyPlaceholder();
         return;
       }
 
@@ -620,6 +664,13 @@ export const AssistantPage: React.FC = () => {
         throw new Error('The model returned an empty response.');
       }
     } catch (error) {
+      // An aborted fetch (user hit stop) surfaces as a thrown AbortError
+      // rather than a loop `break`, so it needs the same quiet handling.
+      if (stopRequestedRef.current) {
+        if (!fullResponse.trim()) discardEmptyPlaceholder();
+        return;
+      }
+
       const message = error instanceof Error ? error.message : 'The assistant could not generate a response.';
       mutateSession(sessionId, (session) => ({
         ...session,
@@ -632,6 +683,7 @@ export const AssistantPage: React.FC = () => {
     } finally {
       setIsSending(false);
       stopRequestedRef.current = false;
+      apiAbortControllerRef.current = null;
     }
   };
 
@@ -639,10 +691,10 @@ export const AssistantPage: React.FC = () => {
     const trimmed = input.trim();
     if ((!trimmed && !pendingAttachment) || isSending || isReadingAttachment || !currentSession) return;
 
-    const modelId = await ensureAssistantReady();
-    if (!modelId) return;
+    const engine = await ensureAssistantReady();
+    if (!engine) return;
 
-    if (pendingAttachment?.kind === 'image' && !webLlmModelSupportsVision(modelId)) {
+    if (engine.mode === 'webllm' && pendingAttachment?.kind === 'image' && !webLlmModelSupportsVision(engine.modelId)) {
       await showAlert('This model reads text only. Switch to a vision model, such as Phi 3.5 Vision, to send screenshots.', {
         type: 'warning',
         title: 'Vision Model Required',
@@ -670,13 +722,14 @@ export const AssistantPage: React.FC = () => {
     setInput('');
     setPendingAttachment(null);
 
-    await streamAssistantReply(sessionId, history, assistantMessageId);
+    await streamAssistantReply(sessionId, history, assistantMessageId, engine);
   };
 
   const handleStopGenerating = () => {
     if (!isSending) return;
     stopRequestedRef.current = true;
     interruptWebLLMGeneration();
+    apiAbortControllerRef.current?.abort();
   };
 
   const handleRetryMessage = async (messageId: string) => {
@@ -686,8 +739,8 @@ export const AssistantPage: React.FC = () => {
     const messageIndex = session.messages.findIndex((message) => message.id === messageId);
     if (messageIndex < 0) return;
 
-    const modelId = await ensureAssistantReady();
-    if (!modelId) return;
+    const engine = await ensureAssistantReady();
+    if (!engine) return;
 
     mutateSession(session.id, (entry) => ({
       ...entry,
@@ -698,7 +751,7 @@ export const AssistantPage: React.FC = () => {
       )),
     }), false);
 
-    await streamAssistantReply(session.id, session.messages.slice(0, messageIndex), messageId);
+    await streamAssistantReply(session.id, session.messages.slice(0, messageIndex), messageId, engine);
   };
 
   const handleUsePrompt = (prompt: string) => {
@@ -803,8 +856,9 @@ export const AssistantPage: React.FC = () => {
           </div>
 
           {/* Only a hard blocker earns a banner. A missing model is stated by the
-              dock above the composer, next to the button that fixes it. */}
-          {webGpuSupport && !webGpuSupport.supported && (
+              dock above the composer, next to the button that fixes it. Not
+              relevant when chatting through a custom API — that path needs no WebGPU. */}
+          {engineMode === 'webllm' && webGpuSupport && !webGpuSupport.supported && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-red-500/20 bg-red-500/[0.08] px-4 py-2.5 text-sm text-red-100 sm:px-6">
               <BrainCircuit className="h-4 w-4 shrink-0 text-red-300" />
               <p className="min-w-0 flex-1">
@@ -839,6 +893,7 @@ export const AssistantPage: React.FC = () => {
                   supportsVision={dockSupportsVision}
                   isModelLoaded={engineState === 'ready'}
                   onUsePrompt={handleUsePrompt}
+                  engineMode={engineMode}
                 />
               )
             }
@@ -858,10 +913,12 @@ export const AssistantPage: React.FC = () => {
             acceptsImages={dockSupportsVision}
             engineState={engineState}
             modelName={dockModelName}
-            modelSize={dockModelInfo?.size}
+            modelSize={engineMode === 'api' ? undefined : dockModelInfo?.size}
             supportsVision={dockSupportsVision}
-            onChangeModel={() => setIsModelModalOpen(true)}
-            onLoadModel={() => void handleApplyAssistantModel()}
+            onChangeModel={() => (engineMode === 'api' ? setIsSettingsOpen(true) : setIsModelModalOpen(true))}
+            onLoadModel={() => (engineMode === 'api' ? setIsSettingsOpen(true) : void handleApplyAssistantModel())}
+            engineMode={engineMode}
+            onEngineModeChange={(mode) => void saveAssistantSettings({ ...globalSettings, assistantUseOpenAI: mode === 'api' })}
           />
         </div>
       </div>
@@ -881,7 +938,7 @@ export const AssistantPage: React.FC = () => {
           onClose={() => setIsSettingsOpen(false)}
           currentSettings={globalSettings}
           onSave={saveAssistantSettings}
-          initialTab="webllm"
+          initialTab={engineMode === 'api' ? 'api' : 'webllm'}
           onShowWebGPUModal={() => setIsWebGPUModalOpen(true)}
         />
       )}

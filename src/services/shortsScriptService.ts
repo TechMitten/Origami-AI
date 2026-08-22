@@ -5,11 +5,13 @@ import type { ShortsAspect } from './ShortsVideoRenderer';
 /**
  * Script generation for Shorts.
  *
- * Runs in three line-list passes (outline -> narration -> image prompts) rather
- * than asking for one nested JSON blob. A 2B-class local model (the WebLLM
- * default) emits well-formed line lists far more reliably than it emits
- * well-formed JSON, and a malformed blob costs the whole generation. Every pass
- * has a deterministic fallback so the flow never dead-ends on a weak model.
+ * The narration pass asks the model for a line list (one NOTE + one
+ * NARRATION line per beat) rather than one nested JSON blob. A 2B-class local
+ * model (the WebLLM default) emits well-formed line lists far more reliably
+ * than it emits well-formed JSON, and a malformed blob costs the whole
+ * generation. It has a deterministic fallback so the flow never dead-ends on
+ * a weak model. Image prompts are not model-written at all — see
+ * narrationToImagePrompt.
  */
 
 export type ShortsTone = 'punchy' | 'documentary' | 'story' | 'educational' | 'hype';
@@ -313,16 +315,42 @@ const framingClause = (req: VisualPromptContext): string => {
 };
 
 /**
- * Build the final prompt sent to Pollinations from a model-written subject.
+ * Text-suppression tail appended to every visual prompt.
  *
- * The style is applied here and ONLY here — the image-prompt pass is deliberately
- * never told what the style is, so it cannot bake a second copy into its answer.
+ * Bare "no text" negations are largely ignored by image models; enumerating
+ * the concrete forms (letters, signage, captions, UI) plus a positive
+ * restatement ("a purely visual, textless image") suppresses far more
+ * reliably.
+ */
+const TEXTLESS_CLAUSE =
+  'no text, no words, no letters, no numbers, no typography, no captions, no subtitles, no signage, no logos, no watermarks, no speech bubbles, no user interface — a purely visual, textless image';
+
+/**
+ * Build the final prompt sent to Pollinations from a subject string.
+ *
+ * The style is applied here and ONLY here, so callers never need to bake a
+ * second copy of it into the subject they pass in.
  */
 export const composeVisualPrompt = (subject: string, req: VisualPromptContext): string =>
-  [subject.trim().replace(/[.\s]+$/, ''), framingClause(req), req.visualStyle, 'no text, no watermark, no caption']
+  [subject.trim().replace(/[.\s]+$/, ''), framingClause(req), req.visualStyle, TEXTLESS_CLAUSE]
     .filter(Boolean)
     .join(', ');
 
+/**
+ * The image prompt is seeded by the FIRST THREE WORDS of the voiceover line,
+ * wrapped in a fixed instruction — no LLM call writes it. Replaces the
+ * model-authored "subject" that used to feed composeVisualPrompt.
+ *
+ * Only the opening words are used because feeding the full narration line
+ * gave the image model enough verbatim material to render it as text inside
+ * the image; three words anchor the subject without inviting transcription.
+ * They are embedded bare, never quoted: quoted strings are another big
+ * trigger for diffusion models rendering the quoted words INTO the image.
+ */
+const narrationToImagePrompt = (narration: string): string => {
+  const seed = narration.trim().replace(/\s+/g, ' ').split(' ').slice(0, 3).join(' ');
+  return `Depict the following moment as one striking, purely visual scene told entirely through subject, composition, lighting and color — never through written or printed words: ${seed}. The scene must remain completely textless.`;
+};
 // --- parsing helpers ----------------------------------------------------------
 
 /** Strip list markers, quotes and scene labels a model may prepend to a line. */
@@ -424,82 +452,9 @@ const STOP_WORDS = new Set([
   'has', 'have', 'had', 'what', 'which', 'when', 'how', 'why', 'about', 'into', 'than', 'then',
 ]);
 
-/**
- * Last-resort image prompt derived from the narration's content words.
- *
- * Anchored on the topic rather than the narration alone: content words pulled
- * from one line drift off-subject badly on abstract lines, and the topic keeps
- * the fallback image recognisably part of the same video.
- */
-const deriveImagePrompt = (narration: string, topic: string, req: VisualPromptContext): string => {
-  const keywords = narration
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
-    .slice(0, 6);
-
-  const anchor = topic.trim().replace(/\s+/g, ' ').slice(0, 60);
-  const detail = keywords.length ? keywords.join(', ') : narration.slice(0, 80);
-  return composeVisualPrompt(`${anchor}, ${detail}, dramatic composition`, req);
-};
-
 /** True when a candidate image prompt is just the narration line repeated back. */
 const isEchoed = (candidate: string, narrationLine: string): boolean =>
   candidate.trim().toLowerCase() === narrationLine.trim().toLowerCase();
-
-/** True when a candidate image prompt is too thin to describe a real scene. */
-const isWeak = (candidate: string): boolean => {
-  const trimmed = candidate.trim();
-  if (trimmed.length < 12) return true;
-  const terms = trimmed.split(',').map((t) => t.trim()).filter(Boolean);
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  return terms.length < 2 && words.length < 4;
-};
-
-/**
- * Text-to-image models render quoted strings literally, so a prompt carrying one
- * produces an image with garbled words stamped across it.
- */
-const RENDERS_TEXT = /["“”]|\btext\s+(?:reading|that\s+says|saying)\b|\bword[s]?\s+(?:reading|that\s+says)\b|\bwritten\s+(?:on|across)\b/i;
-
-/**
- * The few-shot examples baked into IMAGE_PROMPT_SYSTEM. Weaker models
- * sometimes parrot one of these verbatim instead of writing a real prompt,
- * so an exact match to either one is always a failure, never a real answer.
- * Must be kept in sync with the Examples block in IMAGE_PROMPT_SYSTEM.
- */
-const EXAMPLE_IMAGE_PROMPTS = [
-  'lone anglerfish in black water, bioluminescent lure glowing pale blue, needle teeth catching the light, close-up, deep shadow',
-  'apollo boot pressing into grey lunar dust, sharp tread print, harsh white sunlight, black sky above, low close-up',
-].map((s) => s.toLowerCase());
-
-/** True when a candidate is the literal few-shot example, not a real answer. */
-const isExampleEcho = (candidate: string): boolean =>
-  EXAMPLE_IMAGE_PROMPTS.includes(candidate.trim().toLowerCase());
-
-/** True when a candidate repeats verbatim at another index — the model failed to vary the prompts per line. */
-const isDuplicate = (candidates: string[], index: number): boolean => {
-  const value = candidates[index]?.trim().toLowerCase();
-  if (!value) return false;
-  return candidates.some((other, i) => i !== index && other?.trim().toLowerCase() === value);
-};
-
-/** True when a candidate fails any of the usability checks above. */
-const isUnusable = (candidate: string | undefined, narrationLine: string, allCandidates: string[], index: number): boolean =>
-  !candidate
-  || isEchoed(candidate, narrationLine)
-  || isWeak(candidate)
-  || isExampleEcho(candidate)
-  || RENDERS_TEXT.test(candidate)
-  || isDuplicate(allCandidates, index);
-
-/** Count how many candidates at matching indices are usable (present, not echoed, not weak, not a duplicate/example echo). */
-const scoreImagePrompts = (candidates: string[], narrationLines: string[]): number =>
-  narrationLines.reduce((score, line, i) => {
-    if (isUnusable(candidates[i]?.trim(), line, candidates, i)) return score;
-    return score + 1;
-  }, 0);
 
 // --- narration quality --------------------------------------------------------
 
@@ -571,10 +526,9 @@ const openingSignature = (line: string): string =>
   line.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').split(/\s+/).filter(Boolean).slice(0, 4).join(' ');
 
 /**
- * Count the narration lines that are actually usable, the mirror of
- * scoreImagePrompts. Drives the retry: a script can be perfectly well-formed
- * and still be clichéd, repetitive or badly paced, and those never used to
- * trigger a second attempt.
+ * Count the narration lines that are actually usable. Drives the retry: a
+ * script can be perfectly well-formed and still be clichéd, repetitive or
+ * badly paced, and those never used to trigger a second attempt.
  *
  * The intro and payoff caps are the same budgets the prompt handed those two
  * lines, passed in rather than fixed here so the two can never disagree — and
@@ -799,85 +753,6 @@ OUTPUT EXACTLY ${sceneCount * 2} LINES AFTER YOUR <think> BLOCK. NO PREAMBLE.`;
   return fitToCount(lines, sceneCount);
 };
 
-/**
- * Deliberately says nothing about art style or framing — composeVisualPrompt
- * appends both afterwards. Asking the model for them too produced prompts with
- * the style listed twice, and with "wide-angle" framing on a vertical render.
- */
-const IMAGE_PROMPT_SYSTEM = `You turn narration lines into text-to-image prompts. Each prompt becomes the single image on screen while that line is spoken.
-
-Rules you must follow exactly:
-- Output ONLY the prompts, one per line, in the same order as the input. No numbering, no markdown, no quotes, no commentary.
-- Each prompt is a comma-separated list of visual nouns and adjectives describing ONE still image.
-- ANCHOR ON THE LINE. Find the most concrete thing the line names — an animal, an object, a place, a machine, a moment in time — and make that thing the visible subject. If the line names it, the image shows it.
-- A line can run to several sentences. It still gets ONE image: pick the single subject the whole line is about, usually the thing its first sentence names, and let the rest inform the detail and the setting.
-- If the line is abstract, pick a concrete physical stand-in drawn from the video's subject. Never a person at a desk, never a lightbulb, never a handshake, never a rising graph.
-- Every image must be recognisably part of the same video about the stated subject.
-- Change the camera distance and angle from the previous prompt — two neighbouring images must never be the same shot. When consecutive lines are about the same thing, keep that subject and change the view instead.
-- Describe only what is SEEN. Never include spoken words, narration, quoted text, signage, or anything for the image to spell out.
-- No people's real names, no logos, no watermarks.
-- Do not name an art style, a film stock, a render engine, an aspect ratio, or a resolution — those are added afterwards.
-- Give each prompt: subject, one telling detail, setting, light, camera distance.
-
-Examples:
-Narration: "Ninety percent of deep-sea species make their own light."
-Prompt: lone anglerfish in black water, bioluminescent lure glowing pale blue, needle teeth catching the light, close-up, deep shadow
-
-Narration: "In 1969, humanity took its first steps on the Moon."
-Prompt: apollo boot pressing into grey lunar dust, sharp tread print, harsh white sunlight, black sky above, low close-up
-
-Narration: "The Hoover Dam still holds back Lake Mead with concrete poured in the 1930s. Engineers ran ice water through pipes inside it, because a solid pour would have taken a century to cool."
-Prompt: curved concrete dam wall from the reservoir side, cooling pipe seams tracing the face, turquoise water below, hard desert sun, wide shot
-
-CRITICAL: You MUST use a <think>...</think> block to plan your response before outputting the requested lines. After the </think> tag, output ONLY the requested prompts.`;
-
-const generateImagePrompts = async (
-  narrationLines: string[],
-  req: ShortsScriptRequest,
-  opts: ShortsScriptOptions,
-): Promise<string[]> => {
-  opts.onStage?.('Designing the visuals...');
-
-  const script = narrationLines.map((line, i) => `${i + 1}. ${line}`).join('\n');
-  const user = `Video subject: ${req.topic}\n\nWrite exactly ${narrationLines.length} image prompts, one per line, for these lines and no others. Remember to think in a <think> block first:\n\n${script}`;
-
-  let candidates: string[] = [];
-  try {
-    candidates = toLines(await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts));
-  } catch (e) {
-    if (opts.signal?.aborted) throw e;
-    console.warn('[Shorts] Image prompt pass failed; deriving prompts from narration.', e);
-  }
-
-  if (scoreImagePrompts(candidates, narrationLines) < narrationLines.length) {
-    try {
-      const retry = toLines(
-        await runPrompt(
-          IMAGE_PROMPT_SYSTEM,
-          `${user}\n\nIMPORTANT: after your <think> block, respond with exactly ${narrationLines.length} plain lines, one prompt per line. No extra text.`,
-          0.6,
-          opts,
-        ),
-      );
-      if (scoreImagePrompts(retry, narrationLines) > scoreImagePrompts(candidates, narrationLines)) {
-        candidates = retry;
-      }
-    } catch (e) {
-      if (opts.signal?.aborted) throw e;
-      console.warn('[Shorts] Image prompt retry failed; using first attempt.', e);
-    }
-  }
-
-  const best = narrationLines.map((_, i) => candidates[i]?.trim() ?? '');
-
-  return narrationLines.map((line, i) => {
-    const candidate = best[i];
-    return candidate && !isUnusable(candidate, line, best, i)
-      ? composeVisualPrompt(candidate, req)
-      : deriveImagePrompt(line, req.topic, req);
-  });
-};
-
 const deriveTitle = (topic: string, firstLine: string): string => {
   const base = topic.trim().replace(/\s+/g, ' ');
   if (base.length > 0 && base.length <= 60) {
@@ -900,47 +775,25 @@ export const generateShortsScript = async (
   const beats = buildBeats(topic, req.targetDurationSec);
 
   const narrationLines = await generateNarrationLines(scoped, beats, opts);
-  const imagePrompts = await generateImagePrompts(narrationLines, scoped, opts);
 
   return {
     title: deriveTitle(topic, narrationLines[0] ?? ''),
-    scenes: narrationLines.map((narration, i) => ({
+    scenes: narrationLines.map((narration) => ({
       narration,
-      imagePrompt: imagePrompts[i] ?? deriveImagePrompt(narration, topic, scoped),
+      imagePrompt: composeVisualPrompt(narrationToImagePrompt(narration), scoped),
     })),
   };
 };
 
-/** Regenerate a single scene's image prompt without re-running the whole script. */
-export const regenerateImagePrompt = async (
+/**
+ * Recompute a single scene's image prompt from its current narration —
+ * deterministic, so this just reapplies narrationToImagePrompt rather than
+ * calling a model.
+ */
+export const regenerateImagePrompt = (
   narration: string,
   req: Pick<ShortsScriptRequest, 'topic'> & VisualPromptContext,
-  opts: ShortsScriptOptions = {},
-): Promise<string> => {
-  const user = `Video subject: ${req.topic}\n\nWrite ONE image prompt for this narration line:\n${narration}`;
-
-  const attempt = async (temperature: number, extra = ''): Promise<string | null> => {
-    try {
-      const raw = await runPrompt(IMAGE_PROMPT_SYSTEM, `${user}${extra}`, temperature, opts);
-      const [first] = toLines(raw);
-      if (first && !isEchoed(first, narration) && !isWeak(first) && !isExampleEcho(first) && !RENDERS_TEXT.test(first)) {
-        return first;
-      }
-    } catch (e) {
-      if (opts.signal?.aborted) throw e;
-      console.warn('[Shorts] Image prompt regeneration attempt failed.', e);
-    }
-    return null;
-  };
-
-  const first = await attempt(0.95);
-  if (first) return composeVisualPrompt(first, req);
-
-  const retry = await attempt(0.7, '\n\nIMPORTANT: respond with exactly ONE line, nothing else.');
-  if (retry) return composeVisualPrompt(retry, req);
-
-  return deriveImagePrompt(narration, req.topic, req);
-};
+): string => composeVisualPrompt(narrationToImagePrompt(narration), req);
 
 const EXTEND_NARRATION_SYSTEM = `You extend one line of a short-form video voiceover script with more supporting detail, without rewriting what's already there.
 

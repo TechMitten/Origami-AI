@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Expand,
   GripVertical,
   ImageIcon,
   ListPlus,
@@ -17,6 +18,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { isSceneAudioStale, isSceneVisualStale, type ShortsGenerationMode, type ShortsScene } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
+import { ShortsVisualPreviewModal } from './ShortsVisualPreviewModal';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,6 +29,8 @@ interface ShortsSceneCardProps {
   index: number;
   aspect: ShortsAspect;
   generationMode: ShortsGenerationMode;
+  /** Active image/video model id — a visual generated with another model reads as stale. */
+  visualModel: string;
   disabled: boolean;
   isExtending: boolean;
   onUpdate: (id: string, patch: Partial<ShortsScene>) => void;
@@ -48,6 +52,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   index,
   aspect,
   generationMode,
+  visualModel,
   disabled,
   isExtending,
   onUpdate,
@@ -65,6 +70,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const narrationRef = useRef<HTMLTextAreaElement | null>(null);
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const isVideo = generationMode === 'video';
   const visualStatus = isVideo ? scene.videoStatus : scene.imageStatus;
@@ -72,7 +78,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const visualBusy = visualStatus === 'pending';
   const audioBusy = scene.audioStatus === 'pending';
   const audioStale = isSceneAudioStale(scene);
-  const visualStale = isSceneVisualStale(scene, generationMode);
+  const visualStale = isSceneVisualStale(scene, generationMode, visualModel);
 
   // Automatically expose the prompt input field while reviewing the script before media is generated
   const [showPrompt, setShowPrompt] = useState(() => !visualUrl && visualStatus !== 'ready');
@@ -141,8 +147,26 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
           </button>
         </div>
 
-        {/* Thumbnail */}
-        <div className={cn('relative w-24 shrink-0 overflow-hidden rounded-xl bg-black/40 sm:w-28', aspectClass[aspect])}>
+        {/* Thumbnail. A div, not a button — it hosts the real regenerate <button>
+            below, and nesting interactive controls inside a <button> breaks both
+            HTML validity and (when disabled) click delivery to the children. */}
+        <div
+          role={visualUrl ? 'button' : undefined}
+          tabIndex={visualUrl ? 0 : undefined}
+          onClick={() => visualUrl && setIsPreviewOpen(true)}
+          onKeyDown={(e) => {
+            if (visualUrl && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
+              setIsPreviewOpen(true);
+            }
+          }}
+          title={visualUrl ? `View full-size ${isVideo ? 'clip' : 'image'}` : undefined}
+          className={cn(
+            'group/thumb relative w-24 shrink-0 overflow-hidden rounded-xl bg-black/40 sm:w-28',
+            aspectClass[aspect],
+            visualUrl ? 'focus-ring cursor-zoom-in' : 'cursor-default',
+          )}
+        >
           {visualUrl ? (
             isVideo ? (
               <video src={visualUrl} className="h-full w-full object-cover" muted loop autoPlay playsInline />
@@ -165,26 +189,43 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             </div>
           )}
 
+          {visualUrl && !visualBusy && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover/thumb:bg-black/30 group-hover/thumb:opacity-100">
+              <Expand className="h-4 w-4 text-white/90 drop-shadow" />
+            </div>
+          )}
+
           {visualStale && !visualBusy && (
             <span
-              title={`Prompt edited since this ${isVideo ? 'video' : 'image'} was generated`}
+              title={`Prompt or model changed since this ${isVideo ? 'video' : 'image'} was generated`}
               className="absolute left-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]"
             />
           )}
 
           <button
             type="button"
-            onClick={() => onRegenerateVisual(scene.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRegenerateVisual(scene.id);
+            }}
             disabled={disabled || visualBusy}
             title={isVideo ? 'Regenerate video' : 'Regenerate image'}
             className={cn(
-              'focus-ring absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 transition-all hover:text-cyan-300 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed',
+              'focus-ring absolute bottom-1 right-1 rounded-md bg-black/70 p-1.5 text-white/70 transition-all hover:text-cyan-300 focus:opacity-100 group-hover/thumb:opacity-100 disabled:cursor-not-allowed',
               visualStale ? 'text-amber-300 opacity-100' : 'opacity-0',
             )}
           >
             <RefreshCw className="h-3 w-3" />
           </button>
         </div>
+
+        <ShortsVisualPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          url={visualUrl ?? null}
+          isVideo={isVideo}
+          label={`Scene ${index + 1} ${isVideo ? 'clip' : 'image'}`}
+        />
 
         {/* Body */}
         <div className="min-w-0 flex-1 space-y-3">
@@ -295,10 +336,11 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                     type="button"
                     onClick={() => onRewritePrompt(scene.id)}
                     disabled={disabled}
+                    title="Rebuild this prompt from the current voiceover, discarding manual edits"
                     className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/60 transition-colors hover:border-cyan-400/40 hover:text-white disabled:opacity-30"
                   >
                     <Wand2 className="h-3 w-3" />
-                    Rewrite with AI
+                    Reset from voiceover
                   </button>
                 </div>
               </div>
@@ -318,7 +360,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               />
               {visualStale && (
                 <p className="text-[11px] text-amber-300/80">
-                  Edited since the {isVideo ? 'video' : 'image'} was generated — regenerate to apply the change.
+                  Changed since the {isVideo ? 'video' : 'image'} was generated — regenerate to apply the change.
                 </p>
               )}
             </div>

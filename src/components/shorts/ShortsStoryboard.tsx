@@ -23,6 +23,8 @@ interface ShortsStoryboardProps {
   scenes: ShortsScene[];
   aspect: ShortsAspect;
   generationMode: ShortsGenerationMode;
+  /** Active image/video model id, so cards can flag visuals made with a different one. */
+  visualModel: string;
   disabled: boolean;
   extendingIds: Set<string>;
   isExtendingAll: boolean;
@@ -41,6 +43,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   scenes,
   aspect,
   generationMode,
+  visualModel,
   disabled,
   extendingIds,
   isExtendingAll,
@@ -109,6 +112,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
                 index={index}
                 aspect={aspect}
                 generationMode={generationMode}
+                visualModel={visualModel}
                 disabled={disabled}
                 isExtending={extendingIds.has(scene.id)}
                 onUpdate={onUpdateScene}

@@ -54,6 +54,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [useOpenAIFixScript, setUseOpenAIFixScript] = useState(currentSettings?.useOpenAIFixScript ?? false);
   const [useOpenAIForSlideGen, setUseOpenAIForSlideGen] = useState(currentSettings?.useOpenAIForSlideGen ?? false);
   const [shortsUseOpenAI, setShortsUseOpenAI] = useState(currentSettings?.shortsUseOpenAI ?? false);
+  const [assistantUseOpenAI, setAssistantUseOpenAI] = useState(currentSettings?.assistantUseOpenAI ?? false);
 
   // Pollinations (Shorts image generation)
   const [pollinationsApiKey, setPollinationsApiKey] = useState(currentSettings?.pollinationsApiKey ?? '');
@@ -367,6 +368,7 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       useOpenAIFixScript,
       useOpenAIForSlideGen,
       shortsUseOpenAI,
+      assistantUseOpenAI,
       pollinationsApiKey: pollinationsApiKey.trim() || undefined,
       pollinationsTokenExpiresAt,
       pollinationsAccountName,
@@ -1334,6 +1336,24 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                       className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${shortsUseOpenAI ? 'bg-emerald-500' : 'bg-white/10'}`}
                     >
                       <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${shortsUseOpenAI ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/10">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      Use for Assistant
+                    </div>
+                    <p className="text-[10px] text-white/30">Use this endpoint for the AI Assistant chat instead of local WebLLM</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{assistantUseOpenAI ? 'On' : 'Off'}</span>
+                    <button
+                      onClick={() => setAssistantUseOpenAI(!assistantUseOpenAI)}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${assistantUseOpenAI ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${assistantUseOpenAI ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>
