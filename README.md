@@ -63,8 +63,6 @@ npm run dev
 
 Open **http://localhost:3000**.
 
-> [!IMPORTANT]
-> Don't open `index.html` directly. The dev server sets the COOP/COEP headers that `SharedArrayBuffer`/FFmpeg.wasm need — without them, rendering and TTS init silently fail.
 
 | Command | Purpose |
 |---|---|
