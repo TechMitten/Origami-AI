@@ -34,15 +34,6 @@ Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform
 - **💬 AI assistant chat** — local models with image/video analysis
 - **🎯 Video scene analysis** — MP4 breakdown with timestamped scenes
 
-|  | Traditional tools | Cloud AI services | **Origami AI** |
-|---|---|---|---|
-| Learning curve | Steep | Easy | **Minimal — fully automated** |
-| Privacy | Local | Cloud-based | **Local-first, device-only** |
-| Cost | One-time / free | Pay-per-minute or credits | **Free & open source** |
-| Voice | Your own / hire talent | Pay per minute | **Unlimited local TTS** |
-| Latency | Varies | Network-dependent | **Instant (local GPU)** |
-| Time to result | Hours | Minutes | **~2–5 min** |
-
 ## ✨ Features
 
 - 🧠 **WebGPU-powered AI** — local LLM inference for narration, chat, and analysis
