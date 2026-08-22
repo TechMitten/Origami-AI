@@ -44,7 +44,7 @@ Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform
 - 🔍 **Scene-aware video analysis** — turn an MP4 into a timestamped scene breakdown
 - 💬 **AI assistant chat** — local WebLLM models or cloud fallback, with image/video attachments
 - 🎬 **Shorts generator** — turn a topic into a vertical short: AI script, image/video generation, TTS voiceover, burned-in captions
-- 🔒 **Server-side key proxying** — API keys never ship in the production client bundle
+- 🔒 **Local & privacy-first** — API keys and project data are stored locally in your browser
 - 🎵 **Background music & mixing** — auto-ducking under narration with per-slide control
 - 📦 **Portable projects** — export/import a full project (slides, media, audio, settings) as a `.origami` archive
 - ⚡ **Zero-config startup** — works completely offline after first model download
@@ -149,39 +149,22 @@ Open the app and click **⚙️ Settings** for:
 | API | Remote OpenAI-compatible provider (Gemini, OpenRouter, Ollama, etc.) |
 | AI Prompt | Narration script generation behavior |
 
-### API keys: dev vs. production
+### API Configuration
 
-Origami AI works with **zero API keys** via local WebLLM. Cloud APIs (Gemini, OpenAI-compatible) are optional, for narration and video analysis.
+Origami AI works with **zero API keys** out of the box using local in-browser WebLLM and Kokoro TTS.
 
-```bash
-cp .env.example .env
-```
+If you choose to use cloud AI providers, all settings and keys are configured directly from the front end:
+- **OpenAI-compatible APIs (Gemini, OpenRouter, Groq, Ollama, etc.)**: Open **⚙️ Settings → API** to set your endpoint base URL, model identifier, and API key. Credentials are saved locally in your browser's IndexedDB and never stored on the server.
+- **Shorts Image & Video Generation**: Powered by [Pollinations](https://pollinations.ai). Connect your account or enter your API key directly in the app from the Shorts composer or Settings.
 
-```env
-# Dev only — Vite bakes VITE_-prefixed vars into the client bundle
-VITE_LLM_API_KEY=your_api_key_here
-VITE_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-VITE_LLM_MODEL=gemini-flash-latest
-```
-
-In **production**, set `LLM_API_KEY` (no `VITE_` prefix) on the server/host instead. The client detects there's no client-side key and automatically routes calls through the server proxy (`POST /api/llm`).
-
-> [!WARNING]
-> Never set `VITE_LLM_API_KEY` in production — anything with the `VITE_` prefix is compiled into the public client bundle.
-
-**Shorts** image/video generation uses [Pollinations](https://pollinations.ai). Sign in with Pollinations from the Shorts composer to use your own account (a `pk_...`/`sk_...` key pair obtained via https://pollinations.ai).
+No backend `.env` file or environment variables are needed for API keys.
 
 <details>
-<summary><strong>Full environment variable reference</strong></summary>
+<summary><strong>Server environment variables (optional)</strong></summary>
 
 | Variable | Context | Purpose |
 |---|---|---|
-| `VITE_LLM_API_KEY` | Client (dev only) | Exposes the API key to the browser for development. **Never set in production.** |
-| `LLM_API_KEY` | Server (prod) | Server-side key used by the LLM proxy endpoints; never sent to the client. |
-| `VITE_LLM_BASE_URL` | Client | OpenAI-compatible endpoint base URL |
-| `VITE_LLM_MODEL` | Client | Model identifier (e.g. `gemini-flash-latest`) |
-| `POLLINATIONS_API_KEY` | Server (prod) | Server-side fallback key for the Pollinations image/video proxy, used when a user hasn't connected their own account |
-| `CLIENT_URL` | Server | Comma-separated allowed CORS origins |
+| `CLIENT_URL` | Server | Comma-separated allowed CORS origins (default `http://localhost:5173`) |
 | `PORT` | Server | Port to listen on (default `3000`) |
 | `NODE_ENV` | Server | Set to `production` for production builds |
 
