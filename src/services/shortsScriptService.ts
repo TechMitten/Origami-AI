@@ -132,6 +132,27 @@ const deriveImagePrompt = (narration: string, visualStyle: string): string => {
   return `${subject}, dramatic composition, ${visualStyle}`;
 };
 
+/** True when a candidate image prompt is just the narration line repeated back. */
+const isEchoed = (candidate: string, narrationLine: string): boolean =>
+  candidate.trim().toLowerCase() === narrationLine.trim().toLowerCase();
+
+/** True when a candidate image prompt is too thin to describe a real scene. */
+const isWeak = (candidate: string): boolean => {
+  const trimmed = candidate.trim();
+  if (trimmed.length < 12) return true;
+  const terms = trimmed.split(',').map((t) => t.trim()).filter(Boolean);
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  return terms.length < 2 && words.length < 4;
+};
+
+/** Count how many candidates at matching indices are usable (present, not echoed, not weak). */
+const scoreImagePrompts = (candidates: string[], narrationLines: string[]): number =>
+  narrationLines.reduce((score, line, i) => {
+    const candidate = candidates[i]?.trim();
+    if (!candidate || isEchoed(candidate, line) || isWeak(candidate)) return score;
+    return score + 1;
+  }, 0);
+
 /** Force a line list to exactly `count` entries by trimming or recycling. */
 const fitToCount = (lines: string[], count: number): string[] => {
   if (lines.length === count) return lines;
@@ -267,7 +288,14 @@ Rules you must follow exactly:
 - Each prompt is a comma-separated list of visual nouns and adjectives describing a single still image.
 - Describe only what is SEEN. Never include spoken words, narration, or text to render in the image.
 - No people's names, no logos, no watermarks, no captions, no on-image text.
-- Be concrete and cinematic: subject, setting, lighting, camera angle, mood.`;
+- Be concrete and cinematic: subject, setting, lighting, camera angle, mood.
+
+Examples:
+Narration: "The ocean holds ninety-five percent of Earth's unexplored world."
+Prompt: vast dark ocean trench, bioluminescent creatures glowing, sunbeams piercing deep water, wide-angle underwater shot, moody blue lighting, cinematic
+
+Narration: "In 1969, humanity took its first steps on the Moon."
+Prompt: astronaut in white spacesuit on lunar surface, footprints in grey dust, Earth rising in black sky, low-angle shot, stark sunlight, cinematic`;
 
 const generateImagePrompts = async (
   narrationLines: string[],
@@ -284,29 +312,43 @@ Write exactly ${narrationLines.length} image prompts, one per line, matching the
 
 ${numbered}`;
 
-  let prompts: string[] = [];
+  let best: string[] = [];
   try {
-    prompts = toLines(await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts));
+    best = toLines(await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts));
   } catch (e) {
     if (opts.signal?.aborted) throw e;
     console.warn('[Shorts] Image prompt pass failed; deriving prompts from narration.', e);
   }
 
-  // Guard against the model echoing the narration back verbatim.
-  const looksEchoed = prompts.length > 0
-    && prompts.filter((p, i) => narrationLines[i] && p.trim() === narrationLines[i].trim()).length > prompts.length / 2;
-
-  if (prompts.length !== narrationLines.length || looksEchoed) {
-    const usable = looksEchoed ? [] : prompts;
-    return narrationLines.map((line, i) => {
-      const candidate = usable[i]?.trim();
-      return candidate && candidate !== line.trim()
-        ? `${candidate}, ${req.visualStyle}`
-        : deriveImagePrompt(line, req.visualStyle);
-    });
+  // Retry once, with a stricter instruction, when the first attempt missed the
+  // line count or didn't produce enough usable (non-echoed, non-thin) prompts.
+  if (scoreImagePrompts(best, narrationLines) < narrationLines.length) {
+    opts.onStage?.('Refining the visuals...');
+    try {
+      const retry = toLines(
+        await runPrompt(
+          IMAGE_PROMPT_SYSTEM,
+          `${user}\n\nIMPORTANT: respond with exactly ${narrationLines.length} plain lines, one prompt per line. Nothing else.`,
+          0.6,
+          opts,
+        ),
+      );
+      if (scoreImagePrompts(retry, narrationLines) > scoreImagePrompts(best, narrationLines)) best = retry;
+    } catch (e) {
+      if (opts.signal?.aborted) throw e;
+      console.warn('[Shorts] Image prompt retry failed; using first attempt.', e);
+    }
   }
 
-  return prompts.map((p) => `${p}, ${req.visualStyle}`);
+  // Fall back per line rather than discarding the whole batch: a weak or
+  // echoed line at index i falls back to the keyword-derived prompt while
+  // every other usable line still gets the LLM-authored one.
+  return narrationLines.map((line, i) => {
+    const candidate = best[i]?.trim();
+    return candidate && !isEchoed(candidate, line) && !isWeak(candidate)
+      ? `${candidate}, ${req.visualStyle}`
+      : deriveImagePrompt(line, req.visualStyle);
+  });
 };
 
 const deriveTitle = (topic: string, firstLine: string): string => {
@@ -346,18 +388,25 @@ export const regenerateImagePrompt = async (
   req: Pick<ShortsScriptRequest, 'topic' | 'visualStyle'>,
   opts: ShortsScriptOptions = {},
 ): Promise<string> => {
-  try {
-    const raw = await runPrompt(
-      IMAGE_PROMPT_SYSTEM,
-      `Visual style: ${req.visualStyle}\nOverall subject: ${req.topic}\n\nWrite ONE image prompt for this narration line:\n${narration}`,
-      0.95,
-      opts,
-    );
-    const [first] = toLines(raw);
-    if (first && first.trim() !== narration.trim()) return `${first}, ${req.visualStyle}`;
-  } catch (e) {
-    if (opts.signal?.aborted) throw e;
-    console.warn('[Shorts] Image prompt regeneration failed; deriving from narration.', e);
-  }
+  const user = `Visual style: ${req.visualStyle}\nOverall subject: ${req.topic}\n\nWrite ONE image prompt for this narration line:\n${narration}`;
+
+  const attempt = async (temperature: number, extra = ''): Promise<string | null> => {
+    try {
+      const raw = await runPrompt(IMAGE_PROMPT_SYSTEM, `${user}${extra}`, temperature, opts);
+      const [first] = toLines(raw);
+      if (first && !isEchoed(first, narration) && !isWeak(first)) return first;
+    } catch (e) {
+      if (opts.signal?.aborted) throw e;
+      console.warn('[Shorts] Image prompt regeneration attempt failed.', e);
+    }
+    return null;
+  };
+
+  const first = await attempt(0.95);
+  if (first) return `${first}, ${req.visualStyle}`;
+
+  const retry = await attempt(0.7, '\n\nIMPORTANT: respond with exactly ONE line, nothing else.');
+  if (retry) return `${retry}, ${req.visualStyle}`;
+
   return deriveImagePrompt(narration, req.visualStyle);
 };

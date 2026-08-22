@@ -71,6 +71,9 @@ const MIN_SCENE_SEC = 1.2;
 const CROSSFADE_SEC = 0.4;
 const TITLE_CARD_SEC = 1.6;
 const DEFAULT_ACCENT = '#22d3ee';
+/** How long the branded end card holds after the last scene. */
+const END_SPLASH_SEC = 5;
+const END_SPLASH_URL = '/endsplash.jpg';
 
 interface PreparedScene {
   bitmap: ImageBitmap | null;
@@ -88,6 +91,8 @@ interface PreparedScene {
   panToX: number;
   panFromY: number;
   panToY: number;
+  /** The branded end card appended after the last narrated scene. */
+  isEndSplash?: boolean;
 }
 
 /** Video clips are pre-sampled at a low, fixed rate rather than seeked live per output
@@ -219,6 +224,18 @@ export class ShortsVideoRenderer {
     }
   }
 
+  /** Fetch the static end-splash asset. Missing/unreadable is non-fatal — the card is just skipped. */
+  private async loadEndSplashBitmap(): Promise<ImageBitmap | null> {
+    try {
+      const response = await fetch(END_SPLASH_URL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await createImageBitmap(await response.blob());
+    } catch (e) {
+      console.warn('[Shorts] End splash image could not be loaded; skipping the end card.', e);
+      return null;
+    }
+  }
+
   private async prepareScenes(
     options: ShortsRenderOptions,
     width: number,
@@ -281,6 +298,29 @@ export class ShortsVideoRenderer {
       });
 
       cursor += duration;
+    }
+
+    this.ensureNotAborted(options.signal);
+    const splashBitmap = await this.loadEndSplashBitmap();
+    if (splashBitmap) {
+      prepared.push({
+        bitmap: splashBitmap,
+        videoFrames: null,
+        videoFrameIntervalSec: 0,
+        videoClipDuration: 0,
+        start: cursor,
+        duration: END_SPLASH_SEC,
+        captions: [],
+        // Held static — this is a branded end card, not a Ken Burns shot.
+        zoomFrom: 1,
+        zoomTo: 1,
+        panFromX: 0,
+        panToX: 0,
+        panFromY: 0,
+        panToY: 0,
+        isEndSplash: true,
+      });
+      cursor += END_SPLASH_SEC;
     }
 
     return { scenes: prepared, totalDuration: cursor };
@@ -633,7 +673,7 @@ export class ShortsVideoRenderer {
       this.drawSceneImage(ctx, scene, localTime, width, height, 1, index);
     }
 
-    if (options.captionsEnabled !== false) {
+    if (options.captionsEnabled !== false && !scene.isEndSplash) {
       this.drawScrim(ctx, width, height);
 
       const chunk = scene.captions.find((c) => localTime >= c.start && localTime < c.end);
