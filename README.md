@@ -1,3 +1,4 @@
+<a id="top"></a>
 <div align="center">
   <img src="logo/modlogo.png" alt="Origami AI logo" width="280" />
 
@@ -270,7 +271,7 @@ Licensed under the [MIT](LICENSE).
 
 <div align="center">
 
-<a href="#-quick-start">⬆ Back to top</a>
+<a href="#top">⬆ Back to top</a>
 
 Made with ❤️ by TechMitten LLC
 
