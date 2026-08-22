@@ -1,8 +1,8 @@
 <div align="center">
   <img src="logo/modlogo.png" alt="Origami AI logo" width="280" />
 
-  <h3>Turn PDF slides into narrated videos — entirely in your browser.</h3>
-  <p>AI-written narration, local text-to-speech, in-browser FFmpeg rendering, and smart screen recording. No upload, no render farm, no subscription.</p>
+  <h3>A full-featured AI Studio — run powerful AI apps entirely in your browser.</h3>
+  <p>WebGPU-accelerated local LLM inference, text-to-speech, video generation, and in-browser rendering. No upload, no render farm, no subscription.</p>
 
   <p>
     <a href="https://github.com/TechMitten/Origami-AI/stargazers"><img src="https://img.shields.io/github/stars/techmitten/origami-ai?style=flat&color=blue" alt="GitHub stars"></a>
@@ -14,6 +14,7 @@
   <p>
     <a href="#-quick-start"><strong>Quick Start</strong></a> ·
     <a href="#-features">Features</a> ·
+    <a href="#-use-cases">Use Cases</a> ·
     <a href="#-how-it-works">How It Works</a> ·
     <a href="#-configuration">Configuration</a> ·
     <a href="CONTRIBUTING.md">Contributing</a>
@@ -24,32 +25,40 @@
 
 ## What is Origami AI?
 
-Upload a PDF deck, and Origami AI extracts the slides, writes a narration script with an LLM, voices it with local text-to-speech, and renders a finished MP4 — using [WebLLM](https://github.com/mlc-ai/web-llm), [Kokoro.js](https://github.com/Kokoro-js), and [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) running directly in your browser via WebGPU. The Express server only proxies optional cloud LLM calls so API keys never reach the client bundle — your slides, audio, and video never have to leave your machine.
+Origami AI is a **browser-based AI Studio** that runs AI-powered applications entirely on your device using [WebGPU](https://gpuweb.github.io/) and [WebLLM](https://github.com/mlc-ai/web-llm). No cloud dependency, no data upload, no API calls required (though optional cloud integrations are supported).
 
-It also doubles as a screen recorder with cinematic auto-zoom, an MP4 scene analyzer, and an AI assistant chat.
+Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform for:
+- **📹 PDF-to-video creation** — AI narration scripts, text-to-speech, and in-browser rendering
+- **🎬 Shorts generation** — topic-to-vertical-video with AI imagery and voiceovers
+- **🎙️ Screen recording** — cinematic auto-zoom with DOM telemetry
+- **💬 AI assistant chat** — local models with image/video analysis
+- **🎯 Video scene analysis** — MP4 breakdown with timestamped scenes
+- **🐛 Issue reporting** — record bugs and get AI-generated debugging summaries
 
-|  | Traditional video editors | Cloud AI services | **Origami AI** |
+|  | Traditional tools | Cloud AI services | **Origami AI** |
 |---|---|---|---|
-| Learning curve | Steep | Easy | **Minimal — automated** |
-| Privacy | Local | Cloud-based | **Local-first** |
+| Learning curve | Steep | Easy | **Minimal — fully automated** |
+| Privacy | Local | Cloud-based | **Local-first, device-only** |
 | Cost | One-time / free | Pay-per-minute or credits | **Free & open source** |
 | Voice | Your own / hire talent | Pay per minute | **Unlimited local TTS** |
-| Time to video | Hours | Minutes | **~2–5 min** |
+| Latency | Varies | Network-dependent | **Instant (local GPU)** |
+| Time to result | Hours | Minutes | **~2–5 min** |
 
 ## ✨ Features
 
+- 🧠 **WebGPU-powered AI** — local LLM inference for narration, chat, and analysis
 - 🎬 **AI narration scripts** — generated locally with WebLLM, or via Gemini/OpenAI-compatible APIs
 - 🎙️ **In-browser TTS** — Kokoro.js with multiple voices, no server round-trip
-- ⚡ **WebGPU acceleration** — for both narration generation and the AI assistant
-- 📹 **In-browser rendering** — FFmpeg.wasm composes slides, audio, music, and pan/zoom into a 720p/1080p MP4
-- 🎯 **Smart screen recording** — auto-zoom on idle, with an optional Chrome extension for richer cursor/DOM telemetry
+- 📹 **In-browser rendering** — FFmpeg.wasm composes slides, audio, music, and pan/zoom into MP4 (720p/1080p)
+- 🎯 **Smart screen recording** — auto-zoom on idle, with optional Chrome extension for richer DOM telemetry
 - 🔍 **Scene-aware video analysis** — turn an MP4 into a timestamped scene breakdown
 - 💬 **AI assistant chat** — local WebLLM models or cloud fallback, with image/video attachments
 - 🐛 **Issue reporter** — record a bug, get an AI-generated debugging writeup
-- 🔒 **Server-side key proxying** — `LLM_API_KEY` never ships in the production client bundle
+- 🎬 **Shorts generator** — turn a topic into a vertical short: AI script, image/video generation, TTS voiceover, burned-in captions
+- 🔒 **Server-side key proxying** — API keys never ship in the production client bundle
 - 🎵 **Background music & mixing** — auto-ducking under narration with per-slide control
 - 📦 **Portable projects** — export/import a full project (slides, media, audio, settings) as a `.origami` archive
-- 🎞️ **Shorts generator** — turn a topic into a vertical (or square/landscape) short: AI script, Pollinations image/video generation, Kokoro TTS voiceover, and burned-in captions
+- ⚡ **Zero-config startup** — works completely offline after first model download
 
 ## 🚀 Quick Start
 
@@ -94,8 +103,25 @@ The extension adds DOM-level cursor/click/scroll telemetry for more precise auto
 2. Enable **Developer mode**
 3. Click **Load unpacked** → select the `chrome-extension/` folder
 
-You can also download a packaged ZIP from inside the app (header menu → **Download Chrome Extension**, or Slide Editor → *Slide Media* tab). See [chrome-extension/README.md](chrome-extension/README.md) for details.
+You can also download a packaged ZIP from inside the app (header menu → **Download Chrome Extension**, or Slide Editor → *Slide Media* tab). See [chrome-extension/README.md](chrome-extension/README.md).
 </details>
+
+## 📋 Use Cases
+
+### PDF Slides → Professional Video
+Upload a deck, generate AI narration, add music, and export a polished MP4 — all in the browser.
+
+### Topic → Short-Form Video
+Describe an idea, and Origami AI writes a script, generates visuals (AI-drawn or AI video), synthesizes speech, and renders a vertical short in under 5 minutes.
+
+### Screen Recording with Effects
+Record a browser tab or desktop, and Origami AI automatically adds cinematic zoom, pan, and cursor-following based on real interactions.
+
+### Interactive AI Chat
+Ask questions, attach images or video clips, and get answers powered by local LLMs — no internet required.
+
+### Bug Reporting + AI Analysis
+Record your screen while reproducing a bug. Origami AI generates a scene breakdown and AI-powered debugging suggestions.
 
 ## 🧭 How It Works
 
@@ -153,12 +179,12 @@ VITE_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 VITE_LLM_MODEL=gemini-flash-latest
 ```
 
-In **production**, set `LLM_API_KEY` (no `VITE_` prefix) on the server/host instead. The client detects there's no client-side key and automatically routes calls through the server proxy (`POST /api/llm/chat`, `/api/llm/analyze-video`, `/api/llm/analyze-issue`) so the key never reaches the browser.
+In **production**, set `LLM_API_KEY` (no `VITE_` prefix) on the server/host instead. The client detects there's no client-side key and automatically routes calls through the server proxy (`POST /api/llm`).
 
 > [!WARNING]
 > Never set `VITE_LLM_API_KEY` in production — anything with the `VITE_` prefix is compiled into the public client bundle.
 
-**Shorts** image/video generation uses [Pollinations](https://pollinations.ai). Sign in with Pollinations from the Shorts composer to use your own account (a `pk_...`/`sk_...` key pair obtained via OAuth and stored locally in IndexedDB), or set `POLLINATIONS_API_KEY` on the server as a fallback used by the `/api/pollinations/image` and `/api/pollinations/video` proxies. Without either one configured, Shorts media generation is unavailable.
+**Shorts** image/video generation uses [Pollinations](https://pollinations.ai). Sign in with Pollinations from the Shorts composer to use your own account (a `pk_...`/`sk_...` key pair obtained via https://pollinations.ai).
 
 <details>
 <summary><strong>Full environment variable reference</strong></summary>
@@ -179,7 +205,7 @@ In **production**, set `LLM_API_KEY` (no `VITE_` prefix) on the server/host inst
 ## 🖥️ Requirements
 
 - **Node.js** ≥ 20.19.0
-- A WebGPU-capable browser (below) — required for local narration generation, the AI assistant, and zoom effects during screen recording. Without it, fall back to a remote OpenAI-compatible API.
+- A WebGPU-capable browser (below) — required for local narration generation, the AI assistant, and zoom effects during screen recording. Without it, fall back to a remote OpenAI-compatible API
 - A stable connection for first-run model downloads (roughly 1–5GB depending on models chosen)
 
 <details>
@@ -270,7 +296,7 @@ Licensed under the [MIT](LICENSE).
 
 ## 🙏 Credits
 
-[WebLLM](https://github.com/mlc-ai/web-llm) · [Kokoro.js](https://github.com/Kokoro-js) · [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) · [PDF.js](https://mozilla.github.io/pdf.js/) · [Pollinations](https://pollinations.ai) · [React](https://react.dev) · [Tailwind CSS](https://tailwindcss.com) · [Lucide](https://lucide.dev) · [dnd-kit](https://docs.dndkit.com)
+[WebLLM](https://github.com/mlc-ai/web-llm) · [Kokoro.js](https://github.com/Kokoro-js) · [FFmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) · [PDF.js](https://mozilla.github.io/pdf.js/) · [Pollinations](https://pollinations.ai)
 
 ---
 
