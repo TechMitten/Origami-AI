@@ -50,24 +50,72 @@ const ACCENT: Record<Accent, { tile: string; border: string; active: string; str
   blue: { tile: 'bg-blue-400/15 text-blue-300 ring-blue-400/30', border: 'border-blue-400/25', active: 'border-blue-400/50', strip: 'bg-blue-300' },
   emerald: { tile: 'bg-emerald-400/15 text-emerald-300 ring-emerald-400/30', border: 'border-emerald-400/25', active: 'border-emerald-400/50', strip: 'bg-emerald-300' },
   amber: { tile: 'bg-amber-400/15 text-amber-300 ring-amber-400/30', border: 'border-amber-400/25', active: 'border-amber-400/50', strip: 'bg-amber-300' },
-  violet: { tile: 'bg-violet-400/15 text-violet-300 ring-violet-400/30', border: 'border-violet-400/25', active: 'border-violet-400/50', strip: 'bg-violet-300' },
+  violet: { tile: 'bg-violet-400/15 text-violet-300 ring-violet-400/30', border: 'border-violet-400/25', active: 'border-violet-400/50', strip: 'bg-violet-200' },
 };
+
+type AccentTheme = {
+  icon: string;
+  chipActive: string;
+  modeActive: string;
+  modeFocus: string;
+  toggleIcon: string;
+  toggleFocus: string;
+  toggleTrack: string;
+  toggleKnob: string;
+  ratioGlyph: string;
+  ratioLabel: string;
+  ratioHint: string;
+  btnText: string;
+  btnIcon: string;
+  btnHover: string;
+  range: string;
+  chevronOpen: string;
+};
+
+const THEME: Record<Accent, AccentTheme> = {
+  cyan: {
+    icon: 'text-cyan-300/90', chipActive: 'border-cyan-400/60 bg-cyan-400/10 text-cyan-200', modeActive: 'bg-cyan-400/15 text-cyan-200', modeFocus: 'outline-cyan-400', toggleIcon: 'text-cyan-300', toggleFocus: 'outline-cyan-400', toggleTrack: 'border-cyan-400/60 bg-cyan-400/25', toggleKnob: 'bg-cyan-300', ratioGlyph: 'border-cyan-300 bg-cyan-400/20', ratioLabel: 'text-cyan-100', ratioHint: 'text-cyan-300/90', btnText: 'text-cyan-300', btnIcon: 'text-cyan-400', btnHover: 'hover:border-cyan-400/40 hover:bg-cyan-500/15 hover:text-cyan-200', range: 'accent-cyan-400', chevronOpen: 'text-cyan-300',
+  },
+  blue: {
+    icon: 'text-blue-300/90', chipActive: 'border-blue-400/60 bg-blue-400/10 text-blue-200', modeActive: 'bg-blue-400/15 text-blue-200', modeFocus: 'outline-blue-400', toggleIcon: 'text-blue-300', toggleFocus: 'outline-blue-400', toggleTrack: 'border-blue-400/60 bg-blue-400/25', toggleKnob: 'bg-blue-300', ratioGlyph: 'border-blue-300 bg-blue-400/20', ratioLabel: 'text-blue-100', ratioHint: 'text-blue-300/90', btnText: 'text-blue-300', btnIcon: 'text-blue-400', btnHover: 'hover:border-blue-400/40 hover:bg-blue-500/15 hover:text-blue-200', range: 'accent-blue-400', chevronOpen: 'text-blue-300',
+  },
+  emerald: {
+    icon: 'text-emerald-300/90', chipActive: 'border-emerald-400/60 bg-emerald-400/10 text-emerald-200', modeActive: 'bg-emerald-400/15 text-emerald-200', modeFocus: 'outline-emerald-400', toggleIcon: 'text-emerald-300', toggleFocus: 'outline-emerald-400', toggleTrack: 'border-emerald-400/60 bg-emerald-400/25', toggleKnob: 'bg-emerald-300', ratioGlyph: 'border-emerald-300 bg-emerald-400/20', ratioLabel: 'text-emerald-100', ratioHint: 'text-emerald-300/90', btnText: 'text-emerald-300', btnIcon: 'text-emerald-400', btnHover: 'hover:border-emerald-400/40 hover:bg-emerald-500/15 hover:text-emerald-200', range: 'accent-emerald-400', chevronOpen: 'text-emerald-300',
+  },
+  amber: {
+    icon: 'text-amber-300/90', chipActive: 'border-amber-400/60 bg-amber-400/10 text-amber-200', modeActive: 'bg-amber-400/15 text-amber-200', modeFocus: 'outline-amber-400', toggleIcon: 'text-amber-300', toggleFocus: 'outline-amber-400', toggleTrack: 'border-amber-400/60 bg-amber-400/25', toggleKnob: 'bg-amber-300', ratioGlyph: 'border-amber-300 bg-amber-400/20', ratioLabel: 'text-amber-100', ratioHint: 'text-amber-300/90', btnText: 'text-amber-300', btnIcon: 'text-amber-400', btnHover: 'hover:border-amber-400/40 hover:bg-amber-500/15 hover:text-amber-200', range: 'accent-amber-400', chevronOpen: 'text-amber-300',
+  },
+  violet: {
+    icon: 'text-violet-300/90', chipActive: 'border-violet-400/60 bg-violet-400/10 text-violet-200', modeActive: 'bg-violet-400/15 text-violet-200', modeFocus: 'outline-violet-400', toggleIcon: 'text-violet-300', toggleFocus: 'outline-violet-400', toggleTrack: 'border-violet-400/60 bg-violet-400/25', toggleKnob: 'bg-violet-300', ratioGlyph: 'border-violet-300 bg-violet-400/20', ratioLabel: 'text-violet-100', ratioHint: 'text-violet-300/90', btnText: 'text-violet-300', btnIcon: 'text-violet-400', btnHover: 'hover:border-violet-400/40 hover:bg-violet-500/15 hover:text-violet-200', range: 'accent-violet-400', chevronOpen: 'text-violet-300',
+  },
+};
+
+const AccentContext = React.createContext<Accent>('cyan');
+const useAccent = () => React.useContext(AccentContext);
+const useAccentTheme = () => THEME[useAccent()];
+
+/** Render-prop helper so inline JSX can pick up the current section's accent theme. */
+const AccentTheme: React.FC<{ children: (theme: AccentTheme) => React.ReactNode }> = ({ children }) => (
+  <>{children(THEME[useAccent()])}</>
+);
 
 const Department: React.FC<{
   id: string;
   label: string;
+  subtitle?: string;
   icon?: React.ReactNode;
   accent?: Accent;
   isOpen: boolean;
   onToggle: () => void;
   children: React.ReactNode;
-}> = ({ id, label, icon, accent = 'cyan', isOpen, onToggle, children }) => (
-  <section
-    className={cn(
-      'overflow-hidden rounded-[6px] border shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.55)]',
-      isOpen ? cn('bg-[#161a22]', ACCENT[accent].active) : cn('bg-[#12151c]', ACCENT[accent].border),
-    )}
-  >
+}> = ({ id, label, subtitle, icon, accent = 'cyan', isOpen, onToggle, children }) => (
+  <AccentContext.Provider value={accent}>
+    <section
+      className={cn(
+        'overflow-hidden rounded-[6px] border shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.55)]',
+        isOpen ? cn('bg-[#161a22]', ACCENT[accent].active) : cn('bg-[#12151c]', ACCENT[accent].border),
+      )}
+    >
     <button
       type="button"
       aria-expanded={isOpen}
@@ -93,13 +141,19 @@ const Department: React.FC<{
       >
         {icon}
       </span>
-      <span className={cn('text-[11px] font-bold uppercase tracking-[0.22em] transition-colors', isOpen ? 'text-white' : 'text-white/55')}>
+      <span className={cn('shrink-0 text-[11px] font-bold uppercase tracking-[0.22em] transition-colors', isOpen ? 'text-white' : 'text-white/55')}>
         {label}
       </span>
+      {subtitle && (
+        <span className={cn('min-w-0 flex-1 truncate text-xs transition-colors', isOpen ? 'text-white/55' : 'text-white/30')}>
+          <span className={cn('mr-1.5', isOpen ? 'text-white/40' : 'text-white/20')}>–</span>
+          {subtitle}
+        </span>
+      )}
       <ChevronDown
         className={cn(
           'ml-auto h-4 w-4 shrink-0 transition-all duration-300',
-          isOpen ? 'rotate-180 text-cyan-300' : 'text-white/35',
+          isOpen ? cn('rotate-180', THEME[accent].chevronOpen) : 'text-white/35',
         )}
       />
     </button>
@@ -116,6 +170,7 @@ const Department: React.FC<{
         </div>
       </div>
     </section>
+    </AccentContext.Provider>
 );
 
 const Field: React.FC<{ label: string; icon?: React.ReactNode; children: React.ReactNode; className?: string }> = ({
@@ -126,7 +181,7 @@ const Field: React.FC<{ label: string; icon?: React.ReactNode; children: React.R
 }) => (
   <div className={className}>
     <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-white/70">
-      {icon && <span className="text-cyan-300/90">{icon}</span>}
+      {icon && <span className={THEME[useAccent()].icon}>{icon}</span>}
       {label}
     </span>
     {children}
@@ -148,7 +203,7 @@ const Chip: React.FC<{
     className={cn(
       'focus-ring rounded-lg border px-3.5 py-2 text-sm transition-colors',
       active
-        ? 'border-cyan-400/60 bg-cyan-400/10 font-semibold text-cyan-200'
+        ? cn('font-semibold', THEME[useAccent()].chipActive)
         : 'border-white/20 bg-white/[0.07] font-semibold text-white/90 hover:border-white/40 hover:text-white',
       disabled && 'cursor-not-allowed opacity-40',
       className,
@@ -187,9 +242,9 @@ const ModeSwitch: React.FC<{
         className={cn(
           'cursor-pointer rounded-md px-3.5 py-1.5 text-sm transition-colors',
           fullWidth && 'flex-1 text-center',
-          'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cyan-400',
+          `has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:${THEME[useAccent()].modeFocus}`,
           value === option.value
-            ? 'bg-cyan-400/15 font-semibold text-cyan-200'
+            ? cn('font-semibold', THEME[useAccent()].modeActive)
             : 'font-medium text-white/80 hover:text-white',
           disabled && 'cursor-not-allowed',
         )}
@@ -216,7 +271,9 @@ const Toggle: React.FC<{
   description?: string;
   icon: React.ReactNode;
   children?: React.ReactNode;
-}> = ({ checked, onChange, disabled, title, description, icon, children }) => (
+}> = ({ checked, onChange, disabled, title, description, icon, children }) => {
+  const theme = useAccentTheme();
+  return (
   <div
     className={cn(
       'rounded-xl border p-4 transition-colors',
@@ -226,7 +283,7 @@ const Toggle: React.FC<{
     <label className="flex cursor-pointer items-start justify-between gap-3">
       <span className="min-w-0">
         <span className="flex items-center gap-2 text-sm font-semibold text-white">
-          <span className={checked ? 'text-cyan-300' : 'text-white/55'}>{icon}</span>
+          <span className={checked ? theme.toggleIcon : 'text-white/55'}>{icon}</span>
           {title}
         </span>
         {description && (
@@ -244,22 +301,23 @@ const Toggle: React.FC<{
         aria-hidden
         className={cn(
           'relative mt-0.5 h-5 w-9 shrink-0 rounded-full border transition-colors',
-          'peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-cyan-400',
-          checked ? 'border-cyan-400/60 bg-cyan-400/25' : 'border-white/15 bg-white/5',
+          `peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:${theme.toggleFocus}`,
+          checked ? theme.toggleTrack : 'border-white/15 bg-white/5',
           disabled && 'opacity-40',
         )}
       >
         <span
           className={cn(
             'absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-all',
-            checked ? 'left-[18px] bg-cyan-300' : 'left-[3px] bg-white/40',
+            checked ? cn('left-[18px]', theme.toggleKnob) : 'left-[3px] bg-white/40',
           )}
         />
       </span>
     </label>
     {children}
   </div>
-);
+  );
+};
 
 const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <p className="flex items-start gap-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.08] px-3 py-2 text-xs leading-relaxed text-amber-200/90">
@@ -276,7 +334,7 @@ const ControlCard: React.FC<{
 }> = ({ label, icon, className, children }) => (
   <div className={cn('rounded-lg border border-white/12 bg-white/[0.04] p-3.5', className)}>
     <span className="mb-2.5 flex items-center gap-1.5 text-xs font-medium text-white/70">
-      {icon && <span className="text-cyan-300/90">{icon}</span>}
+      {icon && <span className={THEME[useAccent()].icon}>{icon}</span>}
       {label}
     </span>
     {children}
@@ -410,6 +468,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="topic"
         label="Topic"
+        subtitle="describe your short video"
         accent="cyan"
         icon={<PenLine className="h-4 w-4" />}
         isOpen={openSection === 'topic'}
@@ -466,6 +525,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="camera"
         label="Camera"
+        subtitle="customize your visuals"
         accent="blue"
         icon={<Camera className="h-4 w-4" />}
         isOpen={openSection === 'camera'}
@@ -490,39 +550,43 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
           {isVideo && <Notice>Clips cost more and take longer than stills.</Notice>}
 
           <ControlCard label="Frame" icon={<Frame className="h-3.5 w-3.5" />}>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {ASPECT_OPTIONS.map((option) => {
-                const isActive = project.aspect === option.id;
-                return (
-                  <Chip
-                    key={option.id}
-                    active={isActive}
-                    onClick={() => onChange({ aspect: option.id })}
-                    disabled={isBusy}
-                    className="w-full"
-                  >
-                    <span className="flex items-center justify-center gap-2.5">
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'shrink-0 rounded-[2px] border transition-colors',
-                          ratioGlyph[option.id],
-                          isActive ? 'border-cyan-300 bg-cyan-400/20' : 'border-white/50 bg-white/5',
-                        )}
-                      />
-                      <span className="text-left">
-                        <span className={cn('block leading-tight font-semibold', isActive ? 'text-cyan-100' : 'text-white')}>
-                          {option.label}
+            <AccentTheme>
+              {(theme) => (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {ASPECT_OPTIONS.map((option) => {
+                    const isActive = project.aspect === option.id;
+                    return (
+                      <Chip
+                        key={option.id}
+                        active={isActive}
+                        onClick={() => onChange({ aspect: option.id })}
+                        disabled={isBusy}
+                        className="w-full"
+                      >
+                        <span className="flex items-center justify-center gap-2.5">
+                          <span
+                            aria-hidden
+                            className={cn(
+                              'shrink-0 rounded-[2px] border transition-colors',
+                              ratioGlyph[option.id],
+                              isActive ? theme.ratioGlyph : 'border-white/50 bg-white/5',
+                            )}
+                          />
+                          <span className="text-left">
+                            <span className={cn('block leading-tight font-semibold', isActive ? theme.ratioLabel : 'text-white')}>
+                              {option.label}
+                            </span>
+                            <span className={cn('block text-[11px] font-medium tabular-nums mt-0.5 transition-colors', isActive ? theme.ratioHint : 'text-white/70')}>
+                              {option.hint}
+                            </span>
+                          </span>
                         </span>
-                        <span className={cn('block text-[11px] font-medium tabular-nums mt-0.5 transition-colors', isActive ? 'text-cyan-300/90' : 'text-white/70')}>
-                          {option.hint}
-                        </span>
-                      </span>
-                    </span>
-                  </Chip>
-                );
-              })}
-            </div>
+                      </Chip>
+                    );
+                  })}
+                </div>
+              )}
+            </AccentTheme>
           </ControlCard>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -562,6 +626,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="sound"
         label="Sound"
+        subtitle="voice & background music"
         accent="emerald"
         icon={<AudioLines className="h-4 w-4" />}
         isOpen={openSection === 'sound'}
@@ -569,68 +634,75 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       >
         <div className="space-y-3">
           <ControlCard label="Voice" icon={<Mic className="h-3.5 w-3.5" />}>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <Dropdown
-                    options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
-                    value={project.voice}
-                    onChange={(value) => {
-                      stopVoicePreview();
-                      onChange({ voice: value });
-                    }}
-                    disabled={isBusy}
-                  />
+            <AccentTheme>
+              {(theme) => (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Dropdown
+                        options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
+                        value={project.voice}
+                        onChange={(value) => {
+                          stopVoicePreview();
+                          onChange({ voice: value });
+                        }}
+                        disabled={isBusy}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleInlineVoicePreview}
+                      disabled={isBusy || isPreviewGenerating}
+                      className={cn(
+                        'focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-all',
+                        isPreviewPlaying
+                          ? 'border-emerald-400/50 bg-emerald-500 text-black shadow-lg shadow-emerald-500/25 animate-pulse'
+                          : isPreviewGenerating
+                          ? 'border-white/10 bg-white/5 text-white/40 cursor-not-allowed'
+                          : cn('border-white/10 bg-white/[0.05]', theme.btnText, theme.btnHover),
+                      )}
+                      title={isPreviewPlaying ? 'Stop audio preview' : 'Quick preview voice'}
+                    >
+                      {isPreviewGenerating ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span className="hidden sm:inline">Loading...</span>
+                        </>
+                      ) : isPreviewPlaying ? (
+                        <>
+                          <Square className="h-3.5 w-3.5 fill-current" />
+                          <span>Stop</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className={cn('h-3.5 w-3.5 fill-current', theme.btnIcon)} />
+                          <span>Preview</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {onOpenVoiceAudition && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopVoicePreview();
+                        onOpenVoiceAudition();
+                      }}
+                      disabled={isBusy}
+                      className={cn(
+                        'focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 bg-white/[0.04] py-1.5 text-xs font-medium text-white/85 transition-all disabled:opacity-40',
+                        theme.btnHover,
+                      )}
+                    >
+                      <Sparkles className={cn('h-3 w-3', theme.btnIcon)} />
+                      Audition all voices
+                    </button>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleToggleInlineVoicePreview}
-                  disabled={isBusy || isPreviewGenerating}
-                  className={cn(
-                    'focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-all',
-                    isPreviewPlaying
-                      ? 'border-emerald-400/50 bg-emerald-500 text-black shadow-lg shadow-emerald-500/25 animate-pulse'
-                      : isPreviewGenerating
-                      ? 'border-white/10 bg-white/5 text-white/40 cursor-not-allowed'
-                      : 'border-white/10 bg-white/[0.05] text-cyan-300 hover:border-cyan-400/40 hover:bg-cyan-500/15'
-                  )}
-                  title={isPreviewPlaying ? 'Stop audio preview' : 'Quick preview voice'}
-                >
-                  {isPreviewGenerating ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span className="hidden sm:inline">Loading...</span>
-                    </>
-                  ) : isPreviewPlaying ? (
-                    <>
-                      <Square className="h-3.5 w-3.5 fill-current" />
-                      <span>Stop</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3.5 w-3.5 fill-current text-cyan-400" />
-                      <span>Preview</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {onOpenVoiceAudition && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopVoicePreview();
-                    onOpenVoiceAudition();
-                  }}
-                  disabled={isBusy}
-                  className="focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 bg-white/[0.04] py-1.5 text-xs font-medium text-white/85 transition-all hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-40"
-                >
-                  <Sparkles className="h-3 w-3 text-cyan-400" />
-                   Audition all voices
-                </button>
               )}
-            </div>
+            </AccentTheme>
           </ControlCard>
 
           <ControlCard label="Music" icon={<Music className="h-3.5 w-3.5" />}>
@@ -662,17 +734,21 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
                   <label className="text-[11px] text-white/35" htmlFor="shorts-music-volume">
                     Level
                   </label>
-                  <input
-                    id="shorts-music-volume"
-                    type="range"
-                    min={0}
-                    max={0.5}
-                    step={0.01}
-                    value={project.music.volume}
-                    onChange={(e) => onChange({ music: { ...project.music!, volume: Number(e.target.value) } })}
-                    disabled={isBusy}
-                    className="focus-ring h-1 flex-1 accent-cyan-400"
-                  />
+                  <AccentTheme>
+                    {(theme) => (
+                      <input
+                        id="shorts-music-volume"
+                        type="range"
+                        min={0}
+                        max={0.5}
+                        step={0.01}
+                        value={project.music!.volume}
+                        onChange={(e) => onChange({ music: { ...project.music!, volume: Number(e.target.value) } })}
+                        disabled={isBusy}
+                        className={cn('focus-ring h-1 flex-1', theme.range)}
+                      />
+                    )}
+                  </AccentTheme>
                   <span className="w-9 text-right text-xs tabular-nums text-white/50">
                     {Math.round(project.music.volume * 100)}%
                   </span>
@@ -697,6 +773,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="finish"
         label="Finish"
+        subtitle="captions and title card"
         accent="amber"
         icon={<Wand2 className="h-4 w-4" />}
         isOpen={openSection === 'finish'}
@@ -736,6 +813,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="engine"
         label="Engine"
+        subtitle="choose what writes the script"
         accent="violet"
         icon={<Cpu className="h-4 w-4" />}
         isOpen={openSection === 'engine'}
@@ -754,15 +832,22 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             ]}
           />
           {!useOpenAI && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              title="Change model in Settings"
-              className="focus-ring flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1.5 text-xs font-medium text-white/80 transition-colors hover:border-cyan-400/40 hover:text-white"
-            >
-              <Cpu className="h-3.5 w-3.5 text-cyan-300" />
-              <span className="max-w-[180px] truncate">{webLlmModelLabel}</span>
-            </button>
+            <AccentTheme>
+              {(theme) => (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  title="Change model in Settings"
+                  className={cn(
+                    'focus-ring flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1.5 text-xs font-medium text-white/80 transition-colors hover:text-white',
+                    theme.btnHover,
+                  )}
+                >
+                  <Cpu className={cn('h-3.5 w-3.5', theme.btnText)} />
+                  <span className="max-w-[180px] truncate">{webLlmModelLabel}</span>
+                </button>
+              )}
+            </AccentTheme>
           )}
         </div>
 
