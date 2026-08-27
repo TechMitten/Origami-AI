@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Music, Captions, Type, Cpu, Cloud, Play, Square, Loader2, Sparkles } from 'lucide-react';
+import { Music, Captions, Type, Cpu, Play, Square, Loader2, Sparkles, PenLine, Camera, AudioLines, Wand2, Timer, Gauge, Frame, Palette, Mic, Image as ImageIcon, Film, ChevronDown, Clapperboard } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';
@@ -39,31 +39,96 @@ interface ShortsComposerProps {
 }
 
 /**
- * A department of the shoot. The rule running out of the label is the divider —
- * these groups replace what used to be eight identically-weighted cards.
+ * A single-open accordion bay. Exactly one department is expanded at a time,
+ * so the panel reads as a guided flow never as a wall of controls. Each bay
+ * carries a coloured icon plate so the section is recognisable at a glance.
  */
+type Accent = 'cyan' | 'blue' | 'emerald' | 'amber' | 'violet';
+
+const ACCENT: Record<Accent, { tile: string; border: string; active: string; strip: string }> = {
+  cyan: { tile: 'bg-cyan-400/15 text-cyan-300 ring-cyan-400/30', border: 'border-cyan-400/25', active: 'border-cyan-400/50', strip: 'bg-cyan-300' },
+  blue: { tile: 'bg-blue-400/15 text-blue-300 ring-blue-400/30', border: 'border-blue-400/25', active: 'border-blue-400/50', strip: 'bg-blue-300' },
+  emerald: { tile: 'bg-emerald-400/15 text-emerald-300 ring-emerald-400/30', border: 'border-emerald-400/25', active: 'border-emerald-400/50', strip: 'bg-emerald-300' },
+  amber: { tile: 'bg-amber-400/15 text-amber-300 ring-amber-400/30', border: 'border-amber-400/25', active: 'border-amber-400/50', strip: 'bg-amber-300' },
+  violet: { tile: 'bg-violet-400/15 text-violet-300 ring-violet-400/30', border: 'border-violet-400/25', active: 'border-violet-400/50', strip: 'bg-violet-300' },
+};
+
 const Department: React.FC<{
+  id: string;
   label: string;
-  hint?: string;
+  icon?: React.ReactNode;
+  accent?: Accent;
+  isOpen: boolean;
+  onToggle: () => void;
   children: React.ReactNode;
-}> = ({ label, hint, children }) => (
-  <section className="space-y-4">
-    <div className="flex items-baseline gap-3">
-      <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{label}</h2>
-      {hint && <span className="shrink-0 text-[11px] text-white/25">{hint}</span>}
-      <span className="h-px flex-1 bg-gradient-to-r from-white/12 to-transparent" />
-    </div>
-    {children}
-  </section>
+}> = ({ id, label, icon, accent = 'cyan', isOpen, onToggle, children }) => (
+  <section
+    className={cn(
+      'overflow-hidden rounded-[6px] border shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.55)]',
+      isOpen ? cn('bg-[#161a22]', ACCENT[accent].active) : cn('bg-[#12151c]', ACCENT[accent].border),
+    )}
+  >
+    <button
+      type="button"
+      aria-expanded={isOpen}
+      aria-controls={`shorts-department-${id}`}
+      onClick={onToggle}
+      className={cn(
+        'relative flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-ring',
+        isOpen
+          ? cn('border-b', ACCENT[accent].border, 'bg-[linear-gradient(180deg,#212937,#181e2a)]')
+          : 'border-b border-white/[0.08] bg-[linear-gradient(180deg,#171a20,#121419)] hover:bg-[linear-gradient(180deg,#1c2027,#14161b)]',
+      )}
+    >
+      {isOpen && (
+        <span aria-hidden className={cn('absolute inset-y-0 left-0 w-[3px]', ACCENT[accent].strip)} />
+      )}
+      <span
+        aria-hidden
+        className={cn(
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-md ring-1 transition-all',
+          ACCENT[accent].tile,
+          isOpen ? '' : 'opacity-55 saturate-[.55]',
+        )}
+      >
+        {icon}
+      </span>
+      <span className={cn('text-[11px] font-bold uppercase tracking-[0.22em] transition-colors', isOpen ? 'text-white' : 'text-white/55')}>
+        {label}
+      </span>
+      <ChevronDown
+        className={cn(
+          'ml-auto h-4 w-4 shrink-0 transition-all duration-300',
+          isOpen ? 'rotate-180 text-cyan-300' : 'text-white/35',
+        )}
+      />
+    </button>
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-500 ease-in-out',
+          isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div id={`shorts-department-${id}`} className="space-y-4 p-3.5 sm:p-4">
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
 );
 
-const Field: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({
+const Field: React.FC<{ label: string; icon?: React.ReactNode; children: React.ReactNode; className?: string }> = ({
   label,
+  icon,
   children,
   className,
 }) => (
   <div className={className}>
-    <span className="mb-1.5 block text-xs font-medium text-white/45">{label}</span>
+    <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-white/70">
+      {icon && <span className="text-cyan-300/90">{icon}</span>}
+      {label}
+    </span>
     {children}
   </div>
 );
@@ -72,8 +137,9 @@ const Chip: React.FC<{
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
+  className?: string;
   children: React.ReactNode;
-}> = ({ active, onClick, disabled, children }) => (
+}> = ({ active, onClick, disabled, className, children }) => (
   <button
     type="button"
     onClick={onClick}
@@ -83,8 +149,9 @@ const Chip: React.FC<{
       'focus-ring rounded-lg border px-3.5 py-2 text-sm transition-colors',
       active
         ? 'border-cyan-400/60 bg-cyan-400/10 font-semibold text-cyan-200'
-        : 'border-white/10 bg-white/[0.03] font-medium text-white/65 hover:border-white/25 hover:text-white',
+        : 'border-white/20 bg-white/[0.07] font-semibold text-white/90 hover:border-white/40 hover:text-white',
       disabled && 'cursor-not-allowed opacity-40',
+      className,
     )}
   >
     {children}
@@ -103,11 +170,13 @@ const ModeSwitch: React.FC<{
   onChange: (value: string) => void;
   disabled?: boolean;
   label: string;
-}> = ({ name, options, value, onChange, disabled, label }) => (
+  fullWidth?: boolean;
+}> = ({ name, options, value, onChange, disabled, label, fullWidth }) => (
   <fieldset
     disabled={disabled}
     className={cn(
       'inline-flex rounded-lg border border-white/10 bg-black/20 p-1',
+      fullWidth && 'flex w-full',
       disabled && 'opacity-40',
     )}
   >
@@ -117,10 +186,11 @@ const ModeSwitch: React.FC<{
         key={option.value}
         className={cn(
           'cursor-pointer rounded-md px-3.5 py-1.5 text-sm transition-colors',
+          fullWidth && 'flex-1 text-center',
           'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cyan-400',
           value === option.value
             ? 'bg-cyan-400/15 font-semibold text-cyan-200'
-            : 'font-medium text-white/50 hover:text-white',
+            : 'font-medium text-white/80 hover:text-white',
           disabled && 'cursor-not-allowed',
         )}
       >
@@ -143,23 +213,25 @@ const Toggle: React.FC<{
   onChange: (value: boolean) => void;
   disabled?: boolean;
   title: string;
-  description: string;
+  description?: string;
   icon: React.ReactNode;
   children?: React.ReactNode;
 }> = ({ checked, onChange, disabled, title, description, icon, children }) => (
   <div
     className={cn(
       'rounded-xl border p-4 transition-colors',
-      checked ? 'border-white/[0.14] bg-white/[0.05]' : 'border-white/[0.08] bg-white/[0.02]',
+      checked ? 'border-white/25 bg-white/[0.08]' : 'border-white/15 bg-white/[0.05]',
     )}
   >
     <label className="flex cursor-pointer items-start justify-between gap-3">
       <span className="min-w-0">
         <span className="flex items-center gap-2 text-sm font-semibold text-white">
-          <span className={checked ? 'text-cyan-300' : 'text-white/30'}>{icon}</span>
+          <span className={checked ? 'text-cyan-300' : 'text-white/55'}>{icon}</span>
           {title}
         </span>
-        <span className="mt-1 block text-xs leading-relaxed text-white/40">{description}</span>
+        {description && (
+          <span className="mt-1 block text-xs leading-relaxed text-white/55">{description}</span>
+        )}
       </span>
       <input
         type="checkbox"
@@ -195,6 +267,22 @@ const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </p>
 );
 
+/** A self-contained control with its own frame, so controls align into a tidy grid. */
+const ControlCard: React.FC<{
+  label: string;
+  icon?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ label, icon, className, children }) => (
+  <div className={cn('rounded-lg border border-white/12 bg-white/[0.04] p-3.5', className)}>
+    <span className="mb-2.5 flex items-center gap-1.5 text-xs font-medium text-white/70">
+      {icon && <span className="text-cyan-300/90">{icon}</span>}
+      {label}
+    </span>
+    {children}
+  </div>
+);
+
 /** Proportional glyph so the aspect chips show their shape, not just name it. */
 const ratioGlyph: Record<ShortsAspect, string> = {
   '9:16': 'h-4 w-[9px]',
@@ -227,6 +315,10 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   const [isPreviewGenerating, setIsPreviewGenerating] = useState(false);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewCacheRef = useRef<Map<string, string>>(new Map());
+
+  // Single-open accordion: exactly one department is expanded at a time,
+  // starting with the script (Topic) so the flow opens short and friendly.
+  const [openSection, setOpenSection] = useState<string>('topic');
 
   const stopVoicePreview = useCallback(() => {
     if (previewAudioRef.current) {
@@ -304,9 +396,25 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   };
 
   return (
-    <div className="space-y-9">
+    <div className="overflow-hidden rounded-lg border border-black/80 bg-[linear-gradient(180deg,#101318_0%,#07080b_60%,#0a0b0e_100%)] shadow-[0_35px_70px_-25px_rgba(0,0,0,0.95)]">
+      <div
+        aria-hidden
+        className="h-2.5 border-b border-black/70 bg-[#0a0c10]"
+        style={{ backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 4px)' }}
+      />
+      <div
+        className="grid gap-2 bg-[#020304]/95 p-2.5 sm:p-3"
+        style={{ boxShadow: 'inset 0 4px 16px rgba(0,0,0,0.8)' }}
+      >
       {/* --- Script ---------------------------------------------------------- */}
-      <Department label="Topic">
+      <Department
+        id="topic"
+        label="Topic"
+        accent="cyan"
+        icon={<PenLine className="h-4 w-4" />}
+        isOpen={openSection === 'topic'}
+        onToggle={() => setOpenSection('topic')}
+      >
         <div className="relative">
           <textarea
             value={project.topic}
@@ -328,7 +436,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
         </div>
 
         <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
-          <Field label="Target length">
+          <Field label="Target length" icon={<Timer className="h-3.5 w-3.5" />}>
             <div className="flex flex-wrap gap-2">
               {DURATION_OPTIONS.map((seconds) => (
                 <Chip
@@ -343,7 +451,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             </div>
           </Field>
 
-          <Field label="Narration tone">
+          <Field label="Tone" icon={<Gauge className="h-3.5 w-3.5" />}>
             <Dropdown
               options={TONE_OPTIONS.map((t) => ({ id: t.id, name: t.name }))}
               value={project.tone}
@@ -355,96 +463,112 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       </Department>
 
       {/* --- Camera ---------------------------------------------------------- */}
-      <Department label="Camera" hint="what is in frame">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="max-w-md text-sm leading-relaxed text-white/45">
-            {isVideo
-              ? 'Each scene becomes a short generated clip.'
-              : 'Each scene becomes a still, panned and zoomed on screen.'}
-          </p>
-          <ModeSwitch
-            name="shorts-visual-source"
-            label="Visual source"
-            value={project.generationMode}
-            onChange={(value) => onChange({ generationMode: value as ShortsProject['generationMode'] })}
-            disabled={isBusy}
-            options={[
-              { value: 'image', label: 'Stills' },
-              { value: 'video', label: 'Clips' },
-            ]}
-          />
-        </div>
+      <Department
+        id="camera"
+        label="Camera"
+        accent="blue"
+        icon={<Camera className="h-4 w-4" />}
+        isOpen={openSection === 'camera'}
+        onToggle={() => setOpenSection('camera')}
+      >
+        <div className="space-y-3">
+          <ControlCard label="Visual source" icon={<Clapperboard className="h-3.5 w-3.5" />}>
+            <ModeSwitch
+              fullWidth
+              name="shorts-visual-source"
+              label="Visual source"
+              value={project.generationMode}
+              onChange={(value) => onChange({ generationMode: value as ShortsProject['generationMode'] })}
+              disabled={isBusy}
+              options={[
+                { value: 'image', label: 'Stills' },
+                { value: 'video', label: 'Clips' },
+              ]}
+            />
+          </ControlCard>
 
-        {isVideo && <Notice>Clips take longer to generate and cost more per scene than stills.</Notice>}
+          {isVideo && <Notice>Clips cost more and take longer than stills.</Notice>}
 
-        <Field label="Frame">
-          <div className="flex flex-wrap gap-2">
-            {ASPECT_OPTIONS.map((option) => {
-              const isActive = project.aspect === option.id;
-              return (
-                <Chip
-                  key={option.id}
-                  active={isActive}
-                  onClick={() => onChange({ aspect: option.id })}
-                  disabled={isBusy}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'shrink-0 rounded-[2px] border transition-colors',
-                        ratioGlyph[option.id],
-                        isActive ? 'border-cyan-300 bg-cyan-400/20' : 'border-white/50 bg-white/5',
-                      )}
-                    />
-                    <span className="text-left">
-                      <span className={cn('block leading-tight font-semibold', isActive ? 'text-cyan-100' : 'text-white')}>
-                        {option.label}
-                      </span>
-                      <span className={cn('block text-[11px] font-medium tabular-nums mt-0.5 transition-colors', isActive ? 'text-cyan-300/90' : 'text-white/70')}>
-                        {option.hint}
+          <ControlCard label="Frame" icon={<Frame className="h-3.5 w-3.5" />}>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {ASPECT_OPTIONS.map((option) => {
+                const isActive = project.aspect === option.id;
+                return (
+                  <Chip
+                    key={option.id}
+                    active={isActive}
+                    onClick={() => onChange({ aspect: option.id })}
+                    disabled={isBusy}
+                    className="w-full"
+                  >
+                    <span className="flex items-center justify-center gap-2.5">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'shrink-0 rounded-[2px] border transition-colors',
+                          ratioGlyph[option.id],
+                          isActive ? 'border-cyan-300 bg-cyan-400/20' : 'border-white/50 bg-white/5',
+                        )}
+                      />
+                      <span className="text-left">
+                        <span className={cn('block leading-tight font-semibold', isActive ? 'text-cyan-100' : 'text-white')}>
+                          {option.label}
+                        </span>
+                        <span className={cn('block text-[11px] font-medium tabular-nums mt-0.5 transition-colors', isActive ? 'text-cyan-300/90' : 'text-white/70')}>
+                          {option.hint}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                </Chip>
-              );
-            })}
-          </div>
-        </Field>
+                  </Chip>
+                );
+              })}
+            </div>
+          </ControlCard>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Visual style">
-            <Dropdown
-              options={VISUAL_STYLES.map((s) => ({ id: s.prompt, name: s.name }))}
-              value={project.visualStyle}
-              onChange={(value) => onChange({ visualStyle: value })}
-              disabled={isBusy}
-            />
-          </Field>
-          <Field label={isVideo ? 'Video model' : 'Image model'}>
-            {isVideo ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ControlCard label="Style" icon={<Palette className="h-3.5 w-3.5" />}>
               <Dropdown
-                options={resolvedVideoModels.map((m) => ({ id: m.id, name: m.name }))}
-                value={project.videoModel}
-                onChange={(value) => onChange({ videoModel: value })}
+                options={VISUAL_STYLES.map((s) => ({ id: s.prompt, name: s.name }))}
+                value={project.visualStyle}
+                onChange={(value) => onChange({ visualStyle: value })}
                 disabled={isBusy}
               />
-            ) : (
-              <Dropdown
-                options={resolvedImageModels.map((m) => ({ id: m.id, name: m.name }))}
-                value={project.imageModel}
-                onChange={(value) => onChange({ imageModel: value })}
-                disabled={isBusy}
-              />
-            )}
-          </Field>
+            </ControlCard>
+            <ControlCard
+              label={isVideo ? 'Video model' : 'Image model'}
+              icon={isVideo ? <Film className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+            >
+              {isVideo ? (
+                <Dropdown
+                  options={resolvedVideoModels.map((m) => ({ id: m.id, name: m.name }))}
+                  value={project.videoModel}
+                  onChange={(value) => onChange({ videoModel: value })}
+                  disabled={isBusy}
+                />
+              ) : (
+                <Dropdown
+                  options={resolvedImageModels.map((m) => ({ id: m.id, name: m.name }))}
+                  value={project.imageModel}
+                  onChange={(value) => onChange({ imageModel: value })}
+                  disabled={isBusy}
+                />
+              )}
+            </ControlCard>
+          </div>
         </div>
       </Department>
 
       {/* --- Sound ----------------------------------------------------------- */}
-      <Department label="Sound">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Voice">
+      <Department
+        id="sound"
+        label="Sound"
+        accent="emerald"
+        icon={<AudioLines className="h-4 w-4" />}
+        isOpen={openSection === 'sound'}
+        onToggle={() => setOpenSection('sound')}
+      >
+        <div className="space-y-3">
+          <ControlCard label="Voice" icon={<Mic className="h-3.5 w-3.5" />}>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
@@ -500,21 +624,21 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
                     onOpenVoiceAudition();
                   }}
                   disabled={isBusy}
-                  className="focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-white/[0.02] py-1.5 text-xs font-medium text-white/60 transition-all hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-40"
+                  className="focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 bg-white/[0.04] py-1.5 text-xs font-medium text-white/85 transition-all hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-40"
                 >
                   <Sparkles className="h-3 w-3 text-cyan-400" />
-                  Audition &amp; Compare All 28 Voices
+                   Audition all voices
                 </button>
               )}
             </div>
-          </Field>
+          </ControlCard>
 
-          <Field label="Background music">
+          <ControlCard label="Music" icon={<Music className="h-3.5 w-3.5" />}>
             {project.music ? (
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Music className="h-3.5 w-3.5 shrink-0 text-white/35" />
-                  <p className="min-w-0 flex-1 truncate text-xs text-white/70" title={project.music.fileName}>
+                  <Music className="h-3.5 w-3.5 shrink-0 text-white/50" />
+                  <p className="min-w-0 flex-1 truncate text-xs text-white/85" title={project.music.fileName}>
                     {project.music.fileName}
                   </p>
                   <button
@@ -534,7 +658,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
                     Remove
                   </button>
                 </div>
-                <div className="mt-3 flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   <label className="text-[11px] text-white/35" htmlFor="shorts-music-volume">
                     Level
                   </label>
@@ -559,25 +683,31 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
                 type="button"
                 onClick={onPickMusic}
                 disabled={isBusy}
-                className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 px-3 py-2.5 text-sm text-white/55 transition-colors hover:border-white/30 hover:text-white disabled:opacity-40"
+                className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-2.5 text-sm text-white/75 transition-colors hover:border-white/40 hover:text-white disabled:opacity-40"
               >
                 <Music className="h-3.5 w-3.5" />
-                Browse royalty-free tracks
+                Browse tracks
               </button>
             )}
-          </Field>
+          </ControlCard>
         </div>
       </Department>
 
       {/* --- Finish ---------------------------------------------------------- */}
-      <Department label="Finish" hint="captions and titles">
+      <Department
+        id="finish"
+        label="Finish"
+        accent="amber"
+        icon={<Wand2 className="h-4 w-4" />}
+        isOpen={openSection === 'finish'}
+        onToggle={() => setOpenSection('finish')}
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <Toggle
             checked={project.captionsEnabled}
             onChange={(value) => onChange({ captionsEnabled: value })}
             disabled={isBusy}
             title="Captions"
-            description="Burned into the video, timed to the voiceover."
             icon={<Captions className="h-4 w-4" />}
           >
             {project.captionsEnabled && (
@@ -597,30 +727,21 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             onChange={(value) => onChange({ showTitleCard: value })}
             disabled={isBusy}
             title="Title card"
-            description="Holds the title over the opening 1.6 seconds."
             icon={<Type className="h-4 w-4" />}
           />
         </div>
       </Department>
 
       {/* --- Engine ---------------------------------------------------------- */}
-      <Department label="Engine" hint="what writes the script">
+      <Department
+        id="engine"
+        label="Engine"
+        accent="violet"
+        icon={<Cpu className="h-4 w-4" />}
+        isOpen={openSection === 'engine'}
+        onToggle={() => setOpenSection('engine')}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="flex items-center gap-2 text-sm text-white/45">
-            {useOpenAI ? (
-              <>
-                <Cloud className="h-3.5 w-3.5 shrink-0 text-white/30" />
-                Your own endpoint writes the script.
-              </>
-            ) : (
-              <>
-                <Cpu className="h-3.5 w-3.5 shrink-0 text-white/30" />
-                <span className="min-w-0">
-                  Runs on this machine via WebGPU · <span className="text-white/60">{webLlmModelLabel}</span>
-                </span>
-              </>
-            )}
-          </p>
           <ModeSwitch
             name="shorts-script-engine"
             label="Script engine"
@@ -632,6 +753,17 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
               { value: 'api', label: 'API endpoint' },
             ]}
           />
+          {!useOpenAI && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title="Change model in Settings"
+              className="focus-ring flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1.5 text-xs font-medium text-white/80 transition-colors hover:border-cyan-400/40 hover:text-white"
+            >
+              <Cpu className="h-3.5 w-3.5 text-cyan-300" />
+              <span className="max-w-[180px] truncate">{webLlmModelLabel}</span>
+            </button>
+          )}
         </div>
 
         {useOpenAI && !openAIConfigured && (
@@ -649,21 +781,8 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             </span>
           </Notice>
         )}
-
-        {!useOpenAI && (
-          <p className="text-xs leading-relaxed text-white/35">
-            Change the on-device model in{' '}
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="focus-ring rounded font-semibold text-white/50 underline underline-offset-2 hover:text-white"
-            >
-              Settings
-            </button>
-            .
-          </p>
-        )}
       </Department>
+      </div>
     </div>
   );
 };

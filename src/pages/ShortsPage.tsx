@@ -442,11 +442,11 @@ export const ShortsPage: React.FC = () => {
   // model and download it in the background, so a direct /shorts visit doesn't
   // skip the check entirely and only surface it as a mid-generation dead end.
   const handleResourceSetupConfirm = useCallback(
-    async (dontShowAgain?: boolean) => {
+    async (_dontShowAgain?: boolean) => {
       setIsResourceModalOpen(false);
-      if (dontShowAgain) {
-        localStorage.setItem('hide_setup_modal', 'true');
-      }
+      // Same as the landing page: clicking Continue persists the acknowledgment so a
+      // refresh or navigating to /shorts mid-download doesn't re-prompt the modal.
+      localStorage.setItem('hide_setup_modal', 'true');
 
       const cached = JSON.parse(
         localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}',

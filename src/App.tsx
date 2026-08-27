@@ -512,12 +512,13 @@ function MainApp() {
     load();
   }, [renderer]);
 
-  const handleSetupConfirm = async (dontShowAgain?: boolean) => {
+  const handleSetupConfirm = async (_dontShowAgain?: boolean) => {
     setIsResourceModalOpen(false);
 
-    if (dontShowAgain) {
-      localStorage.setItem('hide_setup_modal', 'true');
-    }
+    // Clicking Continue starts the background downloads. Persist the acknowledgment
+    // even without the "don't show again" checkbox so navigating away (e.g. to
+    // /shorts) or refreshing during the download doesn't re-prompt the setup modal.
+    localStorage.setItem('hide_setup_modal', 'true');
 
     const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
     const queue = {
