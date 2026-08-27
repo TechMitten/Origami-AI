@@ -968,6 +968,13 @@ export const ShortsPage: React.FC = () => {
     setIsMusicPickerOpen(false);
   }, []);
 
+  const handleUploadMusic = useCallback((file: File) => {
+    setProject((prev) => ({
+      ...prev,
+      music: { blob: file, fileName: file.name, volume: prev.music?.volume ?? 0.12 },
+    }));
+  }, []);
+
   // --- render -----------------------------------------------------------------
 
   const handleRender = useCallback(async () => {
@@ -1295,6 +1302,7 @@ export const ShortsPage: React.FC = () => {
                   onGenerate={handleGenerate}
                   onPickMusic={() => setIsMusicPickerOpen(true)}
                   onClearMusic={() => patchProject({ music: null })}
+                  onUploadMusic={handleUploadMusic}
                   onOpenSettings={() => setIsSettingsOpen(true)}
                   onOpenVoiceAudition={() => setIsVoiceAuditionOpen(true)}
                   isBusy={isBusy}

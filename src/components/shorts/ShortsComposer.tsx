@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Music, Captions, Type, Cpu, Play, Square, Loader2, Sparkles, PenLine, Camera, AudioLines, Wand2, Timer, Gauge, Frame, Palette, Mic, Image as ImageIcon, Film, ChevronDown, Clapperboard } from 'lucide-react';
+import { Music, Captions, Type, Cpu, Play, Square, Loader2, Sparkles, PenLine, Camera, AudioLines, Wand2, Timer, Gauge, Frame, Palette, Mic, Image as ImageIcon, Film, ChevronDown, Clapperboard, Upload } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';
@@ -26,6 +26,7 @@ interface ShortsComposerProps {
   onGenerate: () => void;
   onPickMusic: () => void;
   onClearMusic: () => void;
+  onUploadMusic: (file: File) => void;
   onOpenSettings: () => void;
   onOpenVoiceAudition?: () => void;
   isBusy: boolean;
@@ -354,6 +355,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   onGenerate,
   onPickMusic,
   onClearMusic,
+  onUploadMusic,
   onOpenSettings,
   onOpenVoiceAudition,
   isBusy,
@@ -373,6 +375,16 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   const [isPreviewGenerating, setIsPreviewGenerating] = useState(false);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewCacheRef = useRef<Map<string, string>>(new Map());
+  const musicUploadInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onUploadMusic(file);
+    }
+    // Reset so selecting the same file again still fires onChange.
+    e.target.value = '';
+  };
 
   // Single-open accordion: exactly one department is expanded at a time,
   // starting with the script (Topic) so the flow opens short and friendly.
@@ -706,6 +718,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
           </ControlCard>
 
           <ControlCard label="Music" icon={<Music className="h-3.5 w-3.5" />}>
+            <input ref={musicUploadInputRef} type="file" accept="audio/*" className="hidden" onChange={handleMusicUpload} />
             {project.music ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -720,6 +733,14 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
                     className="focus-ring rounded px-1.5 py-0.5 text-xs text-white/50 transition-colors hover:text-white disabled:opacity-40"
                   >
                     Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => musicUploadInputRef.current?.click()}
+                    disabled={isBusy}
+                    className="focus-ring rounded px-1.5 py-0.5 text-xs text-white/50 transition-colors hover:text-white disabled:opacity-40"
+                  >
+                    Upload
                   </button>
                   <button
                     type="button"
@@ -755,15 +776,26 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
                 </div>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={onPickMusic}
-                disabled={isBusy}
-                className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-2.5 text-sm text-white/75 transition-colors hover:border-white/40 hover:text-white disabled:opacity-40"
-              >
-                <Music className="h-3.5 w-3.5" />
-                Browse tracks
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={onPickMusic}
+                  disabled={isBusy}
+                  className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-2.5 text-sm text-white/75 transition-colors hover:border-white/40 hover:text-white disabled:opacity-40"
+                >
+                  <Music className="h-3.5 w-3.5" />
+                  Browse tracks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => musicUploadInputRef.current?.click()}
+                  disabled={isBusy}
+                  className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 px-3 py-2.5 text-sm text-white/75 transition-colors hover:border-white/40 hover:text-white disabled:opacity-40"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload music
+                </button>
+              </div>
             )}
           </ControlCard>
         </div>
