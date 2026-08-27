@@ -89,7 +89,7 @@ export const ConverterQueue: React.FC<ConverterQueueProps> = ({
                 <StatusIcon item={item} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white/85">{item.file.name}</p>
-                  <p className="text-xs text-white/40">{formatBytes(item.file.size)}</p>
+                  <p className="text-xs font-semibold text-white/85">{formatBytes(item.file.size)}</p>
                 </div>
               </div>
 
@@ -99,8 +99,8 @@ export const ConverterQueue: React.FC<ConverterQueueProps> = ({
                   {item.output ? (
                     <>
                       <p className="truncate text-sm font-medium text-white/85">{item.output.name}</p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/40">
-                        <span className="text-white/70">{formatBytes(item.output.blob.size)}</span>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        <span className="font-semibold text-white/85">{formatBytes(item.output.blob.size)}</span>
                         {delta && (
                           <span
                             className={

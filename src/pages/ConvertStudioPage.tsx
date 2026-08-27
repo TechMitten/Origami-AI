@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
-import { FileCog, Image as ImageIcon, Loader2, Music, Palette, Settings2, ShieldCheck, StopCircle, Trash2 } from 'lucide-react';
+import { FileCog, Image as ImageIcon, Loader2, Music, Palette, Settings2, ShieldCheck, Shrink, StopCircle, Trash2 } from 'lucide-react';
 
 import backgroundImage from '../assets/images/background.jpg';
 import { Footer } from '../components/Footer';
@@ -29,6 +29,7 @@ import {
   getSupportedImageTargets,
   looksLikeImage,
 } from '../services/imageConvertService';
+import { compressFile, isCompressable } from '../services/compressService';
 import type { GlobalSettings } from '../services/storage';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/storage';
 import { triggerBlobDownload } from '../utils/downloadBlob';
@@ -47,6 +48,8 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 /** Enough to be useful in bulk without letting the tab run itself out of memory. */
 const MAX_QUEUE = 40;
 const MAX_FILE_BYTES = 300 * 1024 * 1024;
+/** Where the "compress" path starts, so a same-type conversion actually shrinks. */
+const COMPRESS_QUALITY = 0.6;
 
 const errorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : 'Something went wrong.';
@@ -57,12 +60,12 @@ export const ConvertStudioPage: React.FC = () => {
   usePageMeta({
     title: 'Convert Studio — Origami AI',
     description:
-      'Convert images and audio between formats right in your browser — PNG or JPG to WebP, WAV to MP3, and more. Nothing is uploaded.',
+      'Convert images and audio between formats right in your browser, or drop a file on the Compress tab to shrink it in place. Nothing is uploaded.',
     path: '/convert',
   });
 
   const { isBackgroundDownloadActive } = useBackgroundDownload();
-  const { showAlert } = useModal();
+  const { showAlert, showConfirm } = useModal();
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -100,6 +103,9 @@ export const ConvertStudioPage: React.FC = () => {
   const visibleItems = items.filter((item) => item.kind === tab);
   // Re-running picks failures back up, so a transient error is retryable.
   const pending = visibleItems.filter((item) => item.status === 'queued' || item.status === 'error');
+  // Audio (and video, and anything in the Compress tab that is not an image) is
+  // re-encoded with FFmpeg, so it needs the ~32MB wasm core.
+  const enginePending = pending.some((item) => !looksLikeImage(item.file));
 
   // --- load / persist ---------------------------------------------------------
 
@@ -161,7 +167,7 @@ export const ConvertStudioPage: React.FC = () => {
     (files: File[], rejectedCount: number) => {
       setError(null);
 
-      const matches = tab === 'image' ? looksLikeImage : looksLikeAudioSource;
+      const matches = tab === 'image' ? looksLikeImage : tab === 'audio' ? looksLikeAudioSource : isCompressable;
       const skipped: string[] = [];
 
       const accepted = files.filter((file) => {
@@ -188,9 +194,11 @@ export const ConvertStudioPage: React.FC = () => {
 
       const messages: string[] = [];
       if (wrongKind > 0) {
-        messages.push(
-          `${wrongKind} file${wrongKind === 1 ? '' : 's'} ignored — switch to the ${tab === 'image' ? 'Audio' : 'Image'} tab for those.`,
-        );
+        const hint =
+          tab === 'compress'
+            ? 'only image and audio files are supported here.'
+            : `switch to the ${tab === 'image' ? 'Audio' : 'Image'} tab for those.`;
+        messages.push(`${wrongKind} file${wrongKind === 1 ? '' : 's'} ignored — ${hint}`);
       }
       if (skipped.length > 0) messages.push(`Skipped: ${skipped.join(', ')}.`);
       if (accepted.length > room) {
@@ -246,7 +254,7 @@ export const ConvertStudioPage: React.FC = () => {
     // Audio needs the ~32MB wasm core; a model download in flight would contend
     // for bandwidth and stall it. Images convert on the canvas with no download
     // at all, so they are never blocked.
-    if (tab === 'audio' && isBackgroundDownloadActive) {
+    if (enginePending && isBackgroundDownloadActive) {
       setIsBlockedModalOpen(true);
       return;
     }
@@ -260,7 +268,7 @@ export const ConvertStudioPage: React.FC = () => {
     try {
       // Load the core once, up front. Letting the first file trigger it would
       // mean a failed download is retried for every file in the batch.
-      if (tab === 'audio' && !isAudioEncoderReady()) {
+      if (enginePending && !isAudioEncoderReady()) {
         setIsLoadingEngine(true);
         await ensureAudioEngine();
         setIsLoadingEngine(false);
@@ -268,7 +276,40 @@ export const ConvertStudioPage: React.FC = () => {
 
       // Strictly serial: FFmpeg is a single shared worker, and running canvas
       // encodes in parallel just fights the main thread for the same cycles.
-      for (const queued of pending) {
+      let toConvert = pending;
+      const compressItemIds = new Set<string>();
+      if (tab === 'image' && imageTarget) {
+        const targetExt = imageTarget.extension.toLowerCase();
+        const sameType = pending.filter(
+          (item) =>
+            item.kind === 'image' &&
+            (item.file.name.includes('.')
+              ? `.${item.file.name.split('.').pop()!.toLowerCase()}`
+              : '') === targetExt,
+        );
+        if (sameType.length > 0) {
+          const srcName = sameType[0].file.name;
+          const srcLabel = srcName.includes('.')
+            ? srcName.slice(srcName.lastIndexOf('.') + 1).toUpperCase()
+            : imageTarget.label;
+          const proceed = await showConfirm(
+            `You are trying to convert a ${srcLabel} into a ${imageTarget.label}. Would you like to compress the image to make the file size smaller?`,
+            { title: 'Same file type', confirmText: 'Yes', cancelText: 'Cancel', type: 'confirm' },
+          );
+          if (proceed) {
+            for (const item of sameType) compressItemIds.add(item.id);
+          } else {
+            toConvert = pending.filter((item) => !sameType.includes(item));
+            for (const item of sameType) {
+              updateItem(item.id, {
+                note: 'Not converted — converting a file to its own format would not change anything. Pick a different output format, or let it be compressed by choosing Yes.',
+              });
+            }
+          }
+        }
+      }
+
+      for (const queued of toConvert) {
         if (cancelRef.current) break;
 
         if (queued.output) URL.revokeObjectURL(queued.output.url);
@@ -283,20 +324,48 @@ export const ConvertStudioPage: React.FC = () => {
         try {
           if (queued.kind === 'image') {
             if (!imageTarget) throw new Error('Your browser exposes no usable image encoder.');
-            const result = await convertImage(queued.file, imageTarget, {
-              quality: imageQuality,
+            const compress = compressItemIds.has(queued.id);
+            let quality = compress ? Math.min(imageQuality, COMPRESS_QUALITY) : imageQuality;
+            let result = await convertImage(queued.file, imageTarget, {
+              quality,
               backgroundColor,
             });
+            // The whole point of "compress" is a smaller file. For lossy formats
+            // the old 0.82 default could come out bigger than the source, so keep
+            // lowering the quality until the output is actually under the original
+            // size rather than silently handing back a re-encoded bigger file.
+            let compressTargetMet = !compress;
+            if (compress && imageTarget.lossy) {
+              while (result.blob.size >= queued.file.size && quality > 0.05) {
+                quality = Math.max(0.05, quality - 0.1);
+                result = await convertImage(queued.file, imageTarget, {
+                  quality,
+                  backgroundColor,
+                });
+              }
+              compressTargetMet = result.blob.size < queued.file.size;
+            } else if (compress) {
+              // Lossless (PNG): quality is ignored by the encoder, so a re-encode
+              // can't be relied on to shrink; report truthfully if it did not.
+              compressTargetMet = result.blob.size < queued.file.size;
+            }
             const name = outputFilename(queued.file.name, imageTarget.extension);
+            const notes: string[] = [];
+            if (result.truncatedAnimation) notes.push('Animated source — only the first frame was converted.');
+            if (compress && !compressTargetMet) {
+              notes.push(
+                imageTarget.lossy
+                  ? 'Could not make this smaller without losing more quality — it is already too compressed to shrink further.'
+                  : 'This image is already lossless, so converting it to its own format cannot shrink the file.',
+              );
+            }
             updateItem(queued.id, {
               status: 'done',
               progress: 1,
               output: { blob: result.blob, url: URL.createObjectURL(result.blob), name },
-              note: result.truncatedAnimation
-                ? 'Animated source — only the first frame was converted.'
-                : undefined,
+              note: notes.length > 0 ? notes.join(' ') : undefined,
             });
-          } else {
+          } else if (queued.kind === 'audio') {
             const blob = await convertAudio(queued.file, audioTarget, {
               bitrateKbps: bitrate,
               onProgress: (p) => updateItem(queued.id, { progress: p }),
@@ -306,6 +375,17 @@ export const ConvertStudioPage: React.FC = () => {
               status: 'done',
               progress: 1,
               output: { blob, url: URL.createObjectURL(blob), name },
+            });
+          } else {
+            const { blob, name, note } = await compressFile(queued.file, {
+              backgroundColor,
+              onProgress: (p) => updateItem(queued.id, { progress: p }),
+            });
+            updateItem(queued.id, {
+              status: 'done',
+              progress: 1,
+              output: { blob, url: URL.createObjectURL(blob), name },
+              note,
             });
           }
         } catch (e) {
@@ -439,9 +519,9 @@ export const ConvertStudioPage: React.FC = () => {
 
         {/* Tabs */}
         <div className="mb-5 flex gap-2" role="tablist" aria-label="Conversion type">
-          {(['image', 'audio'] as const).map((kind) => {
+          {(['image', 'audio', 'compress'] as const).map((kind) => {
             const isActive = tab === kind;
-            const Icon = kind === 'image' ? ImageIcon : Music;
+            const Icon = kind === 'image' ? ImageIcon : kind === 'audio' ? Music : Shrink;
             return (
               <button
                 key={kind}
@@ -459,7 +539,7 @@ export const ConvertStudioPage: React.FC = () => {
                 ].join(' ')}
               >
                 <Icon className="h-4 w-4" />
-                {kind === 'image' ? 'Images' : 'Audio'}
+                {kind === 'image' ? 'Images' : kind === 'audio' ? 'Audio' : 'Compress'}
               </button>
             );
           })}
@@ -476,7 +556,8 @@ export const ConvertStudioPage: React.FC = () => {
         )}
 
         {/* Output settings */}
-        <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-md sm:p-6">
+        {tab !== 'compress' && (
+          <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-md sm:p-6">
           <div className="mb-3 flex items-center gap-2">
             <Settings2 className="h-3.5 w-3.5 text-cyan-400" />
             <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-white/50">
@@ -582,6 +663,7 @@ export const ConvertStudioPage: React.FC = () => {
             </div>
           )}
         </section>
+        )}
 
         <div className="flex gap-3">
           <button
@@ -592,10 +674,16 @@ export const ConvertStudioPage: React.FC = () => {
           >
             {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCog className="h-4 w-4" />}
             {isRunning
-              ? 'Converting…'
+              ? tab === 'compress'
+                ? 'Compressing…'
+                : 'Converting…'
               : pending.length === 0
-                ? 'Add files to convert'
-                : `Convert ${pending.length} file${pending.length === 1 ? '' : 's'} to ${activeTarget?.label ?? ''}`}
+                ? tab === 'compress'
+                  ? 'Add files to compress'
+                  : 'Add files to convert'
+                : tab === 'compress'
+                  ? `Compress ${pending.length} file${pending.length === 1 ? '' : 's'}`
+                  : `Convert ${pending.length} file${pending.length === 1 ? '' : 's'} to ${activeTarget?.label ?? ''}`}
           </button>
 
           {isRunning && (
@@ -617,7 +705,7 @@ export const ConvertStudioPage: React.FC = () => {
             Downloading the conversion engine — about 32 MB, one time only.
           </p>
         )}
-        {!isRunning && tab === 'audio' && !isAudioEncoderReady() && (
+        {!isRunning && enginePending && !isAudioEncoderReady() && (
           <p className="mt-3 text-center text-xs text-white/35">
             The first audio conversion downloads a ~32 MB engine. Image conversions never need it.
           </p>
@@ -653,7 +741,7 @@ export const ConvertStudioPage: React.FC = () => {
       <DownloadBlockedModal
         isOpen={isBlockedModalOpen}
         onClose={() => setIsBlockedModalOpen(false)}
-        actionLabel="Convert Audio"
+        actionLabel={tab === 'compress' ? 'Compress Files' : 'Convert Audio'}
       />
 
       {isSettingsOpen && (

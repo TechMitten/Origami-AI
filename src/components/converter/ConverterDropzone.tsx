@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { FileAudio, ImageIcon, UploadCloud } from 'lucide-react';
+import { FileAudio, ImageIcon, Shrink, UploadCloud } from 'lucide-react';
 
 import { IMAGE_DROPZONE_ACCEPT } from '../../services/imageConvertService';
 import { AUDIO_DROPZONE_ACCEPT } from '../../services/audioConvertService';
@@ -22,6 +22,10 @@ const COPY: Record<ConverterKind, { title: string; hint: string }> = {
     title: 'Drop audio or video here',
     hint: 'MP3, WAV, M4A, OGG, Opus, FLAC · MP4/WebM/MOV to rip the audio track',
   },
+  compress: {
+    title: 'Drop any image or audio here',
+    hint: 'Auto-compressed in place — same type, smaller file',
+  },
 };
 
 export const ConverterDropzone: React.FC<ConverterDropzoneProps> = ({ kind, disabled = false, onFiles }) => {
@@ -33,14 +37,19 @@ export const ConverterDropzone: React.FC<ConverterDropzoneProps> = ({ kind, disa
     [onFiles],
   );
 
+  const accept = useMemo(
+    () => (kind === 'image' ? IMAGE_DROPZONE_ACCEPT : kind === 'audio' ? AUDIO_DROPZONE_ACCEPT : { ...IMAGE_DROPZONE_ACCEPT, ...AUDIO_DROPZONE_ACCEPT }),
+    [kind],
+  );
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleDrop,
-    accept: kind === 'image' ? IMAGE_DROPZONE_ACCEPT : AUDIO_DROPZONE_ACCEPT,
+    accept,
     multiple: true,
     disabled,
   });
 
-  const KindIcon = kind === 'image' ? ImageIcon : FileAudio;
+  const KindIcon = kind === 'image' ? ImageIcon : kind === 'audio' ? FileAudio : Shrink;
   const copy = COPY[kind];
 
   return (

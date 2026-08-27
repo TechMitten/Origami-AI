@@ -1,4 +1,4 @@
-export type ConverterKind = 'image' | 'audio';
+export type ConverterKind = 'image' | 'audio' | 'compress';
 
 export type QueueStatus = 'queued' | 'converting' | 'done' | 'error';
 
