@@ -1276,12 +1276,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <p className="text-[10px] text-white/30">Send slide snapshots to vision model instead of using local OCR</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-white/40 uppercase">{useOpenAIOcr ? 'On' : 'Off'}</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{!useWebLLM && useOpenAIOcr ? 'On' : 'Off'}</span>
                     <button
                       onClick={() => setUseOpenAIOcr(!useOpenAIOcr)}
-                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIOcr ? 'bg-emerald-500' : 'bg-white/10'}`}
+                      disabled={useWebLLM}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-white/10 opacity-40 cursor-not-allowed' : (useOpenAIOcr ? 'bg-emerald-500' : 'bg-white/10')}`}
                     >
-                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIOcr ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-0' : (useOpenAIOcr ? 'translate-x-5' : 'translate-x-0')}`} />
                     </button>
                   </div>
                 </div>
@@ -1294,12 +1295,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <p className="text-[10px] text-white/30">Use endpoint instead of local WebLLM for rewriting scripts</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-white/40 uppercase">{useOpenAIFixScript ? 'On' : 'Off'}</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{!useWebLLM && useOpenAIFixScript ? 'On' : 'Off'}</span>
                     <button
                       onClick={() => setUseOpenAIFixScript(!useOpenAIFixScript)}
-                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIFixScript ? 'bg-emerald-500' : 'bg-white/10'}`}
+                      disabled={useWebLLM}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-white/10 opacity-40 cursor-not-allowed' : (useOpenAIFixScript ? 'bg-emerald-500' : 'bg-white/10')}`}
                     >
-                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIFixScript ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-0' : (useOpenAIFixScript ? 'translate-x-5' : 'translate-x-0')}`} />
                     </button>
                   </div>
                 </div>
@@ -1312,12 +1314,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <p className="text-[10px] text-white/30">Use this endpoint to generate slides with AI</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-white/40 uppercase">{useOpenAIForSlideGen ? 'On' : 'Off'}</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{!useWebLLM && useOpenAIForSlideGen ? 'On' : 'Off'}</span>
                     <button
                       onClick={() => setUseOpenAIForSlideGen(!useOpenAIForSlideGen)}
-                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useOpenAIForSlideGen ? 'bg-emerald-500' : 'bg-white/10'}`}
+                      disabled={useWebLLM}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-white/10 opacity-40 cursor-not-allowed' : (useOpenAIForSlideGen ? 'bg-emerald-500' : 'bg-white/10')}`}
                     >
-                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useOpenAIForSlideGen ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-0' : (useOpenAIForSlideGen ? 'translate-x-5' : 'translate-x-0')}`} />
                     </button>
                   </div>
                 </div>
@@ -1330,12 +1333,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <p className="text-[10px] text-white/30">Use this endpoint for Shorts script and image-prompt writing instead of local WebLLM</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-white/40 uppercase">{shortsUseOpenAI ? 'On' : 'Off'}</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{!useWebLLM && shortsUseOpenAI ? 'On' : 'Off'}</span>
                     <button
                       onClick={() => setShortsUseOpenAI(!shortsUseOpenAI)}
-                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${shortsUseOpenAI ? 'bg-emerald-500' : 'bg-white/10'}`}
+                      disabled={useWebLLM}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-white/10 opacity-40 cursor-not-allowed' : (shortsUseOpenAI ? 'bg-emerald-500' : 'bg-white/10')}`}
                     >
-                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${shortsUseOpenAI ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-0' : (shortsUseOpenAI ? 'translate-x-5' : 'translate-x-0')}`} />
                     </button>
                   </div>
                 </div>
@@ -1348,12 +1352,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                     <p className="text-[10px] text-white/30">Use this endpoint for the AI Assistant chat instead of local WebLLM</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-white/40 uppercase">{assistantUseOpenAI ? 'On' : 'Off'}</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">{!useWebLLM && assistantUseOpenAI ? 'On' : 'Off'}</span>
                     <button
                       onClick={() => setAssistantUseOpenAI(!assistantUseOpenAI)}
-                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${assistantUseOpenAI ? 'bg-emerald-500' : 'bg-white/10'}`}
+                      disabled={useWebLLM}
+                      className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-white/10 opacity-40 cursor-not-allowed' : (assistantUseOpenAI ? 'bg-emerald-500' : 'bg-white/10')}`}
                     >
-                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${assistantUseOpenAI ? 'translate-x-5' : 'translate-x-0'}`} />
+                      <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white shadow-lg transform transition-transform duration-300 ${useWebLLM ? 'translate-x-0' : (assistantUseOpenAI ? 'translate-x-5' : 'translate-x-0')}`} />
                     </button>
                   </div>
                 </div>

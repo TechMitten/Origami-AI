@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Layers, Loader2, BrainCircuit, Video, ArrowUpRight, Sparkles, Clapperboard } from 'lucide-react';
+import { Layers, Loader2, BrainCircuit, Video, ArrowUpRight, Sparkles, Clapperboard, AudioLines, FileCog } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
 import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
@@ -20,6 +20,8 @@ interface PDFUploaderProps {
   onOpenIssueReporter?: () => void;
   onOpenSlideEditor?: () => void;
   onOpenShorts?: () => void;
+  onOpenVoiceStudio?: () => void;
+  onOpenConverter?: () => void;
 }
 
 interface SecondaryOption {
@@ -34,7 +36,7 @@ interface SecondaryOption {
   badge?: string;
 }
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor, onOpenShorts }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor, onOpenShorts, onOpenVoiceStudio, onOpenConverter }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateSlidesModalOpen, setIsCreateSlidesModalOpen] = useState(false);
@@ -153,6 +155,24 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       description: 'Chat with the local WebLLM workspace to write and revise.',
       cta: 'Open assistant',
       onClick: onOpenAssistant,
+      accent: 'foil',
+    },
+    {
+      key: 'voice',
+      icon: AudioLines,
+      title: 'Voice Studio',
+      description: 'Turn any text into on-device narration and download it as an MP3.',
+      cta: 'Open voice studio',
+      onClick: onOpenVoiceStudio,
+      accent: 'foil',
+    },
+    {
+      key: 'converter',
+      icon: FileCog,
+      title: 'Convert Studio',
+      description: 'Convert images and audio between formats — PNG or JPG to WebP, WAV to MP3, all on-device.',
+      cta: 'Open convert studio',
+      onClick: onOpenConverter,
       accent: 'foil',
     },
     {

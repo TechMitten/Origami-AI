@@ -61,7 +61,7 @@ export const AVAILABLE_VOICES = DEFAULT_VOICES;
 
 // Singleton worker instance
 let worker: Worker | null = null;
-const pendingRequests = new Map<string, { resolve: (value: string) => void, reject: (reason?: unknown) => void }>();
+const pendingRequests = new Map<string, { resolve: (value: Blob) => void, reject: (reason?: unknown) => void }>();
 
 export const ttsEvents = new EventTarget();
 
@@ -81,7 +81,7 @@ function getWorker(quantization: 'q8' | 'q4' = 'q8'): Worker {
       if (type === 'generate-complete' && id) {
         const req = pendingRequests.get(id);
         if (req) {
-          req.resolve(URL.createObjectURL(blob));
+          req.resolve(blob);
           pendingRequests.delete(id);
         }
       } else if (type === 'init-complete') {
@@ -137,14 +137,21 @@ export function reloadTTS(quantization: 'q8' | 'q4'): Promise<void> {
 }
 
 
-export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
+/**
+ * Generate speech and hand back the raw `audio/wav` Blob the worker produced.
+ *
+ * Prefer this over generateTTS() when you need the bytes (saving to disk,
+ * persisting a draft, feeding a decoder) — generateTTS() wraps this and only
+ * exposes an object URL, which callers then have to re-fetch to read back.
+ */
+export async function generateTTSBlob(text: string, options: TTSOptions): Promise<Blob> {
   // Standard worker implementation
   const worker = getWorker();
   const id = crypto.randomUUID();
-  
+
   return new Promise((resolve, reject) => {
     pendingRequests.set(id, { resolve, reject });
-    
+
     worker.postMessage({
       type: 'generate',
       text,
@@ -155,6 +162,11 @@ export async function generateTTS(text: string, options: TTSOptions): Promise<st
       id
     });
   });
+}
+
+
+export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
+  return URL.createObjectURL(await generateTTSBlob(text, options));
 }
 
 

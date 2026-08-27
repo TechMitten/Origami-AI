@@ -17,6 +17,7 @@ import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
 import { useModal } from '../context/ModalContext';
 import { usePageMeta } from '../hooks/usePageMeta';
+import { triggerBlobDownload } from '../utils/downloadBlob';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
 import { PageHeader } from '../components/PageHeader';
 import { analyzeIssueCaptureWithGemini, type IssueCaptureAnalysis } from '../services/aiService';
@@ -121,18 +122,6 @@ const readVideoDuration = (url: string): Promise<number> => (
     video.onerror = () => resolve(0);
   })
 );
-
-const downloadBlob = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
-};
 
 export const IssueReporterPage: React.FC = () => {
   usePageMeta({
@@ -575,7 +564,7 @@ export const IssueReporterPage: React.FC = () => {
             <div className="flex shrink-0 gap-2.5">
               {capture?.videoBlob && (
                 <button
-                  onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
+                  onClick={() => triggerBlobDownload(capture.videoBlob, `${capture.fileBase}.webm`)}
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.07] px-4 py-2.5 text-sm font-bold text-white/70 transition-all hover:bg-white/12 hover:text-white"
                 >
                   <Download className="h-4 w-4" />
@@ -696,7 +685,7 @@ export const IssueReporterPage: React.FC = () => {
             <div className="flex shrink-0 gap-2.5">
               {capture?.videoBlob && (
                 <button
-                  onClick={() => downloadBlob(capture.videoBlob, `${capture.fileBase}.webm`)}
+                  onClick={() => triggerBlobDownload(capture.videoBlob, `${capture.fileBase}.webm`)}
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.07] px-4 py-2.5 text-sm font-bold text-white/70 transition-all hover:bg-white/12 hover:text-white"
                 >
                   <Download className="h-4 w-4" />

@@ -33,6 +33,8 @@ import { SceneAlignmentPage } from './pages/SceneAlignmentPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { IssueReporterPage } from './pages/IssueReporterPage';
 import { ShortsPage } from './pages/ShortsPage';
+import { VoiceStudioPage } from './pages/VoiceStudioPage';
+import { ConvertStudioPage } from './pages/ConvertStudioPage';
 import { PollinationsCallbackPage } from './pages/PollinationsCallbackPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { usePageMeta } from './hooks/usePageMeta';
@@ -1448,6 +1450,8 @@ function MainApp() {
               onOpenAssistant={() => navigate('/assistant')}
               onOpenIssueReporter={() => navigate('/issue-reporter')}
               onOpenShorts={() => navigate('/shorts')}
+              onOpenVoiceStudio={() => navigate('/voice')}
+              onOpenConverter={() => navigate('/convert')}
               onOpenSlideEditor={() => {
                 setActiveTab('edit');
                 setEnteredEditorWithoutPdf(true);
@@ -1699,6 +1703,8 @@ function App() {
               <Route path="/assistant" element={<AssistantPage />} />
               <Route path="/issue-reporter" element={<IssueReporterPage />} />
               <Route path="/shorts" element={<ShortsPage />} />
+              <Route path="/voice" element={<VoiceStudioPage />} />
+              <Route path="/convert" element={<ConvertStudioPage />} />
               <Route path="/pollinations-callback" element={<PollinationsCallbackPage />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />

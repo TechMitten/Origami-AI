@@ -11,6 +11,7 @@ import {
   RefreshCw,
   RotateCcw,
   Sparkles,
+  Tag,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -32,6 +33,7 @@ import { ShortsPreviewPlayer } from '../components/shorts/ShortsPreviewPlayer';
 import { ShortsRenderModal, type ShortsRenderPhase } from '../components/shorts/ShortsRenderModal';
 import { VoiceAuditionModal } from '../components/shorts/VoiceAuditionModal';
 import { PollinationsInfoModal } from '../components/shorts/PollinationsInfoModal';
+import { startPollinationsOAuth } from '../services/pollinationsAuth';
 import { useModal } from '../context/ModalContext';
 import { usePageMeta } from '../hooks/usePageMeta';
 
@@ -779,6 +781,54 @@ export const ShortsPage: React.FC = () => {
     [handleRegenerateImage, handleRegenerateVideo],
   );
 
+  // Bumps every scene's seed and regenerates all images, so a single tap swaps
+  // the whole deck for a fresh set rather than re-rolling one card at a time.
+  const handleRegenerateAllImages = useCallback(async () => {
+    const current = projectRef.current;
+    if (!current.scenes.length || current.generationMode === 'video') return;
+
+    const confirmed = await showConfirm(
+      'This will replace every generated image with a new one using a different random seed. Nothing else changes — your narration, prompts, and voiceover stay as they are.',
+      { title: 'Regenerate all images', confirmText: 'Regenerate', cancelText: 'Cancel' },
+    );
+    if (!confirmed) return;
+
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+
+    // New seed per scene (Pollinations caches identical prompt+seed), keyed by
+    // id so the project state and each dispatched run agree on the same seed.
+    const reseededScenes = current.scenes.map((scene) => ({
+      ...scene,
+      seed: Math.floor(Math.random() * 2_147_483_000),
+    }));
+    const seedById = new Map(reseededScenes.map((scene) => [scene.id, scene.seed]));
+
+    setProject((prev) => ({
+      ...prev,
+      scenes: prev.scenes.map((scene) => ({
+        ...scene,
+        seed: seedById.get(scene.id) ?? scene.seed,
+      })),
+    }));
+
+    setIsBusy(true);
+    setBusyLabel('Regenerating all images...');
+    try {
+      await Promise.all(
+        reseededScenes.map((scene) => runSceneImage(scene, current, controller.signal)),
+      );
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      await showAlert(errorMessage(e), { type: 'error', title: 'Image regeneration failed' });
+    } finally {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      setIsBusy(false);
+      setBusyLabel('');
+    }
+  }, [runSceneImage, showAlert, showConfirm]);
+
   const handleRegenerateAudio = useCallback(
     (id: string) => {
       const current = projectRef.current;
@@ -1256,7 +1306,7 @@ export const ShortsPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setIsSettingsOpen(true)}
+                onClick={() => void startPollinationsOAuth(window.location.pathname)}
                 className="focus-ring rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-300/15"
               >
                 Connect
@@ -1352,6 +1402,32 @@ export const ShortsPage: React.FC = () => {
                         disabled={renderPhase === 'rendering' || isBusy}
                       />
                     </div>
+
+                    {!isVideoMode && (
+                      <a
+                        href="https://enter.pollinations.ai/models?category=image"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="focus-ring flex h-[38px] items-center gap-1.5 self-end rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all"
+                        title="See pricing for each image model"
+                      >
+                        <Tag className="h-3.5 w-3.5" />
+                        Pricing
+                      </a>
+                    )}
+
+                    {!isVideoMode && project.scenes.some((s) => visualStatusOf(s) === 'ready') && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRegenerateAllImages()}
+                        disabled={renderPhase === 'rendering' || isBusy}
+                        className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Regenerate every image with a new random seed"
+                      >
+                        <RefreshCw className={cn('h-3.5 w-3.5', isBusy && 'animate-spin')} />
+                        Regenerate all images
+                      </button>
+                    )}
 
                     <button
                       type="button"

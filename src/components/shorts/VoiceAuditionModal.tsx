@@ -27,7 +27,7 @@ const PRESET_SAMPLE_TEXTS = [
   },
   {
     label: 'Natural Sample',
-    text: "Hello! This is a sample of how my voice sounds in your video shorts.",
+    text: "Hello! This is a sample of how my voice sounds in your project.",
   },
   {
     label: 'Fast-Paced Tip',
@@ -236,7 +236,7 @@ export const VoiceAuditionModal: React.FC<VoiceAuditionModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-white/50">
-                Preview and compare on-device voices before generating scene voiceovers
+                Preview and compare on-device voices before generating narration
               </p>
             </div>
           </div>

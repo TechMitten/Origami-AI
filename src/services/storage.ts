@@ -37,6 +37,15 @@ export interface GlobalSettings {
   shortsCaptionStyle?: 'bold-pop' | 'clean-lower' | 'karaoke';
   shortsUseOpenAI?: boolean;
   assistantUseOpenAI?: boolean;
+  // Voice Studio
+  voiceStudioVoice?: string;
+  voiceStudioSpeed?: number;
+  voiceStudioMp3Bitrate?: 128 | 192 | 320;
+  // Convert Studio
+  converterImageTarget?: string;
+  converterImageQuality?: number;
+  converterAudioTarget?: string;
+  converterAudioBitrate?: number;
 }
 
 export interface AssistantChatAttachment {
