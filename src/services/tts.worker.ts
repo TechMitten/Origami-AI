@@ -146,8 +146,9 @@ if (typeof self !== 'undefined') {
       const audioChunks: Float32Array[] = [];
       let totalLength = 0;
       let sampleRate = 24000;
+      const totalChunks = chunks.length;
 
-      for (let i = 0; i < chunks.length; i++) {
+      for (let i = 0; i < totalChunks; i++) {
         if (cancelledIds.has(id)) {
           ctx.postMessage({ type: 'error', error: 'Aborted', id });
           return;
@@ -156,12 +157,15 @@ if (typeof self !== 'undefined') {
         const chunk = chunks[i];
         if (!chunk.trim()) continue;
 
-        // Signal progress
+        // Signal chunk start
+        const startProgress = Math.round((i / totalChunks) * 100);
         ctx.postMessage({ 
             type: 'progress', 
-            progress: Math.round(((i + 0.5) / chunks.length) * 100), 
-            file: `Generating chunk ${i + 1}/${chunks.length} ...`, 
-            status: 'Processing' 
+            progress: startProgress, 
+            file: totalChunks > 1 ? `Generating speech (part ${i + 1} of ${totalChunks})…` : 'Generating speech…', 
+            status: 'Processing',
+            currentChunk: i + 1,
+            totalChunks
         });
 
         const audio = await model.generate(chunk, {
@@ -181,6 +185,17 @@ if (typeof self !== 'undefined') {
             totalLength += audioObj.audio.length;
             sampleRate = audioObj.sampling_rate;
         }
+
+        // Signal chunk completion
+        const completedProgress = Math.round(((i + 1) / totalChunks) * 100);
+        ctx.postMessage({ 
+            type: 'progress', 
+            progress: completedProgress, 
+            file: i + 1 === totalChunks ? 'Finalizing audio…' : `Part ${i + 1} of ${totalChunks} ready`, 
+            status: 'Processing',
+            currentChunk: i + 1,
+            totalChunks
+        });
       }
       
       const finalAudio = new Float32Array(totalLength);
@@ -194,7 +209,9 @@ if (typeof self !== 'undefined') {
           type: 'progress', 
           progress: 100, 
           file: 'Complete', 
-          status: 'done' 
+          status: 'done',
+          currentChunk: totalChunks,
+          totalChunks
       });
 
       const blob = encodeWAV(finalAudio, sampleRate);

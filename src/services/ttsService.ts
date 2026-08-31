@@ -74,6 +74,8 @@ export interface ProgressEventDetail {
     progress: number;
     file: string;
     status: string;
+    currentChunk?: number;
+    totalChunks?: number;
 }
 
 
@@ -81,7 +83,7 @@ function getWorker(quantization: 'q8' | 'q4' = 'q8'): Worker {
   if (!worker) {
     worker = new TTSWorker();
     worker!.onmessage = (e: MessageEvent) => {
-      const { type, id, blob, error, progress, file, status } = e.data;
+      const { type, id, blob, error, progress, file, status, currentChunk, totalChunks } = e.data;
       
       if (type === 'generate-complete' && id) {
         const req = pendingRequests.get(id);
@@ -102,7 +104,7 @@ function getWorker(quantization: 'q8' | 'q4' = 'q8'): Worker {
       } else if (type === 'progress') {
          // Dispatch progress event
          const event = new CustomEvent<ProgressEventDetail>('tts-progress', { 
-            detail: { progress, file, status } 
+            detail: { progress, file, status, currentChunk, totalChunks } 
          });
          ttsEvents.dispatchEvent(event);
       }

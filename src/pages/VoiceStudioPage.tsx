@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AudioLines, Download, FileAudio, Gauge, Loader2, Mic, RotateCcw, Sparkles } from 'lucide-react';
+import { AudioLines, Download, Gauge, Loader2, Mic, RotateCcw, Sparkles } from 'lucide-react';
 import backgroundImage from '../assets/images/background.jpg';
 import { Footer } from '../components/Footer';
 import { GlobalSettingsModal } from '../components/GlobalSettingsModal';
 import { MobileWarningModal } from '../components/MobileWarningModal';
 import { PageHeader } from '../components/PageHeader';
 import { DownloadBlockedModal } from '../components/DownloadBlockedModal';
+import { TTSAudioPlayer } from '../components/TTSAudioPlayer';
 import { VoiceAuditionModal, VOICE_METADATA } from '../components/shorts/VoiceAuditionModal';
 import { useBackgroundDownload } from '../context/BackgroundDownloadContext';
 import { useModal } from '../context/ModalContext';
@@ -105,12 +106,10 @@ export const VoiceStudioPage: React.FC = () => {
   // Kept out of state so the unmount cleanup always sees the live URL.
   const takeUrlRef = useRef<string | null>(null);
 
-  // Simulated-progress refs. The bar is animated here rather than driven by the
-  // raw worker percentage, which reports 50+ instantly on a single-chunk script.
-  const progressRef = useRef(10);
-  const isFinishedRef = useRef(false);
+  // Real-time progress refs for smooth animation across actual chunk milestones and model download
+  const progressRef = useRef(0);
+  const chunkBoundsRef = useRef<{ start: number; end: number }>({ start: 0, end: 100 });
   const progressTimerRef = useRef<number | null>(null);
-  const pendingTakeRef = useRef<Take | null>(null);
 
   const voiceMeta = VOICE_METADATA.find((v) => v.id === voice);
   const trimmed = text.trim();
@@ -191,66 +190,76 @@ export const VoiceStudioPage: React.FC = () => {
     setIsGenerating(true);
     setTake(null);
     stopProgressTimer();
-    progressRef.current = 10;
-    isFinishedRef.current = false;
-    pendingTakeRef.current = null;
-    setProgress(10);
-    setProgressLabel('Warming up the voice model…');
+    progressRef.current = 0;
+    chunkBoundsRef.current = { start: 0, end: 100 };
+    setProgress(0);
+    setProgressLabel('Preparing voice engine…');
 
     // 'tts-progress' carries both the first-run model download and the
     // per-chunk generation, distinguishable by the status the worker sets.
     const handleProgress = (e: Event) => {
       const detail = (e as CustomEvent<ProgressEventDetail>).detail;
-      const pct = Math.round(detail.progress);
+      const pct = typeof detail.progress === 'number' && Number.isFinite(detail.progress) ? detail.progress : -1;
 
       if (detail.status === 'Processing') {
-        setProgressLabel(detail.file || 'Generating speech…');
+        const currentChunk = detail.currentChunk || 1;
+        const totalChunks = detail.totalChunks || 1;
+        const start = Math.max(0, ((currentChunk - 1) / totalChunks) * 100);
+        const end = Math.min(100, (currentChunk / totalChunks) * 100);
+
+        chunkBoundsRef.current = { start, end };
+        if (pct >= 0) {
+          progressRef.current = Math.max(progressRef.current, pct);
+          setProgress(progressRef.current);
+        }
+
+        if (detail.file) {
+          setProgressLabel(detail.file);
+        } else if (totalChunks > 1) {
+          setProgressLabel(`Generating speech (part ${currentChunk} of ${totalChunks})…`);
+        } else {
+          setProgressLabel('Generating speech…');
+        }
       } else if (detail.status === 'done' || pct >= 100) {
-        setProgressLabel('Finishing up…');
+        progressRef.current = 100;
+        setProgress(100);
+        setProgressLabel('Finalizing audio…');
       } else {
-        setProgressLabel(detail.file ? `Downloading voice model — ${detail.file}` : 'Downloading voice model…');
+        // Model download / initialization phase
+        if (pct >= 0) {
+          progressRef.current = pct;
+          setProgress(pct);
+        }
+        setProgressLabel(
+          detail.file
+            ? `Downloading voice model — ${detail.file}`
+            : 'Downloading voice model…',
+        );
       }
     };
     ttsEvents.addEventListener('tts-progress', handleProgress);
 
-    let completed = false;
     const stopAndCleanup = () => {
-      if (progressTimerRef.current !== null) {
-        window.clearInterval(progressTimerRef.current);
-        progressTimerRef.current = null;
-      }
+      stopProgressTimer();
       ttsEvents.removeEventListener('tts-progress', handleProgress);
     };
-    const revealResult = () => {
-      if (completed) return;
-      completed = true;
-      stopAndCleanup();
-      if (pendingTakeRef.current) setTake(pendingTakeRef.current);
-      pendingTakeRef.current = null;
-      setProgress(100);
-      setIsGenerating(false);
-    };
 
-    try {
-      // Animate the bar ourselves: start at 10%, creep toward a soft ceiling
-      // while the worker churns, then sprint to 100% once the audio is actually
-      // ready so the download controls only appear when the result exists.
-      progressTimerRef.current = window.setInterval(() => {
-        const current = progressRef.current;
-        const finished = isFinishedRef.current;
-        const ceiling = finished ? 100 : 90;
+    // Smoothly advance within current chunk bounds while the worker is actively computing
+    progressTimerRef.current = window.setInterval(() => {
+      const { start, end } = chunkBoundsRef.current;
+      const current = progressRef.current;
+      // Soft target near the end of the current chunk so it doesn't prematurely reach 100% of the chunk
+      const ceiling = start + (end - start) * 0.92;
 
-        const next = Math.min(
-          ceiling,
-          current + (finished ? Math.max(2, (100 - current) * 0.35) : Math.max(0.4, (ceiling - current) * 0.05)),
-        );
-
+      if (current < ceiling) {
+        const step = Math.max(0.08, (ceiling - current) * 0.06);
+        const next = Math.min(ceiling, current + step);
         progressRef.current = next;
         setProgress(next);
+      }
+    }, 60);
 
-        if (finished && next >= 99.5) revealResult();
-      }, 120);
-
+    try {
       const blob = await generateTTSBlob(trimmed, { voice, speed, pitch: 1.0 });
       const url = URL.createObjectURL(blob);
       const duration = await getAudioDuration(url);
@@ -258,9 +267,11 @@ export const VoiceStudioPage: React.FC = () => {
       if (takeUrlRef.current) URL.revokeObjectURL(takeUrlRef.current);
       takeUrlRef.current = url;
 
-      pendingTakeRef.current = { blob, url, duration, voice, speed, text: trimmed };
-      isFinishedRef.current = true;
-      setProgressLabel('Finishing up…');
+      stopAndCleanup();
+      progressRef.current = 100;
+      setProgress(100);
+      setTake({ blob, url, duration, voice, speed, text: trimmed });
+      setIsGenerating(false);
     } catch (e) {
       console.error('[VoiceStudio] Generation failed:', e);
       setError(errorMessage(e));
@@ -477,15 +488,28 @@ export const VoiceStudioPage: React.FC = () => {
 
         {isGenerating && (
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md">
-            <div className="mb-2 h-1 overflow-hidden rounded-full bg-white/10">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-200">
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-cyan-400" />
+                <span className="truncate">{progressLabel || 'Generating speech…'}</span>
+              </span>
+              <span className="shrink-0 font-mono text-xs font-bold tabular-nums text-cyan-300">
+                {Math.round(Math.min(100, Math.max(0, progress)))}%
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Speech generation progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(Math.min(100, Math.max(0, progress)))}
+              className="h-1.5 overflow-hidden rounded-full bg-white/10"
+            >
               <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 transition-all duration-150 ease-out"
+                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
               />
             </div>
-            <p className="font-mono text-[11px] tracking-wide text-white/45">
-              {progressLabel || 'Working…'}
-            </p>
           </div>
         )}
 
@@ -497,79 +521,78 @@ export const VoiceStudioPage: React.FC = () => {
 
         {/* Result */}
         {take && !isGenerating && (
-          <section className="mt-6 rounded-2xl border border-cyan-400/25 bg-cyan-500/[0.06] p-5 backdrop-blur-md sm:p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider text-cyan-200">
-                <FileAudio className="h-3.5 w-3.5" /> Your narration
-              </span>
-              <span className="font-mono text-[11px] text-white/45">
-                {formatDuration(take.duration)} · {VOICE_METADATA.find((v) => v.id === take.voice)?.name ?? take.voice}
-                {' · '}
-                {take.speed.toFixed(2)}× · {formatBytes(take.blob.size)} WAV
-              </span>
-            </div>
+          <section className="mt-6 space-y-5">
+            <TTSAudioPlayer
+              src={take.url}
+              blob={take.blob}
+              duration={take.duration}
+              voiceName={VOICE_METADATA.find((v) => v.id === take.voice)?.name ?? take.voice}
+              voiceFlag={VOICE_METADATA.find((v) => v.id === take.voice)?.flag ?? '🎙️'}
+              text={take.text}
+              fileSize={take.blob.size}
+            />
 
-            <audio controls src={take.url} className="mb-5 w-full" />
-
-            <div className="mb-4">
-              <span className="mb-2 block font-mono text-[11px] font-bold uppercase tracking-wider text-white/50">
-                MP3 quality
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {BITRATES.map((rate) => (
-                  <button
-                    key={rate}
-                    type="button"
-                    onClick={() => {
-                      setBitrate(rate);
-                      persist({ voiceStudioMp3Bitrate: rate });
-                    }}
-                    disabled={isEncoding}
-                    className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
-                      bitrate === rate
-                        ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-200'
-                        : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    {rate} kbps
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={() => void handleDownloadMp3()}
-                disabled={isEncoding}
-                className="focus-ring flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isEncoding ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {encodeProgress > 0 ? `Encoding ${encodeProgress}%` : 'Encoding…'}
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" /> Download MP3
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDownloadWav}
-                disabled={isEncoding}
-                className="focus-ring flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Download className="h-4 w-4" /> WAV
-              </button>
-
-              {!isEncoding && !isMp3EncoderReady() && (
-                <span className="text-[11px] text-white/35 sm:ml-1">
-                  First MP3 downloads the ~32MB encoder — the WAV above is ready right now.
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-md sm:p-6">
+              <div className="mb-4">
+                <span className="mb-2 block font-mono text-[11px] font-bold uppercase tracking-wider text-white/50">
+                  MP3 quality
                 </span>
-              )}
+                <div className="flex flex-wrap gap-1.5">
+                  {BITRATES.map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => {
+                        setBitrate(rate);
+                        persist({ voiceStudioMp3Bitrate: rate });
+                      }}
+                      disabled={isEncoding}
+                      className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                        bitrate === rate
+                          ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-200'
+                          : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {rate} kbps
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadMp3()}
+                  disabled={isEncoding}
+                  className="focus-ring flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isEncoding ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {encodeProgress > 0 ? `Encoding ${encodeProgress}%` : 'Encoding…'}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" /> Download MP3
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadWav}
+                  disabled={isEncoding}
+                  className="focus-ring flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4" /> WAV
+                </button>
+
+                {!isEncoding && !isMp3EncoderReady() && (
+                  <span className="text-[11px] text-white/35 sm:ml-1">
+                    First MP3 downloads the ~32MB encoder — the WAV above is ready right now.
+                  </span>
+                )}
+              </div>
             </div>
           </section>
         )}
