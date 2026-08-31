@@ -21,8 +21,7 @@
     <a href="#configuration">Configuration</a> ·
     <a href="#requirements">Requirements</a> ·
     <a href="#tech-stack">Tech Stack</a> ·
-    <a href="#troubleshooting">Troubleshooting</a> ·
-    <a href="CONTRIBUTING.md">Contributing</a>
+    <a href="#troubleshooting">Troubleshooting</a>
   </p>
 </div>
 
