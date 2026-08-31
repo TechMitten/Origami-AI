@@ -2,9 +2,11 @@ import { generateTTS, getAudioDuration, resolveVoice } from './ttsService';
 import { generateImage, DEFAULT_POLLINATIONS_IMAGE_MODEL } from './pollinationsService';
 import { generateVideo, DEFAULT_POLLINATIONS_VIDEO_MODEL } from './pollinationsVideoService';
 import { buildCaptionTimings, type CaptionChunk } from './shortsCaptions';
-import type { ShortsAspect, ShortsCaptionStyle } from './ShortsVideoRenderer';
+import type { ShortsAspect, ShortsCaptionPosition, ShortsCaptionSize, ShortsCaptionStyle } from './ShortsVideoRenderer';
 import type { ShortsTone } from './shortsScriptService';
 import type { PersistedShortsProject, PersistedShortsScene } from './storage';
+
+export type { ShortsCaptionPosition, ShortsCaptionSize, ShortsCaptionStyle };
 
 /**
  * Shorts project state and per-scene asset generation.
@@ -69,6 +71,8 @@ export interface ShortsProject {
   tone: ShortsTone;
   captionsEnabled: boolean;
   captionStyle: ShortsCaptionStyle;
+  captionSize: ShortsCaptionSize;
+  captionPosition: ShortsCaptionPosition;
   showTitleCard: boolean;
   music: ShortsMusic | null;
   scenes: ShortsScene[];
@@ -103,8 +107,23 @@ export const TONE_OPTIONS: Array<{ id: ShortsTone; name: string }> = [
 
 export const CAPTION_STYLES: Array<{ id: ShortsCaptionStyle; name: string }> = [
   { id: 'bold-pop', name: 'Bold pop' },
+  { id: 'highlighter', name: 'Highlighter box' },
+  { id: 'neon-glow', name: 'Neon glow' },
   { id: 'karaoke', name: 'Karaoke fill' },
   { id: 'clean-lower', name: 'Clean lower third' },
+  { id: 'classic-cinema', name: 'Classic cinema' },
+];
+
+export const CAPTION_SIZES: Array<{ id: ShortsCaptionSize; name: string }> = [
+  { id: 'small', name: 'Small' },
+  { id: 'medium', name: 'Medium' },
+  { id: 'large', name: 'Large' },
+];
+
+export const CAPTION_POSITIONS: Array<{ id: ShortsCaptionPosition; name: string }> = [
+  { id: 'top', name: 'Top' },
+  { id: 'middle', name: 'Middle' },
+  { id: 'bottom', name: 'Bottom' },
 ];
 
 /**
@@ -150,6 +169,8 @@ export const createEmptyProject = (overrides: Partial<ShortsProject> = {}): Shor
   tone: 'punchy',
   captionsEnabled: true,
   captionStyle: 'bold-pop',
+  captionSize: 'medium',
+  captionPosition: 'bottom',
   showTitleCard: false,
   music: null,
   scenes: [],
@@ -306,6 +327,8 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
   tone: project.tone,
   captionsEnabled: project.captionsEnabled,
   captionStyle: project.captionStyle,
+  captionSize: project.captionSize ?? 'medium',
+  captionPosition: project.captionPosition ?? 'bottom',
   showTitleCard: project.showTitleCard,
   musicBlob: project.music?.blob,
   musicFileName: project.music?.fileName,
@@ -341,6 +364,8 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
   tone: (persisted.tone as ShortsTone) || 'punchy',
   captionsEnabled: persisted.captionsEnabled,
   captionStyle: persisted.captionStyle,
+  captionSize: persisted.captionSize || 'medium',
+  captionPosition: persisted.captionPosition || 'bottom',
   showTitleCard: persisted.showTitleCard,
   music: persisted.musicBlob
     ? {

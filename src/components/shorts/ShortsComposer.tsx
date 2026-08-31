@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Music, Captions, Type, Cpu, Play, Square, Loader2, Sparkles, PenLine, Camera, AudioLines, Wand2, Timer, Gauge, Frame, Palette, Mic, Image as ImageIcon, Film, ChevronDown, Clapperboard, Upload } from 'lucide-react';
+import { Music, Captions, Type, Cpu, Play, Square, Loader2, Sparkles, PenLine, Camera, AudioLines, Wand2, Timer, Gauge, Frame, Palette, Mic, Image as ImageIcon, Film, ChevronDown, Clapperboard, Upload, MoveVertical } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Dropdown } from '../Dropdown';
@@ -8,6 +8,8 @@ import { POLLINATIONS_IMAGE_MODELS } from '../../services/pollinationsService';
 import { POLLINATIONS_VIDEO_MODELS } from '../../services/pollinationsVideoService';
 import {
   ASPECT_OPTIONS,
+  CAPTION_POSITIONS,
+  CAPTION_SIZES,
   CAPTION_STYLES,
   DURATION_OPTIONS,
   TONE_OPTIONS,
@@ -231,7 +233,7 @@ const ModeSwitch: React.FC<{
   <fieldset
     disabled={disabled}
     className={cn(
-      'inline-flex rounded-lg border border-white/10 bg-black/20 p-1',
+      'inline-flex rounded-lg border border-white/10 bg-black/20 p-1 min-w-0 max-w-full',
       fullWidth && 'flex w-full',
       disabled && 'opacity-40',
     )}
@@ -241,7 +243,7 @@ const ModeSwitch: React.FC<{
       <label
         key={option.value}
         className={cn(
-          'cursor-pointer rounded-md px-3.5 py-1.5 text-sm transition-colors',
+          'cursor-pointer rounded-md px-2.5 py-1.5 text-xs sm:text-sm transition-colors min-w-0 truncate',
           fullWidth && 'flex-1 text-center',
           `has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:${THEME[useAccent()].modeFocus}`,
           value === option.value
@@ -277,7 +279,7 @@ const Toggle: React.FC<{
   return (
   <div
     className={cn(
-      'rounded-xl border p-4 transition-colors',
+      'rounded-xl border p-4 transition-colors min-w-0',
       checked ? 'border-white/25 bg-white/[0.08]' : 'border-white/15 bg-white/[0.05]',
     )}
   >
@@ -805,13 +807,13 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="finish"
         label="Finish"
-        subtitle="captions and title card"
+        subtitle="captions, title card, and placement"
         accent="amber"
         icon={<Wand2 className="h-4 w-4" />}
         isOpen={openSection === 'finish'}
         onToggle={() => setOpenSection('finish')}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 items-start">
           <Toggle
             checked={project.captionsEnabled}
             onChange={(value) => onChange({ captionsEnabled: value })}
@@ -820,24 +822,61 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             icon={<Captions className="h-4 w-4" />}
           >
             {project.captionsEnabled && (
-              <div className="mt-3">
-                <Dropdown
-                  options={CAPTION_STYLES.map((s) => ({ id: s.id, name: s.name }))}
-                  value={project.captionStyle}
-                  onChange={(value) => onChange({ captionStyle: value as ShortsProject['captionStyle'] })}
-                  disabled={isBusy}
-                />
+              <div className="mt-3 space-y-3">
+                <div>
+                  <span className="mb-1.5 block text-xs font-medium text-white/70">Style</span>
+                  <Dropdown
+                    options={CAPTION_STYLES.map((s) => ({ id: s.id, name: s.name }))}
+                    value={project.captionStyle}
+                    onChange={(value) => onChange({ captionStyle: value as ShortsProject['captionStyle'] })}
+                    disabled={isBusy}
+                  />
+                </div>
+                <div>
+                  <span className="mb-1.5 block text-xs font-medium text-white/70">Size</span>
+                  <ModeSwitch
+                    fullWidth
+                    name="shorts-caption-size"
+                    label="Caption Size"
+                    value={project.captionSize || 'medium'}
+                    onChange={(value) => onChange({ captionSize: value as ShortsProject['captionSize'] })}
+                    disabled={isBusy}
+                    options={CAPTION_SIZES.map((s) => ({ value: s.id, label: s.name }))}
+                  />
+                </div>
               </div>
             )}
           </Toggle>
 
-          <Toggle
-            checked={project.showTitleCard}
-            onChange={(value) => onChange({ showTitleCard: value })}
-            disabled={isBusy}
-            title="Title card"
-            icon={<Type className="h-4 w-4" />}
-          />
+          <div className="space-y-4">
+            {project.captionsEnabled && (
+              <div className="rounded-xl border border-white/25 bg-white/[0.08] p-4 min-w-0">
+                <span className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                  <span className="text-amber-400">
+                    <MoveVertical className="h-4 w-4" />
+                  </span>
+                  Caption position
+                </span>
+                <ModeSwitch
+                  fullWidth
+                  name="shorts-caption-position"
+                  label="Caption Position"
+                  value={project.captionPosition || 'bottom'}
+                  onChange={(value) => onChange({ captionPosition: value as ShortsProject['captionPosition'] })}
+                  disabled={isBusy}
+                  options={CAPTION_POSITIONS.map((p) => ({ value: p.id, label: p.name }))}
+                />
+              </div>
+            )}
+
+            <Toggle
+              checked={project.showTitleCard}
+              onChange={(value) => onChange({ showTitleCard: value })}
+              disabled={isBusy}
+              title="Title card"
+              icon={<Type className="h-4 w-4" />}
+            />
+          </div>
         </div>
       </Department>
 

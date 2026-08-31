@@ -21,7 +21,15 @@ import type { CaptionChunk } from './shortsCaptions';
  */
 
 export type ShortsAspect = '9:16' | '16:9' | '1:1';
-export type ShortsCaptionStyle = 'bold-pop' | 'clean-lower' | 'karaoke';
+export type ShortsCaptionStyle =
+  | 'bold-pop'
+  | 'clean-lower'
+  | 'karaoke'
+  | 'highlighter'
+  | 'neon-glow'
+  | 'classic-cinema';
+export type ShortsCaptionSize = 'small' | 'medium' | 'large';
+export type ShortsCaptionPosition = 'top' | 'middle' | 'bottom';
 
 export interface ShortsRenderScene {
   /** Generated still. When absent a styled gradient placeholder is drawn. */
@@ -43,6 +51,8 @@ export interface ShortsRenderOptions {
   showTitleCard?: boolean;
   captionsEnabled?: boolean;
   captionStyle?: ShortsCaptionStyle;
+  captionSize?: ShortsCaptionSize;
+  captionPosition?: ShortsCaptionPosition;
   accentColor?: string;
   music?: { blob: Blob; volume: number } | null;
   voiceVolume?: number;
@@ -432,31 +442,49 @@ export class ShortsVideoRenderer {
     height: number,
     style: ShortsCaptionStyle,
     accent: string,
+    size: ShortsCaptionSize = 'medium',
+    position: ShortsCaptionPosition = 'bottom',
   ) {
     const isClean = style === 'clean-lower';
+    const isCinema = style === 'classic-cinema';
     const isBoldPop = style === 'bold-pop';
+    const isHighlighter = style === 'highlighter';
+    const isNeon = style === 'neon-glow';
+    const isUpper = isBoldPop || isHighlighter || isNeon;
+    const isPop = isBoldPop || isHighlighter || isNeon;
 
-    const fontSize = Math.round(width * (isClean ? 0.048 : isBoldPop ? 0.076 : 0.072));
-    const weight = isClean ? 600 : isBoldPop ? 900 : 800;
+    const sizeMultiplier = size === 'small' ? 0.7 : size === 'large' ? 1.45 : 1.0;
+    const baseFactor = isClean ? 0.048 : isCinema ? 0.052 : isHighlighter ? 0.074 : (isBoldPop || isNeon) ? 0.076 : 0.072;
+    const fontSize = Math.round(width * baseFactor * sizeMultiplier);
+    const weight = (isClean || isCinema) ? 600 : (isBoldPop || isHighlighter || isNeon) ? 900 : 800;
     ctx.font = `${weight} ${fontSize}px Roboto, "Helvetica Neue", Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const maxWidth = width * (isClean ? 0.80 : 0.84);
-    // For bold-pop, format words in uppercase for measurement and rendering
-    const wordsForLayout = isBoldPop
+    const maxWidth = width * (isClean || isCinema ? 0.80 : 0.84);
+    // For uppercase styles, format words in uppercase for measurement and rendering
+    const wordsForLayout = isUpper
       ? chunk.words.map((w) => ({ ...w, text: w.text.toUpperCase() }))
       : chunk.words;
     const lines = this.layoutCaptionLines(ctx, wordsForLayout, maxWidth);
-    const lineHeight = fontSize * (isClean ? 1.25 : 1.18);
+    const lineHeight = fontSize * (isClean || isCinema ? 1.25 : 1.18);
 
     // Pop-in over the first 140ms of the chunk.
     const age = localTime - chunk.start;
     const popT = clamp(age / 0.14, 0, 1);
-    const scale = isBoldPop ? 0.86 + easeOutBack(popT) * 0.14 : 1;
+    const scale = isPop ? 0.86 + easeOutBack(popT) * 0.14 : 1;
     const fadeIn = easeOutCubic(clamp(age / 0.1, 0, 1));
 
-    const baselineY = isClean ? height * 0.84 : height * 0.72;
+    let baselineY = height * 0.72;
+    if (position === 'top') {
+      baselineY = (isClean || isCinema) ? height * 0.16 : height * 0.22;
+    } else if (position === 'middle') {
+      baselineY = height * 0.50;
+    } else {
+      // bottom
+      baselineY = isClean ? height * 0.84 : isCinema ? height * 0.85 : height * 0.72;
+    }
+
     const blockHeight = lines.length * lineHeight;
     const startY = baselineY - blockHeight / 2 + lineHeight / 2;
 
@@ -466,8 +494,8 @@ export class ShortsVideoRenderer {
     ctx.scale(scale, scale);
     ctx.translate(-width / 2, -baselineY);
 
-    // If clean-lower, draw a frosted pill background container behind the captions
-    if (isClean) {
+    // If clean-lower or classic-cinema, draw a frosted/dark background container behind the captions
+    if (isClean || isCinema) {
       let maxLineWidth = 0;
       lines.forEach((line) => {
         const lineText = line.map((w) => w.text).join(' ');
@@ -475,16 +503,16 @@ export class ShortsVideoRenderer {
         if (lw > maxLineWidth) maxLineWidth = lw;
       });
 
-      const padX = fontSize * 0.9;
-      const padY = fontSize * 0.45;
+      const padX = fontSize * (isCinema ? 0.75 : 0.9);
+      const padY = fontSize * (isCinema ? 0.35 : 0.45);
       const pillW = maxLineWidth + padX * 2;
       const pillH = blockHeight + padY * 2;
       const pillX = width / 2 - pillW / 2;
       const pillY = baselineY - pillH / 2;
-      const radius = Math.min(16, pillH / 2);
+      const radius = isCinema ? Math.min(8, pillH / 2) : Math.min(16, pillH / 2);
 
       ctx.save();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.fillStyle = isCinema ? 'rgba(0, 0, 0, 0.72)' : 'rgba(0, 0, 0, 0.65)';
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
         ctx.roundRect(pillX, pillY, pillW, pillH, radius);
@@ -492,7 +520,7 @@ export class ShortsVideoRenderer {
         ctx.rect(pillX, pillY, pillW, pillH);
       }
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.strokeStyle = isCinema ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.restore();
@@ -512,6 +540,7 @@ export class ShortsVideoRenderer {
       line.forEach((word, wordIndex) => {
         const spacer = wordIndex === line.length - 1 ? '' : ' ';
         const wordWidth = ctx.measureText(word.text + spacer).width;
+        const pureWordWidth = ctx.measureText(word.text).width;
         const isActive = localTime >= word.start && localTime < word.end;
         const isSpoken = localTime >= word.start;
 
@@ -523,6 +552,77 @@ export class ShortsVideoRenderer {
 
           ctx.fillStyle = isActive ? (accent || '#67E8F9') : '#FFFFFF';
           ctx.fillText(word.text, x, y);
+        } else if (isCinema) {
+          ctx.lineWidth = Math.max(3, fontSize * 0.08);
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+          ctx.shadowColor = 'transparent';
+          ctx.strokeText(word.text, x, y);
+
+          ctx.fillStyle = isActive ? '#FDE047' : '#F8FAFC';
+          ctx.fillText(word.text, x, y);
+        } else if (isHighlighter) {
+          if (isActive) {
+            // Draw highlighter box behind the active word
+            const padH = fontSize * 0.18;
+            const padV = fontSize * 0.12;
+            const boxX = x - padH;
+            const boxY = y - fontSize * 0.55 - padV;
+            const boxW = pureWordWidth + padH * 2;
+            const boxH = fontSize * 1.1 + padV * 2;
+            const boxRadius = Math.min(8, boxH / 4);
+
+            ctx.save();
+            ctx.fillStyle = '#FACC15'; // Bright Yellow
+            ctx.shadowColor = 'rgba(250, 204, 21, 0.5)';
+            ctx.shadowBlur = fontSize * 0.25;
+            ctx.shadowOffsetY = fontSize * 0.03;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+              ctx.roundRect(boxX, boxY, boxW, boxH, boxRadius);
+            } else {
+              ctx.rect(boxX, boxY, boxW, boxH);
+            }
+            ctx.fill();
+            ctx.restore();
+
+            ctx.fillStyle = '#000000'; // Pure Black Text on Yellow
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.fillText(word.text, x, y);
+          } else {
+            ctx.lineWidth = Math.max(6, fontSize * 0.14);
+            ctx.strokeStyle = '#000000';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+            ctx.shadowBlur = fontSize * 0.2;
+            ctx.shadowOffsetY = fontSize * 0.04;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(word.text, x, y);
+          }
+        } else if (isNeon) {
+          if (isActive) {
+            ctx.lineWidth = Math.max(8, fontSize * 0.18);
+            ctx.strokeStyle = '#000000';
+            ctx.shadowColor = 'rgba(244, 63, 94, 0.95)'; // Electric Rose / Pink
+            ctx.shadowBlur = fontSize * 0.45;
+            ctx.shadowOffsetY = 0;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = '#FB7185';
+            ctx.fillText(word.text, x, y);
+          } else {
+            ctx.lineWidth = Math.max(5, fontSize * 0.12);
+            ctx.strokeStyle = 'rgba(147, 51, 234, 0.85)'; // Neon Violet
+            ctx.shadowColor = 'rgba(147, 51, 234, 0.5)';
+            ctx.shadowBlur = fontSize * 0.25;
+            ctx.shadowOffsetY = 0;
+            ctx.strokeText(word.text, x, y);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(word.text, x, y);
+          }
         } else if (isBoldPop) {
           // Bold Pop: punchy yellow active word with heavy black stroke
           if (isActive) {
@@ -547,11 +647,11 @@ export class ShortsVideoRenderer {
             ctx.fillText(word.text, x, y);
           }
         } else {
-          // Karaoke: glowing cyan for spoken words, softly dimmed for unspoken
+          // Karaoke: glowing cyan for spoken words, solid crisp white for unspoken
           if (isSpoken) {
-            ctx.lineWidth = Math.max(6, fontSize * 0.14);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
-            ctx.shadowColor = 'rgba(34, 211, 238, 0.8)';
+            ctx.lineWidth = Math.max(7, fontSize * 0.16);
+            ctx.strokeStyle = '#000000';
+            ctx.shadowColor = 'rgba(34, 211, 238, 0.85)';
             ctx.shadowBlur = fontSize * 0.35;
             ctx.shadowOffsetY = fontSize * 0.04;
             ctx.strokeText(word.text, x, y);
@@ -559,14 +659,14 @@ export class ShortsVideoRenderer {
             ctx.fillStyle = '#22D3EE'; // Electric Cyan
             ctx.fillText(word.text, x, y);
           } else {
-            ctx.lineWidth = Math.max(4, fontSize * 0.09);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetY = 0;
+            ctx.lineWidth = Math.max(6, fontSize * 0.14);
+            ctx.strokeStyle = '#000000';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = fontSize * 0.22;
+            ctx.shadowOffsetY = fontSize * 0.05;
             ctx.strokeText(word.text, x, y);
 
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+            ctx.fillStyle = '#FFFFFF';
             ctx.fillText(word.text, x, y);
           }
         }
@@ -686,6 +786,8 @@ export class ShortsVideoRenderer {
           height,
           options.captionStyle ?? 'bold-pop',
           options.accentColor ?? DEFAULT_ACCENT,
+          options.captionSize ?? 'medium',
+          options.captionPosition ?? 'bottom',
         );
       }
     }

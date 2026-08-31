@@ -349,6 +349,8 @@ export const ShortsPage: React.FC = () => {
           voice: merged.shortsVoice || merged.voice || prev.voice,
           imageModel: merged.pollinationsImageModel || prev.imageModel,
           captionStyle: merged.shortsCaptionStyle || prev.captionStyle,
+          captionSize: merged.shortsCaptionSize || prev.captionSize,
+          captionPosition: merged.shortsCaptionPosition || prev.captionPosition,
         }));
       }
 
@@ -1048,6 +1050,8 @@ export const ShortsPage: React.FC = () => {
         tone: prev.tone,
         captionsEnabled: prev.captionsEnabled,
         captionStyle: prev.captionStyle,
+        captionSize: prev.captionSize,
+        captionPosition: prev.captionPosition,
         showTitleCard: prev.showTitleCard,
       }),
     );
@@ -1112,6 +1116,8 @@ export const ShortsPage: React.FC = () => {
         showTitleCard: current.showTitleCard,
         captionsEnabled: current.captionsEnabled,
         captionStyle: current.captionStyle,
+        captionSize: current.captionSize,
+        captionPosition: current.captionPosition,
         music: current.music ? { blob: current.music.blob, volume: current.music.volume } : null,
         signal: controller.signal,
         onProgress: (progress, status) => {

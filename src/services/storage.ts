@@ -34,7 +34,9 @@ export interface GlobalSettings {
   pollinationsAccountName?: string; // best-effort display name from Pollinations userinfo
   pollinationsImageModel?: string;
   shortsVoice?: string;
-  shortsCaptionStyle?: 'bold-pop' | 'clean-lower' | 'karaoke';
+  shortsCaptionStyle?: 'bold-pop' | 'clean-lower' | 'karaoke' | 'highlighter' | 'neon-glow' | 'classic-cinema';
+  shortsCaptionSize?: 'small' | 'medium' | 'large';
+  shortsCaptionPosition?: 'top' | 'middle' | 'bottom';
   shortsUseOpenAI?: boolean;
   assistantUseOpenAI?: boolean;
   // Voice Studio
@@ -340,7 +342,9 @@ export interface PersistedShortsProject {
   visualStyle: string;
   tone: string;
   captionsEnabled: boolean;
-  captionStyle: 'bold-pop' | 'clean-lower' | 'karaoke';
+  captionStyle: 'bold-pop' | 'clean-lower' | 'karaoke' | 'highlighter' | 'neon-glow' | 'classic-cinema';
+  captionSize?: 'small' | 'medium' | 'large';
+  captionPosition?: 'top' | 'middle' | 'bottom';
   showTitleCard: boolean;
   musicBlob?: Blob;
   musicFileName?: string;

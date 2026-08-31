@@ -15,7 +15,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { buildCaptionTimings } from '../../services/shortsCaptions';
 import { formatDuration, type ShortsProject } from '../../services/shortsProject';
-import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
+import type { ShortsAspect, ShortsCaptionPosition, ShortsCaptionSize, ShortsCaptionStyle } from '../../services/ShortsVideoRenderer';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -39,6 +39,91 @@ const aspectClass: Record<ShortsAspect, string> = {
   '9:16': 'aspect-[9/16]',
   '16:9': 'aspect-video',
   '1:1': 'aspect-square',
+};
+
+const getCaptionPositionClass = (style: ShortsCaptionStyle, position: ShortsCaptionPosition = 'bottom') => {
+  const isLowerStyle = style === 'clean-lower' || style === 'classic-cinema';
+  if (position === 'top') {
+    return isLowerStyle ? 'top-[12%]' : 'top-[18%]';
+  }
+  if (position === 'middle') {
+    return 'top-1/2 -translate-y-1/2';
+  }
+  // bottom
+  return isLowerStyle ? 'bottom-[12%]' : 'bottom-[22%]';
+};
+
+const getCaptionTextClass = (style: ShortsCaptionStyle, size: ShortsCaptionSize = 'medium') => {
+  if (style === 'clean-lower') {
+    switch (size) {
+      case 'small':
+        return 'text-[clamp(0.55rem,3.4cqw,1.1rem)] font-medium text-white/90 leading-[1.35]';
+      case 'large':
+        return 'text-[clamp(1.0rem,7.0cqw,2.25rem)] font-medium text-white/90 leading-[1.35]';
+      case 'medium':
+      default:
+        return 'text-[clamp(0.75rem,4.8cqw,1.55rem)] font-medium text-white/90 leading-[1.35]';
+    }
+  }
+
+  if (style === 'classic-cinema') {
+    switch (size) {
+      case 'small':
+        return 'text-[clamp(0.6rem,3.6cqw,1.15rem)] font-medium text-white/95 leading-[1.35] tracking-wide';
+      case 'large':
+        return 'text-[clamp(1.05rem,7.5cqw,2.4rem)] font-medium text-white/95 leading-[1.35] tracking-wide';
+      case 'medium':
+      default:
+        return 'text-[clamp(0.8rem,5.2cqw,1.65rem)] font-medium text-white/95 leading-[1.35] tracking-wide';
+    }
+  }
+
+  if (style === 'highlighter') {
+    switch (size) {
+      case 'small':
+        return 'text-[clamp(0.65rem,5.1cqw,1.6rem)] font-black uppercase tracking-wide leading-[1.35]';
+      case 'large':
+        return 'text-[clamp(1.15rem,10.8cqw,3.45rem)] font-black uppercase tracking-wide leading-[1.35]';
+      case 'medium':
+      default:
+        return 'text-[clamp(0.85rem,7.4cqw,2.35rem)] font-black uppercase tracking-wide leading-[1.35]';
+    }
+  }
+
+  if (style === 'neon-glow') {
+    switch (size) {
+      case 'small':
+        return 'text-[clamp(0.65rem,5.3cqw,1.65rem)] font-black uppercase tracking-wide leading-[1.35]';
+      case 'large':
+        return 'text-[clamp(1.15rem,11.0cqw,3.5rem)] font-black uppercase tracking-wide leading-[1.35]';
+      case 'medium':
+      default:
+        return 'text-[clamp(0.85rem,7.6cqw,2.4rem)] font-black uppercase tracking-wide leading-[1.35]';
+    }
+  }
+
+  if (style === 'bold-pop') {
+    switch (size) {
+      case 'small':
+        return 'text-[clamp(0.65rem,5.3cqw,1.65rem)] font-black uppercase tracking-wide leading-[1.35]';
+      case 'large':
+        return 'text-[clamp(1.15rem,11.0cqw,3.5rem)] font-black uppercase tracking-wide leading-[1.35]';
+      case 'medium':
+      default:
+        return 'text-[clamp(0.85rem,7.6cqw,2.4rem)] font-black uppercase tracking-wide leading-[1.35]';
+    }
+  }
+
+  // karaoke
+  switch (size) {
+    case 'small':
+      return 'text-[clamp(0.65rem,5.0cqw,1.55rem)] font-extrabold leading-[1.35] tracking-normal';
+    case 'large':
+      return 'text-[clamp(1.15rem,10.4cqw,3.3rem)] font-extrabold leading-[1.35] tracking-normal';
+    case 'medium':
+    default:
+      return 'text-[clamp(0.85rem,7.2cqw,2.25rem)] font-extrabold leading-[1.35] tracking-normal';
+  }
 };
 
 const easeInOutSine = (t: number): number => -(Math.cos(Math.PI * t) - 1) / 2;
@@ -352,15 +437,15 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
 
           {project.captionsEnabled && (
             <div
-              key={project.captionStyle}
+              key={`${project.captionStyle}-${project.captionSize || 'medium'}-${project.captionPosition || 'bottom'}`}
               className={cn(
                 'caption-restate pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[6%] text-center min-w-0 max-w-full overflow-hidden',
-                project.captionStyle === 'clean-lower' ? 'bottom-[12%]' : 'bottom-[22%]',
+                getCaptionPositionClass(project.captionStyle, project.captionPosition),
               )}
             >
               {project.captionStyle === 'clean-lower' ? (
                 <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-words">
-                  <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-words whitespace-normal">
+                  <p className={cn(getCaptionTextClass('clean-lower', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}>
                     {sampleWords.map((word, i) => {
                       const isMid = i === Math.floor(sampleWords.length / 2);
                       return (
@@ -374,9 +459,72 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                     })}
                   </p>
                 </div>
+              ) : project.captionStyle === 'classic-cinema' ? (
+                <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 shadow-xl break-words">
+                  <p className={cn(getCaptionTextClass('classic-cinema', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}>
+                    {sampleWords.map((word, i) => {
+                      const isMid = i === Math.floor(sampleWords.length / 2);
+                      return (
+                        <span key={`${word}-${i}`} className="break-words">
+                          <span className={isMid ? 'text-yellow-300 font-bold' : 'text-slate-100'}>
+                            {word}
+                          </span>
+                          {i < sampleWords.length - 1 ? ' ' : ''}
+                        </span>
+                      );
+                    })}
+                  </p>
+                </div>
+              ) : project.captionStyle === 'highlighter' ? (
+                <p
+                  className={cn(getCaptionTextClass('highlighter', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
+                  style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+                >
+                  {sampleWords.map((word, i) => {
+                    const isPop = i === Math.floor(sampleWords.length / 2);
+                    return (
+                      <span key={`${word}-${i}`} className="break-words">
+                        {isPop ? (
+                          <span className="inline-block bg-yellow-400 text-black font-black px-2 py-0.5 rounded-md shadow-[0_2px_10px_rgba(250,204,21,0.5)] mx-0.5 break-words">
+                            {word.toUpperCase()}
+                          </span>
+                        ) : (
+                          <span className="text-white font-extrabold break-words">
+                            {word.toUpperCase()}
+                          </span>
+                        )}
+                        {i < sampleWords.length - 1 ? ' ' : ''}
+                      </span>
+                    );
+                  })}
+                </p>
+              ) : project.captionStyle === 'neon-glow' ? (
+                <p
+                  className={cn(getCaptionTextClass('neon-glow', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
+                  style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+                >
+                  {sampleWords.map((word, i) => {
+                    const isPop = i === Math.floor(sampleWords.length / 2);
+                    return (
+                      <span key={`${word}-${i}`} className="break-words">
+                        <span
+                          className={cn(
+                            'inline transition-transform duration-150 break-words',
+                            isPop
+                              ? 'text-rose-400 font-black drop-shadow-[0_0_14px_rgba(244,63,94,0.95)]'
+                              : 'text-white font-extrabold drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]'
+                          )}
+                        >
+                          {word.toUpperCase()}
+                        </span>
+                        {i < sampleWords.length - 1 ? ' ' : ''}
+                      </span>
+                    );
+                  })}
+                </p>
               ) : project.captionStyle === 'bold-pop' ? (
                 <p
-                  className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-words whitespace-normal"
+                  className={cn(getCaptionTextClass('bold-pop', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
                   style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
                 >
                   {sampleWords.map((word, i) => {
@@ -400,7 +548,10 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                 </p>
               ) : (
                 /* Karaoke Fill */
-                <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-words whitespace-normal">
+                <p
+                  className={cn(getCaptionTextClass('karaoke', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
+                  style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+                >
                   {sampleWords.map((word, i) => {
                     const isSpoken = i < Math.ceil(sampleWords.length / 2);
                     return (
@@ -409,13 +560,13 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                         className={cn(
                           'transition-colors duration-150 break-words',
                           isSpoken
-                            ? 'text-cyan-300 font-black drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]'
-                            : 'text-white/35 font-semibold'
+                            ? 'text-cyan-300 font-black drop-shadow-[0_0_14px_rgba(34,211,238,0.9)]'
+                            : 'text-white font-extrabold'
                         )}
                         style={
                           isSpoken
-                            ? { textShadow: '0 0 12px rgba(34,211,238,0.7), 0 2px 8px rgba(0,0,0,0.9)' }
-                            : { textShadow: '0 2px 6px rgba(0,0,0,0.7)' }
+                            ? { textShadow: '0 0 16px rgba(34,211,238,0.85), 0 2px 8px rgba(0,0,0,0.95)' }
+                            : { textShadow: '0 2px 8px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }
                         }
                       >
                         {word}
@@ -476,19 +627,28 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
         )}
 
         {project.captionsEnabled && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-1/2 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-x-0 z-[2] h-1/2',
+              project.captionPosition === 'top'
+                ? 'top-0 bg-gradient-to-b from-black/75 via-black/30 to-transparent'
+                : project.captionPosition === 'middle'
+                  ? 'top-1/4 bg-gradient-to-b from-transparent via-black/40 to-transparent'
+                  : 'bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent',
+            )}
+          />
         )}
 
         {project.captionsEnabled && activeChunk && (
           <div
             className={cn(
               'pointer-events-none absolute inset-x-0 z-[2] flex justify-center px-[6%] text-center min-w-0 max-w-full overflow-hidden',
-              project.captionStyle === 'clean-lower' ? 'bottom-[12%]' : 'bottom-[22%]',
+              getCaptionPositionClass(project.captionStyle, project.captionPosition),
             )}
           >
             {project.captionStyle === 'clean-lower' ? (
               <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-words">
-                <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-words whitespace-normal">
+                <p className={cn(getCaptionTextClass('clean-lower', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}>
                   {activeChunk.words.map((word, i) => {
                     const isActive = sceneTime >= word.start && sceneTime < word.end;
                     return (
@@ -502,9 +662,72 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                   })}
                 </p>
               </div>
+            ) : project.captionStyle === 'classic-cinema' ? (
+              <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 shadow-xl break-words">
+                <p className={cn(getCaptionTextClass('classic-cinema', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}>
+                  {activeChunk.words.map((word, i) => {
+                    const isActive = sceneTime >= word.start && sceneTime < word.end;
+                    return (
+                      <span key={`${word.text}-${i}`} className="break-words">
+                        <span className={isActive ? 'text-yellow-300 font-bold' : 'text-slate-100'}>
+                          {word.text}
+                        </span>
+                        {i < activeChunk.words.length - 1 ? ' ' : ''}
+                      </span>
+                    );
+                  })}
+                </p>
+              </div>
+            ) : project.captionStyle === 'highlighter' ? (
+              <p
+                className={cn(getCaptionTextClass('highlighter', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
+                style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+              >
+                {activeChunk.words.map((word, i) => {
+                  const isActive = sceneTime >= word.start && sceneTime < word.end;
+                  return (
+                    <span key={`${word.text}-${i}`} className="break-words">
+                      {isActive ? (
+                        <span className="inline-block bg-yellow-400 text-black font-black px-2 py-0.5 rounded-md shadow-[0_2px_10px_rgba(250,204,21,0.5)] mx-0.5 break-words">
+                          {word.text.toUpperCase()}
+                        </span>
+                      ) : (
+                        <span className="text-white font-extrabold break-words">
+                          {word.text.toUpperCase()}
+                        </span>
+                      )}
+                      {i < activeChunk.words.length - 1 ? ' ' : ''}
+                    </span>
+                  );
+                })}
+              </p>
+            ) : project.captionStyle === 'neon-glow' ? (
+              <p
+                className={cn(getCaptionTextClass('neon-glow', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
+                style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+              >
+                {activeChunk.words.map((word, i) => {
+                  const isActive = sceneTime >= word.start && sceneTime < word.end;
+                  return (
+                    <span key={`${word.text}-${i}`} className="break-words">
+                      <span
+                        className={cn(
+                          'inline transition-transform duration-100 break-words',
+                          isActive
+                            ? 'text-rose-400 font-black drop-shadow-[0_0_14px_rgba(244,63,94,0.95)]'
+                            : 'text-white font-extrabold drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]'
+                        )}
+                      >
+                        {word.text.toUpperCase()}
+                      </span>
+                      {i < activeChunk.words.length - 1 ? ' ' : ''}
+                    </span>
+                  );
+                })}
+              </p>
             ) : project.captionStyle === 'bold-pop' ? (
               <p
-                className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-words whitespace-normal"
+                className={cn(getCaptionTextClass('bold-pop', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
                 style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
               >
                 {activeChunk.words.map((word, i) => {
@@ -528,7 +751,10 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
               </p>
             ) : (
               /* Karaoke Fill */
-              <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-words whitespace-normal">
+              <p
+                className={cn(getCaptionTextClass('karaoke', project.captionSize), 'max-w-full min-w-0 break-words whitespace-normal')}
+                style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
+              >
                 {activeChunk.words.map((word, i) => {
                   const isSpoken = sceneTime >= word.start;
                   return (
@@ -537,13 +763,13 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                       className={cn(
                         'transition-colors duration-150 break-words',
                         isSpoken
-                          ? 'text-cyan-300 font-black drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]'
-                          : 'text-white/35 font-semibold'
+                          ? 'text-cyan-300 font-black drop-shadow-[0_0_14px_rgba(34,211,238,0.9)]'
+                          : 'text-white font-extrabold'
                       )}
                       style={
                         isSpoken
-                          ? { textShadow: '0 0 12px rgba(34,211,238,0.7), 0 2px 8px rgba(0,0,0,0.9)' }
-                          : { textShadow: '0 2px 6px rgba(0,0,0,0.7)' }
+                          ? { textShadow: '0 0 16px rgba(34,211,238,0.85), 0 2px 8px rgba(0,0,0,0.95)' }
+                          : { textShadow: '0 2px 8px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }
                       }
                     >
                       {word.text}
