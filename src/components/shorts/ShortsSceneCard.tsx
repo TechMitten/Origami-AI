@@ -328,17 +328,25 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                   {isVideo ? 'Video prompt' : 'Image prompt'}
                 </span>
                 <div className="flex items-center gap-2">
-                  {visualStale && (
-                    <button
-                      type="button"
-                      onClick={() => onRegenerateVisual(scene.id)}
-                      disabled={disabled || visualBusy}
-                      className="focus-ring flex items-center gap-1.5 rounded-lg border border-amber-400/40 px-2.5 py-1 text-xs text-amber-300 transition-colors hover:border-amber-400/70 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-30"
-                    >
-                      {visualBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                      {isVideo ? 'Regenerate video' : 'Regenerate image'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRegenerateVisual(scene.id)}
+                    disabled={disabled || visualBusy}
+                    title={
+                      visualStale
+                        ? `Prompt or model changed — regenerate to apply`
+                        : `Generate a new ${isVideo ? 'clip' : 'image'} with a fresh random seed`
+                    }
+                    className={cn(
+                      'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                      visualStale
+                        ? 'border-amber-400/40 text-amber-300 hover:border-amber-400/70 hover:text-amber-200'
+                        : 'border-white/10 text-white/60 hover:border-cyan-400/40 hover:text-white',
+                    )}
+                  >
+                    {visualBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    {isVideo ? 'Regenerate video' : 'Regenerate image'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => onRewritePrompt(scene.id)}

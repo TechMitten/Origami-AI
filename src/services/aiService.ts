@@ -313,7 +313,7 @@ const toChatCompletionsEndpoint = (baseUrl: string): string => {
 
 const normalizeModelForRequest = (model: string): string => model.replace(/^models\//, '');
 
-export const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string): Promise<string> => {
+export const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string, signal?: AbortSignal): Promise<string> => {
   const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
   const normalizedModel = normalizeModelForRequest((modelOverride || settings.model || '').trim());
 
@@ -323,6 +323,7 @@ export const postChatCompletions = async (settings: LLMSettings, messages: ChatM
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ baseUrl: settings.baseUrl, model: normalizedModel, messages, temperature }),
+      signal,
     });
 
     if (!proxyResp.ok) {
@@ -350,6 +351,7 @@ export const postChatCompletions = async (settings: LLMSettings, messages: ChatM
       messages,
       temperature
     }),
+    signal,
   });
 
   if (!response.ok) {

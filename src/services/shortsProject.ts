@@ -216,12 +216,13 @@ export interface SceneAudioResult {
 export const generateSceneAudio = async (
   scene: ShortsScene,
   voice: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<SceneAudioResult> => {
   const url = await generateTTS(scene.narration, {
     voice: resolveVoice(voice),
     speed: 1.0,
     pitch: 1.0,
-  });
+  }, opts.signal);
 
   const duration = await getAudioDuration(url);
 

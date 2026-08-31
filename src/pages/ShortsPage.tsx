@@ -11,6 +11,7 @@ import {
   RefreshCw,
   RotateCcw,
   Sparkles,
+  Square,
   Tag,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -146,6 +147,10 @@ const ReadyTrack: React.FC<{
  * The page has exactly one next action at any moment — write the script,
  * generate the media, or export. All three share this button so the step you
  * are on is always in the same place, in the same shape.
+ *
+ * While a generation is running (`busy`), a secondary Cancel action appears
+ * beneath the busy button so the user can stop it mid-flight without losing
+ * the assets already produced.
  */
 const PrimaryAction: React.FC<{
   onClick: () => void;
@@ -153,26 +158,39 @@ const PrimaryAction: React.FC<{
   label: string;
   disabled: boolean;
   busy: boolean;
+  onCancel?: () => void;
   className?: string;
-}> = ({ onClick, icon, label, disabled, busy, className }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled || busy}
-    aria-busy={busy || undefined}
-    className={cn(
-      'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
-      busy
-        ? 'animate-pulse-glow cursor-wait border border-cyan-400/30 bg-cyan-500/10 text-cyan-100'
-        : disabled
-          ? 'cursor-not-allowed border border-white/10 bg-white/[0.06] text-white/40'
-          : 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110 active:brightness-95',
-      className,
+}> = ({ onClick, icon, label, disabled, busy, onCancel, className }) => (
+  <div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      className={cn(
+        'focus-ring flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold transition-all',
+        busy
+          ? 'animate-pulse-glow cursor-wait border border-cyan-400/30 bg-cyan-500/10 text-cyan-100'
+          : disabled
+            ? 'cursor-not-allowed border border-white/10 bg-white/[0.06] text-white/40'
+            : 'bg-gradient-to-r from-cyan-400 to-blue-500 text-black shadow-[0_10px_40px_-12px_rgba(34,211,238,0.9)] hover:brightness-110 active:brightness-95',
+        className,
+      )}
+    >
+      {busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : icon}
+      <span className="truncate">{label}</span>
+    </button>
+    {busy && onCancel && (
+      <button
+        type="button"
+        onClick={onCancel}
+        className="focus-ring mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 py-2.5 text-sm font-bold text-red-300 transition-colors hover:border-red-400/60 hover:bg-red-500/15 hover:text-red-200"
+      >
+        <Square className="h-4 w-4 fill-current" />
+        Cancel generation
+      </button>
     )}
-  >
-    {busy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : icon}
-    <span className="truncate">{label}</span>
-  </button>
+  </div>
 );
 
 const markWebLLMAsCached = () => {
@@ -569,7 +587,7 @@ export const ShortsPage: React.FC = () => {
     async (scene: ShortsScene, voice: string, signal: AbortSignal) => {
       patchScene(scene.id, { audioStatus: 'pending', audioError: null });
       try {
-        const { blob, url, duration } = await generateSceneAudio(scene, voice);
+        const { blob, url, duration } = await generateSceneAudio(scene, voice, { signal });
         if (signal.aborted) {
           URL.revokeObjectURL(url);
           return;
@@ -706,6 +724,23 @@ export const ShortsPage: React.FC = () => {
       setBusyLabel('');
     }
   }, [runSceneAudio, showAlert]);
+
+  // Aborts the in-flight generation (script, visuals, or voiceover) and resets
+  // any scene left mid-flight so it can be regenerated: an asset that already
+  // exists on the scene is kept (reverting it to "ready"), otherwise the scene
+  // returns to "idle" so the Generate step re-appears in the primary action.
+  const handleCancelGeneration = useCallback(() => {
+    generationAbortRef.current?.abort();
+    setProject((prev) => ({
+      ...prev,
+      scenes: prev.scenes.map((scene) => ({
+        ...scene,
+        imageStatus: scene.imageStatus === 'pending' ? (scene.imageBlob ? 'ready' : 'idle') : scene.imageStatus,
+        videoStatus: scene.videoStatus === 'pending' ? (scene.videoBlob ? 'ready' : 'idle') : scene.videoStatus,
+        audioStatus: scene.audioStatus === 'pending' ? (scene.audioBlob ? 'ready' : 'idle') : scene.audioStatus,
+      })),
+    }));
+  }, []);
 
   // Re-renders only the audio/visuals whose scripted text or prompt has drifted
   // from what was actually used to generate the asset currently on the scene.
@@ -1551,6 +1586,7 @@ export const ShortsPage: React.FC = () => {
                 label={primary.label}
                 disabled={primary.disabled}
                 busy={primary.busy}
+                onCancel={isBusy ? handleCancelGeneration : undefined}
               />
               <p className="mt-3 text-center text-xs leading-relaxed text-white/45">{primary.hint}</p>
             </div>
@@ -1565,6 +1601,7 @@ export const ShortsPage: React.FC = () => {
           label={primary.label}
           disabled={primary.disabled}
           busy={primary.busy}
+          onCancel={isBusy ? handleCancelGeneration : undefined}
           className="py-3.5"
         />
         <p className="mt-2 text-center text-[11px] leading-relaxed text-white/40">{primary.hint}</p>

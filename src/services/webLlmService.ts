@@ -765,7 +765,8 @@ export async function* streamWebLLMChatResponse(
 export const generateWebLLMResponse = async (
     messages: any,
     temperature: number = 0.7,
-    _isRetry = false
+    _isRetry = false,
+    signal?: AbortSignal
 ): Promise<string> => {
     if (!engine) {
         throw new Error("WebLLM Engine not initialized. Please load a model first.");
@@ -791,6 +792,12 @@ export const generateWebLLMResponse = async (
         
         let content = "";
         for await (const chunk of stream) {
+            if (signal?.aborted) {
+                // Stop the worker's decode too — breaking out of the stream alone would
+                // leave the worker grinding behind a reply nobody is reading.
+                interruptWebLLMGeneration();
+                throw new DOMException('Aborted', 'AbortError');
+            }
             const delta = chunk.choices[0]?.delta?.content;
             if (delta) content += delta;
         }
@@ -820,7 +827,7 @@ export const generateWebLLMResponse = async (
             await rebuildWebLLMEngine(modelToReload);
 
             console.log("[WebLLM] Engine rebuilt successfully. Retrying generation...");
-            return generateWebLLMResponse(messages, temperature, true);
+            return generateWebLLMResponse(messages, temperature, true, signal);
         }
 
         throw error;

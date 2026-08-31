@@ -415,7 +415,7 @@ const runPrompt = async (
       { role: 'system', content: system },
       { role: 'user', content: user },
     ];
-    return postChatCompletions(settings, messages, temperature);
+    return postChatCompletions(settings, messages, temperature, undefined, opts.signal);
   }
 
   const modelId = opts.webLlmModel;
@@ -428,6 +428,8 @@ const runPrompt = async (
       { role: 'user', content: user },
     ],
     temperature,
+    false,
+    opts.signal,
   );
 };
 

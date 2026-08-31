@@ -61,7 +61,12 @@ export const AVAILABLE_VOICES = DEFAULT_VOICES;
 
 // Singleton worker instance
 let worker: Worker | null = null;
-const pendingRequests = new Map<string, { resolve: (value: Blob) => void, reject: (reason?: unknown) => void }>();
+
+interface PendingRequest {
+  resolve: (value: Blob) => void;
+  reject: (reason?: unknown) => void;
+}
+const pendingRequests = new Map<string, PendingRequest>();
 
 export const ttsEvents = new EventTarget();
 
@@ -143,14 +148,51 @@ export function reloadTTS(quantization: 'q8' | 'q4'): Promise<void> {
  * Prefer this over generateTTS() when you need the bytes (saving to disk,
  * persisting a draft, feeding a decoder) — generateTTS() wraps this and only
  * exposes an object URL, which callers then have to re-fetch to read back.
+ *
+ * Accepts an AbortSignal so long running generations can be cancelled from the
+ * UI. Aborting posts a `cancel` message to the worker (stopping the decode so
+ * it doesn't hold the single worker busy behind a reply nobody is waiting for)
+ * and rejects the promise immediately.
  */
-export async function generateTTSBlob(text: string, options: TTSOptions): Promise<Blob> {
+export async function generateTTSBlob(
+  text: string,
+  options: TTSOptions,
+  signal?: AbortSignal,
+): Promise<Blob> {
   // Standard worker implementation
   const worker = getWorker();
   const id = crypto.randomUUID();
 
   return new Promise((resolve, reject) => {
-    pendingRequests.set(id, { resolve, reject });
+    let settled = false;
+
+    const detach = () => {
+      signal?.removeEventListener('abort', onAbort);
+      pendingRequests.delete(id);
+    };
+
+    const finish = (handler: () => void) => {
+      if (settled) return;
+      settled = true;
+      detach();
+      handler();
+    };
+
+    const onAbort = () => {
+      worker.postMessage({ type: 'cancel', id });
+      finish(() => reject(new DOMException('Aborted', 'AbortError')));
+    };
+
+    pendingRequests.set(id, {
+      resolve: (value) => finish(() => resolve(value)),
+      reject: (reason) => finish(() => reject(reason)),
+    });
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     worker.postMessage({
       type: 'generate',
@@ -165,8 +207,8 @@ export async function generateTTSBlob(text: string, options: TTSOptions): Promis
 }
 
 
-export async function generateTTS(text: string, options: TTSOptions): Promise<string> {
-  return URL.createObjectURL(await generateTTSBlob(text, options));
+export async function generateTTS(text: string, options: TTSOptions, signal?: AbortSignal): Promise<string> {
+  return URL.createObjectURL(await generateTTSBlob(text, options, signal));
 }
 
 

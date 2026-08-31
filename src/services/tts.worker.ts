@@ -5,7 +5,16 @@ const isProd = import.meta.env?.PROD ?? false;
 // Types for worker messages
 export type TTSWorkerRequest = 
   | { type: 'init', quantization?: 'q8' | 'q4' }
-  | { type: 'generate', text: string, options: { voice: string, speed: number }, id: string };
+  | { type: 'generate', text: string, options: { voice: string, speed: number }, id: string }
+  | { type: 'cancel', id: string };
+
+/**
+ * Generation ids that have been cancelled. The main thread posts `cancel` the
+ * moment it aborts; the (possibly still decoding) generate handler checks this
+ * between chunks and bails, so a discarded clip can't keep the single worker
+ * busy behind a new request.
+ */
+const cancelledIds = new Set<string>();
 
 export type TTSWorkerResponse =
   | { type: 'init-complete' }
@@ -126,16 +135,24 @@ if (typeof self !== 'undefined') {
   try {
     if (e.data.type === 'init') {
       await getModel(e.data.quantization || 'q8');
+    } else if (e.data.type === 'cancel') {
+      cancelledIds.add(e.data.id);
     } else if (e.data.type === 'generate') {
       const { text, options, id } = e.data;
+      cancelledIds.delete(id);
       const model = await getModel();
-      
+
       const chunks = chunkText(text);
       const audioChunks: Float32Array[] = [];
       let totalLength = 0;
       let sampleRate = 24000;
 
       for (let i = 0; i < chunks.length; i++) {
+        if (cancelledIds.has(id)) {
+          ctx.postMessage({ type: 'error', error: 'Aborted', id });
+          return;
+        }
+
         const chunk = chunks[i];
         if (!chunk.trim()) continue;
 
@@ -151,6 +168,11 @@ if (typeof self !== 'undefined') {
           voice: options.voice as unknown as "af_heart", 
           speed: options.speed,
         });
+
+        if (cancelledIds.has(id)) {
+          ctx.postMessage({ type: 'error', error: 'Aborted', id });
+          return;
+        }
 
         const audioObj = audio as unknown as { audio: Float32Array, sampling_rate: number };
         
