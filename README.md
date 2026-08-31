@@ -20,6 +20,8 @@
     <a href="#how-it-works">How It Works</a> ·
     <a href="#configuration">Configuration</a> ·
     <a href="#requirements">Requirements</a> ·
+    <a href="#tech-stack">Tech Stack</a> ·
+    <a href="#troubleshooting">Troubleshooting</a> ·
     <a href="CONTRIBUTING.md">Contributing</a>
   </p>
 </div>
@@ -37,24 +39,6 @@ Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform
 - **🎙️ Screen recording** — cinematic auto-zoom with DOM telemetry
 - **💬 AI assistant chat** — local models with image/video analysis
 - **🎯 Video scene analysis** — MP4 breakdown with timestamped scenes
-
----
-
-<a id="features"></a>
-## ✨ Features
-
-- 🧠 **WebGPU-powered AI** — local LLM inference for narration, chat, and analysis
-- 🎬 **AI narration scripts** — generated locally with WebLLM, or via Gemini/OpenAI-compatible APIs
-- 🎙️ **In-browser TTS** — Kokoro.js with multiple voices, no server round-trip
-- 📹 **In-browser rendering** — FFmpeg.wasm composes slides, audio, music, and pan/zoom into MP4 (720p/1080p)
-- 🎯 **Smart screen recording** — auto-zoom on idle, with optional Chrome extension for richer DOM telemetry
-- 🔍 **Scene-aware video analysis** — turn an MP4 into a timestamped scene breakdown
-- 💬 **AI assistant chat** — local WebLLM models or cloud fallback, with image/video attachments
-- 🎬 **Shorts generator** — turn a topic into a vertical short: AI script, image/video generation, TTS voiceover, burned-in captions
-- 🔒 **Local & privacy-first** — API keys and project data are stored locally in your browser
-- 🎵 **Background music & mixing** — auto-ducking under narration with per-slide control
-- 📦 **Portable projects** — export/import a full project (slides, media, audio, settings) as a `.origami` archive
-- ⚡ **Zero-config startup** — works completely offline after first model download
 
 ---
 
@@ -107,6 +91,24 @@ The extension adds DOM-level cursor, click, and scroll telemetry for more precis
 
 You can also download a packaged ZIP from inside the app (header menu → **Download Chrome Extension**, or Slide Editor → *Slide Media* tab). See [chrome-extension/README.md](chrome-extension/README.md).
 </details>
+
+---
+
+<a id="features"></a>
+## ✨ Features
+
+- 🧠 **WebGPU-powered AI** — local LLM inference for narration, chat, and analysis
+- 🎬 **AI narration scripts** — generated locally with WebLLM, or via Gemini/OpenAI-compatible APIs
+- 🎙️ **In-browser TTS** — Kokoro.js with multiple voices, no server round-trip
+- 📹 **In-browser rendering** — FFmpeg.wasm composes slides, audio, music, and pan/zoom into MP4 (720p/1080p)
+- 🎯 **Smart screen recording** — auto-zoom on idle, with optional Chrome extension for richer DOM telemetry
+- 🔍 **Scene-aware video analysis** — turn an MP4 into a timestamped scene breakdown
+- 💬 **AI assistant chat** — local WebLLM models or cloud fallback, with image/video attachments
+- 🎬 **Shorts generator** — turn a topic into a vertical short: AI script, image/video generation, TTS voiceover, burned-in captions
+- 🔒 **Local & privacy-first** — API keys and project data are stored locally in your browser
+- 🎵 **Background music & mixing** — auto-ducking under narration with per-slide control
+- 📦 **Portable projects** — export/import a full project (slides, media, audio, settings) as a `.origami` archive
+- ⚡ **Zero-config startup** — works completely offline after first model download
 
 ---
 
