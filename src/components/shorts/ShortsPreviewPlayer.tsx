@@ -298,7 +298,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
 
   const sampleTitle = useMemo(() => {
     const source = project.title || project.topic;
-    return source.trim().split(/\s+/).filter(Boolean).slice(0, 6).join(' ');
+    return source.trim();
   }, [project.title, project.topic]);
 
   // Before any scene exists the monitor still has something true to show: the
@@ -311,7 +311,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
   const sampleWords = useMemo(() => {
     if (project.showTitleCard && sampleTitle) return ['Your', 'narration', 'lands', 'here'];
     const words = project.topic.trim().split(/\s+/).filter(Boolean);
-    return words.length ? words.slice(0, 7) : ['Your', 'narration', 'lands', 'here'];
+    return words.length ? words : ['Your', 'narration', 'lands', 'here'];
   }, [project.topic, project.showTitleCard, sampleTitle]);
 
   // Renders the viewport frame (works in both inline and enlarged modes)
@@ -342,7 +342,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
           {project.showTitleCard && sampleTitle && (
             <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center px-[10%] text-center">
               <p
-                className="font-display text-[clamp(0.9rem,5cqw,1.7rem)] font-extrabold leading-tight text-white/90 max-w-full break-words [overflow-wrap:anywhere]"
+                className="font-display text-[clamp(0.9rem,5cqw,1.7rem)] font-extrabold leading-tight text-white/90 max-w-full break-words"
                 style={{ textShadow: '0 2px 12px rgba(0,0,0,0.9)' }}
               >
                 {sampleTitle}
@@ -359,12 +359,12 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
               )}
             >
               {project.captionStyle === 'clean-lower' ? (
-                <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-all">
-                  <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-all whitespace-normal">
+                <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-words">
+                  <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-words whitespace-normal">
                     {sampleWords.map((word, i) => {
                       const isMid = i === Math.floor(sampleWords.length / 2);
                       return (
-                        <span key={`${word}-${i}`} className="break-all">
+                        <span key={`${word}-${i}`} className="break-words">
                           <span className={isMid ? 'text-cyan-200 font-semibold' : 'text-white'}>
                             {word}
                           </span>
@@ -376,16 +376,16 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                 </div>
               ) : project.captionStyle === 'bold-pop' ? (
                 <p
-                  className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-all whitespace-normal"
+                  className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-words whitespace-normal"
                   style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
                 >
                   {sampleWords.map((word, i) => {
                     const isPop = i === Math.floor(sampleWords.length / 2);
                     return (
-                      <span key={`${word}-${i}`} className="break-all">
+                      <span key={`${word}-${i}`} className="break-words">
                         <span
                           className={cn(
-                            'inline transition-transform duration-150 break-all',
+                            'inline transition-transform duration-150 break-words',
                             isPop
                               ? 'text-yellow-400 font-black drop-shadow-[0_2px_10px_rgba(250,204,21,0.6)]'
                               : 'text-white font-extrabold'
@@ -400,14 +400,14 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                 </p>
               ) : (
                 /* Karaoke Fill */
-                <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-all whitespace-normal">
+                <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-words whitespace-normal">
                   {sampleWords.map((word, i) => {
                     const isSpoken = i < Math.ceil(sampleWords.length / 2);
                     return (
                       <span
                         key={`${word}-${i}`}
                         className={cn(
-                          'transition-colors duration-150 break-all',
+                          'transition-colors duration-150 break-words',
                           isSpoken
                             ? 'text-cyan-300 font-black drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]'
                             : 'text-white/35 font-semibold'
@@ -487,12 +487,12 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
             )}
           >
             {project.captionStyle === 'clean-lower' ? (
-              <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-all">
-                <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-all whitespace-normal">
+              <div className="inline-block max-w-full min-w-0 px-4 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 shadow-lg break-words">
+                <p className="text-[clamp(0.75rem,3.2cqw,1.05rem)] font-medium text-white/90 leading-[1.35] max-w-full min-w-0 break-words whitespace-normal">
                   {activeChunk.words.map((word, i) => {
                     const isActive = sceneTime >= word.start && sceneTime < word.end;
                     return (
-                      <span key={`${word.text}-${i}`} className="break-all">
+                      <span key={`${word.text}-${i}`} className="break-words">
                         <span className={isActive ? 'text-cyan-200 font-semibold' : 'text-white'}>
                           {word.text}
                         </span>
@@ -504,16 +504,16 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
               </div>
             ) : project.captionStyle === 'bold-pop' ? (
               <p
-                className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-all whitespace-normal"
+                className="text-[clamp(0.85rem,4.4cqw,1.55rem)] font-black uppercase tracking-wide leading-[1.35] max-w-full min-w-0 break-words whitespace-normal"
                 style={{ textShadow: '0 3px 12px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,1)' }}
               >
                 {activeChunk.words.map((word, i) => {
                   const isActive = sceneTime >= word.start && sceneTime < word.end;
                   return (
-                    <span key={`${word.text}-${i}`} className="break-all">
+                    <span key={`${word.text}-${i}`} className="break-words">
                       <span
                         className={cn(
-                          'inline transition-transform duration-100 break-all',
+                          'inline transition-transform duration-100 break-words',
                           isActive
                             ? 'text-yellow-400 font-black drop-shadow-[0_2px_10px_rgba(250,204,21,0.6)]'
                             : 'text-white font-extrabold'
@@ -528,14 +528,14 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
               </p>
             ) : (
               /* Karaoke Fill */
-              <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-all whitespace-normal">
+              <p className="text-[clamp(0.85rem,4.2cqw,1.5rem)] font-extrabold leading-[1.35] tracking-normal max-w-full min-w-0 break-words whitespace-normal">
                 {activeChunk.words.map((word, i) => {
                   const isSpoken = sceneTime >= word.start;
                   return (
                     <span
                       key={`${word.text}-${i}`}
                       className={cn(
-                        'transition-colors duration-150 break-all',
+                        'transition-colors duration-150 break-words',
                         isSpoken
                           ? 'text-cyan-300 font-black drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]'
                           : 'text-white/35 font-semibold'

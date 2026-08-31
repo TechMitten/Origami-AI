@@ -249,6 +249,17 @@ export const ShortsPage: React.FC = () => {
   const projectRef = useRef(project);
   projectRef.current = project;
 
+  const titleRef = useRef<HTMLTextAreaElement | null>(null);
+  const adjustTitleHeight = useCallback(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  useEffect(() => {
+    adjustTitleHeight();
+  }, [project.title, adjustTitleHeight]);
+
   const pollinationsKey = useMemo(
     () => resolvePollinationsKey(globalSettings.pollinationsApiKey, globalSettings.pollinationsTokenExpiresAt),
     [globalSettings.pollinationsApiKey, globalSettings.pollinationsTokenExpiresAt],
@@ -1274,12 +1285,14 @@ export const ShortsPage: React.FC = () => {
               >
                 Title
               </label>
-              <input
+              <textarea
                 id="shorts-title"
+                ref={titleRef}
                 value={project.title ?? ''}
                 onChange={(e) => patchProject({ title: e.target.value })}
                 placeholder="Untitled short"
-                className="focus-ring -ml-2 w-full rounded-lg bg-transparent px-2 py-1 font-display text-[clamp(1.5rem,4vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.02em] text-white outline-none transition-colors placeholder:text-white/25 hover:bg-white/[0.04] focus:bg-white/[0.06]"
+                rows={1}
+                className="focus-ring -ml-2 block w-full resize-none overflow-hidden rounded-lg bg-transparent px-2 py-1 font-display text-[clamp(1.5rem,4vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.02em] text-white outline-none transition-colors placeholder:text-white/25 hover:bg-white/[0.04] focus:bg-white/[0.06]"
               />
             </div>
           )}
