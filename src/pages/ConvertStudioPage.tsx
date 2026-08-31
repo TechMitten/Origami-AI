@@ -58,7 +58,7 @@ const makeId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2
 
 export const ConvertStudioPage: React.FC = () => {
   usePageMeta({
-    title: 'Convert Studio — Origami AI',
+    title: 'File Studio — Origami AI',
     description:
       'Convert images and audio between formats right in your browser, or drop a file on the Compress tab to shrink it in place. Nothing is uploaded.',
     path: '/convert',
@@ -486,7 +486,7 @@ export const ConvertStudioPage: React.FC = () => {
       <div className="fixed inset-0 -z-40 h-lvh w-full bg-[#0a0a0b]/40" />
 
       <PageHeader
-        title="Convert Studio"
+        title="File Studio"
         onSettings={() => setIsSettingsOpen(true)}
         showHelp={false}
         actionMenuContent={(closeMenu) => (
@@ -509,7 +509,7 @@ export const ConvertStudioPage: React.FC = () => {
             File conversion
           </span>
           <h1 className="font-display mb-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Convert Studio
+            File Studio
           </h1>
           <p className="max-w-xl text-sm text-white/55 sm:text-base">
             Turn PNGs and JPGs into WebP, or any common audio format into another. Everything runs in this tab —

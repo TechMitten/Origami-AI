@@ -41,7 +41,7 @@ export interface GlobalSettings {
   voiceStudioVoice?: string;
   voiceStudioSpeed?: number;
   voiceStudioMp3Bitrate?: 128 | 192 | 320;
-  // Convert Studio
+  // File Studio
   converterImageTarget?: string;
   converterImageQuality?: number;
   converterAudioTarget?: string;

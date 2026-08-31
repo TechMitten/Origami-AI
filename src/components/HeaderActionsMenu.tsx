@@ -102,7 +102,7 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
                 onClick={closeMenu}
                 className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-cyan-400/15 text-cyan-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
               >
-                <FileCog className="h-4 w-4" /> Convert Studio
+                <FileCog className="h-4 w-4" /> File Studio
               </TransitionNavLink>
 
               <button

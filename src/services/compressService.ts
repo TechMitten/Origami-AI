@@ -1,5 +1,5 @@
 /**
- * "Compress" mode for the Convert Studio: drop an image or an audio file and get
+ * "Compress" mode for the File Studio: drop an image or an audio file and get
  * back the same format re-encoded so it is smaller, with no format picker — the
  * whole point is to shrink what you already have.
  *

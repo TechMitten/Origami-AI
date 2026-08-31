@@ -169,9 +169,9 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
     {
       key: 'converter',
       icon: FileCog,
-      title: 'Convert Studio',
+      title: 'File Studio',
       description: 'Convert images and audio between formats — PNG or JPG to WebP, WAV to MP3, all on-device.',
-      cta: 'Open convert studio',
+      cta: 'Open file studio',
       onClick: onOpenConverter,
       accent: 'foil',
     },
