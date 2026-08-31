@@ -61,7 +61,11 @@ Originally a PDF-to-video tool, Origami AI has evolved into a versatile platform
 <a id="quick-start"></a>
 ## 🚀 Quick Start
 
-**Prerequisites:** Node.js ≥ 20.19.0 and a [WebGPU-capable browser](https://webgpureport.org/).
+The recommended way to get started is the hosted site — no installation required:
+
+👉 **[https://origami.techmitten.com/](https://origami.techmitten.com/)**
+
+Prefer to run it locally? **Prerequisites:** Node.js ≥ 20.19.0 and a [WebGPU-capable browser](https://webgpureport.org/).
 
 ```bash
 git clone https://github.com/TechMitten/Origami-AI.git
