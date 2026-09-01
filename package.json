@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": ">=22.22.0"
+    "node": ">=22.16.0"
   },
   "scripts": {
     "dev": "tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' --ignore '.git/**' server.ts",
@@ -18,6 +18,12 @@
     "kill-all": "echo 'kill-all script removed; use platform tools (taskkill/killall) if necessary'"
   },
   "dependencies": {
+    "vite": "^7.2.4",
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "^6.0.2",
+    "tailwindcss": "^4.2.2",
+    "postcss": "^8.5.10",
+    "autoprefixer": "^10.5.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -64,14 +70,8 @@
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "autoprefixer": "^10.5.0",
     "eslint": "^10.8.0",
     "globals": "^17.8.0",
-    "postcss": "^8.5.10",
-    "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
-    "vite": "^7.2.4",
     "wrangler": "^4.118.0"
   },
   "overrides": {
