@@ -16,14 +16,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function createServer() {
   const app = express();
 
+  // COOP must stay 'same-origin': paired with COEP it is what makes the page
+  // cross-origin isolated, which is the precondition for SharedArrayBuffer and so
+  // for the multithreaded FFmpeg.wasm core (see the crossOriginIsolated check in
+  // ffmpegLoader.ts). Only loosen it to 'same-origin-allow-popups' if a popup-based
+  // auth flow comes back — every OAuth flow here is a full-page redirect today.
   app.use(helmet({
-    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://umami.techmitten.com", "https://challenges.cloudflare.com", "https://apis.google.com", "https://www.gstatic.com", "https://*.googleapis.com", "https://*.firebaseio.com", "blob:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://umami.techmitten.com", "https://static.cloudflareinsights.com", "https://challenges.cloudflare.com", "https://apis.google.com", "https://www.gstatic.com", "https://*.googleapis.com", "https://*.firebaseio.com", "blob:"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "data:", "blob:", "https:"],
         imgSrc: ["'self'", "data:", "blob:", "https:", "https://*.googleusercontent.com"],
@@ -45,7 +50,7 @@ async function createServer() {
 
   app.use((_req, res, next) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
     next();
   });
