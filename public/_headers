@@ -2,7 +2,7 @@
   Cross-Origin-Resource-Policy: cross-origin
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Embedder-Policy: credentialless
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://umami.techmitten.com https://static.cloudflareinsights.com https://challenges.cloudflare.com https://apis.google.com https://www.gstatic.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: ws: blob: data: https://unpkg.com; worker-src 'self' blob:; frame-src 'self' https://challenges.cloudflare.com https://*.firebaseapp.com https://apis.google.com;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://umami.techmitten.com https://static.cloudflareinsights.com https://challenges.cloudflare.com https://apis.google.com https://www.gstatic.com https://*.googleapis.com https://*.firebaseio.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: blob: https:; img-src 'self' data: blob: https: https://*.googleusercontent.com; media-src 'self' data: blob: https:; connect-src 'self' https: wss: ws: blob: data: https://unpkg.com https://*.googleapis.com https://*.firebaseio.com; worker-src 'self' blob:; frame-src 'self' https://challenges.cloudflare.com https://*.firebaseapp.com https://apis.google.com https://accounts.google.com;

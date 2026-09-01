@@ -17,17 +17,20 @@ async function createServer() {
   const app = express();
 
   app.use(helmet({
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://umami.techmitten.com", "https://challenges.cloudflare.com", "https://apis.google.com", "https://www.gstatic.com", "blob:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://umami.techmitten.com", "https://challenges.cloudflare.com", "https://apis.google.com", "https://www.gstatic.com", "https://*.googleapis.com", "https://*.firebaseio.com", "blob:"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "data:", "blob:", "https:"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", "https://*.googleusercontent.com"],
         mediaSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "data:", "https://unpkg.com"],
+        connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "data:", "https://unpkg.com", "https://*.googleapis.com", "https://*.firebaseio.com"],
         workerSrc: ["'self'", "blob:"],
-        frameSrc: ["'self'", "https://challenges.cloudflare.com", "https://*.firebaseapp.com", "https://apis.google.com"],
+        frameSrc: ["'self'", "https://challenges.cloudflare.com", "https://*.firebaseapp.com", "https://apis.google.com", "https://accounts.google.com"],
       },
     },
   }));
