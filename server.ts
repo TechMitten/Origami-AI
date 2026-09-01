@@ -567,6 +567,43 @@ async function createServer() {
     }
   });
 
+  app.post('/api/verify-turnstile', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.body || {};
+      if (!token) return res.status(400).json({ error: 'Missing token' });
+
+      const secretKey = process.env.TURNSTILE_SECRET_KEY;
+      if (!secretKey) {
+        return res.json({ success: true, warning: 'No secret key configured on server' });
+      }
+
+      const formData = new URLSearchParams();
+      formData.append('secret', secretKey);
+      formData.append('response', token);
+      
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      if (typeof ip === 'string') {
+        formData.append('remoteip', ip.split(',')[0]);
+      }
+
+      const result = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        body: formData.toString(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+
+      const outcome: any = await result.json();
+      if (outcome.success) {
+        res.json({ success: true });
+      } else {
+        res.status(403).json({ success: false, error: 'Turnstile verification failed', details: outcome['error-codes'] });
+      }
+    } catch (err: any) {
+      console.error('[Turnstile] error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Proxy endpoint for music preview (bypasses CORS issues with incompetech.com)
   app.get('/api/music-preview/:filename', async (req, res) => {
     const filename = decodeURIComponent(req.params.filename);

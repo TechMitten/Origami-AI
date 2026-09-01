@@ -19,10 +19,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
+  const verifyTurnstile = async () => {
+    if (!turnstileToken) throw new Error('Please complete the Turnstile challenge');
+    const res = await fetch('/api/verify-turnstile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: turnstileToken })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Turnstile verification failed');
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
     try {
+      await verifyTurnstile();
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       onClose();
@@ -40,6 +54,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
+      await verifyTurnstile();
+      
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {

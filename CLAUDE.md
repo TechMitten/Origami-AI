@@ -49,6 +49,7 @@ This is the core security model of the app — preserve it when touching LLM/Pol
 - The server reads `LLM_API_KEY` (falls back to `VITE_LLM_API_KEY` for convenience) via `process.env`, never exposing it to responses sent to the browser.
 - Pollinations has the same split: `pk_...` publishable keys are safe client-side (stored per-user in `GlobalSettings.pollinationsApiKey` via IndexedDB, see `src/services/storage.ts`), `sk_...` secret keys and `POLLINATIONS_API_KEY` are server-only fallbacks used by `/api/pollinations/image`.
 - `src/services/pollinationsAuth.ts` + `src/pages/PollinationsCallbackPage.tsx` implement an OAuth-style flow that exchanges for a `sk_...` token stored client-side; treat this token like any other secret when logging or serializing state.
+- **Turnstile & Firebase**: The frontend uses Cloudflare Turnstile for bot protection. Its secret key (`TURNSTILE_SECRET_KEY`) is kept in `.env` (ignored from git) for backend verification. Firebase config keys (`src/config/firebase.ts`) are intentionally public. Be careful when updating CSP headers in `server.ts` to ensure `challenges.cloudflare.com` and `apis.google.com` remain allowed.
 
 ### Client-side compute — WebGPU workers
 
@@ -58,11 +59,12 @@ Heavy AI work runs in Web Workers, not the main thread:
 - `src/services/ffmpegLoader.ts` + `src/services/BrowserVideoRenderer.ts` / `ShortsVideoRenderer.ts` — FFmpeg.wasm rendering. `@ffmpeg/ffmpeg` and `@ffmpeg/util` are excluded from Vite's dep pre-bundling (`vite.config.ts`) and get their own chunk.
 - Heavy downloads (TTS model, FFmpeg core, WebLLM model) are serialized to run **one at a time**, coordinated through `BackgroundDownloadContext`/`BackgroundDownloadProvider` — see the comment in `App.tsx` ("Downloads run strictly one at a time: TTS -> FFmpeg -> WebLLM").
 
-### State & persistence
+### State, Persistence, & Authentication
 
-- `src/services/storage.ts` wraps IndexedDB (`getDB()`, `DB_NAME`/`DB_VERSION`) — this is where `GlobalSettings`, project data, and Assistant chat sessions live. There is no server-side database; nothing about a user's project persists outside their browser except through explicit export.
-- `src/services/projectArchiveService.ts` implements the `.origami` portable project format (export/import slides, media, audio, settings as an archive).
-- App-wide UI state (modals, background downloads) is provided via React Context (`src/context/`), not a global store library.
+- `src/services/storage.ts` wraps IndexedDB (`getDB()`, `DB_NAME`/`DB_VERSION`) — this is where `GlobalSettings`, local project data, and Assistant chat sessions live. 
+- **Cloud Persistence & Auth**: `src/config/firebase.ts` and `src/services/cloudStorage.ts` implement optional cloud saving. Users can sign up/in using Firebase Auth (Email/Password or Google Sign-In, protected by Cloudflare Turnstile). Authenticated users can save their PDF and Shorts projects to Firebase Storage (with metadata in Firestore), allowing them to sync work across devices.
+- `src/services/projectArchiveService.ts` implements the `.origami` portable project format (export/import slides, media, audio, settings as a local archive file).
+- App-wide UI state (modals, background downloads, auth state) is provided via React Context (`src/context/`), not a global store library.
 
 ### Two video pipelines
 
