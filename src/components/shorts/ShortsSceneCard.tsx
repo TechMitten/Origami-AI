@@ -12,12 +12,15 @@ import {
   TriangleAlert,
   Upload,
   Wand2,
+  Square,
+  X,
+  Mic,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { isSceneAudioStale, isSceneVisualStale, type ShortsGenerationMode, type ShortsScene } from '../../services/shortsProject';
+import { isSceneAudioStale, isSceneVisualStale, type ShortsGenerationMode, type ShortsScene, type ShortsVoiceMode } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
 import { ShortsVisualPreviewModal } from './ShortsVisualPreviewModal';
 
@@ -38,6 +41,7 @@ interface ShortsSceneCardProps {
   generationMode: ShortsGenerationMode;
   /** Active image/video model id — a visual generated with another model reads as stale. */
   visualModel: string;
+  voiceMode?: ShortsVoiceMode;
   disabled: boolean;
   isExtending: boolean;
   isRewritingPrompt?: boolean;
@@ -55,6 +59,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   aspect,
   generationMode,
   visualModel,
+  voiceMode,
   disabled,
   isExtending,
   isRewritingPrompt,
@@ -161,6 +166,195 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // --- Individual slide voice recording --------------------------------------
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
+
+  const formatRecTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  const startRecording = async () => {
+    setRecordingError(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setRecordingError('Microphone not supported in this browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+        'audio/wav',
+      ];
+      const mimeType =
+        typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function'
+          ? candidates.find((t) => MediaRecorder.isTypeSupported(t))
+          : undefined;
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+        }
+        if (recordingTimerRef.current) {
+          window.clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+
+        if (!audioChunksRef.current.length) {
+          setIsRecording(false);
+          return;
+        }
+
+        const selectedType = recorder.mimeType || 'audio/webm';
+        const rawBlob = new Blob(audioChunksRef.current, { type: selectedType });
+        const url = URL.createObjectURL(rawBlob);
+
+        let duration = 0;
+        const tempAudio = new Audio(url);
+        await new Promise<void>((resolve) => {
+          tempAudio.onloadedmetadata = () => {
+            if (Number.isFinite(tempAudio.duration) && tempAudio.duration > 0) {
+              duration = tempAudio.duration;
+            }
+            resolve();
+          };
+          tempAudio.onerror = () => resolve();
+          setTimeout(resolve, 600);
+        });
+
+        if (!duration || !Number.isFinite(duration)) {
+          duration = recordingSeconds || 1.5;
+        }
+
+        if (scene.audioUrl) {
+          URL.revokeObjectURL(scene.audioUrl);
+        }
+
+        onUpdate(scene.id, {
+          audioBlob: rawBlob,
+          audioUrl: url,
+          audioDuration: duration,
+          audioStatus: 'ready',
+          audioError: null,
+          audioNarrationSnapshot: scene.narration,
+          isCustomAudio: true,
+        });
+
+        setIsRecording(false);
+      };
+
+      recorder.start(200);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      const startTime = Date.now();
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }, 200);
+    } catch (err: any) {
+      console.error('Mic recording error:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setRecordingError('Microphone permission was denied.');
+      } else {
+        setRecordingError(err.message || 'Could not access microphone.');
+      }
+      setIsRecording(false);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+      }
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  };
+
+  const cancelRecording = () => {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      audioChunksRef.current = [];
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingSeconds(0);
+  };
+
+  const handleClearAudio = () => {
+    if (scene.audioUrl) {
+      URL.revokeObjectURL(scene.audioUrl);
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+    onUpdate(scene.id, {
+      audioBlob: null,
+      audioUrl: null,
+      audioDuration: undefined,
+      audioStatus: 'idle',
+      audioError: null,
+      isCustomAudio: false,
+    });
+  };
+
   const togglePlay = () => {
     if (!scene.audioUrl) return;
     const audio = audioRef.current;
@@ -179,11 +373,13 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
     <div
       ref={setNodeRef}
       style={style}
+      data-needs-recording={voiceMode === 'record' && !scene.audioUrl ? 'true' : undefined}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
         'group relative rounded-2xl border bg-white/5 p-4 backdrop-blur-md transition-all',
+        voiceMode === 'record' && !scene.audioUrl && 'border-l-4 border-l-red-500/80',
         isDragOver
           ? 'border-cyan-400/80 bg-cyan-500/10 ring-2 ring-cyan-400/40'
           : !isDragging
@@ -340,31 +536,111 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             )}
           />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={togglePlay}
-              disabled={!scene.audioUrl || disabled}
-              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-              {scene.audioDuration ? `${scene.audioDuration.toFixed(1)}s` : 'Preview'}
-            </button>
+          {recordingError && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[11px] text-red-300">
+              <TriangleAlert className="h-3 w-3 shrink-0 text-red-400" />
+              <span>{recordingError}</span>
+              <button
+                type="button"
+                onClick={() => setRecordingError(null)}
+                className="ml-auto text-red-400 hover:text-red-200"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
 
-            <button
-              type="button"
-              onClick={() => onRegenerateAudio(scene.id)}
-              disabled={disabled || audioBusy}
-              title={audioStale ? 'Narration edited — regenerate voiceover' : 'Regenerate voiceover for this scene'}
-              className={cn(
-                'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30',
-                audioStale ? 'border-amber-400/40 text-amber-300' : 'border-white/10 text-white/60',
+          {isRecording ? (
+            <div className="flex items-center gap-2 rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+              </span>
+              <span className="font-mono text-xs font-bold text-red-300 tabular-nums">
+                Recording... {formatRecTime(recordingSeconds)}
+              </span>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="focus-ring ml-2 flex items-center gap-1 rounded-md bg-red-500 px-2.5 py-1 text-xs font-bold text-white shadow hover:bg-red-600 transition-colors"
+                title="Finish recording and use for this slide"
+              >
+                <Square className="h-3 w-3 fill-current" />
+                Done
+              </button>
+              <button
+                type="button"
+                onClick={cancelRecording}
+                className="focus-ring flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-medium text-white/70 hover:text-white transition-colors"
+                title="Cancel recording"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePlay}
+                disabled={!scene.audioUrl || disabled}
+                className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                {scene.audioDuration ? `${scene.audioDuration.toFixed(1)}s` : 'Preview'}
+                {scene.isCustomAudio && (
+                  <span className="ml-0.5 rounded bg-emerald-500/20 px-1 py-0.2 text-[9px] font-semibold text-emerald-300">
+                    Mic
+                  </span>
+                )}
+              </button>
+
+              {/* Record voice button */}
+              <button
+                type="button"
+                onClick={startRecording}
+                disabled={disabled}
+                title="Record your voice for this slide with device microphone"
+                className={cn(
+                  'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors hover:border-red-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-30',
+                  voiceMode === 'record' && !scene.audioUrl
+                    ? 'border-red-400/50 bg-red-500/15 text-red-300 shadow-sm animate-pulse'
+                    : 'border-white/10 text-white/70 hover:bg-red-500/10',
+                )}
+              >
+                <Mic className={cn('h-3 w-3', voiceMode === 'record' ? 'text-red-400' : 'text-white/60')} />
+                {scene.audioUrl ? (voiceMode === 'record' ? 'Re-record' : 'Record mic') : 'Record voice'}
+              </button>
+
+              {/* Clear custom audio */}
+              {scene.isCustomAudio && scene.audioUrl && (
+                <button
+                  type="button"
+                  onClick={handleClearAudio}
+                  disabled={disabled}
+                  title="Remove recorded voice for this slide"
+                  className="focus-ring rounded-lg border border-white/10 px-1.5 py-1.5 text-xs text-white/40 hover:border-red-400/40 hover:text-red-300 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
               )}
-            >
-              {audioBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              Voice
-              {audioStale && !audioBusy && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
-            </button>
+
+              {/* TTS Voice regenerate button (only if not strictly in record mode, or as fallback) */}
+              {voiceMode !== 'record' && (
+                <button
+                  type="button"
+                  onClick={() => onRegenerateAudio(scene.id)}
+                  disabled={disabled || audioBusy}
+                  title={audioStale ? 'Narration edited — regenerate voiceover' : 'Regenerate voiceover for this scene'}
+                  className={cn(
+                    'focus-ring flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30',
+                    audioStale ? 'border-amber-400/40 text-amber-300' : 'border-white/10 text-white/60',
+                  )}
+                >
+                  {audioBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Voice
+                  {audioStale && !audioBusy && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+                </button>
+              )}
 
             <button
               type="button"
@@ -419,8 +695,9 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
+        )}
 
-          {showPrompt && (
+        {showPrompt && (
             <div className="space-y-2 pt-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-white/45">

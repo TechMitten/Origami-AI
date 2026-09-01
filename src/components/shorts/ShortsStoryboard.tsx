@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ListPlus, Loader2, Plus, Upload } from 'lucide-react';
+import { ListPlus, Loader2, Plus, Upload, Trash2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -16,8 +16,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ShortsSceneCard } from './ShortsSceneCard';
-import type { ShortsGenerationMode, ShortsScene } from '../../services/shortsProject';
+import type { ShortsGenerationMode, ShortsScene, ShortsVoiceMode } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
+import { useModal } from '../../context/ModalContext';
 
 interface ShortsStoryboardProps {
   scenes: ShortsScene[];
@@ -25,6 +26,7 @@ interface ShortsStoryboardProps {
   generationMode: ShortsGenerationMode;
   /** Active image/video model id, so cards can flag visuals made with a different one. */
   visualModel: string;
+  voiceMode?: ShortsVoiceMode;
   disabled: boolean;
   extendingIds: Set<string>;
   isExtendingAll: boolean;
@@ -39,6 +41,7 @@ interface ShortsStoryboardProps {
   onDeleteScene: (id: string) => void;
   onAddScene: () => void;
   onBatchUploadImages?: (files: File[]) => void;
+  onClearAllImages?: () => void;
 }
 
 export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
@@ -46,6 +49,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   aspect,
   generationMode,
   visualModel,
+  voiceMode,
   disabled,
   extendingIds,
   isExtendingAll,
@@ -60,7 +64,9 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   onDeleteScene,
   onAddScene,
   onBatchUploadImages,
+  onClearAllImages,
 }) => {
+  const { showConfirm } = useModal();
   const batchInputRef = useRef<HTMLInputElement | null>(null);
 
   const sensors = useSensors(
@@ -89,6 +95,8 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
     onReorder(arrayMove(scenes, oldIndex, newIndex));
   };
 
+  const hasGeneratedImages = scenes.some((s) => s.imageUrl && !s.isCustomUpload);
+
   return (
     <div className="space-y-4">
       <input
@@ -101,11 +109,35 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
       />
 
       {scenes.length > 0 && (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <p className="text-xs text-white/40">
             {scenes.length} scene{scenes.length === 1 ? '' : 's'}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onClearAllImages && hasGeneratedImages && generationMode !== 'upload' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const confirmed = await showConfirm(
+                    'Are you sure you want to clear all generated visuals? This cannot be undone.',
+                    {
+                      title: 'Clear generated visuals',
+                      confirmText: 'Clear Visuals',
+                      type: 'danger'
+                    }
+                  );
+                  if (confirmed) {
+                    onClearAllImages();
+                  }
+                }}
+                disabled={disabled}
+                title="Clear all AI-generated images/videos"
+                className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/[0.05] px-3 py-1.5 text-xs text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Clear visuals
+              </button>
+            )}
             {onBatchUploadImages && (
               <button
                 type="button"
@@ -150,6 +182,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
                 aspect={aspect}
                 generationMode={generationMode}
                 visualModel={visualModel}
+                voiceMode={voiceMode}
                 disabled={disabled}
                 isExtending={extendingIds.has(scene.id)}
                 isRewritingPrompt={rewritingPromptIds?.has(scene.id)}

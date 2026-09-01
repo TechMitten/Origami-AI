@@ -225,13 +225,13 @@ const framingClause = (req: VisualPromptContext): string => {
 
   switch (req.aspect) {
     case '9:16':
-      parts.push('vertical 9:16 portrait composition, single clear focal subject centred with headroom');
+      parts.push('single clear focal subject centred with headroom');
       break;
     case '16:9':
-      parts.push('wide 16:9 landscape composition, cinematic framing');
+      parts.push('cinematic framing');
       break;
     case '1:1':
-      parts.push('square 1:1 composition, balanced subject');
+      parts.push('balanced subject');
       break;
   }
 
@@ -441,14 +441,14 @@ const runPrompt = async (
  * generation. ~1.6 tokens/word covers narration + punctuation; image prompts run longer per
  * scene since they spell out subject/setting/lighting/camera every time.
  */
-const NARRATION_TOKENS_PER_SCENE = 70;
-const IMAGE_PROMPT_TOKENS_PER_SCENE = 110;
+const NARRATION_TOKENS_PER_SCENE = 200;
+const IMAGE_PROMPT_TOKENS_PER_SCENE = 200;
 const COMBINED_TOKENS_PER_SCENE = NARRATION_TOKENS_PER_SCENE + IMAGE_PROMPT_TOKENS_PER_SCENE;
-const MIN_TOKEN_BUDGET = 350;
-const MAX_TOKEN_BUDGET = 4096;
+const MIN_TOKEN_BUDGET = 2048;
+const MAX_TOKEN_BUDGET = 8192;
 
 const tokenBudget = (sceneCount: number, perScene: number): number =>
-  Math.max(MIN_TOKEN_BUDGET, Math.min(MAX_TOKEN_BUDGET, Math.round(sceneCount * perScene) + 150));
+  Math.max(MIN_TOKEN_BUDGET, Math.min(MAX_TOKEN_BUDGET, Math.round(sceneCount * perScene) + 500));
 
 // --- narration generation -----------------------------------------------------
 
@@ -541,25 +541,7 @@ Output strictly ${sceneCount} numbered lines, one line per scene (e.g. "1. ...",
     lines = parseAttempt(await runPrompt(NARRATION_SYSTEM, user, 0.8, opts, maxTokens));
   } catch (e) {
     if (opts.signal?.aborted) throw e;
-    console.warn('[Shorts] Narration pass failed, retrying with stricter prompt.', e);
-  }
-
-  if (lines.length < Math.ceil(sceneCount * 0.7)) {
-    opts.onStage?.('Sharpening the script...');
-    try {
-      const retry = await runPrompt(
-        NARRATION_SYSTEM,
-        `${user}\n\nIMPORTANT: output exactly ${sceneCount} numbered lines. Each line must be a complete voiceover sentence with concrete details.`,
-        0.6,
-        opts,
-        maxTokens,
-      );
-      const retried = parseAttempt(retry);
-      if (retried.length > lines.length) lines = retried;
-    } catch (e) {
-      if (opts.signal?.aborted) throw e;
-      console.warn('[Shorts] Narration retry failed; using first attempt.', e);
-    }
+    console.warn('[Shorts] Narration pass failed.', e);
   }
 
   if (lines.length === 0) {
@@ -669,30 +651,53 @@ N. IMAGE: <the image prompt>
 
 No commentary, no headers, no markdown, no blank lines between scenes.`;
 
-const COMBINED_LINE = (field: 'NARRATION' | 'IMAGE'): RegExp =>
-  new RegExp(`^\\**\\s*(\\d+)\\s*[.):]\\s*${field}\\s*[:.\\-–]\\s*(.+?)\\s*\\**$`, 'i');
-
 const parseCombinedAttempt = (raw: string): { narrationByIndex: Map<number, string>; imageByIndex: Map<number, string> } => {
+  if (import.meta.env.DEV) console.log('[Shorts Debug] Raw LLM Output:', JSON.stringify(raw));
   const rawClean = stripWrapper(raw);
+  if (import.meta.env.DEV) console.log('[Shorts Debug] Cleaned Output:', JSON.stringify(rawClean));
   const lines = rawClean.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (import.meta.env.DEV) console.log('[Shorts Debug] Lines to parse:', lines);
 
-  const narrationLine = COMBINED_LINE('NARRATION');
-  const imageLine = COMBINED_LINE('IMAGE');
   const narrationByIndex = new Map<number, string>();
   const imageByIndex = new Map<number, string>();
+  
+  let currentScene = 0;
 
   for (const line of lines) {
-    const nMatch = line.match(narrationLine);
+    const nMatch = line.match(/^(?:.*?(?:scene|shot|clip)\s*)?(\d+)?.*?NARRATION.*?[:.\-–]\s*(.+)$/i);
     if (nMatch) {
-      narrationByIndex.set(Number(nMatch[1]), normalizeNarrationLine(nMatch[2]));
+      currentScene = nMatch[1] ? Number(nMatch[1]) : currentScene + 1;
+      if (import.meta.env.DEV) console.log(`[Shorts Debug] Matched NARRATION line for scene ${currentScene}:`, line);
+      narrationByIndex.set(currentScene, normalizeNarrationLine(nMatch[2]));
       continue;
     }
-    const iMatch = line.match(imageLine);
+
+    const iMatch = line.match(/^(?:.*?(?:scene|shot|clip)\s*)?(\d+)?.*?(?:IMAGE|VISUAL|PROMPT).*?[:.\-–]\s*(.+)$/i);
     if (iMatch) {
-      imageByIndex.set(Number(iMatch[1]), stripLineDecoration(iMatch[2]));
+      const sceneNum = iMatch[1] ? Number(iMatch[1]) : currentScene;
+      if (import.meta.env.DEV) console.log(`[Shorts Debug] Matched IMAGE line for scene ${sceneNum}:`, line);
+      imageByIndex.set(sceneNum, stripLineDecoration(iMatch[2]));
+      continue;
     }
   }
 
+  // Fallback if keywords weren't used at all: assume they come in narration/image pairs
+  if (narrationByIndex.size === 0) {
+    if (import.meta.env.DEV) console.log('[Shorts Debug] Keyword parsing failed. Attempting heuristic pairing fallback...');
+    const validLines = lines.filter((l) => !/^(?:note|explanation|disclaimer|title)/i.test(l));
+    if (import.meta.env.DEV) console.log('[Shorts Debug] Filtered valid lines for pairing:', validLines);
+    let sceneCounter = 1;
+    for (let i = 0; i < validLines.length; i += 2) {
+      if (import.meta.env.DEV) console.log(`[Shorts Debug] Pairing scene ${sceneCounter} -> Narration:`, validLines[i], '| Image:', validLines[i + 1]);
+      narrationByIndex.set(sceneCounter, normalizeNarrationLine(validLines[i]));
+      if (validLines[i + 1]) {
+        imageByIndex.set(sceneCounter, stripLineDecoration(validLines[i + 1]));
+      }
+      sceneCounter++;
+    }
+  }
+
+  if (import.meta.env.DEV) console.log('[Shorts Debug] Final Narration size:', narrationByIndex.size, 'Image size:', imageByIndex.size);
   return { narrationByIndex, imageByIndex };
 };
 
@@ -728,33 +733,28 @@ Write exactly ${sceneCount} scenes matching the scene plan above, each as a NARR
     return parseCombinedAttempt(raw);
   };
 
-  let parsed: { narrationByIndex: Map<number, string>; imageByIndex: Map<number, string> } | null = null;
-  try {
-    parsed = await attempt(0.8, false);
-  } catch (e) {
-    if (opts.signal?.aborted) throw e;
-    console.warn('[Shorts] Combined script pass failed, retrying with stricter prompt.', e);
+  const parsed = await attempt(0.8, false);
+  if (import.meta.env.DEV) console.log('[Shorts Debug] Parsed result from attempt:', parsed);
+
+  if (!parsed || parsed.narrationByIndex.size === 0) {
+    if (import.meta.env.DEV) console.log('[Shorts Debug] generateScriptCombined returning null because narration size is 0 or parsed is null.');
+    return null;
   }
 
-  if (!parsed || parsed.narrationByIndex.size < sceneCount) {
-    opts.onStage?.('Sharpening the script...');
-    try {
-      const retry = await attempt(0.6, true);
-      if (!parsed || retry.narrationByIndex.size > parsed.narrationByIndex.size) parsed = retry;
-    } catch (e) {
-      if (opts.signal?.aborted) throw e;
-      console.warn('[Shorts] Combined script retry failed.', e);
-    }
-  }
+  const rawIndices = Array.from(parsed.narrationByIndex.keys()).sort((a, b) => a - b);
+  const rawNarration = rawIndices.map((i) => parsed!.narrationByIndex.get(i)!);
+  const rawImages = rawIndices.map((i) => parsed!.imageByIndex.get(i));
 
-  // Only trust the fast path when every scene got a narration line — anything less falls
-  // back to the two-pass functions, which have far more forgiving parsing (sentence
-  // splitting, NOTE-line filtering, etc.) built up for exactly this kind of malformed output.
-  if (!parsed || parsed.narrationByIndex.size < sceneCount) return null;
-
-  const indices = Array.from({ length: sceneCount }, (_, i) => i + 1);
-  const narrationLines = indices.map((i) => parsed!.narrationByIndex.get(i)!);
-  const imagePrompts = indices.map((i) => resolveImagePrompt(parsed!.imageByIndex.get(i), narrationLines[i - 1], req));
+  if (import.meta.env.DEV) console.log('[Shorts Debug] Before fitToCount. Raw Narration:', rawNarration, 'Raw Images:', rawImages);
+  const narrationLines = fitToCount(rawNarration, sceneCount);
+  if (import.meta.env.DEV) console.log('[Shorts Debug] After fitToCount. Narration Lines:', narrationLines);
+  
+  const imagePrompts = narrationLines.map((line, outIdx) => {
+    // If this is a padded line beyond the original output, or the original had no image prompt,
+    // we use the fallback extractor
+    const candidate = outIdx < rawImages.length ? rawImages[outIdx] : undefined;
+    return resolveImagePrompt(candidate, line, req);
+  });
 
   return { narrationLines, imagePrompts };
 };
@@ -780,13 +780,18 @@ export const generateShortsScript = async (
   const scoped = { ...req, topic };
   const beats = buildBeats(topic, req.targetDurationSec);
 
+  if (import.meta.env.DEV) console.log('[Shorts Debug] generateShortsScript started for topic:', topic);
   const combined = await generateScriptCombined(scoped, beats, opts);
+  if (import.meta.env.DEV) console.log('[Shorts Debug] generateShortsScript got combined result:', combined);
 
   let narrationLines: string[];
   let resolvedImagePrompts: string[];
+
   if (combined) {
-    ({ narrationLines, imagePrompts: resolvedImagePrompts } = combined);
+    narrationLines = combined.narrationLines;
+    resolvedImagePrompts = combined.imagePrompts;
   } else {
+    if (import.meta.env.DEV) console.log('[Shorts Debug] generateScriptCombined returned null, falling back to two-pass generation.');
     narrationLines = await generateNarrationLines(scoped, beats, opts);
     resolvedImagePrompts = await generateImagePrompts(narrationLines, scoped, opts);
   }
@@ -878,9 +883,6 @@ Write 1-2 additional spoken sentences that continue directly from it, each addin
 
   const first = await attempt(0.85);
   if (first) return `${trimmed} ${first}`;
-
-  const retry = await attempt(0.6, '\n\nIMPORTANT: respond with 1-2 plain spoken sentences only. Nothing else.');
-  if (retry) return `${trimmed} ${retry}`;
 
   throw new Error('Could not extend this line. Try again, or add detail by hand.');
 };

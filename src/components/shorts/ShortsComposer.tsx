@@ -15,6 +15,7 @@ import {
   TONE_OPTIONS,
   VISUAL_STYLES,
   type ShortsProject,
+  type ShortsVoiceMode,
 } from '../../services/shortsProject';
 import type { ShortsAspect } from '../../services/ShortsVideoRenderer';
 
@@ -126,7 +127,7 @@ const Department: React.FC<{
       aria-controls={`shorts-department-${id}`}
       onClick={onToggle}
       className={cn(
-        'relative flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-ring',
+        'group relative flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-ring',
         isOpen
           ? cn('border-b', ACCENT[accent].border, 'bg-[linear-gradient(180deg,#212937,#181e2a)]')
           : 'border-b border-white/[0.08] bg-[linear-gradient(180deg,#171a20,#121419)] hover:bg-[linear-gradient(180deg,#1c2027,#14161b)]',
@@ -140,24 +141,24 @@ const Department: React.FC<{
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-md ring-1 transition-all',
           ACCENT[accent].tile,
-          isOpen ? '' : 'opacity-55 saturate-[.55]',
+          isOpen ? '' : 'opacity-85 saturate-[.85] group-hover:opacity-100 group-hover:saturate-100',
         )}
       >
         {icon}
       </span>
-      <span className={cn('shrink-0 text-[11px] font-bold uppercase tracking-[0.22em] transition-colors', isOpen ? 'text-white' : 'text-white/55')}>
+      <span className={cn('shrink-0 text-[11px] font-bold uppercase tracking-[0.22em] transition-colors', isOpen ? 'text-white' : 'text-white/90 group-hover:text-white')}>
         {label}
       </span>
       {subtitle && (
-        <span className={cn('min-w-0 flex-1 truncate text-xs transition-colors', isOpen ? 'text-white/55' : 'text-white/30')}>
-          <span className={cn('mr-1.5', isOpen ? 'text-white/40' : 'text-white/20')}>–</span>
+        <span className={cn('min-w-0 flex-1 truncate text-xs transition-colors', isOpen ? 'text-white/80' : 'text-white/70 group-hover:text-white/90')}>
+          <span className={cn('mr-1.5', isOpen ? 'text-white/50' : 'text-white/40 group-hover:text-white/60')}>–</span>
           {subtitle}
         </span>
       )}
       <ChevronDown
         className={cn(
           'ml-auto h-4 w-4 shrink-0 transition-all duration-300',
-          isOpen ? cn('rotate-180', THEME[accent].chevronOpen) : 'text-white/35',
+          isOpen ? cn('rotate-180', THEME[accent].chevronOpen) : 'text-white/60 group-hover:text-white/85',
         )}
       />
     </button>
@@ -692,7 +693,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
       <Department
         id="sound"
         label="Sound"
-        subtitle="voice & background music"
+        subtitle={project.voiceMode === 'record' ? 'custom voice recording' : 'voice & background music'}
         accent="emerald"
         icon={<AudioLines className="h-4 w-4" />}
         isOpen={openSection === 'sound'}
@@ -702,69 +703,117 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
           <ControlCard label="Voice" icon={<Mic className="h-3.5 w-3.5" />}>
             <AccentTheme>
               {(theme) => (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <Dropdown
-                        options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
-                        value={project.voice}
-                        onChange={(value) => {
-                          stopVoicePreview();
-                          onChange({ voice: value });
-                        }}
-                        disabled={isBusy}
-                      />
+                <div className="space-y-3">
+                  <ModeSwitch
+                    fullWidth
+                    name="shorts-voice-mode"
+                    label="Voice source"
+                    value={project.voiceMode || 'tts'}
+                    onChange={(value) => {
+                      stopVoicePreview();
+                      onChange({ voiceMode: value as ShortsVoiceMode });
+                    }}
+                    disabled={isBusy}
+                    options={[
+                      { value: 'tts', label: 'AI Voice (TTS)' },
+                      { value: 'record', label: 'Custom Voice Recording' },
+                    ]}
+                  />
+
+                  {project.voiceMode === 'record' ? (
+                    <div className="space-y-2.5 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.06] p-3.5 pt-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-400/20 text-emerald-300 ring-1 ring-emerald-400/30">
+                          <Mic className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-white">Custom Voice Recording</h4>
+                          <p className="text-[11px] text-emerald-300/80">Record slide-by-slide after script generation</p>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-white/70 leading-relaxed">
+                        You will record your voice separately for each individual slide using your device microphone once the script is generated in the Edit / Storyboard stage.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 pt-1 text-[11px] text-white/60">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-emerald-400 font-bold">✓</span> Slide-by-slide recording
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-emerald-400 font-bold">✓</span> Instant preview & re-recording
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-emerald-400 font-bold">✓</span> Auto-synced captions
+                        </div>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <Dropdown
+                            options={DEFAULT_VOICES.map((v) => ({ id: v.id, name: v.name }))}
+                            value={project.voice}
+                            onChange={(value) => {
+                              stopVoicePreview();
+                              onChange({ voice: value });
+                            }}
+                            disabled={isBusy}
+                          />
+                        </div>
 
-                    <button
-                      type="button"
-                      onClick={handleToggleInlineVoicePreview}
-                      disabled={isBusy || isPreviewGenerating}
-                      className={cn(
-                        'focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-all',
-                        isPreviewPlaying
-                          ? 'border-emerald-400/50 bg-emerald-500 text-black shadow-lg shadow-emerald-500/25 animate-pulse'
-                          : isPreviewGenerating
-                          ? 'border-white/10 bg-white/5 text-white/40 cursor-not-allowed'
-                          : cn('border-white/10 bg-white/[0.05]', theme.btnText, theme.btnHover),
-                      )}
-                      title={isPreviewPlaying ? 'Stop audio preview' : 'Quick preview voice'}
-                    >
-                      {isPreviewGenerating ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span className="hidden sm:inline">Loading...</span>
-                        </>
-                      ) : isPreviewPlaying ? (
-                        <>
-                          <Square className="h-3.5 w-3.5 fill-current" />
-                          <span>Stop</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className={cn('h-3.5 w-3.5 fill-current', theme.btnIcon)} />
-                          <span>Preview</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                        <button
+                          type="button"
+                          onClick={handleToggleInlineVoicePreview}
+                          disabled={isBusy || isPreviewGenerating}
+                          className={cn(
+                            'focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-all',
+                            isPreviewPlaying
+                              ? 'border-emerald-400/50 bg-emerald-500 text-black shadow-lg shadow-emerald-500/25 animate-pulse'
+                              : isPreviewGenerating
+                              ? 'border-white/10 bg-white/5 text-white/40 cursor-not-allowed'
+                              : cn('border-white/10 bg-white/[0.05]', theme.btnText, theme.btnHover),
+                          )}
+                          title={isPreviewPlaying ? 'Stop audio preview' : 'Quick preview voice'}
+                        >
+                          {isPreviewGenerating ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span className="hidden sm:inline">Loading...</span>
+                            </>
+                          ) : isPreviewPlaying ? (
+                            <>
+                              <Square className="h-3.5 w-3.5 fill-current" />
+                              <span>Stop</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className={cn('h-3.5 w-3.5 fill-current', theme.btnIcon)} />
+                              <span>Preview</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
 
-                  {onOpenVoiceAudition && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        stopVoicePreview();
-                        onOpenVoiceAudition();
-                      }}
-                      disabled={isBusy}
-                      className={cn(
-                        'focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 bg-white/[0.04] py-1.5 text-xs font-medium text-white/85 transition-all disabled:opacity-40',
-                        theme.btnHover,
+                      {onOpenVoiceAudition && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            stopVoicePreview();
+                            onOpenVoiceAudition();
+                          }}
+                          disabled={isBusy}
+                          className={cn(
+                            'focus-ring flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 bg-white/[0.04] py-1.5 text-xs font-medium text-white/85 transition-all disabled:opacity-40',
+                            theme.btnHover,
+                          )}
+                        >
+                          <Sparkles className={cn('h-3 w-3', theme.btnIcon)} />
+                          Audition all voices
+                        </button>
                       )}
-                    >
-                      <Sparkles className={cn('h-3 w-3', theme.btnIcon)} />
-                      Audition all voices
-                    </button>
+                    </div>
                   )}
                 </div>
               )}

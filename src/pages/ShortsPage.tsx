@@ -251,6 +251,8 @@ export const ShortsPage: React.FC = () => {
 
   const [isBusy, setIsBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
+  const [isRegeneratingAllImages, setIsRegeneratingAllImages] = useState(false);
+  const [isRegeneratingStale, setIsRegeneratingStale] = useState(false);
 
   // Per-scene "extend narration" requests in flight, plus whether the current
   // batch is the "extend every scene" bulk action rather than a single card.
@@ -644,6 +646,7 @@ export const ShortsPage: React.FC = () => {
           audioStatus: 'ready',
           audioError: null,
           audioNarrationSnapshot: scene.narration,
+          isCustomAudio: false,
         });
       } catch (e) {
         if (signal.aborted) return;
@@ -793,10 +796,15 @@ export const ShortsPage: React.FC = () => {
 
     try {
       const scenes = projectRef.current.scenes;
-      await Promise.all(scenes.map((scene) => {
-        const needsVisual = ['idle', 'error'].includes(isVideo ? scene.videoStatus : scene.imageStatus);
-        return needsVisual ? runSceneVisual(scene, projectRef.current, controller.signal) : Promise.resolve();
-      }));
+      for (const scene of scenes) {
+        if (controller.signal.aborted) return;
+        const needsVisual = isVideo
+          ? ['idle', 'error'].includes(scene.videoStatus)
+          : ['idle', 'error'].includes(scene.imageStatus);
+        if (needsVisual) {
+          await runSceneVisual(scene, projectRef.current, controller.signal);
+        }
+      }
     } catch (e) {
       if (controller.signal.aborted) return;
       await showAlert(errorMessage(e), {
@@ -811,6 +819,15 @@ export const ShortsPage: React.FC = () => {
   }, [runSceneVisual, showAlert]);
 
   const handleGenerateAudio = useCallback(async () => {
+    const current = projectRef.current;
+    if (current.voiceMode === 'record') {
+      await showAlert(
+        'You have selected Custom Voice Recording. Click the Record button on each scene card to record your voice for that slide with your microphone.',
+        { title: 'Record per slide', type: 'info' },
+      );
+      return;
+    }
+
     generationAbortRef.current?.abort();
     const controller = new AbortController();
     generationAbortRef.current = controller;
@@ -822,7 +839,7 @@ export const ShortsPage: React.FC = () => {
       const scenes = projectRef.current.scenes;
       for (const scene of scenes) {
         if (controller.signal.aborted) return;
-        const needsAudio = ['idle', 'error'].includes(scene.audioStatus);
+        const needsAudio = ['idle', 'error'].includes(scene.audioStatus) && !scene.isCustomAudio;
         if (needsAudio) {
           await runSceneAudio(scene, projectRef.current.voice, controller.signal);
         }
@@ -871,6 +888,7 @@ export const ShortsPage: React.FC = () => {
     generationAbortRef.current = controller;
 
     setIsBusy(true);
+    setIsRegeneratingStale(true);
     setBusyLabel('Regenerating edited scenes...');
 
     try {
@@ -892,6 +910,7 @@ export const ShortsPage: React.FC = () => {
     } finally {
       if (generationAbortRef.current === controller) generationAbortRef.current = null;
       setIsBusy(false);
+      setIsRegeneratingStale(false);
       setBusyLabel('');
     }
   }, [runSceneVisual, runSceneAudio, showAlert]);
@@ -972,6 +991,7 @@ export const ShortsPage: React.FC = () => {
     }));
 
     setIsBusy(true);
+    setIsRegeneratingAllImages(true);
     setBusyLabel('Regenerating all images...');
     try {
       await Promise.all(
@@ -983,6 +1003,7 @@ export const ShortsPage: React.FC = () => {
     } finally {
       if (generationAbortRef.current === controller) generationAbortRef.current = null;
       setIsBusy(false);
+      setIsRegeneratingAllImages(false);
       setBusyLabel('');
     }
   }, [runSceneImage, showAlert, showConfirm]);
@@ -1059,6 +1080,30 @@ export const ShortsPage: React.FC = () => {
     },
     [ensureScriptEngineReady, llmOptions, patchScene, showAlert],
   );
+
+  const handleClearAllImages = useCallback(() => {
+    patchProject({
+      scenes: projectRef.current.scenes.map((scene) => {
+        if (scene.isCustomUpload) return scene;
+        
+        if (scene.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(scene.imageUrl);
+        if (scene.videoUrl?.startsWith('blob:')) URL.revokeObjectURL(scene.videoUrl);
+        
+        return {
+          ...scene,
+          imageBlob: undefined,
+          imageUrl: undefined,
+          imageStatus: 'idle',
+          videoBlob: undefined,
+          videoUrl: undefined,
+          videoStatus: 'idle',
+          visualPromptSnapshot: undefined,
+          visualModelSnapshot: undefined,
+          visualAspectSnapshot: undefined,
+        };
+      }),
+    });
+  }, [patchProject]);
 
   // Sequential, not parallel: extendNarration goes through the same single
   // WebLLM engine as every other script pass (see shortsScriptService), which
@@ -1338,16 +1383,30 @@ export const ShortsPage: React.FC = () => {
               : `Read the script through first — this step generates every scene's ${isVideoMode ? 'clip' : 'image'}.`,
           }
         : needsAudioGeneration
-          ? {
-              label: isBusy ? busyLabel || 'Generating voiceover...' : 'Generate voiceover',
-              icon: <Mic className="h-4 w-4 shrink-0" />,
-              onClick: handleGenerateAudio,
-              disabled: isBusy,
-              busy: isBusy,
-              hint: isBusy
-                ? 'Keep this tab open while it works.'
-                : 'Local text-to-speech reads each scene’s narration aloud, on device.',
-            }
+          ? project.voiceMode === 'record'
+            ? {
+                label: 'Record slide voiceovers',
+                icon: <Mic className="h-4 w-4 shrink-0 text-red-400" />,
+                onClick: () => {
+                  const first = document.querySelector('[data-needs-recording="true"]');
+                  if (first) {
+                    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                },
+                disabled: false,
+                busy: false,
+                hint: 'Use the Record button on each slide card above to record your narration with your microphone.',
+              }
+            : {
+                label: isBusy ? busyLabel || 'Generating voiceover...' : 'Generate voiceover',
+                icon: <Mic className="h-4 w-4 shrink-0" />,
+                onClick: handleGenerateAudio,
+                disabled: isBusy,
+                busy: isBusy,
+                hint: isBusy
+                  ? 'Keep this tab open while it works.'
+                  : 'Local text-to-speech reads each scene’s narration aloud, on device.',
+              }
           : {
               label: 'Export MP4',
               icon: <Download className="h-4 w-4 shrink-0" />,
@@ -1575,11 +1634,11 @@ export const ShortsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => void handleRegenerateAllImages()}
-                        disabled={renderPhase === 'rendering' || isBusy}
+                        disabled={renderPhase === 'rendering' || isRegeneratingAllImages}
                         className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
                         title="Regenerate every image with a new random seed"
                       >
-                        <RefreshCw className={cn('h-3.5 w-3.5', isBusy && 'animate-spin')} />
+                        <RefreshCw className={cn('h-3.5 w-3.5', isRegeneratingAllImages && 'animate-spin')} />
                         Regenerate all images
                       </button>
                     )}
@@ -1591,7 +1650,7 @@ export const ShortsPage: React.FC = () => {
                       title="Audition or switch voice"
                     >
                       <Mic className="h-3.5 w-3.5 text-cyan-400" />
-                      <span>Voice: <strong className="text-white">{DEFAULT_VOICES.find(v => v.id === project.voice)?.name || project.voice}</strong></span>
+                      <span>Voice: <strong className="text-white">{project.voiceMode === 'record' ? 'Recorded Voice' : (DEFAULT_VOICES.find(v => v.id === project.voice)?.name || project.voice)}</strong></span>
                     </button>
                   </div>
                 </div>
@@ -1611,6 +1670,7 @@ export const ShortsPage: React.FC = () => {
                   aspect={project.aspect}
                   generationMode={project.generationMode}
                   visualModel={activeVisualModel}
+                  voiceMode={project.voiceMode}
                   disabled={renderPhase === 'rendering' || isExtendingAll}
                   extendingIds={extendingIds}
                   isExtendingAll={isExtendingAll}
@@ -1625,6 +1685,7 @@ export const ShortsPage: React.FC = () => {
                   onDeleteScene={handleDeleteScene}
                   onAddScene={handleAddScene}
                   onBatchUploadImages={handleBatchUploadImages}
+                  onClearAllImages={handleClearAllImages}
                 />
               </div>
             )}
@@ -1674,10 +1735,10 @@ export const ShortsPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => void handleRegenerateStale()}
-                      disabled={isBusy}
+                      disabled={isRegeneratingStale}
                       className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-400/40 px-3 py-1.5 font-semibold text-amber-200 transition-colors hover:border-amber-400/70 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <RefreshCw className={cn('h-3.5 w-3.5', isBusy && 'animate-spin')} />
+                      <RefreshCw className={cn('h-3.5 w-3.5', isRegeneratingStale && 'animate-spin')} />
                       Regenerate
                     </button>
                   </div>
@@ -1743,7 +1804,7 @@ export const ShortsPage: React.FC = () => {
         onClose={() => setIsVoiceAuditionOpen(false)}
         selectedVoice={project.voice}
         onSelectVoice={(voiceId) => {
-          patchProject({ voice: voiceId });
+          patchProject({ voice: voiceId, voiceMode: 'tts' });
         }}
       />
 

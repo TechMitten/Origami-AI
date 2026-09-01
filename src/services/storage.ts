@@ -340,9 +340,25 @@ export async function saveGlobalSettings(settings: GlobalSettings): Promise<void
       cloudSettings.music = musicCopy;
     }
     
+    // Firestore does not allow undefined values
+    const stripUndefined = (obj: any): any => {
+      if (obj === undefined) return undefined;
+      if (obj === null) return null;
+      if (typeof obj !== 'object') return obj;
+      if (Array.isArray(obj)) return obj.map(stripUndefined).filter(v => v !== undefined);
+      
+      const result: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          result[key] = stripUndefined(value);
+        }
+      }
+      return result;
+    };
+    
     try {
       const ref = doc(db, 'users', user.uid, 'preferences', 'globalSettings');
-      await setDoc(ref, cloudSettings, { merge: true });
+      await setDoc(ref, stripUndefined(cloudSettings), { merge: true });
     } catch (e) {
       console.warn('Failed to sync global settings', e);
     }
@@ -376,6 +392,7 @@ export interface PersistedShortsScene {
   audioDuration?: number;
   seed: number;
   isCustomUpload?: boolean;
+  isCustomAudio?: boolean;
   audioNarrationSnapshot?: string;
   visualPromptSnapshot?: string;
   visualModelSnapshot?: string;
@@ -388,6 +405,9 @@ export interface PersistedShortsProject {
   aspect: '9:16' | '16:9' | '1:1';
   targetDurationSec: number;
   voice: string;
+  voiceMode?: 'tts' | 'record';
+  recordedAudioBlob?: Blob;
+  recordedAudioDuration?: number;
   generationMode?: 'image' | 'video' | 'upload';
   imageModel: string;
   videoModel?: string;

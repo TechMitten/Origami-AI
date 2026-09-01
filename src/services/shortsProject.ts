@@ -42,6 +42,8 @@ export interface ShortsScene {
 
   /** True if the user manually uploaded or replaced the image for this scene. */
   isCustomUpload?: boolean;
+  /** True if the user recorded custom audio with their microphone for this scene. */
+  isCustomAudio?: boolean;
 
   /** narration text the current audioBlob was generated from — lets edits be detected as stale. */
   audioNarrationSnapshot?: string;
@@ -60,6 +62,13 @@ export interface ShortsMusic {
 }
 
 export type ShortsGenerationMode = 'image' | 'video' | 'upload';
+export type ShortsVoiceMode = 'tts' | 'record';
+
+export interface ShortsRecordedAudio {
+  blob: Blob;
+  url: string;
+  duration: number;
+}
 
 export interface ShortsProject {
   topic: string;
@@ -67,6 +76,8 @@ export interface ShortsProject {
   aspect: ShortsAspect;
   targetDurationSec: number;
   voice: string;
+  voiceMode?: ShortsVoiceMode;
+  recordedAudio?: ShortsRecordedAudio | null;
   generationMode: ShortsGenerationMode;
   imageModel: string;
   videoModel: string;
@@ -165,6 +176,8 @@ export const createEmptyProject = (overrides: Partial<ShortsProject> = {}): Shor
   aspect: '9:16',
   targetDurationSec: 30,
   voice: 'af_heart',
+  voiceMode: 'tts',
+  recordedAudio: null,
   generationMode: 'image',
   imageModel: DEFAULT_POLLINATIONS_IMAGE_MODEL,
   videoModel: DEFAULT_POLLINATIONS_VIDEO_MODEL,
@@ -324,6 +337,9 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
   aspect: project.aspect,
   targetDurationSec: project.targetDurationSec,
   voice: project.voice,
+  voiceMode: project.voiceMode ?? 'tts',
+  recordedAudioBlob: project.recordedAudio?.blob,
+  recordedAudioDuration: project.recordedAudio?.duration,
   generationMode: project.generationMode,
   imageModel: project.imageModel,
   videoModel: project.videoModel,
@@ -344,6 +360,7 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     imagePrompt: scene.imagePrompt,
     seed: scene.seed,
     isCustomUpload: scene.isCustomUpload,
+    isCustomAudio: scene.isCustomAudio,
     imageBlob: scene.imageBlob ?? undefined,
     videoBlob: scene.videoBlob ?? undefined,
     audioBlob: scene.audioBlob ?? undefined,
@@ -362,6 +379,14 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
   aspect: persisted.aspect,
   targetDurationSec: persisted.targetDurationSec,
   voice: resolveVoice(persisted.voice),
+  voiceMode: (persisted.voiceMode as ShortsVoiceMode) || 'tts',
+  recordedAudio: persisted.recordedAudioBlob
+    ? {
+        blob: persisted.recordedAudioBlob,
+        url: URL.createObjectURL(persisted.recordedAudioBlob),
+        duration: persisted.recordedAudioDuration ?? 0,
+      }
+    : null,
   generationMode: persisted.generationMode || 'image',
   imageModel: persisted.imageModel || DEFAULT_POLLINATIONS_IMAGE_MODEL,
   videoModel: persisted.videoModel || DEFAULT_POLLINATIONS_VIDEO_MODEL,
@@ -385,6 +410,7 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     imagePrompt: scene.imagePrompt,
     seed: scene.seed,
     isCustomUpload: scene.isCustomUpload,
+    isCustomAudio: scene.isCustomAudio,
     imageBlob: scene.imageBlob ?? null,
     imageUrl: scene.imageBlob ? URL.createObjectURL(scene.imageBlob) : null,
     imageStatus: scene.imageBlob ? 'ready' : 'idle',
@@ -404,9 +430,131 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
 
 /** Release every object URL a project holds. Call before discarding it. */
 export const revokeProjectUrls = (project: ShortsProject): void => {
+  if (project.recordedAudio?.url) URL.revokeObjectURL(project.recordedAudio.url);
   project.scenes.forEach((scene) => {
     if (scene.imageUrl) URL.revokeObjectURL(scene.imageUrl);
     if (scene.videoUrl) URL.revokeObjectURL(scene.videoUrl);
     if (scene.audioUrl) URL.revokeObjectURL(scene.audioUrl);
   });
+};
+
+/** Convert any decoded AudioBuffer to standard 16-bit PCM WAV bytes. */
+export const audioBufferToWav = (buffer: AudioBuffer): Uint8Array => {
+  const numberOfChannels = Math.min(2, buffer.numberOfChannels);
+  const sampleRate = buffer.sampleRate;
+  const bytesPerSample = 2;
+  const blockAlign = numberOfChannels * bytesPerSample;
+  const dataSize = buffer.length * blockAlign;
+  const wavBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(wavBuffer);
+
+  const writeString = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i += 1) view.setUint8(offset + i, value.charCodeAt(i));
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numberOfChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bytesPerSample * 8, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  const channels = Array.from({ length: numberOfChannels }, (_, i) => buffer.getChannelData(i));
+  let offset = 44;
+  for (let sample = 0; sample < buffer.length; sample += 1) {
+    for (let channel = 0; channel < numberOfChannels; channel += 1) {
+      const value = Math.max(-1, Math.min(1, channels[channel][sample] || 0));
+      view.setInt16(offset, value < 0 ? value * 0x8000 : value * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return new Uint8Array(wavBuffer);
+};
+
+/**
+ * Distributes a single recorded voiceover audio Blob across a short's scenes,
+ * proportioned by the length/word-count of each scene's narration.
+ */
+export const applyRecordedAudioToScenes = async (
+  audioBlob: Blob,
+  scenes: ShortsScene[],
+): Promise<ShortsScene[]> => {
+  if (!scenes.length) return scenes;
+
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const AudioCtxClass =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const audioCtx = new AudioCtxClass();
+
+  try {
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    const totalDuration = decoded.duration;
+    const sampleRate = decoded.sampleRate;
+    const numChannels = Math.min(2, decoded.numberOfChannels);
+
+    // Compute weights based on word lengths in each scene's narration
+    const weights = scenes.map((s) => {
+      const words = s.narration.trim().split(/\s+/).filter(Boolean);
+      return Math.max(1, words.reduce((acc, w) => acc + Math.max(2, w.length), 0));
+    });
+    const totalWeight = weights.reduce((acc, w) => acc + w, 0);
+
+    let startSec = 0;
+    const result: ShortsScene[] = [];
+
+    for (let i = 0; i < scenes.length; i += 1) {
+      const isLast = i === scenes.length - 1;
+      const spanSec = isLast
+        ? Math.max(0.2, totalDuration - startSec)
+        : (weights[i] / totalWeight) * totalDuration;
+      const endSec = isLast ? totalDuration : Math.min(totalDuration, startSec + spanSec);
+      const actualDuration = Math.max(0.1, endSec - startSec);
+
+      const startSample = Math.min(decoded.length - 1, Math.floor(startSec * sampleRate));
+      const endSample = Math.min(
+        decoded.length,
+        Math.max(startSample + 1, Math.ceil(endSec * sampleRate)),
+      );
+      const sliceLength = Math.max(1, endSample - startSample);
+
+      const sliceBuffer = audioCtx.createBuffer(numChannels, sliceLength, sampleRate);
+      for (let ch = 0; ch < numChannels; ch += 1) {
+        const channelData = decoded.getChannelData(ch).subarray(startSample, endSample);
+        sliceBuffer.copyToChannel(channelData, ch);
+      }
+
+      const wavBytes = audioBufferToWav(sliceBuffer);
+      const sliceBlob = new Blob([wavBytes], { type: 'audio/wav' });
+      const sliceUrl = URL.createObjectURL(sliceBlob);
+
+      if (scenes[i].audioUrl) {
+        URL.revokeObjectURL(scenes[i].audioUrl!);
+      }
+
+      result.push({
+        ...scenes[i],
+        audioBlob: sliceBlob,
+        audioUrl: sliceUrl,
+        audioDuration: actualDuration,
+        audioStatus: 'ready',
+        audioError: null,
+        audioNarrationSnapshot: scenes[i].narration,
+      });
+
+      startSec = endSec;
+    }
+
+    return result;
+  } finally {
+    void audioCtx.close().catch(() => {});
+  }
 };
