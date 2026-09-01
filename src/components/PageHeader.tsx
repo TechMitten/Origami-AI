@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, Github, Settings, CircleHelp, User as UserIcon, LogOut } from 'lucide-react';
+import { ArrowLeft, Settings, CircleHelp, User as UserIcon, LogOut } from 'lucide-react';
 import { TransitionLink } from './TransitionLink';
 import { HeaderActionsMenu } from './HeaderActionsMenu';
 import { NotificationBell } from './NotificationBell';
@@ -26,8 +26,6 @@ interface PageHeaderProps {
   showSettings?: boolean;
   /** Show help button (default: true) */
   showHelp?: boolean;
-  /** Show github button (default: true) */
-  showGithub?: boolean;
   /** Show notification bell (default: true) */
   showNotifications?: boolean;
   /** Keep this header anchored during route transitions (default: true). Disable for overlays that render a second header. */
@@ -51,7 +49,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   showActionsMenu = true,
   showSettings = true,
   showHelp = true,
-  showGithub = true,
   showNotifications = true,
   pinDuringRouteTransition = true,
   actionMenuClassName = '',
@@ -61,7 +58,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const hasUtilityButtons = showNotifications || showGithub || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
+  const hasUtilityButtons = showNotifications || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
 
   return (
     <header
@@ -135,17 +132,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {hasUtilityButtons && (
           <div className="flex items-center gap-1">
             {showNotifications && <NotificationBell />}
-            {showGithub && (
-              <a
-                href="https://github.com/TechMitten/Origami-AI"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg text-white/70 bg-white/5 transition-all hover:text-white hover:bg-white/10"
-                title="View on GitHub"
-              >
-                <Github className="w-5 h-5" />
-              </a>
-            )}
             {showHelp && onHelp && (
               <button
                 onClick={onHelp}

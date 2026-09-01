@@ -36,6 +36,7 @@ import { ShortsPage } from './pages/ShortsPage';
 import { VoiceStudioPage } from './pages/VoiceStudioPage';
 import { ConvertStudioPage } from './pages/ConvertStudioPage';
 import { PollinationsCallbackPage } from './pages/PollinationsCallbackPage';
+import { AccountOverviewPage } from './pages/AccountOverviewPage';
 import { useScreenRecorder, type ScreenRecordResult } from './hooks/useScreenRecorder';
 import { usePageMeta } from './hooks/usePageMeta';
 import { PageHeader } from './components/PageHeader';
@@ -1806,6 +1807,7 @@ function App() {
           <RouteTransition>
             <Routes>
               <Route path="/" element={<MainApp />} />
+              <Route path="/account" element={<AccountOverviewPage />} />
               <Route path="/assistant" element={<AssistantPage />} />
               <Route path="/issue-reporter" element={<IssueReporterPage />} />
               <Route path="/shorts" element={<ShortsPage />} />

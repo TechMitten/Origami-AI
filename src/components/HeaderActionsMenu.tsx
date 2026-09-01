@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { AudioLines, BookOpen, Bot, Clapperboard, FileCog, Film, Settings } from 'lucide-react';
+import { AudioLines, BookOpen, Bot, Clapperboard, FileCog, Film, Settings, User } from 'lucide-react';
 import { useLocation } from 'react-router';
 import { TransitionNavLink, useTransitionNavigate } from './TransitionLink';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderActionsMenuProps {
   className?: string;
@@ -22,6 +23,7 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useTransitionNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const closeMenu = () => setIsOpen(false);
   const customContent = renderContent?.(closeMenu);
@@ -111,6 +113,19 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
               >
                 <BookOpen className="h-4 w-4" /> Landing Page
               </button>
+
+              {user && (
+                <>
+                  <div className="my-1 h-px bg-white/10" />
+                  <TransitionNavLink
+                    to="/account"
+                    onClick={closeMenu}
+                    className={({ isActive }) => `${menuItemClassName} ${isActive ? 'bg-cyan-400/15 text-cyan-100' : 'text-white/70 hover:bg-white/5 hover:text-white'}`}
+                  >
+                    <User className="h-4 w-4" /> Account
+                  </TransitionNavLink>
+                </>
+              )}
             </>
           )}
 

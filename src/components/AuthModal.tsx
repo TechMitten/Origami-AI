@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { TransitionLink } from './TransitionLink';
+import { useNavigate } from 'react-router';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -79,6 +80,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   initialMode = 'signin',
 }) => {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -173,9 +175,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (mode === 'signin') {
         await signInWithEmailAndPassword(auth, email.trim(), password);
         onClose();
+        navigate('/account');
       } else {
         await createUserWithEmailAndPassword(auth, email.trim(), password);
         onClose();
+        navigate('/account');
       }
     } catch (err: unknown) {
       console.error('[AuthModal] Form error:', err);
