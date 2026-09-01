@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, Github, Settings, CircleHelp } from 'lucide-react';
+import { ArrowLeft, Github, Settings, CircleHelp, User as UserIcon, LogOut } from 'lucide-react';
 import { TransitionLink } from './TransitionLink';
 import { HeaderActionsMenu } from './HeaderActionsMenu';
 import { NotificationBell } from './NotificationBell';
+import { useAuth } from '../context/AuthContext';
+import { AuthModal } from './AuthModal';
 
 interface PageHeaderProps {
   /** Title to display next to logo, e.g., "Issue Reporter" or "AI Assistant" */
@@ -57,6 +59,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   onHelp,
   className = '',
 }) => {
+  const { user, logout } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const hasUtilityButtons = showNotifications || showGithub || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
 
   return (
@@ -103,6 +107,31 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {rightContent && <div className="flex items-center gap-1 sm:gap-2 shrink-0">{rightContent}</div>}
 
+        <div className="flex items-center gap-2 mr-2">
+          {user ? (
+            <div className="flex items-center gap-3 bg-white/5 pl-3 pr-1 py-1 rounded-full border border-white/10">
+              <span className="text-sm text-white/80 max-w-[120px] truncate" title={user.email || 'User'}>
+                {user.email}
+              </span>
+              <button
+                onClick={() => logout()}
+                className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-600/80 hover:bg-cyan-500 text-white text-sm font-medium transition-colors"
+            >
+              <UserIcon className="w-4 h-4" />
+              <span>Sign In</span>
+            </button>
+          )}
+        </div>
+
         {hasUtilityButtons && (
           <div className="flex items-center gap-1">
             {showNotifications && <NotificationBell />}
@@ -145,6 +174,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </>
         )}
       </div>
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </header>
   );
 };

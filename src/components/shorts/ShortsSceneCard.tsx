@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Trash2,
   TriangleAlert,
+  Upload,
   Wand2,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -71,8 +72,10 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const narrationRef = useRef<HTMLTextAreaElement | null>(null);
   const promptRef = useRef<HTMLTextAreaElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const isVideo = generationMode === 'video';
   const visualStatus = isVideo ? scene.videoStatus : scene.imageStatus;
@@ -81,6 +84,54 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   const audioBusy = scene.audioStatus === 'pending';
   const audioStale = isSceneAudioStale(scene);
   const visualStale = isSceneVisualStale(scene, generationMode, visualModel, aspect);
+
+  const handleImageFile = (file: File) => {
+    if (scene.imageUrl) URL.revokeObjectURL(scene.imageUrl);
+    if (scene.videoUrl) URL.revokeObjectURL(scene.videoUrl);
+    const url = URL.createObjectURL(file);
+    onUpdate(scene.id, {
+      imageBlob: file,
+      imageUrl: url,
+      imageStatus: 'ready',
+      imageError: null,
+      videoBlob: null,
+      videoUrl: null,
+      videoStatus: 'idle',
+      isCustomUpload: true,
+    });
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageFile(file);
+    }
+  };
 
   const [showPrompt, setShowPrompt] = useState(false);
 
@@ -128,11 +179,26 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
     <div
       ref={setNodeRef}
       style={style}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={cn(
-        'group relative rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md transition-colors',
-        !isDragging && 'hover:border-white/20',
+        'group relative rounded-2xl border bg-white/5 p-4 backdrop-blur-md transition-all',
+        isDragOver
+          ? 'border-cyan-400/80 bg-cyan-500/10 ring-2 ring-cyan-400/40'
+          : !isDragging
+            ? 'border-white/10 hover:border-white/20'
+            : 'border-white/10',
       )}
     >
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
+
       <div className="flex gap-4">
         {/* Slate: cut order is real information here, so the number is the anchor
             and the drag handle sits under it. */}
@@ -157,18 +223,22 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
         <div
           role={visualUrl ? 'button' : undefined}
           tabIndex={visualUrl ? 0 : undefined}
-          onClick={() => visualUrl && setIsPreviewOpen(true)}
+          onClick={() => {
+            if (visualUrl) setIsPreviewOpen(true);
+            else imageInputRef.current?.click();
+          }}
           onKeyDown={(e) => {
-            if (visualUrl && (e.key === 'Enter' || e.key === ' ')) {
+            if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setIsPreviewOpen(true);
+              if (visualUrl) setIsPreviewOpen(true);
+              else imageInputRef.current?.click();
             }
           }}
-          title={visualUrl ? `View full-size ${isVideo ? 'clip' : 'image'}` : undefined}
+          title={visualUrl ? `View full-size ${isVideo ? 'clip' : 'image'}` : 'Click to upload image'}
           className={cn(
             'group/thumb relative w-32 shrink-0 self-start overflow-hidden rounded-xl bg-black/40 sm:w-40',
             aspectClass[aspect],
-            visualUrl ? 'focus-ring cursor-zoom-in' : 'cursor-default',
+            visualUrl ? 'focus-ring cursor-zoom-in' : 'focus-ring cursor-pointer hover:bg-black/60',
           )}
         >
           {visualUrl ? (
@@ -178,11 +248,14 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               <img src={visualUrl} alt="" className="h-full w-full object-cover" />
             )
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-white/20">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 p-2 text-center text-white/30 transition-colors hover:text-white/80">
               {visualStatus === 'error' ? (
                 <TriangleAlert className="h-5 w-5 text-amber-400/70" />
               ) : (
-                <ImageIcon className="h-5 w-5" />
+                <>
+                  <Upload className="h-5 w-5 text-white/40 group-hover/thumb:text-cyan-300" />
+                  <span className="text-[10px] font-semibold text-white/50 group-hover/thumb:text-white">Upload</span>
+                </>
               )}
             </div>
           )}
@@ -204,6 +277,21 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               title={`Prompt or model changed since this ${isVideo ? 'video' : 'image'} was generated`}
               className="absolute left-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]"
             />
+          )}
+
+          {visualUrl && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                imageInputRef.current?.click();
+              }}
+              disabled={disabled}
+              title="Replace image with upload"
+              className="focus-ring absolute bottom-1 left-1 rounded-md bg-black/70 p-1.5 text-white/70 opacity-0 transition-all hover:text-cyan-300 focus:opacity-100 group-hover/thumb:opacity-100 disabled:cursor-not-allowed"
+            >
+              <Upload className="h-3 w-3" />
+            </button>
           )}
 
           <button
@@ -276,6 +364,17 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
               {audioBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               Voice
               {audioStale && !audioBusy && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={disabled}
+              title="Upload or replace image for this scene"
+              className="focus-ring flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Upload className="h-3 w-3" />
+              Upload
             </button>
 
             <button

@@ -39,6 +39,7 @@ interface ShortsComposerProps {
   /** Live Pollinations catalogue; falls back to the static list when omitted. */
   imageModels?: Array<{ id: string; name: string }>;
   videoModels?: Array<{ id: string; name: string }>;
+  onUploadImages?: (files: File[]) => void;
 }
 
 /**
@@ -367,9 +368,11 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   webLlmModelLabel,
   imageModels,
   videoModels,
+  onUploadImages,
 }) => {
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
   const isVideo = project.generationMode === 'video';
+  const isUpload = project.generationMode === 'upload';
   const resolvedImageModels = imageModels ?? POLLINATIONS_IMAGE_MODELS;
   const resolvedVideoModels = videoModels ?? POLLINATIONS_VIDEO_MODELS;
 
@@ -378,6 +381,15 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewCacheRef = useRef<Map<string, string>>(new Map());
   const musicUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const imagesUploadInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length && onUploadImages) {
+      onUploadImages(files);
+    }
+    e.target.value = '';
+  };
 
   const handleMusicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -557,11 +569,17 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
               options={[
                 { value: 'image', label: 'Stills' },
                 { value: 'video', label: 'Clips' },
+                { value: 'upload', label: 'Upload' },
               ]}
             />
           </ControlCard>
 
           {isVideo && <Notice>Clips cost more and take longer than stills.</Notice>}
+          {isUpload && (
+            <Notice>
+              Upload your own images for your short. In Edit mode, you can customize or replace images per scene anytime.
+            </Notice>
+          )}
 
           <ControlCard label="Frame" icon={<Frame className="h-3.5 w-3.5" />}>
             <AccentTheme>
@@ -603,36 +621,70 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
             </AccentTheme>
           </ControlCard>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ControlCard label="Style" icon={<Palette className="h-3.5 w-3.5" />}>
-              <Dropdown
-                options={VISUAL_STYLES.map((s) => ({ id: s.prompt, name: s.name }))}
-                value={project.visualStyle}
-                onChange={(value) => onChange({ visualStyle: value })}
-                disabled={isBusy}
+          {isUpload ? (
+            <ControlCard label="Scene images" icon={<ImageIcon className="h-3.5 w-3.5" />}>
+              <input
+                ref={imagesUploadInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleImagesUpload}
               />
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => imagesUploadInputRef.current?.click()}
+                  disabled={isBusy}
+                  className="focus-ring flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 bg-white/[0.03] px-3 py-3 text-sm font-medium text-white/80 transition-colors hover:border-white/40 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>
+                    {project.scenes.filter((s) => s.imageUrl).length > 0
+                      ? 'Add more scene images'
+                      : 'Upload scene images'}
+                  </span>
+                </button>
+                {project.scenes.filter((s) => s.imageUrl).length > 0 && (
+                  <p className="text-center text-xs text-white/60">
+                    {project.scenes.filter((s) => s.imageUrl).length} image
+                    {project.scenes.filter((s) => s.imageUrl).length > 1 ? 's' : ''} loaded. You can also assign or replace images individually in the storyboard.
+                  </p>
+                )}
+              </div>
             </ControlCard>
-            <ControlCard
-              label={isVideo ? 'Video model' : 'Image model'}
-              icon={isVideo ? <Film className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-            >
-              {isVideo ? (
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ControlCard label="Style" icon={<Palette className="h-3.5 w-3.5" />}>
                 <Dropdown
-                  options={resolvedVideoModels.map((m) => ({ id: m.id, name: m.name }))}
-                  value={project.videoModel}
-                  onChange={(value) => onChange({ videoModel: value })}
+                  options={VISUAL_STYLES.map((s) => ({ id: s.prompt, name: s.name }))}
+                  value={project.visualStyle}
+                  onChange={(value) => onChange({ visualStyle: value })}
                   disabled={isBusy}
                 />
-              ) : (
-                <Dropdown
-                  options={resolvedImageModels.map((m) => ({ id: m.id, name: m.name }))}
-                  value={project.imageModel}
-                  onChange={(value) => onChange({ imageModel: value })}
-                  disabled={isBusy}
-                />
-              )}
-            </ControlCard>
-          </div>
+              </ControlCard>
+              <ControlCard
+                label={isVideo ? 'Video model' : 'Image model'}
+                icon={isVideo ? <Film className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+              >
+                {isVideo ? (
+                  <Dropdown
+                    options={resolvedVideoModels.map((m) => ({ id: m.id, name: m.name }))}
+                    value={project.videoModel}
+                    onChange={(value) => onChange({ videoModel: value })}
+                    disabled={isBusy}
+                  />
+                ) : (
+                  <Dropdown
+                    options={resolvedImageModels.map((m) => ({ id: m.id, name: m.name }))}
+                    value={project.imageModel}
+                    onChange={(value) => onChange({ imageModel: value })}
+                    disabled={isBusy}
+                  />
+                )}
+              </ControlCard>
+            </div>
+          )}
         </div>
       </Department>
 

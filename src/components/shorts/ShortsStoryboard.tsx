@@ -1,5 +1,5 @@
-import React from 'react';
-import { ListPlus, Loader2, Plus } from 'lucide-react';
+import React, { useRef } from 'react';
+import { ListPlus, Loader2, Plus, Upload } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -38,6 +38,7 @@ interface ShortsStoryboardProps {
   onExtendAll: () => void;
   onDeleteScene: (id: string) => void;
   onAddScene: () => void;
+  onBatchUploadImages?: (files: File[]) => void;
 }
 
 export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
@@ -58,13 +59,24 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   onExtendAll,
   onDeleteScene,
   onAddScene,
+  onBatchUploadImages,
 }) => {
+  const batchInputRef = useRef<HTMLInputElement | null>(null);
+
   const sensors = useSensors(
     // A small activation distance keeps the handle from stealing text-selection
     // drags inside the narration textarea.
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length && onBatchUploadImages) {
+      onBatchUploadImages(files);
+    }
+    e.target.value = '';
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -79,28 +91,51 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
 
   return (
     <div className="space-y-4">
+      <input
+        ref={batchInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleBatchFileChange}
+      />
+
       {scenes.length > 0 && (
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-white/40">
             {scenes.length} scene{scenes.length === 1 ? '' : 's'}
           </p>
-          <button
-            type="button"
-            onClick={onExtendAll}
-            disabled={disabled || isExtendingAll}
-            title="Add a few more sentences to every scene's narration"
-            className={
-              // Loading is a disabled state too, but it should read as "working",
-              // not as unavailable — the generic disabled:opacity-40 dims
-              // text-white/70 down to the point of being unreadable.
-              isExtendingAll
-                ? 'focus-ring flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-200 transition-colors'
-                : 'focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
-            }
-          >
-            {isExtendingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListPlus className="h-3.5 w-3.5" />}
-            Extend all scripts
-          </button>
+          <div className="flex items-center gap-2">
+            {onBatchUploadImages && (
+              <button
+                type="button"
+                onClick={() => batchInputRef.current?.click()}
+                disabled={disabled}
+                title="Upload multiple images to populate your scenes"
+                className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload images
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onExtendAll}
+              disabled={disabled || isExtendingAll}
+              title="Add a few more sentences to every scene's narration"
+              className={
+                // Loading is a disabled state too, but it should read as "working",
+                // not as unavailable — the generic disabled:opacity-40 dims
+                // text-white/70 down to the point of being unreadable.
+                isExtendingAll
+                  ? 'focus-ring flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-200 transition-colors'
+                  : 'focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
+              }
+            >
+              {isExtendingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListPlus className="h-3.5 w-3.5" />}
+              Extend all scripts
+            </button>
+          </div>
         </div>
       )}
 

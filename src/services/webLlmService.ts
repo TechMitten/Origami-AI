@@ -766,7 +766,8 @@ export const generateWebLLMResponse = async (
     messages: any,
     temperature: number = 0.7,
     _isRetry = false,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    maxTokens: number = 4096 // Generous default to allow reasoning models room to finish thinking
 ): Promise<string> => {
     if (!engine) {
         throw new Error("WebLLM Engine not initialized. Please load a model first.");
@@ -786,7 +787,7 @@ export const generateWebLLMResponse = async (
         const stream = await withEngineTimeout(engine.chat.completions.create({
             messages,
             temperature,
-            max_tokens: 4096, // Increased to allow reasoning models room to finish thinking
+            max_tokens: maxTokens,
             stream: true,
         }), GENERATION_TIMEOUT_MS, 'WebLLM generation') as AsyncIterable<ChatCompletionChunk>;
         
@@ -827,7 +828,7 @@ export const generateWebLLMResponse = async (
             await rebuildWebLLMEngine(modelToReload);
 
             console.log("[WebLLM] Engine rebuilt successfully. Retrying generation...");
-            return generateWebLLMResponse(messages, temperature, true, signal);
+            return generateWebLLMResponse(messages, temperature, true, signal, maxTokens);
         }
 
         throw error;

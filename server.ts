@@ -20,13 +20,14 @@ async function createServer() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://umami.techmitten.com", "blob:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com", "https://umami.techmitten.com", "https://challenges.cloudflare.com", "https://apis.google.com", "https://www.gstatic.com", "blob:"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        fontSrc: ["'self'", "data:", "blob:", "https:"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         mediaSrc: ["'self'", "data:", "blob:", "https:"],
         connectSrc: ["'self'", "https:", "wss:", "ws:", "blob:", "data:", "https://unpkg.com"],
         workerSrc: ["'self'", "blob:"],
+        frameSrc: ["'self'", "https://challenges.cloudflare.com", "https://*.firebaseapp.com", "https://apis.google.com"],
       },
     },
   }));
@@ -41,7 +42,7 @@ async function createServer() {
 
   app.use((_req, res, next) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
     res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
     next();
   });
@@ -91,7 +92,7 @@ async function createServer() {
       const apiKey = getServerApiKey();
       if (!apiKey) return res.status(500).json({ error: 'Server not configured with LLM_API_KEY' });
 
-      const { baseUrl, model, messages, temperature } = req.body || {};
+      const { baseUrl, model, messages, temperature, maxTokens } = req.body || {};
       const endpoint = toChatCompletionsEndpoint(baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/');
 
       const resp = await fetch(endpoint, {
@@ -100,7 +101,7 @@ async function createServer() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ model, messages, temperature }),
+        body: JSON.stringify({ model, messages, temperature, ...(maxTokens ? { max_tokens: maxTokens } : {}) }),
       });
 
       const text = await resp.text();

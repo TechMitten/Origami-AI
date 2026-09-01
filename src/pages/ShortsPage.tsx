@@ -215,6 +215,14 @@ const slugify = (value: string): string =>
 const errorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : 'Something went wrong.';
 
+import {
+  saveShortsProjectToCloud,
+  loadShortsProjectFromCloud,
+  listShortsProjectsFromCloud
+} from '../services/cloudStorage';
+import { useAuth } from '../context/AuthContext';
+import { Cloud, CloudDownload, XCircle } from 'lucide-react';
+
 export const ShortsPage: React.FC = () => {
   usePageMeta({
     title: 'AI Shorts Generator — Origami AI',
@@ -224,11 +232,15 @@ export const ShortsPage: React.FC = () => {
   });
 
   const { showAlert, showConfirm } = useModal();
+  const { user } = useAuth();
+
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [cloudProjects, setCloudProjects] = useState<any[]>([]);
+  const [isSavingToCloud, setIsSavingToCloud] = useState(false);
 
   const [project, setProject] = useState<ShortsProject>(() => createEmptyProject());
   const [stage, setStage] = useState<Stage>('compose');
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
-  const [splashPhase, setSplashPhase] = useState<'fade-in' | 'fade-out' | 'done'>('fade-in');
 
   // The static list renders instantly; the live catalogue (a public,
   // unauthenticated read) replaces it on mount so every model the Pollinations
@@ -274,6 +286,56 @@ export const ShortsPage: React.FC = () => {
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, []);
+
+  const handleSaveToCloud = async () => {
+    if (!user) {
+      showAlert('Please sign in to save to the cloud.', { type: 'error' });
+      return;
+    }
+    setIsSavingToCloud(true);
+    try {
+      const projectId = Date.now().toString();
+      const pData = await toPersistedProject(projectRef.current);
+      await saveShortsProjectToCloud(user.uid, projectId, pData);
+      showAlert('Project saved to cloud successfully!', { type: 'info' });
+    } catch (e: any) {
+      console.error(e);
+      showAlert('Failed to save to cloud: ' + e.message, { type: 'error' });
+    } finally {
+      setIsSavingToCloud(false);
+    }
+  };
+
+  const handleLoadFromCloud = async () => {
+    if (!user) {
+      showAlert('Please sign in to load from the cloud.', { type: 'error' });
+      return;
+    }
+    try {
+      const projects = await listShortsProjectsFromCloud(user.uid);
+      setCloudProjects(projects.sort((a, b) => b.updatedAt - a.updatedAt));
+      setIsCloudModalOpen(true);
+    } catch (e: any) {
+      console.error(e);
+      showAlert('Failed to list cloud projects: ' + e.message, { type: 'error' });
+    }
+  };
+
+  const confirmLoadCloudProject = async (projectId: string) => {
+    if (!user) return;
+    try {
+      setIsCloudModalOpen(false);
+      const loadedData = await loadShortsProjectFromCloud(user.uid, projectId);
+      if (loadedData) {
+        setProject(fromPersistedProject(loadedData));
+        setStage(loadedData.scenes.length > 0 ? 'storyboard' : 'compose');
+        showAlert('Project loaded from cloud!', { type: 'info' });
+      }
+    } catch (e: any) {
+      console.error(e);
+      showAlert('Failed to load project: ' + e.message, { type: 'error' });
+    }
+  };
   useEffect(() => {
     adjustTitleHeight();
   }, [project.title, adjustTitleHeight]);
@@ -283,10 +345,13 @@ export const ShortsPage: React.FC = () => {
     [globalSettings.pollinationsApiKey, globalSettings.pollinationsTokenExpiresAt],
   );
 
+  const isUploadMode = project.generationMode === 'upload';
+  const isVideoMode = project.generationMode === 'video';
+
   // The free image model runs against the keyless endpoint, so "not connected"
   // is not a dead end for stills the way it is for clips and paid models.
   const usingFreeImageModel =
-    project.generationMode !== 'video' && isFreePollinationsModel(project.imageModel);
+    !isUploadMode && !isVideoMode && isFreePollinationsModel(project.imageModel);
 
   const openAIConfigured = !!(
     globalSettings.openaiEndpoint &&
@@ -299,30 +364,6 @@ export const ShortsPage: React.FC = () => {
   const webLlmModelLabel =
     getWebLlmModelInfo(globalSettings.webLlmModel)?.name ?? globalSettings.webLlmModel ?? 'No model selected';
 
-  // Show the branded splash on every /shorts visit, fading in on mount and
-  // fading back out before it unmounts. Each phase owns its own timer so a
-  // skip mid-fade still lands on 'done'.
-  useEffect(() => {
-    if (splashPhase === 'fade-in') {
-      const timer = window.setTimeout(() => setSplashPhase('fade-out'), 1000);
-      return () => window.clearTimeout(timer);
-    }
-    if (splashPhase === 'fade-out') {
-      const timer = window.setTimeout(() => setSplashPhase('done'), 500);
-      return () => window.clearTimeout(timer);
-    }
-  }, [splashPhase]);
-
-  const skipSplash = useCallback(() => {
-    setSplashPhase((phase) => (phase === 'fade-in' ? 'fade-out' : phase));
-  }, []);
-
-  // A splash nobody can dismiss is a three-second wall in front of the work.
-  useEffect(() => {
-    if (splashPhase !== 'fade-in') return;
-    window.addEventListener('keydown', skipSplash);
-    return () => window.removeEventListener('keydown', skipSplash);
-  }, [splashPhase, skipSplash]);
 
   const totalDuration = useMemo(() => projectDuration(project.scenes), [project.scenes]);
   const renderable = isProjectRenderable(project);
@@ -611,6 +652,48 @@ export const ShortsPage: React.FC = () => {
     [patchScene],
   );
 
+  const handleBatchUploadImages = useCallback((files: File[]) => {
+    if (!files.length) return;
+    setProject((prev) => {
+      const nextScenes = [...prev.scenes];
+      let fileIdx = 0;
+
+      // Fill scenes without an image first
+      for (let i = 0; i < nextScenes.length && fileIdx < files.length; i++) {
+        if (!nextScenes[i].imageUrl && !nextScenes[i].videoUrl) {
+          const file = files[fileIdx++];
+          nextScenes[i] = {
+            ...nextScenes[i],
+            imageBlob: file,
+            imageUrl: URL.createObjectURL(file),
+            imageStatus: 'ready',
+            imageError: null,
+            videoBlob: null,
+            videoUrl: null,
+            videoStatus: 'idle',
+            isCustomUpload: true,
+          };
+        }
+      }
+
+      // If still have remaining files, append new scenes
+      while (fileIdx < files.length) {
+        const file = files[fileIdx++];
+        const scene = createScene('', composeVisualPrompt(prev.topic || 'Custom scene', prev));
+        nextScenes.push({
+          ...scene,
+          imageBlob: file,
+          imageUrl: URL.createObjectURL(file),
+          imageStatus: 'ready',
+          imageError: null,
+          isCustomUpload: true,
+        });
+      }
+
+      return { ...prev, scenes: nextScenes };
+    });
+  }, []);
+
   // --- main generation flow ---------------------------------------------------
 
   const handleGenerate = useCallback(async () => {
@@ -642,10 +725,34 @@ export const ShortsPage: React.FC = () => {
 
       if (controller.signal.aborted) return;
 
-      // Discard any previous run's assets before replacing the scene list.
-      revokeProjectUrls(projectRef.current);
+      // Discard previous audio/video runs, but retain custom uploads if present
+      const existingUploads = projectRef.current.scenes
+        .filter((s) => s.imageUrl && s.imageBlob && s.isCustomUpload)
+        .map((s) => ({ blob: s.imageBlob!, url: s.imageUrl! }));
 
-      const scenes = script.scenes.map((s) => createScene(s.narration, s.imagePrompt));
+      projectRef.current.scenes.forEach((scene) => {
+        if (scene.videoUrl) URL.revokeObjectURL(scene.videoUrl);
+        if (scene.audioUrl) URL.revokeObjectURL(scene.audioUrl);
+        if (scene.imageUrl && !scene.isCustomUpload) URL.revokeObjectURL(scene.imageUrl);
+      });
+
+      const scenes = script.scenes.map((s, idx) => {
+        const scene = createScene(s.narration, s.imagePrompt);
+        if (existingUploads[idx]) {
+          return {
+            ...scene,
+            imageBlob: existingUploads[idx].blob,
+            imageUrl: existingUploads[idx].url,
+            imageStatus: 'ready' as const,
+            isCustomUpload: true,
+          };
+        }
+        return scene;
+      });
+
+      // Revoke any unused excess upload URLs
+      existingUploads.slice(script.scenes.length).forEach((item) => URL.revokeObjectURL(item.url));
+
       const nextProject: ShortsProject = { ...projectRef.current, title: script.title, scenes };
       setProject(nextProject);
       setStage('storyboard');
@@ -673,6 +780,8 @@ export const ShortsPage: React.FC = () => {
   ]);
 
   const handleGenerateVisuals = useCallback(async () => {
+    if (projectRef.current.generationMode === 'upload') return;
+
     generationAbortRef.current?.abort();
     const controller = new AbortController();
     generationAbortRef.current = controller;
@@ -833,7 +942,7 @@ export const ShortsPage: React.FC = () => {
   // the whole deck for a fresh set rather than re-rolling one card at a time.
   const handleRegenerateAllImages = useCallback(async () => {
     const current = projectRef.current;
-    if (!current.scenes.length || current.generationMode === 'video') return;
+    if (!current.scenes.length || current.generationMode === 'video' || current.generationMode === 'upload') return;
 
     const confirmed = await showConfirm(
       'This will replace every generated image with a new one using a different random seed. Nothing else changes — your narration, prompts, and voiceover stay as they are.',
@@ -1170,7 +1279,6 @@ export const ShortsPage: React.FC = () => {
     setGlobalSettings(next);
   }, []);
 
-  const isVideoMode = project.generationMode === 'video';
   const activeVisualModel = isVideoMode ? project.videoModel : project.imageModel;
   const visualStatusOf = (scene: ShortsScene) => (isVideoMode ? scene.videoStatus : scene.imageStatus);
 
@@ -1191,7 +1299,7 @@ export const ShortsPage: React.FC = () => {
   const readyScenes = project.scenes.filter((s) => s.audioStatus === 'ready').length;
   const readyVisuals = project.scenes.filter((s) => visualStatusOf(s) === 'ready').length;
   const canGenerate = project.topic.trim().length > 2 && !isBusy;
-  const needsVisualGeneration = project.scenes.some((s) => ['idle', 'error'].includes(visualStatusOf(s)));
+  const needsVisualGeneration = !isUploadMode && project.scenes.some((s) => ['idle', 'error'].includes(visualStatusOf(s)));
   const needsAudioGeneration = project.scenes.some((s) => ['idle', 'error'].includes(s.audioStatus));
   const staleCount = project.scenes.filter(
     (s) => isSceneAudioStale(s) || isSceneVisualStale(s, project.generationMode, activeVisualModel),
@@ -1259,54 +1367,43 @@ export const ShortsPage: React.FC = () => {
       />
       <div className="fixed inset-0 -z-40 h-lvh w-full bg-[#0a0a0b]/40" />
 
-      {splashPhase !== 'done' && (
-        <div
-          onClick={skipSplash}
-          // The backdrop itself must be opaque from the very first frame — animating
-          // its own opacity would let the page underneath flash through while it fades in.
-          className="fixed inset-0 z-[100] cursor-pointer bg-[#0a0a0b]"
-        >
-          <div
-            className={cn(
-              'absolute inset-0 flex items-center justify-center p-6 sm:p-12',
-              splashPhase === 'fade-out' ? 'animate-fade-out' : 'animate-fade-in',
-            )}
-          >
-            <img
-              src="/shortsplash.png"
-              alt="Shorts"
-              className="max-h-full max-w-full rounded-2xl object-contain"
-            />
-            <button
-              type="button"
-              onClick={skipSplash}
-              className="focus-ring absolute bottom-6 right-6 rounded px-2 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white"
-            >
-              Skip
-            </button>
-          </div>
-        </div>
-      )}
 
       <PageHeader
         title="Shorts"
         onSettings={() => setIsSettingsOpen(true)}
         showHelp={false}
-        actionMenuContent={
-          project.scenes.length
-            ? (closeMenu) => (
-                <button
-                  onClick={() => {
-                    void handleStartOver();
-                    closeMenu();
-                  }}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
-                >
-                  <RotateCcw className="h-4 w-4" /> Start over
-                </button>
-              )
-            : undefined
-        }
+        actionMenuContent={(closeMenu) => (
+          <>
+            <button
+              onClick={() => { handleSaveToCloud(); closeMenu(); }}
+              disabled={!user || isSavingToCloud || project.scenes.length === 0}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
+              title={!user ? 'Sign in to save to cloud' : ''}
+            >
+              <Cloud className="w-4 h-4" /> {isSavingToCloud ? 'Saving to Cloud...' : 'Save to Cloud'}
+            </button>
+            <button
+              onClick={() => { handleLoadFromCloud(); closeMenu(); }}
+              disabled={!user}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
+              title={!user ? 'Sign in to load from cloud' : ''}
+            >
+              <CloudDownload className="w-4 h-4" /> Load from Cloud
+            </button>
+            {project.scenes.length > 0 && <div className="my-1 h-px bg-white/10" />}
+            {project.scenes.length > 0 && (
+              <button
+                onClick={() => {
+                  void handleStartOver();
+                  closeMenu();
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                <RotateCcw className="h-4 w-4" /> Start over
+              </button>
+            )}
+          </>
+        )}
       />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-20 sm:px-8">
@@ -1339,7 +1436,7 @@ export const ShortsPage: React.FC = () => {
           )}
         </div>
 
-        {!pollinationsKey && (
+        {!pollinationsKey && !isUploadMode && (
           <div
             role="status"
             className="mb-8 flex flex-col gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] p-4 sm:mb-10 sm:flex-row sm:items-center"
@@ -1407,6 +1504,7 @@ export const ShortsPage: React.FC = () => {
                   onPickMusic={() => setIsMusicPickerOpen(true)}
                   onClearMusic={() => patchProject({ music: null })}
                   onUploadMusic={handleUploadMusic}
+                  onUploadImages={handleBatchUploadImages}
                   onOpenSettings={() => setIsSettingsOpen(true)}
                   onOpenVoiceAudition={() => setIsVoiceAuditionOpen(true)}
                   isBusy={isBusy}
@@ -1441,23 +1539,25 @@ export const ShortsPage: React.FC = () => {
                         doesn't cost a round trip back to the composer. Changing
                         it marks ready visuals stale (see isSceneVisualStale) and
                         they regenerate through the usual stale flow. */}
-                    <div className="w-44">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
-                        {isVideoMode ? 'Video model' : 'Image model'}
-                      </span>
-                      <Dropdown
-                        options={(isVideoMode ? videoModelOptions : imageModelOptions).map(
-                          (m) => ({ id: m.id, name: m.name }),
-                        )}
-                        value={activeVisualModel}
-                        onChange={(value) =>
-                          patchProject(isVideoMode ? { videoModel: value } : { imageModel: value })
-                        }
-                        disabled={renderPhase === 'rendering' || isBusy}
-                      />
-                    </div>
+                    {!isUploadMode && (
+                      <div className="w-44">
+                        <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+                          {isVideoMode ? 'Video model' : 'Image model'}
+                        </span>
+                        <Dropdown
+                          options={(isVideoMode ? videoModelOptions : imageModelOptions).map(
+                            (m) => ({ id: m.id, name: m.name }),
+                          )}
+                          value={activeVisualModel}
+                          onChange={(value) =>
+                            patchProject(isVideoMode ? { videoModel: value } : { imageModel: value })
+                          }
+                          disabled={renderPhase === 'rendering' || isBusy}
+                        />
+                      </div>
+                    )}
 
-                    {!isVideoMode && (
+                    {!isVideoMode && !isUploadMode && (
                       <a
                         href="https://enter.pollinations.ai/models?category=image"
                         target="_blank"
@@ -1470,7 +1570,7 @@ export const ShortsPage: React.FC = () => {
                       </a>
                     )}
 
-                    {!isVideoMode && project.scenes.some((s) => visualStatusOf(s) === 'ready') && (
+                    {!isVideoMode && !isUploadMode && project.scenes.some((s) => visualStatusOf(s) === 'ready') && (
                       <button
                         type="button"
                         onClick={() => void handleRegenerateAllImages()}
@@ -1523,6 +1623,7 @@ export const ShortsPage: React.FC = () => {
                   onExtendAll={handleExtendAllScenes}
                   onDeleteScene={handleDeleteScene}
                   onAddScene={handleAddScene}
+                  onBatchUploadImages={handleBatchUploadImages}
                 />
               </div>
             )}
@@ -1672,6 +1773,41 @@ export const ShortsPage: React.FC = () => {
       />
 
       <MobileWarningModal />
+
+      {/* Cloud Projects Modal */}
+      {isCloudModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-slate-800/50">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2"><CloudDownload className="w-5 h-5"/> Cloud Projects</h2>
+              <button
+                onClick={() => setIsCloudModalOpen(false)}
+                className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              {cloudProjects.length === 0 ? (
+                <p className="text-white/50 text-center py-8">No saved projects found in the cloud.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {cloudProjects.map(p => (
+                    <button
+                      key={p.projectId}
+                      onClick={() => confirmLoadCloudProject(p.projectId)}
+                      className="flex flex-col text-left p-3 rounded-lg bg-black/20 hover:bg-white/10 border border-white/5 transition-all group"
+                    >
+                      <span className="text-white font-medium group-hover:text-cyan-400 transition-colors">{p.topic || 'Untitled Short'}</span>
+                      <span className="text-xs text-white/40">{new Date(p.updatedAt).toLocaleString()} • {p.scenes?.length || 0} scenes</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

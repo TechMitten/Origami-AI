@@ -8,7 +8,7 @@ import type { ShortsAspect } from './ShortsVideoRenderer';
 
 export type ShortsTone = 'punchy' | 'documentary' | 'story' | 'educational' | 'hype';
 
-export type ShortsVisualMode = 'image' | 'video';
+export type ShortsVisualMode = 'image' | 'video' | 'upload';
 
 export interface ShortsScriptRequest {
   topic: string;
@@ -19,7 +19,7 @@ export interface ShortsScriptRequest {
   aspect: ShortsAspect;
   /** Captions occupy the lower third, so subjects are kept clear of it. */
   captionsEnabled: boolean;
-  /** Video mode gets motion cues appended; stills do not. */
+  /** Video mode gets motion cues appended; stills and uploads do not. */
   generationMode: ShortsVisualMode;
 }
 
@@ -403,6 +403,7 @@ const runPrompt = async (
   user: string,
   temperature: number,
   opts: ShortsScriptOptions,
+  maxTokens: number,
 ): Promise<string> => {
   if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
@@ -415,7 +416,7 @@ const runPrompt = async (
       { role: 'system', content: system },
       { role: 'user', content: user },
     ];
-    return postChatCompletions(settings, messages, temperature, undefined, opts.signal);
+    return postChatCompletions(settings, messages, temperature, undefined, opts.signal, maxTokens);
   }
 
   const modelId = opts.webLlmModel;
@@ -430,8 +431,24 @@ const runPrompt = async (
     temperature,
     false,
     opts.signal,
+    maxTokens,
   );
 };
+
+/**
+ * Token budgets are sized to the actual expected output rather than left uncapped, so a
+ * verbose or reasoning-capable model can't silently turn a short scene list into a multi-minute
+ * generation. ~1.6 tokens/word covers narration + punctuation; image prompts run longer per
+ * scene since they spell out subject/setting/lighting/camera every time.
+ */
+const NARRATION_TOKENS_PER_SCENE = 70;
+const IMAGE_PROMPT_TOKENS_PER_SCENE = 110;
+const COMBINED_TOKENS_PER_SCENE = NARRATION_TOKENS_PER_SCENE + IMAGE_PROMPT_TOKENS_PER_SCENE;
+const MIN_TOKEN_BUDGET = 350;
+const MAX_TOKEN_BUDGET = 4096;
+
+const tokenBudget = (sceneCount: number, perScene: number): number =>
+  Math.max(MIN_TOKEN_BUDGET, Math.min(MAX_TOKEN_BUDGET, Math.round(sceneCount * perScene) + 150));
 
 // --- narration generation -----------------------------------------------------
 
@@ -448,11 +465,8 @@ Rules:
 - NEVER open a line with stock clichés: "Did you know", "You won't believe", "Let's dive in", "In this video".
 - Output ONLY the numbered scenes (e.g. "1. [line]", "2. [line]"). No commentary, no meta-explanation, no extra headers.`;
 
-const generateNarrationLines = async (
-  req: ShortsScriptRequest,
-  beats: Beat[],
-  opts: ShortsScriptOptions,
-): Promise<string[]> => {
+/** Scene-plan text shared by the narration-only pass and the combined narration+prompt pass. */
+const buildBeatPlan = (req: Pick<ShortsScriptRequest, 'targetDurationSec'>, beats: Beat[]): string => {
   const sceneCount = beats.length;
   const { body: wordsPerScene, intro: introWords, payoff: payoffWords } = wordBudgets(
     req.targetDurationSec,
@@ -465,9 +479,18 @@ const generateNarrationLines = async (
     return `${sentenceBudget(wordsPerScene)}, ~${wordsPerScene} words`;
   };
 
-  const beatPlan = beats
+  return beats
     .map((beat, i) => `${i + 1}. [${beat.role}, ${budgetFor(beat.role)}] ${beat.brief}`)
     .join('\n');
+};
+
+const generateNarrationLines = async (
+  req: ShortsScriptRequest,
+  beats: Beat[],
+  opts: ShortsScriptOptions,
+): Promise<string[]> => {
+  const sceneCount = beats.length;
+  const beatPlan = buildBeatPlan(req, beats);
 
   const user = `Topic: ${req.topic}
 Target Duration: ${req.targetDurationSec} seconds.
@@ -478,6 +501,8 @@ ${beatPlan}
 
 Write exactly ${sceneCount} narration lines matching the scene plan above.
 Output strictly ${sceneCount} numbered lines, one line per scene (e.g. "1. ...", "2. ..."). Write complete spoken sentences.`;
+
+  const maxTokens = tokenBudget(sceneCount, NARRATION_TOKENS_PER_SCENE);
 
   opts.onStage?.('Writing the script...');
 
@@ -513,7 +538,7 @@ Output strictly ${sceneCount} numbered lines, one line per scene (e.g. "1. ...",
 
   let lines: string[] = [];
   try {
-    lines = parseAttempt(await runPrompt(NARRATION_SYSTEM, user, 0.8, opts));
+    lines = parseAttempt(await runPrompt(NARRATION_SYSTEM, user, 0.8, opts, maxTokens));
   } catch (e) {
     if (opts.signal?.aborted) throw e;
     console.warn('[Shorts] Narration pass failed, retrying with stricter prompt.', e);
@@ -527,6 +552,7 @@ Output strictly ${sceneCount} numbered lines, one line per scene (e.g. "1. ...",
         `${user}\n\nIMPORTANT: output exactly ${sceneCount} numbered lines. Each line must be a complete voiceover sentence with concrete details.`,
         0.6,
         opts,
+        maxTokens,
       );
       const retried = parseAttempt(retry);
       if (retried.length > lines.length) lines = retried;
@@ -572,6 +598,14 @@ const isUsablePrompt = (candidate: string, narrationLine: string): boolean => {
   return true;
 };
 
+/** Uses an AI-written image prompt when it looks usable, otherwise falls back to the deterministic extractor. */
+const resolveImagePrompt = (candidate: string | undefined, narrationLine: string, req: ShortsScriptRequest): string => {
+  if (candidate && isUsablePrompt(candidate, narrationLine)) {
+    return composeVisualPrompt(candidate, req);
+  }
+  return deriveImagePrompt(narrationLine, req.topic, req);
+};
+
 const generateImagePrompts = async (
   narrationLines: string[],
   req: ShortsScriptRequest,
@@ -588,7 +622,7 @@ ${script}`;
 
   let candidates: string[] = [];
   try {
-    const raw = await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts);
+    const raw = await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.7, opts, tokenBudget(narrationLines.length, IMAGE_PROMPT_TOKENS_PER_SCENE));
     candidates = stripWrapper(raw)
       .split(/\r?\n/)
       .map(stripLineDecoration)
@@ -598,13 +632,131 @@ ${script}`;
     console.warn('[Shorts] Image prompt pass failed; using intelligent fallback.', e);
   }
 
-  return narrationLines.map((line, i) => {
-    const candidate = candidates[i];
-    if (candidate && isUsablePrompt(candidate, line)) {
-      return composeVisualPrompt(candidate, req);
+  return narrationLines.map((line, i) => resolveImagePrompt(candidates[i], line, req));
+};
+
+// --- combined narration + visual prompt generation -----------------------------
+
+/**
+ * Narration and image prompts are normally two full, sequential LLM round-trips (plus a
+ * possible narration retry) before the storyboard appears — most of the "Generate short"
+ * wait time on both WebLLM and cloud backends. This single-call pass asks for both per scene
+ * at once; generateShortsScript falls back to the slower two-pass functions above whenever
+ * the model doesn't follow the paired format closely enough to trust.
+ */
+const COMBINED_SYSTEM = `You write voiceover scripts and matching text-to-image prompts for engaging, high-retention short-form vertical videos (TikTok, Reels, YouTube Shorts).
+
+For every scene you produce two lines: the spoken narration, then the image prompt for what's on screen during it.
+
+Narration rules:
+- Each NARRATION line is the complete spoken voiceover for that scene (1-2 sentences on the SAME line).
+- Spend the word budget for each scene: state the key fact, then explain it with concrete details (names, numbers, places, mechanisms).
+- Scene 1 (INTRO): Hook the viewer immediately and state what the video is about.
+- For list topics: Every list item must name a unique, real example. Never repeat names.
+- The final scene lands the payoff or concluding takeaway.
+- Speak directly to the viewer: second person, active voice, natural contractions.
+- NEVER open a line with stock clichés: "Did you know", "You won't believe", "Let's dive in", "In this video".
+
+Image prompt rules:
+- Each IMAGE line describes a single concrete visual still image: visible subject, action/pose, setting, lighting, and camera angle.
+- Anchor directly on the most concrete physical subject named in that scene's narration.
+- Describe ONLY what is visually seen in the frame.
+- NO text, words, subtitles, signage, speech bubbles, or logos in the image.
+
+Output format — for every scene N, output exactly these two lines and nothing else, in order:
+N. NARRATION: <the spoken line>
+N. IMAGE: <the image prompt>
+
+No commentary, no headers, no markdown, no blank lines between scenes.`;
+
+const COMBINED_LINE = (field: 'NARRATION' | 'IMAGE'): RegExp =>
+  new RegExp(`^\\**\\s*(\\d+)\\s*[.):]\\s*${field}\\s*[:.\\-–]\\s*(.+?)\\s*\\**$`, 'i');
+
+const parseCombinedAttempt = (raw: string): { narrationByIndex: Map<number, string>; imageByIndex: Map<number, string> } => {
+  const rawClean = stripWrapper(raw);
+  const lines = rawClean.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+
+  const narrationLine = COMBINED_LINE('NARRATION');
+  const imageLine = COMBINED_LINE('IMAGE');
+  const narrationByIndex = new Map<number, string>();
+  const imageByIndex = new Map<number, string>();
+
+  for (const line of lines) {
+    const nMatch = line.match(narrationLine);
+    if (nMatch) {
+      narrationByIndex.set(Number(nMatch[1]), normalizeNarrationLine(nMatch[2]));
+      continue;
     }
-    return deriveImagePrompt(line, req.topic, req);
-  });
+    const iMatch = line.match(imageLine);
+    if (iMatch) {
+      imageByIndex.set(Number(iMatch[1]), stripLineDecoration(iMatch[2]));
+    }
+  }
+
+  return { narrationByIndex, imageByIndex };
+};
+
+/**
+ * Returns null (rather than throwing) whenever the paired output can't be trusted, so the
+ * caller can fall back to the slower but more forgiving two-pass generation instead of
+ * surfacing a broken result.
+ */
+const generateScriptCombined = async (
+  req: ShortsScriptRequest,
+  beats: Beat[],
+  opts: ShortsScriptOptions,
+): Promise<{ narrationLines: string[]; imagePrompts: string[] } | null> => {
+  const sceneCount = beats.length;
+  const beatPlan = buildBeatPlan(req, beats);
+  const maxTokens = tokenBudget(sceneCount, COMBINED_TOKENS_PER_SCENE);
+
+  const buildUser = (strict: boolean) => `Topic: ${req.topic}
+Target Duration: ${req.targetDurationSec} seconds.
+Tone: ${TONE_GUIDANCE[req.tone]}
+
+Scene Plan:
+${beatPlan}
+
+Write exactly ${sceneCount} scenes matching the scene plan above, each as a NARRATION line followed by an IMAGE line.${
+    strict ? `\n\nIMPORTANT: output exactly ${sceneCount} scenes, each with both a NARRATION and an IMAGE line in the "N. NARRATION: ..." / "N. IMAGE: ..." format. Nothing else.` : ''
+  }`;
+
+  opts.onStage?.('Writing the script...');
+
+  const attempt = async (temperature: number, strict: boolean) => {
+    const raw = await runPrompt(COMBINED_SYSTEM, buildUser(strict), temperature, opts, maxTokens);
+    return parseCombinedAttempt(raw);
+  };
+
+  let parsed: { narrationByIndex: Map<number, string>; imageByIndex: Map<number, string> } | null = null;
+  try {
+    parsed = await attempt(0.8, false);
+  } catch (e) {
+    if (opts.signal?.aborted) throw e;
+    console.warn('[Shorts] Combined script pass failed, retrying with stricter prompt.', e);
+  }
+
+  if (!parsed || parsed.narrationByIndex.size < sceneCount) {
+    opts.onStage?.('Sharpening the script...');
+    try {
+      const retry = await attempt(0.6, true);
+      if (!parsed || retry.narrationByIndex.size > parsed.narrationByIndex.size) parsed = retry;
+    } catch (e) {
+      if (opts.signal?.aborted) throw e;
+      console.warn('[Shorts] Combined script retry failed.', e);
+    }
+  }
+
+  // Only trust the fast path when every scene got a narration line — anything less falls
+  // back to the two-pass functions, which have far more forgiving parsing (sentence
+  // splitting, NOTE-line filtering, etc.) built up for exactly this kind of malformed output.
+  if (!parsed || parsed.narrationByIndex.size < sceneCount) return null;
+
+  const indices = Array.from({ length: sceneCount }, (_, i) => i + 1);
+  const narrationLines = indices.map((i) => parsed!.narrationByIndex.get(i)!);
+  const imagePrompts = indices.map((i) => resolveImagePrompt(parsed!.imageByIndex.get(i), narrationLines[i - 1], req));
+
+  return { narrationLines, imagePrompts };
 };
 
 const deriveTitle = (topic: string, firstLine: string): string => {
@@ -628,14 +780,22 @@ export const generateShortsScript = async (
   const scoped = { ...req, topic };
   const beats = buildBeats(topic, req.targetDurationSec);
 
-  const narrationLines = await generateNarrationLines(scoped, beats, opts);
-  const imagePrompts = await generateImagePrompts(narrationLines, scoped, opts);
+  const combined = await generateScriptCombined(scoped, beats, opts);
+
+  let narrationLines: string[];
+  let resolvedImagePrompts: string[];
+  if (combined) {
+    ({ narrationLines, imagePrompts: resolvedImagePrompts } = combined);
+  } else {
+    narrationLines = await generateNarrationLines(scoped, beats, opts);
+    resolvedImagePrompts = await generateImagePrompts(narrationLines, scoped, opts);
+  }
 
   return {
     title: deriveTitle(topic, narrationLines[0] ?? ''),
     scenes: narrationLines.map((narration, i) => ({
       narration,
-      imagePrompt: imagePrompts[i] ?? deriveImagePrompt(narration, topic, scoped),
+      imagePrompt: resolvedImagePrompts[i] ?? deriveImagePrompt(narration, topic, scoped),
     })),
   };
 };
@@ -654,7 +814,7 @@ export const regenerateImagePrompt = async (
   const user = `Video subject: ${req.topic}\n\nWrite ONE image prompt for this voiceover line:\n"${trimmed}"`;
 
   try {
-    const raw = await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.8, opts);
+    const raw = await runPrompt(IMAGE_PROMPT_SYSTEM, user, 0.8, opts, tokenBudget(1, IMAGE_PROMPT_TOKENS_PER_SCENE));
     const lines = stripWrapper(raw)
       .split(/\r?\n/)
       .map(stripLineDecoration)
@@ -697,9 +857,11 @@ Existing narration line:
 
 Write 1-2 additional spoken sentences that continue directly from it, each adding a new concrete detail. Output only the new sentences, nothing else.`;
 
+  const extendMaxTokens = tokenBudget(2, NARRATION_TOKENS_PER_SCENE);
+
   const attempt = async (temperature: number, extra = ''): Promise<string | null> => {
     try {
-      const raw = await runPrompt(EXTEND_NARRATION_SYSTEM, `${user}${extra}`, temperature, opts);
+      const raw = await runPrompt(EXTEND_NARRATION_SYSTEM, `${user}${extra}`, temperature, opts, extendMaxTokens);
       const addition = stripWrapper(raw)
         .split(/\r?\n/)
         .map(stripLineDecoration)

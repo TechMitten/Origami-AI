@@ -43,8 +43,9 @@ import { useTransitionNavigate } from './components/TransitionLink';
 import { RouteTransition } from './components/RouteTransition';
 import chromeExtensionZip from './assets/extension/chrome-extension.zip?url';
 
-
-
+import { useAuth } from './context/AuthContext';
+import { savePdfProjectToCloud, loadPdfProjectFromCloud, listPdfProjectsFromCloud } from './services/cloudStorage';
+import { Cloud, CloudDownload } from 'lucide-react';
 
 function MainApp() {
   usePageMeta({
@@ -93,6 +94,59 @@ function MainApp() {
   const [renderProgress, setRenderProgress] = useState<number>(0);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const skipNextAutoSaveRef = useRef(false);
+
+  const { user } = useAuth();
+  const [isSavingToCloud, setIsSavingToCloud] = useState(false);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [cloudProjects, setCloudProjects] = useState<any[]>([]);
+
+  const handleSaveToCloud = async () => {
+    if (!user) {
+      showAlert('Please sign in to save to the cloud.', { type: 'error' });
+      return;
+    }
+    setIsSavingToCloud(true);
+    try {
+      const projectId = Date.now().toString(); // simple ID
+      await savePdfProjectToCloud(user.uid, projectId, slides, 'Cloud Project ' + new Date().toLocaleString());
+      showAlert('Project saved to cloud successfully!', { type: 'info' });
+    } catch (e: any) {
+      console.error(e);
+      showAlert('Failed to save to cloud: ' + e.message, { type: 'error' });
+    } finally {
+      setIsSavingToCloud(false);
+    }
+  };
+
+  const handleLoadFromCloud = async () => {
+    if (!user) {
+      showAlert('Please sign in to load from the cloud.', { type: 'error' });
+      return;
+    }
+    try {
+      const projects = await listPdfProjectsFromCloud(user.uid);
+      setCloudProjects(projects.sort((a, b) => b.updatedAt - a.updatedAt));
+      setIsCloudModalOpen(true);
+    } catch (e: any) {
+      console.error(e);
+      showAlert('Failed to list cloud projects: ' + e.message, { type: 'error' });
+    }
+  };
+
+  const confirmLoadCloudProject = async (projectId: string) => {
+    if (!user) return;
+    try {
+      setIsCloudModalOpen(false);
+      const loadedSlides = await loadPdfProjectFromCloud(user.uid, projectId);
+      if (loadedSlides) {
+        setSlides(loadedSlides);
+        showAlert('Project loaded from cloud!', { type: 'info' });
+      }
+    } catch (e: any) {
+      console.error(e);
+      showAlert('Failed to load project: ' + e.message, { type: 'error' });
+    }
+  };
 
   const handleScreenRecordFinalizeError = React.useCallback((error: Error) => {
     console.error('Failed to save screen recording.', error);
@@ -1392,6 +1446,23 @@ function MainApp() {
                 </button>
                 <div className="my-1 h-px bg-white/10" />
                 <button
+                  onClick={() => { handleSaveToCloud(); closeMenu(); }}
+                  disabled={!user || isSavingToCloud}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
+                  title={!user ? 'Sign in to save to cloud' : ''}
+                >
+                  <Cloud className="w-4 h-4" /> {isSavingToCloud ? 'Saving to Cloud...' : 'Save to Cloud'}
+                </button>
+                <button
+                  onClick={() => { handleLoadFromCloud(); closeMenu(); }}
+                  disabled={!user}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
+                  title={!user ? 'Sign in to load from cloud' : ''}
+                >
+                  <CloudDownload className="w-4 h-4" /> Load from Cloud
+                </button>
+                <div className="my-1 h-px bg-white/10" />
+                <button
                   onClick={() => { setActiveTab('preview'); closeMenu(); }}
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
                 >
@@ -1685,6 +1756,41 @@ function MainApp() {
             >
               Stop
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cloud Projects Modal */}
+      {isCloudModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-2xl max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-slate-800/50">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2"><CloudDownload className="w-5 h-5"/> Cloud Projects</h2>
+              <button
+                onClick={() => setIsCloudModalOpen(false)}
+                className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              {cloudProjects.length === 0 ? (
+                <p className="text-white/50 text-center py-8">No saved projects found in the cloud.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {cloudProjects.map(p => (
+                    <button
+                      key={p.projectId}
+                      onClick={() => confirmLoadCloudProject(p.projectId)}
+                      className="flex flex-col text-left p-3 rounded-lg bg-black/20 hover:bg-white/10 border border-white/5 transition-all group"
+                    >
+                      <span className="text-white font-medium group-hover:text-cyan-400 transition-colors">{p.title}</span>
+                      <span className="text-xs text-white/40">{new Date(p.updatedAt).toLocaleString()} • {p.slides?.length || 0} slides</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

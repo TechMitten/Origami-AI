@@ -40,6 +40,9 @@ export interface ShortsScene {
   audioStatus: SceneAssetStatus;
   audioError?: string | null;
 
+  /** True if the user manually uploaded or replaced the image for this scene. */
+  isCustomUpload?: boolean;
+
   /** narration text the current audioBlob was generated from — lets edits be detected as stale. */
   audioNarrationSnapshot?: string;
   /** imagePrompt text the current image/videoBlob was generated from. */
@@ -56,7 +59,7 @@ export interface ShortsMusic {
   volume: number;
 }
 
-export type ShortsGenerationMode = 'image' | 'video';
+export type ShortsGenerationMode = 'image' | 'video' | 'upload';
 
 export interface ShortsProject {
   topic: string;
@@ -283,6 +286,7 @@ export const isSceneVisualStale = (
   activeModel?: string,
   activeAspect?: ShortsAspect,
 ): boolean => {
+  if (scene.isCustomUpload || mode === 'upload') return false;
   const status = mode === 'video' ? scene.videoStatus : scene.imageStatus;
   if (status !== 'ready') return false;
   if (scene.visualPromptSnapshot !== undefined && scene.visualPromptSnapshot !== scene.imagePrompt) {
@@ -339,6 +343,7 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     narration: scene.narration,
     imagePrompt: scene.imagePrompt,
     seed: scene.seed,
+    isCustomUpload: scene.isCustomUpload,
     imageBlob: scene.imageBlob ?? undefined,
     videoBlob: scene.videoBlob ?? undefined,
     audioBlob: scene.audioBlob ?? undefined,
@@ -379,6 +384,7 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     narration: scene.narration,
     imagePrompt: scene.imagePrompt,
     seed: scene.seed,
+    isCustomUpload: scene.isCustomUpload,
     imageBlob: scene.imageBlob ?? null,
     imageUrl: scene.imageBlob ? URL.createObjectURL(scene.imageBlob) : null,
     imageStatus: scene.imageBlob ? 'ready' : 'idle',

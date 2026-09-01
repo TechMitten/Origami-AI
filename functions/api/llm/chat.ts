@@ -16,7 +16,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const body: any = await request.json();
-    const { baseUrl, model, messages, temperature } = body || {};
+    const { baseUrl, model, messages, temperature, maxTokens } = body || {};
 
     let endpoint = baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     if (!endpoint.endsWith('/chat/completions')) {
@@ -30,7 +30,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, messages, temperature }),
+      body: JSON.stringify({ model, messages, temperature, ...(maxTokens ? { max_tokens: maxTokens } : {}) }),
     });
 
     const text = await resp.text();
