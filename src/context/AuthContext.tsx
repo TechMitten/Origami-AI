@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
+import { syncPreferencesFromFirebase } from '../services/preferences';
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -22,6 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
+      if (currentUser) {
+        syncPreferencesFromFirebase();
+      }
     });
 
     return () => unsubscribe();

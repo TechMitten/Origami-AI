@@ -1,3 +1,4 @@
+import { setSyncedPreference } from './services/preferences';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router';
 
@@ -575,7 +576,7 @@ function MainApp() {
     // Clicking Continue starts the background downloads. Persist the acknowledgment
     // even without the "don't show again" checkbox so navigating away (e.g. to
     // /shorts) or refreshing during the download doesn't re-prompt the setup modal.
-    localStorage.setItem('hide_setup_modal', 'true');
+    setSyncedPreference('hide_setup_modal', 'true');
 
     const cached = JSON.parse(localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}');
     const queue = {
@@ -646,7 +647,7 @@ function MainApp() {
   }, [slides, isRestoring, musicSettings]);
 
   useEffect(() => {
-    localStorage.setItem('slide_editor_view_mode', slideEditorViewMode);
+    setSyncedPreference('slide_editor_view_mode', slideEditorViewMode);
   }, [slideEditorViewMode]);
 
   const handleStartOver = async () => {
@@ -1509,7 +1510,7 @@ function MainApp() {
           <div className="min-h-[60vh] flex flex-col items-center justify-center w-full">
             <WelcomeLander onContinue={() => {
               setShowWelcomeLander(false);
-              localStorage.setItem('has_seen_welcome_lander', 'true');
+              setSyncedPreference('has_seen_welcome_lander', 'true');
               window.scrollTo({ top: 0, behavior: 'instant' });
             }} />
           </div>

@@ -1,3 +1,4 @@
+import { setSyncedPreference } from '../services/preferences';
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
 import { AudioLines, BookOpen, Bot, Clapperboard, FileCog, Film, Settings, User } from 'lucide-react';
@@ -33,7 +34,7 @@ export const HeaderActionsMenu: React.FC<HeaderActionsMenuProps> = ({
     // The Studio reads this flag when it mounts, so the lander also shows when
     // this is triggered from another route; the event covers the case where the
     // Studio is already on screen.
-    localStorage.setItem('has_seen_welcome_lander', 'false');
+    setSyncedPreference('has_seen_welcome_lander', 'false');
     window.dispatchEvent(new Event('show-welcome-lander'));
     if (location.pathname !== '/') {
       navigate('/');

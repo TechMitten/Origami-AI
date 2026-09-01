@@ -1,3 +1,4 @@
+import { setSyncedPreference } from '../services/preferences';
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Volume2, VolumeX, Wand2, X, Play, Square, ZoomIn, Clock, GripVertical, Mic, Trash2, Upload, Sparkles, Loader2, Search, Video as VideoIcon, Clipboard, Check, Repeat, Music, Speech, Undo2, CheckSquare, Maximize2, Minimize2, ChevronDown, ChevronUp, Library, Settings as SettingsIcon, Wrench, Camera, Download, RotateCcw, RotateCw } from 'lucide-react';
@@ -1549,7 +1550,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   // Persist configure slides expanded state
   useEffect(() => {
-    localStorage.setItem('configureSlidesExpanded', String(isConfigureSlidesExpanded));
+    setSyncedPreference('configureSlidesExpanded', String(isConfigureSlidesExpanded));
   }, [isConfigureSlidesExpanded]);
 
   // Clear cancelling state when batch operations complete

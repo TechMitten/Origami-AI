@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { User, Mail, Calendar, ShieldCheck, LogOut, Rocket, Trash2, AlertTriangle } from 'lucide-react';
+import { User, Mail, Calendar, ShieldCheck, LogOut, Rocket, Trash2, AlertTriangle, Lock } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import backgroundImage from '../assets/images/background.jpg';
 import { PageHeader } from '../components/PageHeader';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router';
-import { deleteUser } from 'firebase/auth';
+import { deleteUser, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 export const AccountOverviewPage: React.FC = () => {
   usePageMeta({
@@ -18,6 +18,43 @@ export const AccountOverviewPage: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword || !confirmPassword || !user?.email) return;
+    
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'New passwords do not match.' });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordMessage({ type: '', text: '' });
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      setPasswordMessage({ type: 'success', text: 'Password updated successfully!' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error("Error updating password:", error);
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setPasswordMessage({ type: 'error', text: 'Incorrect current password.' });
+      } else {
+        setPasswordMessage({ type: 'error', text: "An error occurred: " + (error.message || "Unknown error") });
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -127,6 +164,56 @@ export const AccountOverviewPage: React.FC = () => {
                 </p>
               </div>
             )}
+            
+            {/* Password Update */}
+            <div className="bg-black/30 border border-white/10 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Lock className="w-5 h-5 text-green-400" />
+                <h3 className="text-lg font-semibold text-white">Change Password</h3>
+              </div>
+              <form onSubmit={handleUpdatePassword} className="ml-8 space-y-4 max-w-md">
+                <div className="space-y-3">
+                  <input
+                    type="password"
+                    placeholder="Current Password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-cyan-400 focus:bg-white/[0.06] rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="New Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-cyan-400 focus:bg-white/[0.06] rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                    minLength={6}
+                    required
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm New Password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-cyan-400 focus:bg-white/[0.06] rounded-xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                    minLength={6}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isUpdatingPassword || !currentPassword || !newPassword || !confirmPassword}
+                  className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+                {passwordMessage.text && (
+                  <p className={`text-sm mt-2 ${passwordMessage.type === 'error' ? 'text-red-400' : 'text-green-400'}`}>
+                    {passwordMessage.text}
+                  </p>
+                )}
+              </form>
+            </div>
           </div>
 
           <div className="mt-12 flex items-center justify-between">

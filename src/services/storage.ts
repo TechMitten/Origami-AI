@@ -1,3 +1,5 @@
+import { auth, db } from '../config/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { SlideData, MusicSettings } from '../components/SlideEditor';
 
 export interface GlobalSettings {
@@ -290,12 +292,61 @@ export async function clearState(): Promise<void> {
   await deleteVal('keyval', 'musicSettings');
 }
 
+const API_KEYS_TO_EXCLUDE: (keyof GlobalSettings)[] = [
+  'openaiEndpoint',
+  'openaiModel',
+  'openaiApiKey',
+  'pollinationsApiKey',
+  'pollinationsTokenExpiresAt',
+  'pollinationsAccountName',
+  'pollinationsImageModel'
+];
+
 export async function loadGlobalSettings(): Promise<GlobalSettings | null> {
-  return getVal<GlobalSettings>('keyval', 'globalSettings');
+  let localSettings = await getVal<GlobalSettings>('keyval', 'globalSettings');
+  
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const ref = doc(db, 'users', user.uid, 'preferences', 'globalSettings');
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const cloudSettings = snap.data() as Partial<GlobalSettings>;
+        localSettings = { ...(localSettings || {} as GlobalSettings), ...cloudSettings } as GlobalSettings;
+        await setVal('keyval', 'globalSettings', localSettings);
+      }
+    } catch (e) {
+      console.warn('Failed to load global settings from Firebase', e);
+    }
+  }
+  return localSettings;
 }
 
 export async function saveGlobalSettings(settings: GlobalSettings): Promise<void> {
   await setVal('keyval', 'globalSettings', settings);
+  
+  const user = auth.currentUser;
+  if (user) {
+    const cloudSettings = { ...settings };
+    for (const key of API_KEYS_TO_EXCLUDE) {
+      delete cloudSettings[key];
+    }
+    
+    // We shouldn't sync File/Blob references if any, though GlobalSettings usually doesn't have them except music
+    // Wait, music has blob: Blob | File in GlobalSettings!
+    if (cloudSettings.music) {
+      const musicCopy = { ...cloudSettings.music };
+      delete musicCopy.blob;
+      cloudSettings.music = musicCopy;
+    }
+    
+    try {
+      const ref = doc(db, 'users', user.uid, 'preferences', 'globalSettings');
+      await setDoc(ref, cloudSettings, { merge: true });
+    } catch (e) {
+      console.warn('Failed to sync global settings', e);
+    }
+  }
 }
 
 export async function loadAssistantChatWorkspace(): Promise<AssistantChatWorkspace> {

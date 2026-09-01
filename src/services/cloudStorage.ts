@@ -1,5 +1,5 @@
 import { db, storage } from '../config/firebase';
-import { collection, doc, setDoc, getDocs, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, getDoc, deleteDoc, query, limit } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { SlideData } from '../components/SlideEditor';
 import type { PersistedShortsProject } from './storage';
@@ -61,7 +61,8 @@ export async function loadPdfProjectFromCloud(userId: string, projectId: string)
 
 export async function listPdfProjectsFromCloud(userId: string) {
   const colRef = collection(db, 'users', userId, 'pdf_projects');
-  const snap = await getDocs(colRef);
+  const q = query(colRef, limit(100));
+  const snap = await getDocs(q);
   return snap.docs.map(doc => doc.data());
 }
 
@@ -101,7 +102,8 @@ export async function saveShortsProjectToCloud(userId: string, projectId: string
 
 export async function listShortsProjectsFromCloud(userId: string) {
   const colRef = collection(db, 'users', userId, 'shorts_projects');
-  const snap = await getDocs(colRef);
+  const q = query(colRef, limit(100));
+  const snap = await getDocs(q);
   return snap.docs.map(doc => doc.data());
 }
 

@@ -1,3 +1,4 @@
+import { setSyncedPreference } from '../services/preferences';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -520,7 +521,7 @@ export const ShortsPage: React.FC = () => {
       setIsResourceModalOpen(false);
       // Same as the landing page: clicking Continue persists the acknowledgment so a
       // refresh or navigating to /shorts mid-download doesn't re-prompt the modal.
-      localStorage.setItem('hide_setup_modal', 'true');
+      setSyncedPreference('hide_setup_modal', 'true');
 
       const cached = JSON.parse(
         localStorage.getItem('resource_cache_status') || '{"tts":false,"ffmpeg":false,"webllm":false}',

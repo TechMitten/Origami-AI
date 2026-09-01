@@ -1,3 +1,4 @@
+import { setSyncedPreference } from '../services/preferences';
 import React, { useEffect, useState } from 'react';
 import { Smartphone, Monitor, X, AlertTriangle, Mail } from 'lucide-react';
 
@@ -38,7 +39,7 @@ export const MobileWarningModal: React.FC = () => {
     };
 
     const handleDismissForever = () => {
-        localStorage.setItem(DISMISSED_KEY, 'true');
+        setSyncedPreference(DISMISSED_KEY, 'true');
         handleDismiss();
     };
 
