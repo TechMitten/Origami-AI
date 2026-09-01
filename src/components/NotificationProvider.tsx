@@ -156,7 +156,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       });
     }
 
-    if (!assetsCache.tts || !assetsCache.ffmpeg || !assetsCache.webllm) {
+    if (!isBackgroundDownloadActive && (!assetsCache.tts || !assetsCache.ffmpeg || !assetsCache.webllm)) {
       const missing = [
         !assetsCache.tts && 'narration voices',
         !assetsCache.ffmpeg && 'the video renderer',
@@ -188,7 +188,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
 
     return list;
-  }, [webgpu, assetsCache, pollinations, handleDownloadAssets]);
+  }, [webgpu, assetsCache, pollinations, handleDownloadAssets, isBackgroundDownloadActive]);
 
   const hasUnread = useMemo(
     () => notifications.some((n) => !seenIds.has(n.id)),

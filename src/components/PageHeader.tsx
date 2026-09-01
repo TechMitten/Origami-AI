@@ -56,7 +56,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   onHelp,
   className = '',
 }) => {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const hasUtilityButtons = showNotifications || (showHelp && Boolean(onHelp)) || (showSettings && Boolean(onSettings));
 
@@ -105,7 +105,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {rightContent && <div className="flex items-center gap-1 sm:gap-2 shrink-0">{rightContent}</div>}
 
         <div className="flex items-center gap-2 mr-2">
-          {user ? (
+          {loading ? (
+            <div className="w-20 h-8 rounded-lg bg-white/5 animate-pulse" />
+          ) : user ? (
             <div className="flex items-center gap-3 bg-white/5 pl-3 pr-1 py-1 rounded-full border border-white/10">
               <span className="text-sm text-white/80 max-w-[120px] truncate" title={user.email || 'User'}>
                 {user.email}
