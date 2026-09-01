@@ -20,7 +20,7 @@ import {
   Cloud,
   Check,
 } from 'lucide-react';
-import { Turnstile } from '@marsidev/react-turnstile';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { TransitionLink } from './TransitionLink';
 import { useNavigate } from 'react-router';
 
@@ -95,6 +95,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isVisible, setIsVisible] = useState(false);
 
   const emailInputRef = useRef<HTMLInputElement>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   // Synchronize modal open/close transitions
   useEffect(() => {
@@ -184,6 +185,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: unknown) {
       console.error('[AuthModal] Form error:', err);
       setError(formatAuthError(err));
+      // Reset Turnstile token since it is single-use and the login failed
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -402,6 +406,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
               <div className="flex justify-center w-full min-h-[65px] items-center">
                 <Turnstile
+                  ref={turnstileRef}
                   siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAEjW6dDhR8esD0I3'}
                   onSuccess={(token) => setTurnstileToken(token)}
                   onError={() => setTurnstileToken(null)}
