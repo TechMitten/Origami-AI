@@ -460,7 +460,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   onSuccess={(token) => setTurnstileToken(token)}
                   onError={() => setTurnstileToken(null)}
                   onExpire={() => setTurnstileToken(null)}
-                  options={{ theme: 'dark', size: 'flexible' }}
+                  options={{ theme: 'dark', size: 'normal' }}
                 />
               </div>
             </div>
