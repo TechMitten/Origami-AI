@@ -1,4 +1,5 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useDropzone } from 'react-dropzone';
 import { Layers, Loader2, BrainCircuit, Video, ArrowUpRight, Sparkles, Clapperboard, AudioLines, FileCog } from 'lucide-react';
 import { renderPdfToImages } from '../services/pdfService';
@@ -34,12 +35,25 @@ interface SecondaryOption {
   accent: 'foil' | 'amber';
   disabled?: boolean;
   badge?: string;
+  /** Shows the loading splash for a moment before firing onClick, instead of navigating instantly. */
+  launchApp?: boolean;
 }
+
+// How long the loading splash stays up before the destination app actually opens.
+const LAUNCH_SPLASH_DELAY_MS = 1100;
 
 export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor, onOpenShorts, onOpenVoiceStudio, onOpenConverter }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateSlidesModalOpen, setIsCreateSlidesModalOpen] = useState(false);
+  const [launchingOption, setLaunchingOption] = useState<SecondaryOption | null>(null);
+  const launchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (launchTimeoutRef.current) clearTimeout(launchTimeoutRef.current);
+    };
+  }, []);
 
   // OCR progress state
   const [ocrStatus, setOcrStatus] = useState<string | null>(null);
@@ -147,6 +161,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       cta: 'Open editor',
       onClick: onOpenSlideEditor,
       accent: 'foil',
+      launchApp: true,
     },
     {
       key: 'assistant',
@@ -156,6 +171,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       cta: 'Open assistant',
       onClick: onOpenAssistant,
       accent: 'foil',
+      launchApp: true,
     },
     {
       key: 'voice',
@@ -165,6 +181,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       cta: 'Open voice studio',
       onClick: onOpenVoiceStudio,
       accent: 'foil',
+      launchApp: true,
     },
     {
       key: 'converter',
@@ -174,6 +191,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       cta: 'Open file studio',
       onClick: onOpenConverter,
       accent: 'foil',
+      launchApp: true,
     },
     {
       key: 'shorts',
@@ -184,8 +202,21 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
       onClick: onOpenShorts,
       accent: 'amber',
       badge: 'Beta',
+      launchApp: true,
     },
   ];
+
+  const handleOptionActivate = (opt: SecondaryOption) => {
+    if (opt.disabled || launchingOption) return;
+    if (opt.launchApp) {
+      setLaunchingOption(opt);
+      launchTimeoutRef.current = setTimeout(() => {
+        opt.onClick?.();
+      }, LAUNCH_SPLASH_DELAY_MS);
+    } else {
+      opt.onClick?.();
+    }
+  };
 
   // The OCR service reports progress per page (each page sweeps 0 → 100% and
   // resets on the next page). Binding the bar to that raw value makes it jump
@@ -302,12 +333,12 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
           return (
             <div
               key={opt.key}
-              onClick={opt.disabled ? undefined : opt.onClick}
+              onClick={opt.disabled ? undefined : () => handleOptionActivate(opt)}
               role={opt.disabled ? undefined : "button"}
               tabIndex={opt.disabled ? -1 : 0}
               onKeyDown={(e) => {
                 if (opt.disabled) return;
-                if (e.key === 'Enter' || e.key === ' ') opt.onClick?.();
+                if (e.key === 'Enter' || e.key === ' ') handleOptionActivate(opt);
               }}
               className={cn(
                 "fold-card origami-unfold group relative border bg-white/5 backdrop-blur-md p-7 sm:p-8 flex flex-col min-h-[210px] transition-all duration-300 shadow-xl",
@@ -371,10 +402,23 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
         </div>
       )}
 
-      <CreateSlidesModal 
-        isOpen={isCreateSlidesModalOpen} 
-        onClose={() => setIsCreateSlidesModalOpen(false)} 
+      <CreateSlidesModal
+        isOpen={isCreateSlidesModalOpen}
+        onClose={() => setIsCreateSlidesModalOpen(false)}
       />
+
+      {launchingOption && createPortal(
+        <div className="fixed inset-0 z-[200] w-screen h-screen bg-black flex flex-col items-center justify-center gap-5">
+          <div className="relative flex items-center justify-center">
+            <Loader2 className="w-16 h-16 text-cyan-300/40 animate-spin" />
+            <launchingOption.icon className="absolute w-6 h-6 text-cyan-200" />
+          </div>
+          <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/90">
+            Opening {launchingOption.title}…
+          </p>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

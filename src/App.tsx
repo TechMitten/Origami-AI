@@ -1,6 +1,6 @@
 import { setSyncedPreference } from './services/preferences';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router';
 
 import { PDFUploader } from './components/PDFUploader';
 import { WelcomeLander } from './components/WelcomeLander';
@@ -58,6 +58,10 @@ function MainApp() {
   });
 
   const navigate = useTransitionNavigate();
+  // Plain (non-transitioned) navigate for the "Let's get started" app cards —
+  // those use their own loading-spinner splash instead of the cross-fade
+  // transition, so they must bypass startPageTransition.
+  const navigatePlain = useNavigate();
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [showWelcomeLander, setShowWelcomeLander] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -1520,11 +1524,11 @@ function MainApp() {
               onUploadComplete={onUploadComplete}
               onImportProject={handleImportProjectClick}
               onStartScreenRecord={handleStartScreenRecord}
-              onOpenAssistant={() => navigate('/assistant')}
+              onOpenAssistant={() => navigatePlain('/assistant')}
               onOpenIssueReporter={() => navigate('/issue-reporter')}
-              onOpenShorts={() => navigate('/shorts')}
-              onOpenVoiceStudio={() => navigate('/voice')}
-              onOpenConverter={() => navigate('/convert')}
+              onOpenShorts={() => navigatePlain('/shorts')}
+              onOpenVoiceStudio={() => navigatePlain('/voice')}
+              onOpenConverter={() => navigatePlain('/convert')}
               onOpenSlideEditor={() => {
                 setActiveTab('edit');
                 setEnteredEditorWithoutPdf(true);
