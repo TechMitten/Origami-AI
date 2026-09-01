@@ -170,6 +170,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
 
+      // When Cross-Origin Isolation (COOP/COEP) is active for WebGPU/FFmpeg SharedArrayBuffer,
+      // browsers prohibit cross-window communication between main page and auth popups (blocking window.closed).
+      // We directly use signInWithRedirect to guarantee a reliable, non-blocking sign-in flow.
+      if (typeof window !== 'undefined' && (window.crossOriginIsolated || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent))) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
       try {
         await signInWithPopup(auth, provider);
         onClose();
@@ -188,7 +196,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           errCode === 'auth/cancelled-popup-request' ||
           errMsg.includes('popup')
         ) {
-          console.warn('[AuthModal] Popup flow interrupted by browser security policy; initiating redirect sign-in...', popupErr);
+          console.warn('[AuthModal] Popup flow blocked by browser COOP policy; falling back to redirect flow...', popupErr);
           await signInWithRedirect(auth, provider);
           return;
         }
