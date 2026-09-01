@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
@@ -59,4 +60,4 @@ test_ai2.ts
 test_bug.mjs
 test_regex.mjs
 .github
-.devcontainer/
+.devcontainer/*.tsbuildinfo
