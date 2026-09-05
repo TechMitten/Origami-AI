@@ -105,6 +105,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ options, value, onChange, cl
         type="button"
         onClick={toggleOpen}
         disabled={disabled}
+        title={selectedOption?.name || placeholder}
         className={cn(
           "w-full flex items-center justify-between px-4 py-2 rounded-lg border border-white/10 text-white text-sm outline-none transition-all",
           disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-branding-primary/30 focus:border-branding-primary/50"

@@ -156,6 +156,8 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
 
   const scenes = project.scenes;
   const scene = scenes[sceneIndex];
+  // Scene 00, if present, is skipped when numbering the narrated scenes for display.
+  const hasTitleCard = !!scenes[0]?.isTitleCard;
 
   // Background music plays underneath the whole preview, independent of scene
   // transitions — it should keep rolling (and looping) across cuts, not
@@ -379,7 +381,9 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
     return chunks.find((c) => sceneTime >= c.start && sceneTime < c.end) ?? null;
   }, [captionsByScene, sceneIndex, sceneTime]);
 
-  const showTitle = project.showTitleCard && sceneIndex === 0 && sceneTime < 1.6 && !!project.title;
+  // Scene 00 is a normal scene with its own art/audio — the title just overlays
+  // on top of it for that scene's whole run, mirroring the renderer's drawTitleCard.
+  const showTitle = !!scene?.isTitleCard && !!project.title;
 
   const sampleTitle = useMemo(() => {
     const source = project.title || project.topic;
@@ -834,7 +838,9 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
             </span>
             {scenes.length > 0 && (
               <span className="text-xs text-white/40">
-                Scene {sceneIndex + 1} of {scenes.length}
+                {scene?.isTitleCard
+                  ? 'Title card'
+                  : `Scene ${hasTitleCard ? sceneIndex : sceneIndex + 1} of ${hasTitleCard ? scenes.length - 1 : scenes.length}`}
               </span>
             )}
           </div>
@@ -893,7 +899,7 @@ export const ShortsPreviewPlayer: React.FC<ShortsPreviewPlayerProps> = ({ projec
                       : 'border border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white',
                   )}
                 >
-                  Scene {i + 1}
+                  {s.isTitleCard ? 'Title' : `Scene ${hasTitleCard ? i : i + 1}`}
                 </button>
               ))}
             </div>

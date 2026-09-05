@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ListPlus, Loader2, Plus, Upload, Trash2 } from 'lucide-react';
+import { ListPlus, Plus, Square, Upload, Trash2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -38,6 +38,7 @@ interface ShortsStoryboardProps {
   onRewritePrompt: (id: string) => void;
   onExtendScene: (id: string) => void;
   onExtendAll: () => void;
+  onCancelExtendAll?: () => void;
   onDeleteScene: (id: string) => void;
   onAddScene: () => void;
   onBatchUploadImages?: (files: File[]) => void;
@@ -61,6 +62,7 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
   onRewritePrompt,
   onExtendScene,
   onExtendAll,
+  onCancelExtendAll,
   onDeleteScene,
   onAddScene,
   onBatchUploadImages,
@@ -84,18 +86,25 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
     e.target.value = '';
   };
 
+  const hasTitleCard = scenes[0]?.isTitleCard === true;
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const oldIndex = scenes.findIndex((s) => s.id === active.id);
-    const newIndex = scenes.findIndex((s) => s.id === over.id);
+    let newIndex = scenes.findIndex((s) => s.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
+
+    // The title card is pinned at position 0 (its own drag is disabled), so
+    // nothing else may land ahead of it either.
+    if (hasTitleCard) newIndex = Math.max(newIndex, 1);
 
     onReorder(arrayMove(scenes, oldIndex, newIndex));
   };
 
   const hasGeneratedImages = scenes.some((s) => s.imageUrl && !s.isCustomUpload);
+  const narratedCount = hasTitleCard ? scenes.length - 1 : scenes.length;
 
   return (
     <div className="space-y-4">
@@ -110,8 +119,9 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
 
       {scenes.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <p className="text-xs text-white/40">
-            {scenes.length} scene{scenes.length === 1 ? '' : 's'}
+          <p className="text-xs text-white/60">
+            {narratedCount} scene{narratedCount === 1 ? '' : 's'}
+            {hasTitleCard && ' + title card'}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {onClearAllImages && hasGeneratedImages && generationMode !== 'upload' && (
@@ -152,20 +162,20 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
             )}
             <button
               type="button"
-              onClick={onExtendAll}
-              disabled={disabled || isExtendingAll}
-              title="Add a few more sentences to every scene's narration"
+              onClick={isExtendingAll ? onCancelExtendAll : onExtendAll}
+              // While extending, this button flips into a cancel trigger — it must
+              // stay clickable even though the rest of the storyboard (`disabled`)
+              // locks up for the duration of the run.
+              disabled={isExtendingAll ? !onCancelExtendAll : disabled}
+              title={isExtendingAll ? 'Stop extending scripts' : "Add a few more sentences to every scene's narration"}
               className={
-                // Loading is a disabled state too, but it should read as "working",
-                // not as unavailable — the generic disabled:opacity-40 dims
-                // text-white/70 down to the point of being unreadable.
                 isExtendingAll
-                  ? 'focus-ring flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-200 transition-colors'
+                  ? 'focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-red-400/30 px-3 py-1.5 text-xs text-red-300 transition-colors hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-200'
                   : 'focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-cyan-400/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
               }
             >
-              {isExtendingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListPlus className="h-3.5 w-3.5" />}
-              Extend all scripts
+              {isExtendingAll ? <Square className="h-3.5 w-3.5 fill-current" /> : <ListPlus className="h-3.5 w-3.5" />}
+              {isExtendingAll ? 'Cancel extending' : 'Extend all scripts'}
             </button>
           </div>
         </div>
@@ -178,7 +188,8 @@ export const ShortsStoryboard: React.FC<ShortsStoryboardProps> = ({
               <ShortsSceneCard
                 key={scene.id}
                 scene={scene}
-                index={index}
+                index={hasTitleCard ? index : index + 1}
+                isTitleCard={scene.isTitleCard === true}
                 aspect={aspect}
                 generationMode={generationMode}
                 visualModel={visualModel}

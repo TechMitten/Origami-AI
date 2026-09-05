@@ -36,7 +36,9 @@ const aspectClass: Record<ShortsAspect, string> = {
 
 interface ShortsSceneCardProps {
   scene: ShortsScene;
+  /** Display number: 0 for the title card, 1-based for narrated scenes. */
   index: number;
+  isTitleCard?: boolean;
   aspect: ShortsAspect;
   generationMode: ShortsGenerationMode;
   /** Active image/video model id — a visual generated with another model reads as stale. */
@@ -56,6 +58,7 @@ interface ShortsSceneCardProps {
 export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
   scene,
   index,
+  isTitleCard = false,
   aspect,
   generationMode,
   visualModel,
@@ -72,6 +75,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: scene.id,
+    disabled: isTitleCard,
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -399,18 +403,32 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
         {/* Slate: cut order is real information here, so the number is the anchor
             and the drag handle sits under it. */}
         <div className="flex flex-col items-center gap-1.5 pt-0.5">
-          <span className="font-display text-sm font-extrabold tabular-nums leading-none text-white/40">
-            {String(index + 1).padStart(2, '0')}
-          </span>
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            aria-label={`Reorder scene ${index + 1}`}
-            className="focus-ring cursor-grab touch-none rounded-md p-1 text-white/25 transition-colors hover:text-white/70 active:cursor-grabbing"
+          <span
+            className={cn(
+              'font-display text-sm font-extrabold tabular-nums leading-none',
+              isTitleCard ? 'text-amber-300/80' : 'text-white/40',
+            )}
           >
-            <GripVertical className="h-4 w-4" />
-          </button>
+            {String(index).padStart(2, '0')}
+          </span>
+          {isTitleCard ? (
+            <span
+              title="Title card — always plays first"
+              className="rounded p-1 text-[9px] font-bold uppercase tracking-wider text-amber-300/60"
+            >
+              Title
+            </span>
+          ) : (
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              aria-label={`Reorder scene ${index}`}
+              className="focus-ring cursor-grab touch-none rounded-md p-1 text-white/25 transition-colors hover:text-white/70 active:cursor-grabbing"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Thumbnail. A div, not a button — it hosts the real regenerate <button>
@@ -512,7 +530,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
           onClose={() => setIsPreviewOpen(false)}
           url={visualUrl ?? null}
           isVideo={isVideo}
-          label={`Scene ${index + 1} ${isVideo ? 'clip' : 'image'}`}
+          label={`${isTitleCard ? 'Title card' : `Scene ${index}`} ${isVideo ? 'clip' : 'image'}`}
         />
 
         {/* Body: a flex column stretched to the thumbnail's height, with the
@@ -529,7 +547,7 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
             }}
             disabled={disabled}
             rows={2}
-            placeholder="Narration for this scene"
+            placeholder={isTitleCard ? 'Narration spoken over the title card' : 'Narration for this scene'}
             className={cn(
               'focus-ring min-h-[64px] w-full flex-1 resize-none overflow-hidden rounded-lg border bg-black/20 p-3 text-sm leading-relaxed text-white outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50',
               audioStale ? 'border-amber-400/40' : 'border-white/10',
@@ -743,7 +761,11 @@ export const ShortsSceneCard: React.FC<ShortsSceneCardProps> = ({
                   onUpdate(scene.id, { imagePrompt: e.target.value });
                 }}
                 disabled={disabled}
-                placeholder={isVideo ? 'Describe the video clip for this scene' : 'Describe the image for this scene'}
+                placeholder={
+                  isTitleCard
+                    ? `Describe the title card background ${isVideo ? 'clip' : 'image'}`
+                    : isVideo ? 'Describe the video clip for this scene' : 'Describe the image for this scene'
+                }
                 className={cn(
                   'focus-ring min-h-[80px] w-full resize-none overflow-hidden rounded-lg border bg-black/25 p-3 text-xs leading-relaxed text-white/85 outline-none transition-all placeholder:text-white/25 focus:border-cyan-400/40 disabled:opacity-50',
                   visualStale ? 'border-amber-400/40' : 'border-white/10',

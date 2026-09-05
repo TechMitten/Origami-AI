@@ -393,6 +393,7 @@ export interface PersistedShortsScene {
   seed: number;
   isCustomUpload?: boolean;
   isCustomAudio?: boolean;
+  isTitleCard?: boolean;
   audioNarrationSnapshot?: string;
   visualPromptSnapshot?: string;
   visualModelSnapshot?: string;

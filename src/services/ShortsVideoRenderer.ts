@@ -42,13 +42,15 @@ export interface ShortsRenderScene {
   audioDuration: number;
   narration: string;
   captions: CaptionChunk[];
+  /** Scene 00 — a normal scene whose caption pass is replaced by the project title overlay. */
+  isTitleCard?: boolean;
 }
 
 export interface ShortsRenderOptions {
   scenes: ShortsRenderScene[];
   aspect: ShortsAspect;
+  /** Text overlaid on the scene flagged isTitleCard, if any. */
   title?: string;
-  showTitleCard?: boolean;
   captionsEnabled?: boolean;
   captionStyle?: ShortsCaptionStyle;
   captionSize?: ShortsCaptionSize;
@@ -79,7 +81,6 @@ const AUDIO_SAMPLE_RATE = 48_000;
 const SCENE_TAIL_SEC = 0.28;
 const MIN_SCENE_SEC = 1.2;
 const CROSSFADE_SEC = 0.4;
-const TITLE_CARD_SEC = 1.6;
 const DEFAULT_ACCENT = '#22d3ee';
 /** How long the branded end card holds after the last scene. */
 const END_SPLASH_SEC = 5;
@@ -103,6 +104,8 @@ interface PreparedScene {
   panToY: number;
   /** The branded end card appended after the last narrated scene. */
   isEndSplash?: boolean;
+  /** Scene 00 — drawn like any other scene, but with the project title overlaid instead of captions. */
+  isTitleCard?: boolean;
 }
 
 /** Video clips are pre-sampled at a low, fixed rate rather than seeked live per output
@@ -305,6 +308,7 @@ export class ShortsVideoRenderer {
         panToX: horizontal ? drift : 0,
         panFromY: horizontal ? 0 : -drift,
         panToY: horizontal ? 0 : drift,
+        isTitleCard: scene.isTitleCard,
       });
 
       cursor += duration;
@@ -678,24 +682,34 @@ export class ShortsVideoRenderer {
     ctx.restore();
   }
 
+  /** Overlay the project title on top of scene 00's own background art (drawn just
+   *  before this by drawSceneImage), replacing that scene's usual caption pass. */
   private drawTitleCard(
     ctx: CanvasRenderingContext2D,
     title: string,
     t: number,
+    duration: number,
     width: number,
     height: number,
     accent: string,
   ) {
-    // Hold, then fade out over the final 0.4s.
-    const fadeOut = t > TITLE_CARD_SEC - 0.4 ? 1 - (t - (TITLE_CARD_SEC - 0.4)) / 0.4 : 1;
+    // Fade in, hold, then fade out over the final 0.4s of the scene.
+    const fadeOut = t > duration - 0.4 ? 1 - (t - (duration - 0.4)) / 0.4 : 1;
     const alpha = clamp(easeOutCubic(clamp(t / 0.3, 0, 1)) * fadeOut, 0, 1);
-    if (alpha <= 0) return;
+    if (alpha <= 0 || !title.trim()) return;
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    // Darken the scene art so the title stays legible over any background, then
+    // a faint accent-tinted wash to ground the card in the project's color.
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(0, 0, width, height);
+    ctx.globalAlpha = alpha * 0.14;
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
 
     const fontSize = Math.round(width * 0.085);
     ctx.font = `800 ${fontSize}px Unbounded, Roboto, sans-serif`;
@@ -763,7 +777,6 @@ export class ShortsVideoRenderer {
     const scene = scenes[index];
     const localTime = clamp(time - scene.start, 0, scene.duration);
 
-    // Crossfade in from the previous scene.
     const fadeSpan = Math.min(CROSSFADE_SEC, scene.duration / 2);
     if (index > 0 && localTime < fadeSpan) {
       const previous = scenes[index - 1];
@@ -771,6 +784,11 @@ export class ShortsVideoRenderer {
       this.drawSceneImage(ctx, scene, localTime, width, height, localTime / fadeSpan, index);
     } else {
       this.drawSceneImage(ctx, scene, localTime, width, height, 1, index);
+    }
+
+    if (scene.isTitleCard) {
+      this.drawTitleCard(ctx, options.title ?? '', localTime, scene.duration, width, height, options.accentColor ?? DEFAULT_ACCENT);
+      return;
     }
 
     if (options.captionsEnabled !== false && !scene.isEndSplash) {
@@ -790,10 +808,6 @@ export class ShortsVideoRenderer {
           options.captionPosition ?? 'bottom',
         );
       }
-    }
-
-    if (options.showTitleCard && options.title && time < TITLE_CARD_SEC) {
-      this.drawTitleCard(ctx, options.title, time, width, height, options.accentColor ?? DEFAULT_ACCENT);
     }
   }
 

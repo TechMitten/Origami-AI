@@ -14,6 +14,7 @@ import {
   Sparkles,
   Square,
   Tag,
+  Type,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -59,6 +60,7 @@ import {
 import {
   createEmptyProject,
   createScene,
+  createTitleCardScene,
   formatDuration,
   fromPersistedProject,
   generateSceneAudio,
@@ -216,6 +218,11 @@ const slugify = (value: string): string =>
 const errorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : typeof e === 'string' ? e : 'Something went wrong.';
 
+/** Scene 00 — a real scene (own narration, image/video, TTS) flagged so the
+ *  renderer overlays `title` on top of it instead of drawing its captions. */
+const buildTitleCardScene = (title: string, project: ShortsProject): ShortsScene =>
+  createTitleCardScene(title, composeVisualPrompt(title || project.topic, project));
+
 import {
   saveShortsProjectToCloud,
   loadShortsProjectFromCloud,
@@ -370,6 +377,7 @@ export const ShortsPage: React.FC = () => {
 
   const totalDuration = useMemo(() => projectDuration(project.scenes), [project.scenes]);
   const renderable = isProjectRenderable(project);
+  const hasTitleCard = project.scenes[0]?.isTitleCard === true;
 
   // --- load / persist ---------------------------------------------------------
 
@@ -758,6 +766,9 @@ export const ShortsPage: React.FC = () => {
       existingUploads.slice(script.scenes.length).forEach((item) => URL.revokeObjectURL(item.url));
 
       const nextProject: ShortsProject = { ...projectRef.current, title: script.title, scenes };
+      if (nextProject.showTitleCard) {
+        nextProject.scenes = [buildTitleCardScene(script.title, nextProject), ...scenes];
+      }
       setProject(nextProject);
       setStage('storyboard');
       
@@ -1112,6 +1123,15 @@ export const ShortsPage: React.FC = () => {
     const current = projectRef.current;
     if (!current.scenes.length) return;
 
+    const eligibleCount = current.scenes.filter((s) => s.narration.trim()).length;
+    if (!eligibleCount) return;
+
+    const confirmed = await showConfirm(
+      `Add a few more sentences to ${eligibleCount} scene${eligibleCount === 1 ? '' : 's'} using AI? This rewrites their narration.`,
+      { title: 'Extend all scripts', confirmText: 'Extend All' },
+    );
+    if (!confirmed) return;
+
     const ready = await ensureScriptEngineReady();
     if (!ready) return;
 
@@ -1157,7 +1177,13 @@ export const ShortsPage: React.FC = () => {
       if (generationAbortRef.current === controller) generationAbortRef.current = null;
       setIsExtendingAll(false);
     }
-  }, [ensureScriptEngineReady, llmOptions, patchScene, showAlert]);
+  }, [ensureScriptEngineReady, llmOptions, patchScene, showAlert, showConfirm]);
+
+  // Extend-all runs sequentially and can take a while — let the user bail out
+  // mid-run instead of forcing them to wait for every scene to finish.
+  const handleCancelExtendAll = useCallback(() => {
+    generationAbortRef.current?.abort();
+  }, []);
 
   const handleDeleteScene = useCallback((id: string) => {
     setProject((prev) => {
@@ -1165,7 +1191,11 @@ export const ShortsPage: React.FC = () => {
       if (scene?.imageUrl) URL.revokeObjectURL(scene.imageUrl);
       if (scene?.videoUrl) URL.revokeObjectURL(scene.videoUrl);
       if (scene?.audioUrl) URL.revokeObjectURL(scene.audioUrl);
-      return { ...prev, scenes: prev.scenes.filter((s) => s.id !== id) };
+      return {
+        ...prev,
+        showTitleCard: scene?.isTitleCard ? false : prev.showTitleCard,
+        scenes: prev.scenes.filter((s) => s.id !== id),
+      };
     });
   }, []);
 
@@ -1176,6 +1206,25 @@ export const ShortsPage: React.FC = () => {
       // project's framing and no-text clauses rather than just the raw style.
       scenes: [...prev.scenes, createScene('', composeVisualPrompt(prev.topic, prev))],
     }));
+  }, []);
+
+  // Scene 00 is a real scene living at the front of the array — toggling adds or
+  // removes it there rather than flipping a rendering-only flag.
+  const handleToggleTitleCard = useCallback(() => {
+    setProject((prev) => {
+      const existing = prev.scenes[0]?.isTitleCard ? prev.scenes[0] : null;
+      if (existing) {
+        if (existing.imageUrl) URL.revokeObjectURL(existing.imageUrl);
+        if (existing.videoUrl) URL.revokeObjectURL(existing.videoUrl);
+        if (existing.audioUrl) URL.revokeObjectURL(existing.audioUrl);
+        return { ...prev, showTitleCard: false, scenes: prev.scenes.slice(1) };
+      }
+      return {
+        ...prev,
+        showTitleCard: true,
+        scenes: [buildTitleCardScene(prev.title || prev.topic, prev), ...prev.scenes],
+      };
+    });
   }, []);
 
   const handleBackToSetup = useCallback(() => {
@@ -1261,6 +1310,7 @@ export const ShortsPage: React.FC = () => {
       audioDuration: scene.audioDuration ?? 0,
       narration: scene.narration,
       captions: sceneCaptions(scene),
+      isTitleCard: scene.isTitleCard,
     }));
 
     try {
@@ -1268,7 +1318,6 @@ export const ShortsPage: React.FC = () => {
         scenes: renderScenes,
         aspect: current.aspect,
         title: current.title,
-        showTitleCard: current.showTitleCard,
         captionsEnabled: current.captionsEnabled,
         captionStyle: current.captionStyle,
         captionSize: current.captionSize,
@@ -1577,33 +1626,33 @@ export const ShortsPage: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-baseline gap-3">
-                    <button
-                      type="button"
-                      onClick={handleBackToSetup}
-                      className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
-                    >
-                      <ArrowLeft className="h-3 w-3" />
-                      Build
-                    </button>
-                    <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
-                    <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
-                      Edit
-                    </h2>
-                  </div>
+              <div className="space-y-4">
+                <div className="flex items-baseline gap-3">
+                  <button
+                    type="button"
+                    onClick={handleBackToSetup}
+                    className="focus-ring flex shrink-0 items-center gap-1.5 rounded text-[11px] font-bold uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Build
+                  </button>
+                  <span aria-hidden className="h-px w-6 shrink-0 bg-white/20" />
+                  <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+                    Edit
+                  </h2>
+                </div>
 
-                  <div className="flex flex-wrap items-end gap-2">
-                    {/* Same model selector as Build, so a mid-project switch
-                        doesn't cost a round trip back to the composer. Changing
-                        it marks ready visuals stale (see isSceneVisualStale) and
-                        they regenerate through the usual stale flow. */}
-                    {!isUploadMode && (
-                      <div className="w-44">
-                        <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
-                          {isVideoMode ? 'Video model' : 'Image model'}
-                        </span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                  {/* Same model selector as Build, so a mid-project switch
+                      doesn't cost a round trip back to the composer. Changing
+                      it marks ready visuals stale (see isSceneVisualStale) and
+                      they regenerate through the usual stale flow. */}
+                  {!isUploadMode && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
+                        {isVideoMode ? 'Video' : 'Image'}
+                      </span>
+                      <div className="w-48 sm:w-56">
                         <Dropdown
                           options={(isVideoMode ? videoModelOptions : imageModelOptions).map(
                             (m) => ({ id: m.id, name: m.name }),
@@ -1615,34 +1664,39 @@ export const ShortsPage: React.FC = () => {
                           disabled={renderPhase === 'rendering' || isBusy}
                         />
                       </div>
-                    )}
+                      {!isVideoMode && (
+                        <a
+                          href="https://enter.pollinations.ai/models?category=image"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="focus-ring flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/60 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all"
+                          title="See pricing for each image model"
+                        >
+                          <Tag className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  )}
 
-                    {!isVideoMode && !isUploadMode && (
-                      <a
-                        href="https://enter.pollinations.ai/models?category=image"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="focus-ring flex h-[38px] items-center gap-1.5 self-end rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all"
-                        title="See pricing for each image model"
-                      >
-                        <Tag className="h-3.5 w-3.5" />
-                        Pricing
-                      </a>
-                    )}
-
-                    {!isVideoMode && !isUploadMode && project.scenes.some((s) => visualStatusOf(s) === 'ready') && (
+                  {!isVideoMode && !isUploadMode && project.scenes.some((s) => visualStatusOf(s) === 'ready') && (
+                    <>
+                      <span aria-hidden className="hidden h-6 w-px shrink-0 bg-white/10 sm:block" />
                       <button
                         type="button"
                         onClick={() => void handleRegenerateAllImages()}
                         disabled={renderPhase === 'rendering' || isRegeneratingAllImages}
-                        className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                        title="Regenerate every image with a new random seed"
+                        className="focus-ring flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Regenerate all images"
                       >
                         <RefreshCw className={cn('h-3.5 w-3.5', isRegeneratingAllImages && 'animate-spin')} />
-                        Regenerate all images
                       </button>
-                    )}
+                    </>
+                  )}
 
+                  {!isUploadMode && (
+                    <span aria-hidden className="hidden h-6 w-px shrink-0 bg-white/10 sm:block" />
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsVoiceAuditionOpen(true)}
@@ -1651,6 +1705,21 @@ export const ShortsPage: React.FC = () => {
                     >
                       <Mic className="h-3.5 w-3.5 text-cyan-400" />
                       <span>Voice: <strong className="text-white">{project.voiceMode === 'record' ? 'Recorded Voice' : (DEFAULT_VOICES.find(v => v.id === project.voice)?.name || project.voice)}</strong></span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleTitleCard}
+                      disabled={renderPhase === 'rendering' || isBusy}
+                      aria-pressed={hasTitleCard}
+                      className={cn(
+                        'focus-ring flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-40',
+                        hasTitleCard ? 'text-amber-200 hover:text-amber-100' : 'text-white/80 hover:text-white',
+                      )}
+                      title={hasTitleCard ? 'Scene 00 is a title card — click to remove it' : 'Add a title card as scene 00'}
+                    >
+                      <Type className={cn('h-3.5 w-3.5', hasTitleCard ? 'text-amber-400' : 'text-white/50')} />
+                      <span>Title card: <strong className={hasTitleCard ? 'text-amber-100' : 'text-white'}>{hasTitleCard ? 'On' : 'Off'}</strong></span>
                     </button>
                   </div>
                 </div>
@@ -1682,6 +1751,7 @@ export const ShortsPage: React.FC = () => {
                   onRewritePrompt={handleRewritePrompt}
                   onExtendScene={handleExtendScene}
                   onExtendAll={handleExtendAllScenes}
+                  onCancelExtendAll={handleCancelExtendAll}
                   onDeleteScene={handleDeleteScene}
                   onAddScene={handleAddScene}
                   onBatchUploadImages={handleBatchUploadImages}

@@ -44,6 +44,8 @@ export interface ShortsScene {
   isCustomUpload?: boolean;
   /** True if the user recorded custom audio with their microphone for this scene. */
   isCustomAudio?: boolean;
+  /** True for the standalone title scene (scene 00) — otherwise a normal narrated scene. */
+  isTitleCard?: boolean;
 
   /** narration text the current audioBlob was generated from — lets edits be detected as stale. */
   audioNarrationSnapshot?: string;
@@ -168,6 +170,13 @@ export const createScene = (narration: string, imagePrompt: string): ShortsScene
   imageStatus: 'idle',
   videoStatus: 'idle',
   audioStatus: 'idle',
+});
+
+/** Scene 00 — a real scene like any other (TTS, image/video, editable narration),
+ *  just flagged so the renderer overlays the project title on top of it. */
+export const createTitleCardScene = (narration: string, imagePrompt: string): ShortsScene => ({
+  ...createScene(narration, imagePrompt),
+  isTitleCard: true,
 });
 
 export const createEmptyProject = (overrides: Partial<ShortsProject> = {}): ShortsProject => ({
@@ -361,6 +370,7 @@ export const toPersistedProject = (project: ShortsProject): PersistedShortsProje
     seed: scene.seed,
     isCustomUpload: scene.isCustomUpload,
     isCustomAudio: scene.isCustomAudio,
+    isTitleCard: scene.isTitleCard,
     imageBlob: scene.imageBlob ?? undefined,
     videoBlob: scene.videoBlob ?? undefined,
     audioBlob: scene.audioBlob ?? undefined,
@@ -411,6 +421,7 @@ export const fromPersistedProject = (persisted: PersistedShortsProject): ShortsP
     seed: scene.seed,
     isCustomUpload: scene.isCustomUpload,
     isCustomAudio: scene.isCustomAudio,
+    isTitleCard: scene.isTitleCard,
     imageBlob: scene.imageBlob ?? null,
     imageUrl: scene.imageBlob ? URL.createObjectURL(scene.imageBlob) : null,
     imageStatus: scene.imageBlob ? 'ready' : 'idle',

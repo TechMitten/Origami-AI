@@ -975,6 +975,7 @@ export const ShortsComposer: React.FC<ShortsComposerProps> = ({
               onChange={(value) => onChange({ showTitleCard: value })}
               disabled={isBusy}
               title="Title card"
+              description="Adds an opening scene (00) with your title, its own image and voiceover."
               icon={<Type className="h-4 w-4" />}
             />
           </div>
