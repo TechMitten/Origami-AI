@@ -5,7 +5,8 @@ export const SYNCED_KEYS = [
   'has_seen_welcome_lander',
   'hide_setup_modal',
   'slide_editor_view_mode',
-  'configureSlidesExpanded'
+  'configureSlidesExpanded',
+  'tools_config_active_tab'
 ];
 
 export function setSyncedPreference(key: string, value: string) {

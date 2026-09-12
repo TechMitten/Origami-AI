@@ -1,6 +1,6 @@
 import { setSyncedPreference } from '../services/preferences';
 import React, { useRef, useState, useEffect } from 'react';
-import { Volume2, Wand2, Mic, Video as VideoIcon, ChevronDown, ChevronUp, Settings as SettingsIcon, Wrench } from 'lucide-react';
+import { Volume2, Wand2, Mic, Video as VideoIcon, ChevronDown, ChevronUp, Settings as SettingsIcon, Wrench, LocateFixed } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -99,7 +99,12 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [voices, setVoices] = React.useState<Voice[]>(AVAILABLE_VOICES);
 
 
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>(defaultToolsConfigTab);
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'voice' | 'mixing' | 'tools' | 'media'>(() => {
+    const saved = localStorage.getItem('tools_config_active_tab');
+    return saved === 'voice' || saved === 'mixing' || saved === 'tools' || saved === 'media'
+      ? saved
+      : defaultToolsConfigTab;
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [isConfigureSlidesExpanded, setIsConfigureSlidesExpanded] = useState(() => {
     const saved = localStorage.getItem('configureSlidesExpanded');
@@ -121,6 +126,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   useEffect(() => {
     setSyncedPreference('configureSlidesExpanded', String(isConfigureSlidesExpanded));
   }, [isConfigureSlidesExpanded]);
+
+  useEffect(() => {
+    setSyncedPreference('tools_config_active_tab', activeTab);
+  }, [activeTab]);
 
   // Sync global settings changes to parent
 
@@ -171,6 +180,25 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const [findText, setFindText] = React.useState('');
   const [replaceText, setReplaceText] = React.useState('');
+  const [transformingSlideIndex, setTransformingSlideIndex] = React.useState<number | null>(null);
+
+  const firstGeneratingSlideIndex = React.useMemo(() => {
+    const [first] = Array.from(generatingSlides).sort((a, b) => a - b);
+    return typeof first === 'number' ? first : null;
+  }, [generatingSlides]);
+
+  const workingSlideIndex = batchProcessingIndex ?? transformingSlideIndex ?? firstGeneratingSlideIndex;
+
+  const handleScrollToWorkingSlide = React.useCallback(() => {
+    if (workingSlideIndex === null) return;
+    const slide = slides[workingSlideIndex];
+    if (!slide) return;
+    document.getElementById(`slide-card-${slide.id}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
+    });
+  }, [slides, workingSlideIndex]);
 
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
@@ -508,6 +536,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 isDownloading={isDownloading}
                 onShowDownloadBlocked={(action) => setDownloadBlockedAction(action)}
                 onEnsureWebLLMReady={ensureWebLLMForFix}
+                onTransformStateChange={(slideIndex, active) => setTransformingSlideIndex(active ? slideIndex : null)}
                 highlightText={findText}
                 aspectRatio={aspectRatio}
               />
@@ -515,6 +544,20 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           </div>
         </SortableContext>
       </DndContext>
+
+      {workingSlideIndex !== null && slides[workingSlideIndex] && (
+        <button
+          type="button"
+          onClick={handleScrollToWorkingSlide}
+          aria-label={`Scroll to slide ${workingSlideIndex + 1}`}
+          className="group fixed bottom-6 right-6 z-50 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#0b1720]/95 text-cyan-100 shadow-[0_12px_34px_rgba(255,255,255,0.22)] backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-cyan-400/15 hover:shadow-[0_12px_40px_rgba(255,255,255,0.34)] focus:outline-none active:scale-95"
+          title={`Scroll to slide ${workingSlideIndex + 1}`}
+        >
+          <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-cyan-400/15 shadow-inner shadow-white/10">
+            <LocateFixed className="h-4.5 w-4.5" />
+          </span>
+        </button>
+      )}
 
       {/* Local model download/compile progress for AI Fix Script */}
       <WebLLMLoadingModal

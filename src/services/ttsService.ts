@@ -68,6 +68,86 @@ interface PendingRequest {
 }
 const pendingRequests = new Map<string, PendingRequest>();
 
+let activeTTSKeepAwakeCount = 0;
+let keepAwakeAudioContext: AudioContext | null = null;
+let keepAwakeOscillator: OscillatorNode | null = null;
+let keepAwakeGain: GainNode | null = null;
+let wakeLockSentinel: WakeLockSentinel | null = null;
+
+const requestScreenWakeLock = async () => {
+  const nav = navigator as Navigator & {
+    wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> };
+  };
+  if (!nav.wakeLock || document.visibilityState !== 'visible' || wakeLockSentinel) return;
+
+  try {
+    wakeLockSentinel = await nav.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      wakeLockSentinel = null;
+    }, { once: true });
+  } catch (error) {
+    console.warn('[TTS] Screen wake lock unavailable during generation:', error);
+  }
+};
+
+const startTTSKeepAwake = async () => {
+  activeTTSKeepAwakeCount++;
+  await requestScreenWakeLock();
+
+  if (keepAwakeAudioContext) {
+    if (keepAwakeAudioContext.state === 'suspended') {
+      await keepAwakeAudioContext.resume().catch(() => { });
+    }
+    return;
+  }
+
+  try {
+    const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    keepAwakeAudioContext = new AudioContextCtor();
+    keepAwakeOscillator = keepAwakeAudioContext.createOscillator();
+    keepAwakeGain = keepAwakeAudioContext.createGain();
+
+    keepAwakeOscillator.frequency.value = 18;
+    keepAwakeGain.gain.value = 0.00001;
+    keepAwakeOscillator.connect(keepAwakeGain);
+    keepAwakeGain.connect(keepAwakeAudioContext.destination);
+    keepAwakeOscillator.start();
+
+    if (keepAwakeAudioContext.state === 'suspended') {
+      await keepAwakeAudioContext.resume().catch(() => { });
+    }
+  } catch (error) {
+    console.warn('[TTS] Audio keep-awake unavailable during generation:', error);
+    keepAwakeAudioContext = null;
+    keepAwakeOscillator = null;
+    keepAwakeGain = null;
+  }
+};
+
+const stopTTSKeepAwake = () => {
+  activeTTSKeepAwakeCount = Math.max(0, activeTTSKeepAwakeCount - 1);
+  if (activeTTSKeepAwakeCount > 0) return;
+
+  keepAwakeOscillator?.stop();
+  keepAwakeOscillator?.disconnect();
+  keepAwakeGain?.disconnect();
+  keepAwakeAudioContext?.close().catch(() => { });
+  keepAwakeAudioContext = null;
+  keepAwakeOscillator = null;
+  keepAwakeGain = null;
+
+  wakeLockSentinel?.release().catch(() => { });
+  wakeLockSentinel = null;
+};
+
+document.addEventListener('visibilitychange', () => {
+  if (activeTTSKeepAwakeCount > 0 && document.visibilityState === 'visible') {
+    void requestScreenWakeLock();
+  }
+});
+
 export const ttsEvents = new EventTarget();
 
 export interface ProgressEventDetail {
@@ -89,7 +169,6 @@ function getWorker(quantization: 'q8' | 'q4' = 'q8'): Worker {
         const req = pendingRequests.get(id);
         if (req) {
           req.resolve(blob);
-          pendingRequests.delete(id);
         }
       } else if (type === 'init-complete') {
         ttsEvents.dispatchEvent(new CustomEvent('tts-init-complete'));
@@ -97,7 +176,6 @@ function getWorker(quantization: 'q8' | 'q4' = 'q8'): Worker {
         const req = pendingRequests.get(id);
         if (req) {
           req.reject(new Error(error));
-          pendingRequests.delete(id);
         }
       } else if (type === 'progress') {
          // Dispatch progress event
@@ -159,6 +237,8 @@ export async function generateTTSBlob(
   options: TTSOptions,
   signal?: AbortSignal,
 ): Promise<Blob> {
+  await startTTSKeepAwake();
+
   // Standard worker implementation
   const worker = getWorker();
   const id = crypto.randomUUID();
@@ -169,6 +249,7 @@ export async function generateTTSBlob(
     const detach = () => {
       signal?.removeEventListener('abort', onAbort);
       pendingRequests.delete(id);
+      stopTTSKeepAwake();
     };
 
     const finish = (handler: () => void) => {
@@ -213,12 +294,93 @@ export async function generateTTS(text: string, options: TTSOptions, signal?: Ab
 
 
 
-export async function getAudioDuration(url: string): Promise<number> {
-  return new Promise((resolve) => {
+const readAscii = (view: DataView, offset: number, length: number): string => {
+  let value = '';
+  for (let i = 0; i < length; i++) {
+    value += String.fromCharCode(view.getUint8(offset + i));
+  }
+  return value;
+};
+
+const getWavDuration = async (blob: Blob): Promise<number | null> => {
+  if (blob.size < 44) return null;
+
+  const buffer = await blob.arrayBuffer();
+  const view = new DataView(buffer);
+  if (readAscii(view, 0, 4) !== 'RIFF' || readAscii(view, 8, 4) !== 'WAVE') {
+    return null;
+  }
+
+  let offset = 12;
+  let byteRate: number | null = null;
+  let dataBytes: number | null = null;
+
+  while (offset + 8 <= view.byteLength) {
+    const chunkId = readAscii(view, offset, 4);
+    const chunkSize = view.getUint32(offset + 4, true);
+    const chunkDataOffset = offset + 8;
+
+    if (chunkId === 'fmt ' && chunkDataOffset + 16 <= view.byteLength) {
+      byteRate = view.getUint32(chunkDataOffset + 8, true);
+    } else if (chunkId === 'data') {
+      dataBytes = Math.min(chunkSize, view.byteLength - chunkDataOffset);
+    }
+
+    if (byteRate && dataBytes !== null) break;
+    offset = chunkDataOffset + chunkSize + (chunkSize % 2);
+  }
+
+  if (!byteRate || dataBytes === null) return null;
+  return dataBytes / byteRate;
+};
+
+const getAudioElementDuration = (url: string, timeoutMs = 8000): Promise<number> => {
+  return new Promise((resolve, reject) => {
     const audio = new Audio();
-    audio.src = url;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      audio.removeAttribute('src');
+      audio.load();
+    };
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out while reading audio duration.'));
+    }, timeoutMs);
+
+    audio.preload = 'metadata';
     audio.addEventListener('loadedmetadata', () => {
-      resolve(audio.duration);
-    });
+      const duration = audio.duration;
+      cleanup();
+      if (Number.isFinite(duration) && duration > 0) {
+        resolve(duration);
+      } else {
+        reject(new Error('Audio duration metadata was unavailable.'));
+      }
+    }, { once: true });
+    audio.addEventListener('error', () => {
+      cleanup();
+      reject(new Error('Failed to read audio duration metadata.'));
+    }, { once: true });
+    audio.src = url;
   });
+};
+
+export async function getAudioDuration(url: string): Promise<number> {
+  try {
+    const blob = await fetch(url).then((response) => {
+      if (!response.ok) throw new Error('Failed to read generated audio.');
+      return response.blob();
+    });
+    const wavDuration = await getWavDuration(blob);
+    if (wavDuration !== null && Number.isFinite(wavDuration) && wavDuration > 0) {
+      return wavDuration;
+    }
+  } catch (error) {
+    console.warn('[TTS] Falling back to media metadata duration:', error);
+  }
+
+  return getAudioElementDuration(url);
 }

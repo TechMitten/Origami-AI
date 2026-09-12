@@ -42,6 +42,7 @@ export const SortableSlideItem = ({
   isDownloading = false,
   onShowDownloadBlocked,
   onEnsureWebLLMReady,
+  onTransformStateChange,
 }: {
   slide: SlideData,
   index: number,
@@ -73,6 +74,7 @@ export const SortableSlideItem = ({
   onShowDownloadBlocked?: (action: string) => void;
   /** Loads the local WebLLM model with visible progress. Resolves false if the fix should abort. */
   onEnsureWebLLMReady?: (modelId: string) => Promise<boolean>;
+  onTransformStateChange?: (index: number, isTransforming: boolean) => void;
 }) => {
   const {
     attributes,
@@ -446,6 +448,7 @@ export const SortableSlideItem = ({
     }
 
     setIsTransforming(true);
+    onTransformStateChange?.(index, true);
 
     // Yield to event loop to prevent React state batching from blocking WebLLM
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -490,6 +493,7 @@ export const SortableSlideItem = ({
       showAlert('Transformation failed: ' + (error instanceof Error ? error.message : String(error)), { type: 'error', title: 'Transformation Failed' });
     } finally {
       setIsTransforming(false);
+      onTransformStateChange?.(index, false);
     }
   };
 
@@ -561,13 +565,14 @@ export const SortableSlideItem = ({
   return (
     <div
       ref={setNodeRef}
+      id={`slide-card-${slide.id}`}
       style={style}
       className={`group relative flex flex-col ${isGridView ? 'gap-4 h-full' : 'sm:flex-row gap-4 sm:gap-6'} p-4 sm:p-5 rounded-2xl bg-linear-to-br from-white/10 to-white/5 border shadow-2xl shadow-black/40 ring-1 ring-inset transition-[border-color,box-shadow] duration-300 ${
         // While a batch operation is running, only the slide it's actively working on should
         // get the highlighted/animated border — isGenerating is blanket-true for every slide
         // for the duration of a batch TTS run, so it can't be used to pick out just one card.
         (isBatchRunning ? isBatchActiveSlide : isGenerating) || isTransforming
-          ? 'border-branding-primary shadow-branding-primary/20 ring-branding-primary/50 animate-border-flow'
+          ? 'border-2 border-branding-primary shadow-[0_0_36px_rgba(56,189,248,0.38)] ring-4 ring-branding-primary/35 animate-border-flow'
           : 'border-white/30 ring-white/10 hover:border-branding-primary/60 hover:shadow-branding-primary/10 hover:ring-branding-primary/20'
       }`}
     >
