@@ -348,6 +348,64 @@ const isWebLLMDeviceLostError = (error: unknown): boolean => {
         || message.includes('operationerror');
 };
 
+const isWebLLMCacheFetchError = (error: unknown): boolean => {
+    const message = getErrorMessage(error).toLowerCase();
+    return message.includes('failed to fetch')
+        || message.includes('networkerror')
+        || message.includes('load failed')
+        || message.includes('fetch failed')
+        || message.includes('cache')
+        || message.includes('indexeddb')
+        || message.includes('quotaexceedederror');
+};
+
+const markWebLLMCacheInvalid = () => {
+    try {
+        const raw = localStorage.getItem('resource_cache_status');
+        const current = raw ? JSON.parse(raw) : {};
+        localStorage.setItem('resource_cache_status', JSON.stringify({
+            tts: !!current.tts,
+            ffmpeg: !!current.ffmpeg,
+            webllm: false,
+        }));
+    } catch {
+        localStorage.setItem('resource_cache_status', '{"tts":false,"ffmpeg":false,"webllm":false}');
+    }
+};
+
+const clearWebLLMBrowserCaches = async () => {
+    markWebLLMCacheInvalid();
+
+    try {
+        if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames
+                .filter((name) => /webllm|mlc|huggingface|hf|model/i.test(name))
+                .map((name) => caches.delete(name)));
+        }
+    } catch (error) {
+        console.warn('[WebLLM] Failed to clear CacheStorage while recovering from a model cache error:', error);
+    }
+
+    try {
+        const indexedDBWithDatabases = indexedDB as IDBFactory & { databases?: () => Promise<Array<{ name?: string }>> };
+        if (typeof indexedDBWithDatabases.databases === 'function') {
+            const databases = await indexedDBWithDatabases.databases();
+            await Promise.all(databases
+                .map((db) => db.name)
+                .filter((name): name is string => !!name && /webllm|mlc|huggingface|hf|model/i.test(name))
+                .map((name) => new Promise<void>((resolve) => {
+                    const request = indexedDB.deleteDatabase(name);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => resolve();
+                    request.onblocked = () => resolve();
+                })));
+        }
+    } catch (error) {
+        console.warn('[WebLLM] Failed to clear IndexedDB while recovering from a model cache error:', error);
+    }
+};
+
 const isBindingError = (error: unknown): boolean => {
     const errorMsg = getErrorMessage(error);
     return errorMsg.includes('BindingError') || errorMsg.includes('VectorInt');
@@ -410,7 +468,8 @@ async function* withStallTimeout<T>(stream: AsyncIterable<T>, ms: number, label:
 const createEngine = async (
     modelId: string,
     onProgress: InitProgressCallback,
-    isAbandoned: () => boolean = () => false
+    isAbandoned: () => boolean = () => false,
+    allowCacheRecovery = true
 ): Promise<any> => {
     const { CreateWebWorkerMLCEngine, prebuiltAppConfig } = await import("@mlc-ai/web-llm");
     const worker = new Worker(new URL('./webLlm.worker.ts', import.meta.url), { type: 'module' });
@@ -427,6 +486,13 @@ const createEngine = async (
         // Never strand a worker behind a failed load.
         if (pendingWorker === worker) pendingWorker = null;
         worker.terminate();
+
+        if (allowCacheRecovery && isWebLLMCacheFetchError(error) && !isAbandoned()) {
+            console.warn('[WebLLM] Model load failed from a likely stale browser cache. Clearing WebLLM caches and retrying once...', error);
+            await clearWebLLMBrowserCaches();
+            return createEngine(modelId, onProgress, isAbandoned, false);
+        }
+
         throw error;
     }
 
@@ -627,9 +693,12 @@ export const interruptWebLLMGeneration = () => {
     }
 };
 
-const rebuildWebLLMEngine = async (modelId: string): Promise<any> => {
+const rebuildWebLLMEngine = async (modelId: string, clearCaches = false): Promise<any> => {
     await tearDownWebLLMEngine();
-    return createEngine(modelId, () => { });
+    if (clearCaches) {
+        await clearWebLLMBrowserCaches();
+    }
+    return createEngine(modelId, () => { }, () => false, !clearCaches);
 };
 
 export const generateWebLLMChatResponse = async (
@@ -679,10 +748,13 @@ export const generateWebLLMChatResponse = async (
             throw await handleWebLLMDeviceLost(error);
         }
 
-        if (isBindingError(error) && !_isRetry && currentModelId) {
+        if ((isBindingError(error) || isWebLLMCacheFetchError(error)) && !_isRetry && currentModelId) {
             const modelToReload = currentModelId;
-            console.warn("[WebLLM] Detected WASM BindingError, rebuilding engine and retrying chat once...");
-            await rebuildWebLLMEngine(modelToReload);
+            const clearCaches = isWebLLMCacheFetchError(error);
+            console.warn(clearCaches
+                ? "[WebLLM] Detected stale cache/fetch failure, clearing model caches and retrying chat once..."
+                : "[WebLLM] Detected WASM BindingError, rebuilding engine and retrying chat once...");
+            await rebuildWebLLMEngine(modelToReload, clearCaches);
             return generateWebLLMChatResponse(messages, options, true);
         }
 
@@ -782,10 +854,13 @@ export async function* streamWebLLMChatResponse(
             throw await handleWebLLMDeviceLost(error);
         }
 
-        if (!yieldedAnyContent && isBindingError(error) && !_isRetry && currentModelId) {
+        if (!yieldedAnyContent && (isBindingError(error) || isWebLLMCacheFetchError(error)) && !_isRetry && currentModelId) {
             const modelToReload = currentModelId;
-            console.warn("[WebLLM] Detected WASM BindingError before streaming output, rebuilding engine and retrying once...");
-            await rebuildWebLLMEngine(modelToReload);
+            const clearCaches = isWebLLMCacheFetchError(error);
+            console.warn(clearCaches
+                ? "[WebLLM] Detected stale cache/fetch failure before streaming output, clearing model caches and retrying once..."
+                : "[WebLLM] Detected WASM BindingError before streaming output, rebuilding engine and retrying once...");
+            await rebuildWebLLMEngine(modelToReload, clearCaches);
             yield* streamWebLLMChatResponse(messages, options, true);
             return;
         }
@@ -851,10 +926,13 @@ export const generateWebLLMResponse = async (
         // This is a WASM cross-realm memory corruption that happens when the engine's internal
         // tokenizer state becomes inconsistent. resetChat() is not sufficient to recover from
         // this state. The only reliable fix is to tear down the engine entirely and recreate it.
-        if (isBindingError(error) && !_isRetry && currentModelId) {
+        if ((isBindingError(error) || isWebLLMCacheFetchError(error)) && !_isRetry && currentModelId) {
             const modelToReload = currentModelId;
-            console.warn("[WebLLM] Detected WASM BindingError — tearing down engine and retrying once...");
-            await rebuildWebLLMEngine(modelToReload);
+            const clearCaches = isWebLLMCacheFetchError(error);
+            console.warn(clearCaches
+                ? "[WebLLM] Detected stale cache/fetch failure — clearing model caches and retrying once..."
+                : "[WebLLM] Detected WASM BindingError — tearing down engine and retrying once...");
+            await rebuildWebLLMEngine(modelToReload, clearCaches);
 
             console.warn("[WebLLM] Engine rebuilt successfully. Retrying generation...");
             return generateWebLLMResponse(messages, temperature, true, signal, maxTokens);

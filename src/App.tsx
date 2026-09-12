@@ -601,6 +601,14 @@ function MainApp() {
         skipNextCloudAutoSaveRef.current = true;
         setSlides(state.slides.map(enforceTtsEnabled));
 
+        // A restored session means this browser has produced a deck before —
+        // the welcome page uses this to reveal the Editor card in the Slide Studio group.
+        try {
+          localStorage.setItem('has_uploaded_pdf', 'true');
+        } catch {
+          // localStorage unavailable (e.g. private browsing) — the card just stays hidden.
+        }
+
         try {
           const raw = localStorage.getItem(PDF_LIBRARY_LINK_KEY);
           const link = raw ? JSON.parse(raw) as { projectId?: string; title?: string } : null;
@@ -942,6 +950,14 @@ function MainApp() {
     setEnteredEditorWithoutPdf(false);
     setLinkedCloudProjectId(null);
     setCurrentProjectTitle(null);
+
+    // Remember the upload so the welcome page can reveal the Editor shortcut
+    // in the Slide Studio group on future visits.
+    try {
+      localStorage.setItem('has_uploaded_pdf', 'true');
+    } catch {
+      // localStorage unavailable (e.g. private browsing) — nothing to remember.
+    }
 
     // If global defaults are enabled, use them
     let voice = 'af_heart';

@@ -8,7 +8,7 @@
     "node": ">=22.16.0"
   },
   "scripts": {
-    "dev": "tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' --ignore '.git/**' server.ts",
+    "dev": "PORT=3006 tsx watch --ignore 'node_modules/**' --ignore 'dist/**' --ignore 'public/**' --ignore '.git/**' server.ts",
     "build": "vite build",
     "lint": "eslint .",
     "typecheck": "tsc --build",
@@ -16,7 +16,7 @@
     "postinstall": "echo 'postinstall script skipped (scripts/ removed)'; exit 0",
     "preview": "vite preview",
     "pages:dev": "wrangler pages dev",
-    "stop": "npx kill-port 3000",
+    "stop": "npx kill-port 3006",
     "kill-all": "echo 'kill-all script removed; use platform tools (taskkill/killall) if necessary'"
   },
   "dependencies": {

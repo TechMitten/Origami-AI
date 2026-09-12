@@ -116,6 +116,17 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   const [ttsProgressPercent, setTtsProgressPercent] = useState(0);
   const [ttsLoadPhase, setTtsLoadPhase] = useState<'downloading' | 'loading' | 'complete'>('downloading');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setUseWebLLM(currentSettings?.useWebLLM ?? false);
+    setWebLlmModel(currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID);
+    setUseOpenAIOcr(currentSettings?.useOpenAIOcr ?? false);
+    setUseOpenAIFixScript(currentSettings?.useOpenAIFixScript ?? false);
+    setUseOpenAIForSlideGen(currentSettings?.useOpenAIForSlideGen ?? false);
+    setShortsUseOpenAI(currentSettings?.shortsUseOpenAI ?? false);
+    setAssistantUseOpenAI(currentSettings?.assistantUseOpenAI ?? false);
+  }, [currentSettings, isOpen]);
+
 
   const [aiFixScriptSystemPrompt, setAiFixScriptSystemPrompt] = useState<string>(
     currentSettings?.aiFixScriptSystemPrompt ?? DEFAULT_SYSTEM_PROMPT
@@ -465,7 +476,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
       // other edit, but leave the persisted model on the last one that actually worked, and keep
       // the modal open so the user sees the error.
       if (webLlmModel !== getCurrentWebLLMModel()) {
-        await onSave({ ...settings, webLlmModel: currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID });
+        await onSave({
+          ...settings,
+          useWebLLM: currentSettings?.useWebLLM ?? false,
+          webLlmModel: currentSettings?.webLlmModel ?? DEFAULT_WEB_LLM_MODEL_ID,
+        });
+        setUseWebLLM(currentSettings?.useWebLLM ?? false);
         refreshNotifications();
         return;
       }
@@ -902,15 +918,21 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   </div>
                   <button
                     onClick={async () => {
-                      if (!useWebLLM) {
+                      const nextUseWebLLM = !useWebLLM;
+                      if (nextUseWebLLM) {
                         // User is trying to enable WebLLM - check WebGPU support first
                         const support = await checkWebGPUSupport();
                         if (!support.supported) {
                           onShowWebGPUModal?.();
                           return;
                         }
+                        setUseOpenAIOcr(false);
+                        setUseOpenAIFixScript(false);
+                        setUseOpenAIForSlideGen(false);
+                        setShortsUseOpenAI(false);
+                        setAssistantUseOpenAI(false);
                       }
-                      setUseWebLLM(!useWebLLM);
+                      setUseWebLLM(nextUseWebLLM);
                     }}
                     className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${useWebLLM ? 'bg-emerald-500' : 'bg-white/10'}`}
                   >
