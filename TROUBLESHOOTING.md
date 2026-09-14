@@ -34,16 +34,16 @@ If your browser doesn't support WebGPU:
 
 #### Dev Server Won't Start
 
-**Error:** `EADDRINUSE: address already in use :::3000`
+**Error:** `EADDRINUSE: address already in use :::3006`
 
 **Solutions:**
 ```bash
-# Kill the process using port 3000
+# Kill the process using port 3006
 npm run stop
 
 # Or manually:
-# Windows: taskkill /pid <PID> /f (or npx kill-port 3000)
-# Mac/Linux: kill -9 <PID> (or npx kill-port 3000)
+# Windows: taskkill /pid <PID> /f (or npx kill-port 3006)
+# Mac/Linux: kill -9 <PID> (or npx kill-port 3006)
 
 # Then restart
 npm run dev
@@ -73,7 +73,7 @@ npm run dev
 **Solutions:**
 1. **Always** run the dev server: `npm run dev` (or `npm run pages:dev` for Cloudflare Pages)
 2. Do NOT open static build files directly using `file://` protocol
-3. Navigate to `http://localhost:3000` after server starts
+3. Navigate to `http://localhost:3006` after server starts
 4. Verify COOP/COEP headers are present in network responses
 
 #### COOP/COEP Header Warnings

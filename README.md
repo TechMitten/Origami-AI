@@ -57,17 +57,17 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:3000** in your browser.
+Open **http://localhost:3006** in your browser.
 
 ### Available Scripts
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Express + Vite dev server with HMR (`http://localhost:3000`) |
+| `npm run dev` | Express + Vite dev server with HMR (`http://localhost:3006`) |
 | `npm run build` | Build production client bundle → `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run lint` | Run ESLint checks |
-| `npm run stop` | Terminate any active process running on port 3000 |
+| `npm run stop` | Terminate any active process running on port 3006 |
 
 <details>
 <summary><strong>Run with Docker instead</strong></summary>
