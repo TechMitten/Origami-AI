@@ -536,7 +536,7 @@ export const ShortsPage: React.FC = () => {
                 onChange={(e) => patchProject({ title: e.target.value })}
                 placeholder="Untitled short"
                 rows={1}
-                className="focus-ring -ml-2 block w-full resize-none overflow-hidden rounded-lg bg-transparent px-2 py-1 font-display text-[clamp(1.5rem,4vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.02em] text-white outline-none transition-colors placeholder:text-white/25 hover:bg-white/[0.04] focus:bg-white/[0.06]"
+                className="focus-ring -ml-2 block w-full resize-none overflow-hidden rounded-lg bg-transparent px-2 py-1 font-display text-[clamp(1.5rem,4vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.02em] text-white outline-none transition-colors placeholder:text-white/25 hover:bg-white/4 focus:bg-white/6"
               />
             </div>
           )}
@@ -545,7 +545,7 @@ export const ShortsPage: React.FC = () => {
         {!pollinationsKey && !isUploadMode && (
           <div
             role="status"
-            className="mb-8 flex flex-col gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] p-4 sm:mb-10 sm:flex-row sm:items-center"
+            className="mb-8 flex flex-col gap-3 rounded-xl border border-amber-400/25 bg-amber-400/8 p-4 sm:mb-10 sm:flex-row sm:items-center"
           >
             <KeyRound className="h-4 w-4 shrink-0 text-amber-300/80" />
             <p className="min-w-0 flex-1 text-sm leading-relaxed text-amber-100/90">
@@ -640,7 +640,7 @@ export const ShortsPage: React.FC = () => {
                 {/* The monitor's readout: what exists, per asset track. Audio
                     alone used to stand in for readiness, which under-reported
                     it whenever the visuals were the ones still missing. */}
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5">
+                <div className="rounded-xl border border-white/8 bg-white/3 px-4 py-3.5">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">
                       Ready
@@ -669,7 +669,7 @@ export const ShortsPage: React.FC = () => {
                 </div>
 
                 {staleCount > 0 && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-xs text-amber-100">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-400/8 px-4 py-3 text-xs text-amber-100">
                     <span>
                       {staleCount} scene{staleCount > 1 ? 's' : ''} changed since generation.
                     </span>

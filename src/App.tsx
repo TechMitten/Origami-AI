@@ -1007,6 +1007,56 @@ function MainApp() {
     setSlides(initialSlides);
   };
 
+  // Slides produced by the in-app AI generator (AISlideGeneratorModal) already carry their
+  // own narration script, so — unlike onUploadComplete — it must not be overwritten from
+  // on-slide text. Otherwise this mirrors onUploadComplete's side effects exactly.
+  const onGenerateSlides = (generatedSlides: SlideData[]) => {
+    setEnteredEditorWithoutPdf(false);
+    setLinkedCloudProjectId(null);
+    setCurrentProjectTitle(null);
+
+    try {
+      localStorage.setItem('has_uploaded_pdf', 'true');
+    } catch {
+      // localStorage unavailable (e.g. private browsing) — nothing to remember.
+    }
+
+    let voice = 'af_heart';
+    let transition: SlideData['transition'] = 'fade';
+    let postAudioDelay: number | undefined = undefined;
+
+    if (globalSettings?.isEnabled) {
+      voice = globalSettings.voice;
+      transition = globalSettings.transition;
+      postAudioDelay = globalSettings.delay;
+
+      if (globalSettings.music) {
+        try {
+          const musicBlob = globalSettings.music.blob;
+          const musicTitle = globalSettings.music.fileName;
+
+          if (musicBlob) {
+            const url = URL.createObjectURL(musicBlob);
+            setMusicSettings({
+              url,
+              blob: musicBlob,
+              volume: globalSettings.music.volume,
+              title: musicTitle
+            });
+          }
+        } catch (e) {
+          console.error("Failed to create object URL for default music", e);
+        }
+      } else {
+        setMusicSettings({ volume: 0.16 });
+      }
+    } else {
+      setMusicSettings({ volume: 0.16 });
+    }
+
+    setSlides(generatedSlides.map(slide => ({ ...slide, transition, voice, postAudioDelay })));
+  };
+
   const updateSlide = (index: number, data: Partial<SlideData>) => {
     setSlides(prev => prev.map((s, i) => {
       if (i !== index) return s;
@@ -1716,6 +1766,9 @@ function MainApp() {
               }}
               isDownloadingResources={isBackgroundDownloadActive}
               onBlockedByDownload={(actionLabel) => setAppDownloadBlockedAction(actionLabel)}
+              onGenerateSlides={onGenerateSlides}
+              globalSettings={globalSettings}
+              onOpenSettings={() => { setSettingsInitialTab('api'); setIsSettingsOpen(true); }}
             />
             {isRestoring && (
               <div className="mt-8 text-center text-white/40 animate-pulse">

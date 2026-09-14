@@ -337,7 +337,6 @@ const getWavDuration = async (blob: Blob): Promise<number | null> => {
 const getAudioElementDuration = (url: string, timeoutMs = 8000): Promise<number> => {
   return new Promise((resolve, reject) => {
     const audio = new Audio();
-    let timeoutId: ReturnType<typeof setTimeout>;
 
     const cleanup = () => {
       clearTimeout(timeoutId);
@@ -345,7 +344,7 @@ const getAudioElementDuration = (url: string, timeoutMs = 8000): Promise<number>
       audio.load();
     };
 
-    timeoutId = setTimeout(() => {
+    const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => {
       cleanup();
       reject(new Error('Timed out while reading audio duration.'));
     }, timeoutMs);

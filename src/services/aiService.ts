@@ -213,62 +213,99 @@ const REASONING_DISABLE_FIELDS: Record<string, unknown> = {
   chat_template_kwargs: { enable_thinking: false },
 };
 
+interface ProxyChatPayload {
+  baseUrl: string;
+  model: string;
+  messages: ChatMessage[];
+  temperature: number;
+  maxTokens?: number;
+  /**
+   * Optional client-supplied key. Only used so the server can retry a request the
+   * browser couldn't make directly (CORS-blocked provider); it is forwarded to the
+   * same-origin proxy, never stored there.
+   */
+  apiKey?: string;
+}
+
+const requestViaLLMProxy = async (payload: ProxyChatPayload, signal?: AbortSignal): Promise<string> => {
+  const proxyResp = await fetch('/api/llm/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!proxyResp.ok) {
+    const text = await proxyResp.text().catch(() => '');
+    let errMsg = text || `LLM proxy failed: ${proxyResp.statusText}`;
+    try {
+      const parsed = JSON.parse(text || '{}');
+      errMsg = parsed.error?.message || parsed.error || errMsg;
+    } catch { /* ignore */ }
+    throw new Error(errMsg);
+  }
+
+  const data = await proxyResp.json().catch(() => ({}));
+  return data.choices?.[0]?.message?.content || data?.choices?.[0]?.message?.content || data?.content || '';
+};
+
 export const postChatCompletions = async (settings: LLMSettings, messages: ChatMessage[], temperature = 0.3, modelOverride?: string, signal?: AbortSignal, maxTokens?: number): Promise<string> => {
   const endpoint = toChatCompletionsEndpoint(settings.baseUrl);
   const normalizedModel = normalizeModelForRequest((modelOverride || settings.model || '').trim());
 
   // If no API key is provided to the client, proxy the request to the server so the secret stays server-side.
   if (typeof window !== 'undefined' && (!settings.apiKey || !settings.apiKey.trim())) {
-    const proxyResp = await fetch('/api/llm/chat', {
+    return requestViaLLMProxy(
+      { baseUrl: settings.baseUrl, model: normalizedModel, messages, temperature, ...(maxTokens ? { maxTokens } : {}) },
+      signal,
+    );
+  }
+
+  try {
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`,
+      },
       body: JSON.stringify({
-        baseUrl: settings.baseUrl,
         model: normalizedModel,
         messages,
         temperature,
-        ...(maxTokens ? { maxTokens } : {}),
+        ...(maxTokens ? { max_tokens: maxTokens } : {}),
+        ...(settings.openaiDisableThinking ? REASONING_DISABLE_FIELDS : {}),
       }),
       signal,
     });
 
-    if (!proxyResp.ok) {
-      const text = await proxyResp.text().catch(() => '');
-      let errMsg = text || `LLM proxy failed: ${proxyResp.statusText}`;
-      try {
-        const parsed = JSON.parse(text || '{}');
-        errMsg = parsed.error?.message || parsed.error || errMsg;
-      } catch { /* ignore */ }
-      throw new Error(errMsg);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `Failed to generate content: ${response.statusText}`);
     }
 
-    const data = await proxyResp.json().catch(() => ({}));
-    return data.choices?.[0]?.message?.content || data?.choices?.[0]?.message?.content || data?.content || '';
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  } catch (e) {
+    // A browser-to-provider fetch rejects with a bare TypeError for both network
+    // outages and CORS rejections, and CORS is the common case for OpenAI-compatible
+    // providers (e.g. api.z.ai) that don't send Access-Control-Allow-Origin. Retry
+    // once through the same-origin proxy, handing it the client's key for this single
+    // upstream request. AbortErrors are DOMExceptions, so user cancels never retry.
+    if (e instanceof TypeError && typeof window !== 'undefined') {
+      try {
+        return await requestViaLLMProxy(
+          { baseUrl: settings.baseUrl, model: normalizedModel, messages, temperature, ...(maxTokens ? { maxTokens } : {}), apiKey: settings.apiKey },
+          signal,
+        );
+      } catch (proxyErr) {
+        if (proxyErr instanceof TypeError) {
+          throw new Error(`Couldn't reach ${endpoint} from the browser (blocked by CORS or offline), and the app's LLM proxy is also unreachable. Check your connection and that the app's server is running.`);
+        }
+        throw proxyErr;
+      }
+    }
+    throw e;
   }
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${settings.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: normalizedModel,
-      messages,
-      temperature,
-      ...(maxTokens ? { max_tokens: maxTokens } : {}),
-      ...(settings.openaiDisableThinking ? REASONING_DISABLE_FIELDS : {}),
-    }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Failed to generate content: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
 };
 
 export interface CustomApiStreamOptions {

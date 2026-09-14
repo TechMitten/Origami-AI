@@ -91,7 +91,7 @@ export const ShortsStoryboardStage: React.FC<ShortsStoryboardStageProps> = ({
         </h2>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-white/10 bg-white/2 px-3 py-2.5">
         {/* Same model selector as Build, so a mid-project switch
             doesn't cost a round trip back to the composer. Changing
             it marks ready visuals stale (see isSceneVisualStale) and
@@ -118,7 +118,7 @@ export const ShortsStoryboardStage: React.FC<ShortsStoryboardStageProps> = ({
                 href="https://enter.pollinations.ai/models?category=image"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="focus-ring flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/60 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all"
+                className="focus-ring flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/4 text-white/60 hover:border-white/40 hover:bg-white/8 hover:text-white transition-all"
                 title="See pricing for each image model"
               >
                 <Tag className="h-3.5 w-3.5" />
@@ -134,7 +134,7 @@ export const ShortsStoryboardStage: React.FC<ShortsStoryboardStageProps> = ({
               type="button"
               onClick={() => void handleRegenerateAllImages()}
               disabled={renderPhase === 'rendering' || isRegeneratingAllImages}
-              className="focus-ring flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/80 hover:border-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+              className="focus-ring flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/4 text-white/80 hover:border-white/40 hover:bg-white/8 hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
               title="Regenerate all images"
             >
               <RefreshCw className={cn('h-3.5 w-3.5', isRegeneratingAllImages && 'animate-spin')} />
@@ -149,7 +149,7 @@ export const ShortsStoryboardStage: React.FC<ShortsStoryboardStageProps> = ({
           <button
             type="button"
             onClick={() => setIsVoiceAuditionOpen(true)}
-            className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 transition-all"
+            className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/4 px-3 py-1.5 text-xs text-white/80 hover:border-cyan-400/40 hover:bg-cyan-500/10 hover:text-cyan-200 transition-all"
             title="Audition or switch voice"
           >
             <Mic className="h-3.5 w-3.5 text-cyan-400" />
@@ -176,7 +176,7 @@ export const ShortsStoryboardStage: React.FC<ShortsStoryboardStageProps> = ({
       {isBusy && (
         <div
           role="status"
-          className="flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-cyan-400/[0.08] px-4 py-3 text-sm text-cyan-100"
+          className="flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-cyan-400/8 px-4 py-3 text-sm text-cyan-100"
         >
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           {busyLabel || 'Working...'}

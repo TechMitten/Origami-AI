@@ -6,17 +6,21 @@ interface Env {
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const { request, env } = context;
-    const apiKey = env.LLM_API_KEY || env.VITE_LLM_API_KEY;
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Server not configured with LLM_API_KEY' }), {
+    const body: any = await request.json();
+    const { baseUrl, model, messages, temperature, maxTokens, apiKey } = body || {};
+    // A client may pass its own key when the browser couldn't reach the provider
+    // directly (CORS-blocked endpoints like api.z.ai). It is used only for this
+    // upstream request and never stored or logged; the server env key is the fallback.
+    const clientKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    const effectiveKey = clientKey || env.LLM_API_KEY || env.VITE_LLM_API_KEY;
+
+    if (!effectiveKey) {
+      return new Response(JSON.stringify({ error: 'No API key available: pass apiKey in the request body or configure LLM_API_KEY on the server' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-
-    const body: any = await request.json();
-    const { baseUrl, model, messages, temperature, maxTokens } = body || {};
 
     let endpoint = baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/';
     if (!endpoint.endsWith('/chat/completions')) {
@@ -28,7 +32,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${effectiveKey}`,
       },
       body: JSON.stringify({ model, messages, temperature, ...(maxTokens ? { max_tokens: maxTokens } : {}) }),
     });

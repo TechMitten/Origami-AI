@@ -66,8 +66,8 @@ export const MediaTab: React.FC<MediaTabProps> = ({
         </div>
 
         <div className="p-8 rounded-3xl bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-center space-y-5">
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-            <Download className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-full bg-emerald-400/10 flex items-center justify-center shadow-lg shadow-emerald-400/10">
+            <Download className="w-8 h-8 text-emerald-300" />
           </div>
           <div className="space-y-2 max-w-sm">
             <h4 className="text-lg font-bold text-white">Download Extension</h4>
@@ -79,7 +79,7 @@ export const MediaTab: React.FC<MediaTabProps> = ({
           <a
             href={chromeExtensionZip}
             download="chrome-extension.zip"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/25 bg-white/10 text-white font-extrabold text-xs uppercase tracking-wider hover:bg-white/20 hover:border-white/40 active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-emerald-300/30 bg-emerald-400 text-slate-950 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-emerald-400/30 hover:bg-emerald-300 hover:border-emerald-200/50 hover:shadow-xl hover:shadow-emerald-400/40 active:scale-[0.98] transition-all"
           >
             <Download className="w-4 h-4" />
             Download ZIP

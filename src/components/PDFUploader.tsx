@@ -7,7 +7,9 @@ import type { RenderedPage } from '../services/pdfService';
 import { ocrEvents, type OCRProgressEventDetail } from '../services/ocrService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { CreateSlidesModal } from './CreateSlidesModal';
+import { AISlideGeneratorModal } from './AISlideGeneratorModal';
+import type { GlobalSettings } from '../services/storage';
+import type { SlideData } from '../types/slides';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -31,6 +33,11 @@ interface PDFUploaderProps {
   isDownloadingResources?: boolean;
   /** Called instead of launching a feature while resources are still downloading. */
   onBlockedByDownload?: (actionLabel: string) => void;
+  /** Slides produced by the in-app AI generator, ready to drop straight into the editor. */
+  onGenerateSlides?: (slides: SlideData[]) => void;
+  globalSettings?: GlobalSettings | null;
+  /** Opens the Settings modal, ideally scrolled to the API tab, from the AI generator. */
+  onOpenSettings?: () => void;
 }
 
 interface SecondaryOption {
@@ -50,7 +57,7 @@ interface SecondaryOption {
 // How long the loading splash stays up before the destination app actually opens.
 const LAUNCH_SPLASH_DELAY_MS = 1100;
 
-export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor, onOpenShorts, onOpenVoiceStudio, onOpenConverter, isDownloadingResources, onBlockedByDownload }) => {
+export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOpenAssistant, onOpenSlideEditor, onOpenShorts, onOpenVoiceStudio, onOpenConverter, isDownloadingResources, onBlockedByDownload, onGenerateSlides, globalSettings, onOpenSettings }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateSlidesModalOpen, setIsCreateSlidesModalOpen] = useState(false);
@@ -167,10 +174,11 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
     key: 'create-slides',
     icon: Sparkles,
     title: 'Create Slides',
-    description: 'Generate your presentation with our suggested AI slide makers.',
-    cta: 'View providers',
+    description: 'Generate a full deck with AI — no external tools needed.',
+    cta: 'Generate slides',
     onClick: () => setIsCreateSlidesModalOpen(true),
     accent: 'foil',
+    badge: 'Start Here',
   };
 
   const editorOption: SecondaryOption | null = hasUploadedPdf
@@ -370,7 +378,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
           if (e.key === 'Enter' || e.key === ' ') handleOptionActivate(opt);
         }}
         className={cn(
-          "fold-card origami-unfold group relative border bg-white/5 backdrop-blur-md p-6 sm:p-8 flex flex-col min-h-[188px] sm:min-h-[210px] transition-all duration-300 shadow-xl",
+          "fold-card origami-unfold group relative border bg-white/5 backdrop-blur-md p-6 sm:p-8 flex flex-col min-h-47 sm:min-h-52.5 transition-all duration-300 shadow-xl",
           cardClassName,
           opt.disabled
             ? "border-white/5 cursor-not-allowed select-none opacity-80"
@@ -430,9 +438,9 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
     <div
       {...getRootProps()}
       className={cn(
-        'fold-card origami-unfold group relative cursor-pointer overflow-hidden border bg-white/5 backdrop-blur-md p-6 sm:p-8 flex flex-col w-full sm:w-[calc(50%-10px)] min-h-[188px] sm:min-h-[210px] transition-all duration-300 shadow-xl',
+        'fold-card origami-unfold group relative cursor-pointer overflow-hidden border bg-white/5 backdrop-blur-md p-6 sm:p-8 flex flex-col w-full sm:w-[calc(50%-10px)] min-h-47 sm:min-h-52.5 transition-all duration-300 shadow-xl',
         isDragActive
-          ? 'border-cyan-400/40 bg-cyan-500/[0.08]'
+          ? 'border-cyan-400/40 bg-cyan-500/8'
           : 'border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50'
       )}
       style={{ animationDelay: '250ms' }}
@@ -466,7 +474,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
         <div className="mt-auto max-w-xs">
           <div className="h-1 bg-white/10 overflow-hidden mb-1.5">
             <div
-              className="h-full bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 transition-all duration-300"
+              className="h-full bg-linear-to-r from-cyan-400 via-blue-400 to-violet-400 transition-all duration-300"
               style={{ width: `${overallProgress}%` }}
             />
           </div>
@@ -540,8 +548,8 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
             'fold-card origami-unfold group relative cursor-pointer overflow-hidden border bg-white/5 backdrop-blur-md shadow-xl',
             'w-full p-6 sm:p-8 flex items-center gap-5 sm:gap-8 transition-all duration-300',
             isSlideStudioExpanded
-              ? 'sm:w-[calc(50%-10px)] min-h-[188px] sm:min-h-[210px] border-cyan-400/30 bg-white/10 focus-visible:outline-none'
-              : 'min-h-[104px] border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50'
+              ? 'sm:w-[calc(50%-10px)] min-h-47 sm:min-h-52.5 border-cyan-400/30 bg-white/10 focus-visible:outline-none'
+              : 'min-h-26 border-white/10 hover:border-white/20 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50'
           )}
           style={{
             animationDelay: '0ms',
@@ -593,13 +601,19 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({ onUploadComplete, onOp
         </div>
       )}
 
-      <CreateSlidesModal
+      <AISlideGeneratorModal
         isOpen={isCreateSlidesModalOpen}
         onClose={() => setIsCreateSlidesModalOpen(false)}
+        onGenerated={(slides) => {
+          setIsCreateSlidesModalOpen(false);
+          onGenerateSlides?.(slides);
+        }}
+        globalSettings={globalSettings}
+        onOpenSettings={onOpenSettings}
       />
 
       {launchingOption && createPortal(
-        <div className="fixed inset-0 z-[200] w-screen h-screen bg-black flex flex-col items-center justify-center gap-5">
+        <div className="fixed inset-0 z-200 w-screen h-screen bg-black flex flex-col items-center justify-center gap-5">
           <div className="relative flex items-center justify-center">
             <Loader2 className="w-16 h-16 text-cyan-300/40 animate-spin" />
             <launchingOption.icon className="absolute w-6 h-6 text-cyan-200" />
