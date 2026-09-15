@@ -713,7 +713,7 @@ export const SortableSlideItem = ({
                 <button
                   onClick={handleTransform}
                   disabled={isTransforming || !slide.script.trim()}
-                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold bg-linear-to-r from-branding-accent/20 to-branding-primary/20 hover:from-branding-accent/30 hover:to-branding-primary/30 border border-branding-accent/30 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   title="Use AI to transform raw PDF text into natural sentences"
                 >
                   {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -742,7 +742,7 @@ export const SortableSlideItem = ({
                     e.stopPropagation();
                     onDelete(index);
                   }}
-                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl transition-all active:scale-[0.98]"
+                  className="flex items-center justify-center gap-2 min-h-11 px-4 text-sm font-semibold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all active:scale-[0.98]"
                   title="Delete Slide"
                 >
                   <Trash2 className="w-4 h-4" /> Delete
@@ -758,7 +758,7 @@ export const SortableSlideItem = ({
                     <button
                       onClick={handleTransform}
                       disabled={isTransforming || !slide.script.trim()}
-                      className="p-1.5 rounded-lg text-branding-accent hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
+                      className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
                       title="Use AI to transform raw PDF text into natural sentences"
                     >
                       {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -785,7 +785,7 @@ export const SortableSlideItem = ({
                         e.stopPropagation();
                         onDelete(index);
                       }}
-                      className="p-1.5 rounded-lg text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center"
+                      className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center"
                       title="Delete Slide"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -800,7 +800,7 @@ export const SortableSlideItem = ({
                 <button
                   onClick={handleTransform}
                   disabled={isTransforming || !slide.script.trim()}
-                  className="p-1.5 rounded-lg text-branding-accent hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
+                  className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center"
                   title="Use AI to transform raw PDF text into natural sentences"
                 >
                   {isTransforming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -827,7 +827,7 @@ export const SortableSlideItem = ({
                     e.stopPropagation();
                     onDelete(index);
                   }}
-                  className="p-1.5 rounded-lg text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center justify-center"
+                  className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center"
                   title="Delete Slide"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -919,7 +919,7 @@ export const SortableSlideItem = ({
                   ? onGenerateSceneAudio(index)
                   : onGenerate(index))}
                 disabled={isGenerating || (!slide.script.trim() && !slide.videoNarrationAnalysis?.scenes?.length) || isRecording}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-branding-primary/10 text-branding-primary hover:bg-white/10 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-branding-primary/5 h-9 whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 hover:border-white/20 disabled:opacity-40 disabled:grayscale transition-all font-bold text-[10px] uppercase tracking-wider cursor-pointer h-9 whitespace-nowrap"
                 title={slide.type === 'video' && slide.videoNarrationAnalysis?.scenes?.length ? 'Generate scene-level TTS using the current alignment plan' : 'Generate AI narration from script text'}
               >
                 {slide.audioUrl ? <Volume2 className="w-3.5 h-3.5" /> : <Speech className="w-3.5 h-3.5" />}
@@ -992,7 +992,7 @@ export const SortableSlideItem = ({
 
               <button
                 onClick={() => onUpdate(index, { isMusicDisabled: !slide.isMusicDisabled })}
-                className={`${useCompactMediaToolbar ? '' : 'flex-1 sm:flex-none'} px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
+                className={`${useCompactMediaToolbar ? '' : 'flex-1 sm:flex-none'} px-3 py-2 rounded-lg border transition-all font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 h-9 ${!slide.isMusicDisabled ? 'bg-white/10 text-white border-white/20 hover:bg-white/15' : 'bg-white/5 text-white/40 border-white/10 hover:text-white hover:bg-white/10'}`}
                 title="Toggle the project's background music for this slide (global music track)"
               >
                 {!slide.isMusicDisabled ? <Music className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
